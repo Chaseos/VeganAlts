@@ -998,3 +998,73 @@ copy wholesale. VeganAlts stays narrower than most of them.
 |------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | HappyCow                     | Community-supported vegan restaurant discovery; contributor identity; moderated factual updates; business-owner participation; future complementary partner rather than direct competitor. |
 | Google Maps                  | Confidence-based factual edits; suggested changes can be accepted, rejected, or corroborated by other data/users; model for high-volume change moderation.                                 |
+| Wikipedia                    | Progressive protection and pending-change patterns for higher-risk content.                                                                                                                |
+| OpenStreetMap                | Open contribution with attribution, reversibility, community review, and vandalism response.                                                                                               |
+| Open Food Facts              | Product evidence photos, revision history, community product data; useful pattern but not recommended as a foundational v1 data dependency.                                                |
+| Product Hunt / AlternativeTo | Simple public ranking presentation and anti-manipulation lesson; VeganAlts uses richer similarity input under the hood.                                                                    |
+| Vegan Oasis / NomNomVegan    | Adjacent broad vegan discovery/community tools; evidence that the space exists but also a warning against feature sprawl.                                                                  |
+| abillion                     | Historical evidence of large-scale interest in community vegan product discovery; also reinforces the value of a focused, sustainable scope.                                               |
+
+## Selected public references
+
+**HappyCow statistics:**
+[<u>https://www.happycow.net/reports/stats</u>](https://www.happycow.net/reports/stats)
+
+**HappyCow member FAQ:**
+[<u>https://www.happycow.net/members/faq</u>](https://www.happycow.net/members/faq)
+
+**HappyCow business FAQ:**
+[<u>https://www.happycow.net/business/faq</u>](https://www.happycow.net/business/faq)
+
+**Google Maps / Business Profile edits:**
+[<u>https://support.google.com/business/answer/3480441</u>](https://support.google.com/business/answer/3480441)
+
+**Open Food Facts support / data quality:**
+[<u>https://support.openfoodfacts.org/</u>](https://support.openfoodfacts.org/)
+
+**OpenStreetMap vandalism / community processes:**
+[<u>https://wiki.openstreetmap.org/wiki/Vandalism</u>](https://wiki.openstreetmap.org/wiki/Vandalism)
+
+**MediaWiki pending changes:**
+[<u>https://www.mediawiki.org/wiki/Help:Pending_changes</u>](https://www.mediawiki.org/wiki/Help:Pending_changes)
+
+# Appendix B Quick Policy Reference
+
+A compact set of rules intended to prevent future implementation
+decisions from drifting away from the product thesis.
+
+| **Question**                                      | **v1.0 policy**                                                                                 |
+|---------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| What is ranked?                                   | How closely a vegan alternative replaces a specific conventional product in a specific country. |
+| What is required to rate?                         | Authenticated user + Overall Similarity score.                                                  |
+| Are there downvotes?                              | No. Similarity scoring is the primary signal.                                                   |
+| Do optional details affect overall automatically? | No. Overall Similarity is independently supplied.                                               |
+| Can one product appear in multiple categories?    | Yes, with independent ratings for each category.                                                |
+| Do reformulations create new public products?     | No. Create a new Formula Version under the existing product.                                    |
+| Do old ratings carry into a new formula?          | No. They remain historical and attached to the formula experienced.                             |
+| Can anyone add a product?                         | Authenticated users should be able to, with duplicate checks and post-publication moderation.   |
+| Can anyone rewrite an established product?        | No. Material changes use proposed edits, evidence, confirmation, and risk-based moderation.     |
+| Can contributor reputation affect rankings?       | No. It may affect edit/moderation confidence only.                                              |
+| How is “vegan” defined?                           | Ingredient-based operationally; manufacturer labels/certifications are separate metadata.       |
+| Can brands pay to rank higher?                    | Never.                                                                                          |
+| Can brands advertise later?                       | Potentially, if sponsored visibility is clearly separated from organic rankings.                |
+| Does v1 include live store inventory?             | No. Only commonly found retailers.                                                              |
+| Does v1 include recipes or restaurants?           | No. Both are natural later extensions.                                                          |
+| Does v1 require an app?                           | No. Web first.                                                                                  |
+
+<table>
+<colgroup>
+<col style="width: 100%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th><p><strong>Final product guardrail</strong></p>
+<p>Everything added to VeganAlts should strengthen the path from “I want
+to replace this” to “the community gives me a trustworthy alternative to
+try.” If a feature does not improve that loop or the data behind it, it
+is probably not part of the core product.</p></th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
