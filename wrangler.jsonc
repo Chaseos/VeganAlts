@@ -1,0 +1,198 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "veganalts-local",
+  "account_id": "8340b60c3253a7302b19a878a095cfda",
+  "main": "workers/app.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "invocation_logs": false,
+    },
+  },
+  "preview_urls": false,
+  "workers_dev": true,
+  "upload_source_maps": true,
+  "vars": {
+    "APP_ENV": "local",
+    "APP_URL": "http://127.0.0.1:5173",
+    "ADMIN_USER_IDS": "",
+    "RANKING_PRIOR_MEAN": "3.5",
+    "RANKING_PRIOR_STRENGTH": "10",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "veganalts-local",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "db/migrations",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "veganalts-media-local",
+    },
+  ],
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMIT",
+      "namespace_id": "1791141001",
+      "simple": {
+        "limit": 60,
+        "period": 60,
+      },
+    },
+    {
+      "name": "UPLOAD_RATE_LIMIT",
+      "namespace_id": "1791141011",
+      "simple": {
+        "limit": 5,
+        "period": 60,
+      },
+    },
+  ],
+  "env": {
+    "staging": {
+      "name": "veganalts-staging",
+      "routes": [
+        {
+          "pattern": "staging.veganalts.com",
+          "custom_domain": true,
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "AUTH_RATE_LIMIT",
+          "namespace_id": "1791141002",
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
+        {
+          "name": "UPLOAD_RATE_LIMIT",
+          "namespace_id": "1791141012",
+          "simple": {
+            "limit": 5,
+            "period": 60,
+          },
+        },
+      ],
+      "vars": {
+        "APP_ENV": "staging",
+        "APP_URL": "https://staging.veganalts.com",
+        "ADMIN_USER_IDS": "01a108be-5e63-73fd-b102-43865ee3a4bb",
+        "RANKING_PRIOR_MEAN": "3.5",
+        "RANKING_PRIOR_STRENGTH": "10",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "veganalts-staging",
+          "database_id": "398b7461-5ad0-48fe-aaa9-332922dad93b",
+          "migrations_dir": "db/migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "MEDIA_BUCKET",
+          "bucket_name": "veganalts-media-staging",
+        },
+      ],
+      "images": {
+        "binding": "IMAGES",
+      },
+      "triggers": {
+        "crons": ["17 * * * *"],
+      },
+      "assets": {
+        "binding": "ASSETS",
+        "run_worker_first": true,
+      },
+      "version_metadata": {
+        "binding": "VERSION_METADATA",
+      },
+    },
+    "production": {
+      "name": "veganalts-production",
+      "routes": [
+        {
+          "pattern": "veganalts.com",
+          "custom_domain": true,
+        },
+        {
+          "pattern": "www.veganalts.com",
+          "custom_domain": true,
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "AUTH_RATE_LIMIT",
+          "namespace_id": "1791141003",
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
+        {
+          "name": "UPLOAD_RATE_LIMIT",
+          "namespace_id": "1791141013",
+          "simple": {
+            "limit": 5,
+            "period": 60,
+          },
+        },
+      ],
+      "vars": {
+        "APP_ENV": "production",
+        "APP_URL": "https://veganalts.com",
+        "ADMIN_USER_IDS": "",
+        "RANKING_PRIOR_MEAN": "3.5",
+        "RANKING_PRIOR_STRENGTH": "10",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "veganalts-production",
+          "database_id": "9db72d9c-543c-467b-ac1d-aea8cbdfc626",
+          "migrations_dir": "db/migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "MEDIA_BUCKET",
+          "bucket_name": "veganalts-media-production",
+        },
+      ],
+      "images": {
+        "binding": "IMAGES",
+      },
+      "triggers": {
+        "crons": ["37 * * * *"],
+      },
+      "assets": {
+        "binding": "ASSETS",
+        "run_worker_first": true,
+      },
+      "version_metadata": {
+        "binding": "VERSION_METADATA",
+      },
+    },
+  },
+  "images": {
+    "binding": "IMAGES",
+  },
+  "triggers": {
+    "crons": ["17 * * * *"],
+  },
+  "assets": {
+    "binding": "ASSETS",
+    "run_worker_first": true,
+  },
+  "version_metadata": {
+    "binding": "VERSION_METADATA",
+  },
+}

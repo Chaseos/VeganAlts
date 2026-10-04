@@ -10,6 +10,8 @@ build/
 .wrangler/
 .dev.vars
 .dev.vars.*
+.secrets/
+*.p8
 
 # Environment files
 .env
@@ -20,6 +22,9 @@ build/
 coverage/
 playwright-report/
 test-results/
+.react-router/
+worker-configuration.d.ts
+*.tsbuildinfo
 
 # Logs
 *.log

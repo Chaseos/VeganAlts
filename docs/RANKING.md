@@ -121,7 +121,7 @@ Recommended initial behavior for testing:
 - begin experimentation with `m ≈ 10` equivalent ratings;
 - validate against seeded/sample datasets before public launch.
 
-The exact production constants are an implementation calibration decision, not a permanent product truth.
+The exact production constants are an implementation calibration decision, not a permanent product truth. Milestone 1 starts with a configured prior mean of **3.5** and prior strength of **10**. Update environment configuration and run the full aggregate rebuild together when changing these initial calibration values.
 
 ### 8.3 Display behavior
 

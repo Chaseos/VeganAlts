@@ -16,6 +16,11 @@ Before substantial implementation work, read:
 
 If these documents conflict, do not guess. Preserve existing behavior and surface the conflict for an explicit documentation decision.
 
+## Git branches
+
+- `develop` is the default integration branch and the base for feature work and pull requests.
+- Keep `main` for production release history. Do not merge or deploy automatically after creating a pull request.
+
 ## Architectural constraints
 
 - Keep VeganAlts a **modular monolith**. Do not introduce microservices merely to create separation of concerns.

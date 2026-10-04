@@ -1,252 +1,47 @@
-# VeganAlts Milestone 1 — Core Ranking Loop
+# Milestone 1 — Foundation & Data Model
 
-**Purpose:** Prove that VeganAlts is useful before building the full community-maintenance system.
+This scope follows [GitHub milestone 1](https://github.com/Chaseos/VeganAlts/milestone/1), issues #1–#6. It replaces the earlier local document that included a complete public ranking loop. That user experience is milestone 2.
 
 ## Outcome
 
-At the end of Milestone 1, a visitor can:
-
-1. open VeganAlts without an account;
-2. discover/search a seeded replacement category;
-3. see a country-specific community ranking;
-4. open a product detail page;
-5. sign in with Google or Apple when they decide to contribute;
-6. submit or update an Overall Similarity rating;
-7. see that rating reflected in their personal state/history;
-8. have the category aggregate update correctly and appear publicly after cache refresh.
-
-If this loop is not compelling, advanced moderation, comments, creator collaborations and broad catalog growth should not distract from fixing it.
-
-## Scope
-
-### A. Project foundation
-
-- React Router v8 + TypeScript + Cloudflare Vite plugin.
-- Cloudflare Worker deployment.
-- Environment configuration for local/preview/production.
-- D1 database + Drizzle.
-- Better Auth with Google and Apple.
-- R2 media bucket.
-- Cloudflare Images upload transform integration.
-- Vitest + Playwright.
-- Basic CI checks: typecheck, tests, build.
-
-### B. Baseline database
-
-Implement/review the v1.0 baseline for the subset required by the core loop:
-
-- countries;
-- profiles/auth linkage;
-- categories + aliases;
-- brands/product families/products;
-- product versions;
-- product-category memberships;
-- rating dimensions;
-- ratings + dimension values;
-- product trials;
-- product-category aggregate stats;
-- product images;
-- search index.
-
-Moderation tables may be migrated now from the baseline even if their UI is not built yet, provided they do not slow implementation materially.
-
-### C. Seed dataset
-
-Launch development with one market, recommended **United States**, and a deliberately small useful catalog.
-
-Initial development seed should be enough to test hierarchy and ranking, not the full public launch catalog.
-
-Example categories:
-
-- Ground Beef
-- Beef Burgers
-- Chicken Nuggets
-- Bacon
-- Milk
-- Butter
-- Cheddar
-- Mozzarella
-- Cream Cheese
-- Eggs
-
-Seed several representative products per category, including at least one product participating in multiple categories and at least one product family/variant example.
-
-Before actual public launch, expand toward the Product Master's broader 10–20 category / 5–15 products-per-category cold-start target.
-
-### D. Public discovery
-
-Implement:
-
-- homepage/search entry;
-- country context (US initially, architecture ready for more);
-- category search with aliases;
-- category ranking page;
-- product detail page;
-- basic product images;
-- ranking explanation.
-
-The taxonomy must not force users through every parent level. Searching `beef`, `ground beef`, `meat`, or relevant aliases should lead to useful destination categories.
-
-### E. Ranking engine
-
-Implement one authoritative ranking module.
-
-Requirements:
-
-- Overall Similarity 1–5;
-- one rating per user + formula version + category;
-- raw mean/count;
-- Bayesian score using configurable prior parameters;
-- deterministic Top ordering;
-- `product_category_stats` update/rebuild path;
-- formula-version isolation;
-- tests for one-rating vs high-volume scenarios;
-- tests proving previous formula ratings do not affect current formula ranking.
-
-Trending does **not** need a production algorithm in Milestone 1.
-
-### F. Caching
-
-Public category/product pages must be shared-cacheable and must not read auth state on the server.
-
-Initial targets:
-
-- category: ~10 min;
-- product: ~15 min;
-- homepage: ~30 min.
-
-Personal rating state loads through a separate private/authenticated endpoint.
-
-Test that a signed-in user's cookie does not cause the public ranking HTML to become user-specific.
-
-### G. Authentication and profiles
-
-Implement:
-
-- Google sign-in;
-- Apple sign-in;
-- profile creation/linkage after first auth;
-- unique public handle creation;
-- sign out;
-- `/me` or profile settings basics;
-- public profile shell if useful for routing.
-
-No social graph/follow system.
-
-### H. Rating UX
-
-From category or product detail, user can select:
-
-```text
-1 Not close
-2 Slightly similar
-3 Fairly close
-4 Very close
-5 Extremely close
-```
-
-If anonymous, contribution action starts sign-in and returns the user to the intended rating flow.
-
-After save:
-
-- rating persists;
-- Tried state is upserted;
-- aggregate is updated;
-- personal UI reflects the current score immediately;
-- public shared page can wait for normal cache refresh.
-
-Optional detailed dimensions can be included if they do not compromise the simplicity of the primary flow; Overall Similarity remains the only required score.
-
-### I. My Ratings
-
-Implement the initial profile utility promised in the Product Master:
-
-- one list of ratings the user has submitted;
-- product/category context;
-- current score;
-- recent sort;
-- ability to revisit/edit a rating.
-
-Do not create category-specific profile sub-navigation yet.
-
-### J. Image handling
-
-Implement canonical upload processing needed for seeded/admin-managed product imagery:
-
-- validation;
-- WebP full derivative;
-- WebP thumbnail derivative;
-- higher-quality evidence derivative where applicable;
-- R2 storage;
-- D1 metadata.
-
-Community image replacement proposals are later moderation work.
-
-### K. Analytics / observability
-
-Track at least:
-
-- category view;
-- product view;
-- search;
-- sign-in start/success;
-- rating created/updated;
-- rating save failure.
-
-Enable Worker error logging and enough request correlation to diagnose failed writes.
-
-## Explicitly out of scope for Milestone 1
-
-- open community product submissions;
-- full edit proposal/confirmation UI;
-- contributor trust automation;
-- report/moderation queue UI;
-- comments;
-- retailer confirmations;
-- Trending algorithm;
-- New discovery beyond seeded/catalog timestamps;
-- creator/influencer collections;
-- recipes;
-- restaurant menu items;
-- HappyCow integration;
-- non-food alternatives;
-- sponsorship/ads;
-- native apps;
-- live inventory;
-- notifications.
-
-These are intentionally deferred so the first milestone validates the core ranking loop.
-
-## Acceptance criteria
-
-Milestone 1 is complete when all of the following are true:
-
-- Anonymous visitor can load seeded category/product pages without auth.
-- Search finds a rankable category through canonical name and at least one alias.
-- Category page orders current formula versions through the ranking module, not raw hard-coded sort order.
-- Product with a tiny perfect sample does not automatically beat a well-rated established product when Bayesian confidence says otherwise.
-- User can sign in with Google and Apple in the production-like environment.
-- User can create/update exactly one rating per formula version/category.
-- Updating a rating changes aggregate data correctly.
-- Old-formula ratings are demonstrably isolated from the current formula.
-- Public HTML is cacheable and does not include personal rating state.
-- Signed-in personal rating state loads separately.
-- My Ratings shows the user's submitted ratings.
-- Image derivatives are stored in R2 rather than D1.
-- Core ranking/domain tests pass.
-- Playwright covers the anonymous browse → sign-in → rating loop.
-
-## What should happen immediately after Milestone 1
-
-Plan the next milestone from real usage/testing, with the likely focus on **community catalog growth and moderation**:
-
-- add product;
-- canonical retailers;
-- edit proposals;
-- confirmations;
-- reports;
-- formula-change workflow;
-- canonical photo replacement;
-- comments if they still appear valuable.
-
-Do not generate a large backlog of implementation issues for later features until the Milestone 1 loop and schema are validated in code.
+Establish a verified foundation for community-ranked vegan alternatives, and publish a fast coming-soon page at https://veganalts.com. Porkbun retains registration and renewals; Cloudflare provides DNS and hosting. Incremental infrastructure should remain at or below $10/month at foundation-stage usage.
+
+## Implementation scope
+
+| Issue                                               | Deliverable                                                                                                                                                         |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#1](https://github.com/Chaseos/VeganAlts/issues/1) | React Router v8, React, strict TypeScript, Vite/Workers integration, modular monolith, environments, health route, request IDs, safe logs, tests, CI                |
+| [#2](https://github.com/Chaseos/VeganAlts/issues/2) | Authoritative Drizzle schema, separate auth ownership, append-only D1 migrations, foreign keys, partial indexes, FTS5, deterministic local reset/migration workflow |
+| [#3](https://github.com/Chaseos/VeganAlts/issues/3) | US development catalog with ten rankable categories, at least three products each, aliases/ancestry, category overlap, variants, and illustrative formula history   |
+| [#4](https://github.com/Chaseos/VeganAlts/issues/4) | Better Auth Google/Apple website sign-in, persistent sessions, sign-out, profile linkage, collision-safe handles, profile settings, shared auth helpers             |
+| [#5](https://github.com/Chaseos/VeganAlts/issues/5) | Pure authoritative ranking policy, internal rating/Tried services, atomic canonical/aggregate updates, aggregate ranking reads, full rebuild command                |
+| [#6](https://github.com/Chaseos/VeganAlts/issues/6) | Authenticated admin uploads, validated JPEG/PNG/WebP, stored derivatives in R2, metadata in D1, retry safety, abandoned-upload recovery                             |
+
+The ten seed categories are Ground Beef, Beef Burgers, Chicken Nuggets, Bacon, Milk, Butter, Cheddar, Mozzarella, Cream Cheese, and Eggs. All seed products are explicitly marked as development records with manufacturer references. Synthetic identities/ratings are limited to isolated automated tests. Seed tooling refuses production.
+
+## Decisions
+
+- Route handlers call application services; domain policies depend on neither React nor persistence/platform APIs.
+- Bayesian ranking starts with prior mean **3.5** and prior strength **10**. These are initial calibration values. Eligible current formulas sort by adjusted score, rating count, and stable product ID; zero-rating products remain unranked. Trust and sponsorship do not change votes.
+- Ratings belong to a user, formula version, and category. Country, formula, and category isolation survive edits and aggregate rebuilds.
+- Upload limits are **10 MiB** and **40 megapixels**. Full images use a maximum edge of 1800px at quality 90; thumbnails 500px at 80; ingredient/nutrition evidence 2400px at 92. Small originals are never enlarged.
+- Media URLs are immutable. Ordinary reads never transform an image. Failed attempts can be retried with the same idempotency key; cleanup preserves every referenced derivative.
+- Staging and production have separate D1 databases, R2 buckets, session secrets, origins, and OAuth callbacks. Staging is explicitly marked as development and non-indexable.
+- Google/Apple developer registrations are for website authentication. No native application or app-store submission is part of this work.
+- The landing page is responsive and accessible, uses system fonts/lightweight CSS, includes canonical/social metadata, and has no waitlist.
+
+## Completion gates
+
+1. Clean install, strict types, meaningful domain/persistence tests, Worker build, browser tests, and GitHub CI pass.
+2. Fresh local and real staging migrations pass; foreign keys, uniqueness, repeatable seeds, and formula history are verified.
+3. Ranking tests cover tiny perfect samples versus established 4.7 averages, concurrent writes, edits/deletes, exclusions, ties, transitions, multiple categories, country isolation, and rebuild equivalence.
+4. Google and Apple sign-in both succeed on staging, with session persistence, profile linkage, settings, authorization, and sign-out. Local provider-boundary simulations alone are insufficient.
+5. Real Cloudflare transformations and authenticated uploads pass, including evidence readability, repeated derivative reads, malformed/oversized rejection, partial failure, interrupted processing, and cleanup safety.
+6. HTTPS, HTTP/www redirects preserving paths and queries, mail records, delegation, DNSSEC state, keyboard/mobile layout, and cookie-independent public HTML are verified. Mobile Lighthouse performance and accessibility target at least 95.
+7. Deployment, migration ordering, Worker rollback, DNS recovery, usage safeguards, and remaining limitations are documented.
+
+The [verification record](operations/milestone-one-evidence.md) distinguishes implemented code from checks performed against live services. Required live integrations or CI remain open gates until verified.
+
+## Deferred to milestone 2 and later
+
+Milestone 2 provides public search, category rankings, product pages, rating controls, and My Ratings. Later work includes community uploads, moderation UI, trust automation, comments, retailer confirmations, Trending, and catalog expansion. There are no native apps, live inventory, social graph, microservices, or public maintenance endpoints in milestone 1.
