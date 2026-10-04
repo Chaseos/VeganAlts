@@ -1,0 +1,37 @@
+VeganAlts DNS migration inventory — 2026-10-04
+Registrar: Porkbun (registration and renewals stay here)
+Original authoritative nameservers:
+  curitiba.ns.porkbun.com
+  fortaleza.ns.porkbun.com
+  maceio.ns.porkbun.com
+  salvador.ns.porkbun.com
+Assigned Cloudflare nameservers:
+  alexa.ns.cloudflare.com
+  rene.ns.cloudflare.com
+
+Porkbun UI inventory confirmed before cutover: seven records, all TTL 600:
+  apex ALIAS uixie.porkbun.com (resolved A records listed below)
+  wildcard CNAME uixie.porkbun.com
+  both MX records, SPF TXT, and both ACME TXT records listed below.
+  No other records, including no DKIM/DMARC/MTA-STS records, were present.
+The scan additionally materialized www from the wildcard.
+
+Cloudflare quick-scan inventory:
+veganalts.com. A 207.207.210.23
+veganalts.com. A 207.207.210.36
+veganalts.com. A 207.207.210.50
+*.veganalts.com. CNAME uixie.porkbun.com.
+www.veganalts.com. CNAME uixie.porkbun.com.
+veganalts.com. MX 10 fwd1.porkbun.com.
+veganalts.com. MX 20 fwd2.porkbun.com.
+veganalts.com. TXT "v=spf1 include:_spf.porkbun.com ~all"
+_acme-challenge.veganalts.com. TXT "sJnprzxXCqcncJ_3WxrLvCx6Dwr4scj15MMc-RseRmM"
+_acme-challenge.veganalts.com. TXT "JDiXZapBzL9EQEAHmVfI0vKn2X5yBCELDXTfOlzGIGA"
+
+No DS record observed before cutover. Recheck the .com parent immediately
+before changing delegation. Do not enable a new DS until Cloudflare is active.
+
+Rollback: restore all four original nameservers in Porkbun, retaining the
+original Porkbun zone. If a Cloudflare DS was published after migration,
+remove that DS before rollback and allow its TTL to expire; never point
+delegation at nameservers that do not match a published DS.

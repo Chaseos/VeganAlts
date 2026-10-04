@@ -2,102 +2,78 @@
 
 **Community-ranked vegan alternatives.**
 
-VeganAlts helps people find the vegan products that come closest to the non-vegan products they already know. Choose a reference product such as ground beef, mozzarella, butter, or chicken nuggets, then see country-specific alternatives ranked by the collective experience of people who have actually tried them.
+VeganAlts helps people find vegan products that come closest to the foods they already know, ranked by the experience of people who have tried them.
 
-> **The ranking is the product.**
+## Status and scope
 
-## Status
+[Milestone 1: Foundation & Data Model](https://github.com/Chaseos/VeganAlts/milestone/1) covers issues #1–#6: the application foundation, database, development catalog, authentication/profiles, ranking services, and admin image ingestion. The public website is a coming-soon page at [veganalts.com](https://veganalts.com).
 
-VeganAlts is currently in **product definition / technical foundation**. Implementation has not started yet.
+Public search, category rankings, product pages, rating controls, and My Ratings belong to milestone 2. The older “core ranking loop” milestone description has been superseded by this split. See the [milestone scope](docs/MILESTONE_1_PLAN.md) and [verification record](docs/operations/milestone-one-evidence.md) for completed checks and remaining gates.
 
-The first implementation milestone is intentionally narrow:
+## Development
 
-**discover category → view ranking → view product → sign in → rate similarity → aggregate ranking updates → cached public page refreshes**
+`develop` is the default integration branch. Start feature branches from it and target pull requests at `develop`. Retain `main` for production release history; deployments remain explicit operations.
 
-## Planned stack
+Use Node 24 LTS (`.nvmrc`) and npm. Commit the lockfile when dependencies change.
 
-- TypeScript
-- React + React Router v8 + Vite
-- Cloudflare Workers
-- Cloudflare D1 + Drizzle ORM
-- Better Auth
-- Cloudflare R2
-- Cloudflare Images for one-time upload normalization
-- D1 FTS5 for initial search
-- Cloudflare Queues / Cron when background work is justified
-- Turnstile + rate limiting
-- Vitest + Playwright
-
-See [TECH_STACK.md](docs/TECH_STACK.md) and [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the authoritative technical decisions.
-
-## Source of truth
-
-Product behavior is governed by the Product Master:
-
-- [Product Master v1.0](docs/PRODUCT_MASTER.md)
-
-Technical implementation is governed by the documents below. If implementation and product intent conflict, stop and reconcile the documents rather than silently changing behavior in code.
-
-## Technical documentation
-
-| Document | Purpose |
-|---|---|
-| [Architecture](docs/ARCHITECTURE.md) | System topology, caching, request flows, modules, images, environments, observability and deployment rules |
-| [Tech Stack](docs/TECH_STACK.md) | Locked technology choices, cost model, alternatives and upgrade triggers |
-| [Database Baseline](docs/DATABASE_BASELINE.md) | Relational model, invariants, indexes and migration rules |
-| [Ranking](docs/RANKING.md) | Similarity scoring, Bayesian ranking, version behavior, aggregates and Top / Trending / New |
-| [Moderation](docs/MODERATION.md) | Product additions, edit proposals, confirmations, trust, reports and revision history |
-| [API](docs/API.md) | /api/v1 conventions, authentication, caching, pagination and future native-client compatibility |
-| [Milestone 1 Plan](docs/MILESTONE_1_PLAN.md) | Smallest complete public ranking and rating loop |
-| [SQL Baseline](db/0001_app_baseline.sql) | Reference D1 application schema; Better Auth tables are generated separately |
-
-## Core architectural rules
-
-1. VeganAlts is a **modular monolith**, not a collection of microservices.
-2. Public ranking/product pages should normally be served as **cached shared HTML**.
-3. Anonymous public reads should **not require authentication**.
-4. Raw ratings are canonical; leaderboard pages read **precomputed aggregate rows**, not every raw rating.
-5. Ratings are specific to a **product formula version + replacement category**.
-6. Material formula changes preserve history rather than creating duplicate public products.
-7. Moderation trust never gives a user extra ranking weight.
-8. Images live in R2; image bytes do not belong in D1.
-9. Retailer data means **commonly found at**, not live stock.
-10. Every derived ranking/statistic must be rebuildable from canonical data.
-
-See [AGENTS.md](AGENTS.md) before making structural changes.
-
-## Repository structure
-
-The implementation is expected to grow toward:
-
-```text
-VeganAlts/
-├── app/
-│   ├── routes/
-│   ├── components/
-│   ├── features/
-│   └── styles/
-├── server/
-│   ├── auth/
-│   ├── db/
-│   ├── ranking/
-│   ├── search/
-│   ├── images/
-│   ├── moderation/
-│   └── services/
-├── db/
-│   ├── schema/
-│   ├── migrations/
-│   └── seed/
-├── workers/
-├── tests/
-├── docs/
-├── AGENTS.md
-└── wrangler.jsonc
+```sh
+nvm use
+npm ci
+cp .env.example .dev.vars
+npm run db:migrate:local
+npm run db:seed:local
+npm run dev
 ```
 
-Directories should be created as implementation actually begins rather than maintained as empty placeholders.
+Generate a local session secret with `node -e 'console.log(require("node:crypto").randomBytes(48).toString("base64url"))'` and put it in `.dev.vars`. Provider credentials are needed only to exercise actual sign-in. The public landing page does not read sessions or require credentials. Local bindings are simulated; local tests never contact production resources.
 
-## Next step
+```sh
+npm run check                 # strict types, unit/integration tests, Worker build
+npm run test:e2e              # Chromium desktop/mobile and accessibility checks
+npm run db:reset:local -- --confirm-local-reset
+npm run rankings:rebuild:local
+```
 
-Implement the foundation described in [Milestone 1](docs/MILESTONE_1_PLAN.md), beginning with the Cloudflare/React Router project skeleton and validating the D1 baseline in the real Cloudflare development environment.
+Install the browser used by the end-to-end tests with `npx playwright install chromium` if it is missing. Reset deletes only the local D1 state and recreates the development catalog; it does not reset staging or production.
+
+## Architecture
+
+React Router v8, React, strict TypeScript, and Vite run as one Cloudflare Worker. D1 holds relational records through Drizzle/repositories; R2 holds media bytes. Better Auth owns its generated authentication schema. Cloudflare Images transforms accepted uploads once; subsequent reads serve stored WebP derivatives.
+
+```text
+app/                       Route handlers, SSR screens, shared styles
+server/auth/               Session boundary and Better Auth adapter
+server/profiles/           Handle policies, profile service, repository
+server/ranking/            Pure ranking policy and aggregate reader
+server/ratings/            Internal rating/Tried services and atomic D1 adapter
+server/media/              Upload/recovery services and Images/R2/D1 adapters
+server/shared/             Errors, bounded request parsing, response policy
+workers/                   Request handling, cache, schedules, platform composition
+db/schema/                 Auth-owned and application-owned schemas
+db/migrations/             One ordered append-only migration history
+db/seed/                   Deterministic development catalog and source links
+scripts/                   Migration-adjacent development/operations commands
+tests/                     Domain, persistence, browser, and image fixtures
+```
+
+Thin handlers call application services, which depend on domain policies and repository interfaces. Domain calculations do not import React, Cloudflare bindings, authentication APIs, or SQL. Raw ratings remain canonical; aggregate rows are rebuildable. Anonymous HTML is shared and independent of cookies. Account/admin/write responses are private and never cached.
+
+The landing page uses system fonts, a small stylesheet, and no application JavaScript. Native forms keep the initial account and admin workflows usable without hydration.
+
+## Documentation
+
+| Document                                                         | Purpose                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [Product Master](docs/PRODUCT_MASTER.md)                         | Product intent and behavior                                        |
+| [Architecture](docs/ARCHITECTURE.md)                             | Boundaries, request flows, and caching                             |
+| [Tech Stack](docs/TECH_STACK.md)                                 | Technology choices and upgrade triggers                            |
+| [Database Baseline](docs/DATABASE_BASELINE.md)                   | Relational model and invariants                                    |
+| [Ranking](docs/RANKING.md)                                       | Ranking semantics and derived data                                 |
+| [Moderation](docs/MODERATION.md)                                 | Contribution, trust, and moderation rules                          |
+| [API](docs/API.md)                                               | API conventions and future client compatibility                    |
+| [Milestone 1](docs/MILESTONE_1_PLAN.md)                          | Current scope and completion gates                                 |
+| [Operations](docs/operations/deployment.md)                      | Environments, migrations, secrets, deployment, rollback, and costs |
+| [Verification record](docs/operations/milestone-one-evidence.md) | Evidence and outstanding acceptance criteria                       |
+| [Reference SQL](db/0001_app_baseline.sql)                        | Original design reference, not an executable migration             |
+
+Read [AGENTS.md](AGENTS.md) before changing architecture or product rules. Commit, push, and pull-request creation each require explicit authorization.

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f6f7ef"/>
+  <path d="M1010 500C1160 300 1080 150 985 115C830 252 832 400 1010 500Z" fill="#dce6bb"/>
+  <path d="M994 520 994 210" stroke="#2d4935" stroke-width="6"/>
+  <g fill="#1d3226" font-family="Arial,sans-serif">
+    <text x="76" y="108" font-size="38" font-weight="700">VeganAlts.</text>
+    <text x="78" y="235" font-size="18" letter-spacing="3">COMMUNITY-RANKED VEGAN ALTERNATIVES</text>
+    <text x="72" y="325" font-size="66" font-weight="700">Find the closest</text>
+    <text x="72" y="403" font-size="66" font-style="italic" font-weight="700">vegan alternative.</text>
+    <text x="78" y="538" font-size="24">Coming soon · veganalts.com</text>
+  </g>
+</svg>
