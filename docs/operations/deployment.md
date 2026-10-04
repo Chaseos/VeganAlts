@@ -63,7 +63,7 @@ Google clients must be type **Web application**. Apple uses a primary identifier
 | Google   | https://staging.veganalts.com/api/auth/callback/google | https://veganalts.com/api/auth/callback/google |
 | Apple    | https://staging.veganalts.com/api/auth/callback/apple  | https://veganalts.com/api/auth/callback/apple  |
 
-Do not use temporary workers.dev URLs as provider callbacks. `APP_URL` supplies the fixed allowed origin. Apple client-secret JWTs are generated from the signing key for 30 days and renewed automatically with at least one day remaining. The key itself still needs deliberate rotation if revoked or exposed.
+Do not use temporary workers.dev URLs as provider callbacks. `APP_URL` supplies the fixed allowed origin. Apple client-secret JWTs are generated from the signing key for 30 days and renewed automatically with at least one day remaining. The key itself still needs deliberate rotation if revoked or exposed. OAuth state cookies and verification records both expire after ten minutes; state signatures and cookie checks stay enabled, and session cookies retain SameSite=Lax.
 
 `BETTER_AUTH_API_KEY` enables the optional Better Auth cloud dashboard. Leaving it unset disables the dashboard plugin. Its user/session administration is separate from website administrator privileges. Activity tracking and managed directory synchronization are disabled.
 
