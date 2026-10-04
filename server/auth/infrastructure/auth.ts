@@ -122,6 +122,9 @@ function createAuth(env: Cloudflare.Env, appleToken?: string) {
     advanced: {
       database: { generateId: () => uuid() },
       ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
+      // Better Auth keeps OAuth verification records for ten minutes, but its
+      // default state cookie lasts only five. Keep them aligned for MFA flows.
+      cookies: { state: { attributes: { maxAge: 600 } } },
     },
     rateLimit: { enabled: true, window: 60, max: 60 },
     logger: {
