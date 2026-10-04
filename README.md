@@ -34,8 +34,7 @@ See [TECH_STACK.md](docs/TECH_STACK.md) and [ARCHITECTURE.md](docs/ARCHITECTURE.
 
 Product behavior is governed by the Product Master:
 
-- [Product Master — Markdown](docs/PRODUCT_MASTER.md)
-- [Product Master — formatted DOCX](docs/VeganAlts_Product_Master_v1.0.docx)
+- [Product Master v1.0](docs/PRODUCT_MASTER.md)
 
 Technical implementation is governed by the documents below. If implementation and product intent conflict, stop and reconcile the documents rather than silently changing behavior in code.
 
