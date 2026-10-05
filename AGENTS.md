@@ -12,7 +12,8 @@ Before substantial implementation work, read:
 4. `docs/RANKING.md` — ranking semantics and derived data.
 5. `docs/MODERATION.md` — contribution and trust rules.
 6. `docs/API.md` — API conventions.
-7. `docs/MILESTONE_1_PLAN.md` — current implementation scope.
+7. `docs/MILESTONE_2_PLAN.md` — current implementation scope.
+8. `docs/MILESTONE_1_PLAN.md` — completed foundation scope/context when needed.
 
 If these documents conflict, do not guess. Preserve existing behavior and surface the conflict for an explicit documentation decision.
 
