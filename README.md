@@ -8,11 +8,11 @@ VeganAlts helps people find the vegan products that come closest to the non-vega
 
 ## Status
 
-VeganAlts is currently in **product definition / technical foundation**. Implementation has not started yet.
+**Milestone 1 — Foundation & Data Model** is essentially complete. The current implementation focus is **Milestone 2 — Core Ranking Experience**.
 
-The first implementation milestone is intentionally narrow:
+Milestone 2 turns the foundation into the first complete product loop:
 
-**discover category → view ranking → view product → sign in → rate similarity → aggregate ranking updates → cached public page refreshes**
+**discover category → view ranking → view product → sign in → rate similarity → aggregate ranking updates → My Ratings → cached public page refreshes**
 
 ## Planned stack
 
@@ -48,7 +48,8 @@ Technical implementation is governed by the documents below. If implementation a
 | [Ranking](docs/RANKING.md) | Similarity scoring, Bayesian ranking, version behavior, aggregates and Top / Trending / New |
 | [Moderation](docs/MODERATION.md) | Product additions, edit proposals, confirmations, trust, reports and revision history |
 | [API](docs/API.md) | /api/v1 conventions, authentication, caching, pagination and future native-client compatibility |
-| [Milestone 1 Plan](docs/MILESTONE_1_PLAN.md) | Smallest complete public ranking and rating loop |
+| [Milestone 1 Plan](docs/MILESTONE_1_PLAN.md) | Foundation & Data Model scope and verification expectations |
+| [Milestone 2 Plan](docs/MILESTONE_2_PLAN.md) | Current Core Ranking Experience implementation scope |
 | [SQL Baseline](db/0001_app_baseline.sql) | Reference D1 application schema; Better Auth tables are generated separately |
 
 ## Core architectural rules
@@ -100,4 +101,4 @@ Directories should be created as implementation actually begins rather than main
 
 ## Next step
 
-Implement the foundation described in [Milestone 1](docs/MILESTONE_1_PLAN.md), beginning with the Cloudflare/React Router project skeleton and validating the D1 baseline in the real Cloudflare development environment.
+Implement [Milestone 2 — Core Ranking Experience](docs/MILESTONE_2_PLAN.md), beginning with issue #7 and following the dependency-aware order documented in the milestone plan.
