@@ -11,6 +11,7 @@ import type {
   RatingMutation,
   RatingsRepository,
 } from "../domain/repository";
+import type { SavedRating } from "../domain/contracts";
 
 export class RatingsService {
   constructor(
@@ -25,14 +26,14 @@ export class RatingsService {
     versionId: string,
     categoryId: string,
     score: number,
-  ) {
+  ): Promise<SavedRating> {
     assertActiveAccount(actor);
     if (!Number.isInteger(score) || score < 1 || score > 5)
       throw new ApplicationError(
         "INVALID_SCORE",
         "Choose a whole-number score from 1 to 5.",
       );
-    return this.change(versionId, (snapshot, now) => {
+    const result = await this.change(versionId, (snapshot, now) => {
       if (
         !snapshot.canRate ||
         !snapshot.categories.some(
@@ -62,6 +63,25 @@ export class RatingsService {
         },
       };
     });
+    if (result.mutation.kind !== "upsert")
+      throw new Error("Expected a rating write.");
+    const rating = result.mutation.rating;
+    return {
+      rating: {
+        id: rating.id,
+        productVersionId: versionId,
+        categoryId: rating.categoryId,
+        overallSimilarity: rating.score,
+        updatedAt: rating.updatedAt,
+      },
+      tried: true,
+      outcome:
+        result.previousScore === undefined
+          ? "created"
+          : result.previousScore === rating.score
+            ? "unchanged"
+            : "updated",
+    };
   }
 
   async remove(
@@ -172,7 +192,16 @@ export class RatingsService {
         now,
       );
       if (await this.repository.commit(snapshot, mutation, aggregates, now))
-        return aggregates;
+        return {
+          aggregates,
+          mutation,
+          previousScore:
+            mutation.kind === "upsert"
+              ? snapshot.ratings.find(
+                  (rating) => rating.id === mutation.rating.id,
+                )?.score
+              : undefined,
+        };
     }
     throw new ApplicationError(
       "WRITE_CONFLICT",

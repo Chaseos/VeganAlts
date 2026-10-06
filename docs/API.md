@@ -52,14 +52,11 @@ Errors should use a consistent Problem Details-style structure:
 
 ```json
 {
-  "type": "https://veganalts.com/problems/validation-error",
+  "type": "about:blank",
   "title": "Invalid request",
   "status": 400,
-  "code": "VALIDATION_ERROR",
-  "detail": "Overall similarity must be between 1 and 5.",
-  "fields": {
-    "overallSimilarity": "Must be an integer from 1 to 5."
-  }
+  "code": "INVALID_RATING",
+  "requestId": "generated-request-id"
 }
 ```
 
@@ -82,122 +79,64 @@ Future native clients may use Better Auth-supported token/social-ID-token mechan
 
 ## 5. Public endpoint families
 
-Conceptual routes; exact names may evolve during implementation.
+The following public routes are implemented in milestone 2. Slugs select public discovery resources; responses and write payloads retain stable IDs. Only the United States catalog (`country=US`, or omitted) is supported. Public loaders use these same application services directly.
 
-### Countries/categories
-
-```text
-GET /api/v1/countries
-GET /api/v1/categories?country=US&query=beef
-GET /api/v1/categories/:categoryId
-GET /api/v1/categories/:categoryId/ranking?country=US&sort=top
-```
-
-### Products
+### Discovery and rankings
 
 ```text
-GET /api/v1/products/:productId
-GET /api/v1/products/:productId/comments
-GET /api/v1/products/:productId/retailers
-GET /api/v1/products/:productId/history
-```
-
-### Search
-
-```text
+GET /api/v1/categories
+GET /api/v1/categories/:categorySlug?page=1&unrankedPage=1
+GET /api/v1/products/:productSlug?version=productVersionId
 GET /api/v1/search?q=ground+beef&country=US
-```
-
-### Public profiles
-
-```text
 GET /api/v1/profiles/:handle
-GET /api/v1/profiles/:handle/ratings?cursor=...
 ```
 
-## 6. Authenticated endpoint families
+Categories return all active rankable categories and configured featured categories. Category detail returns category/child metadata, separate ranked and unranked lists, page numbers and `hasNext` flags. Public pages use bounded 20-item pages, at most 100 pages. Search returns grouped categories (up to 12) and products (up to 20), matching canonical names, aliases, brands and ancestry. Query text is normalized, capped at 80 characters and compiled into at most eight literal prefix tokens for FTS5.
+
+Products have one canonical slug independent of category. An optional validated `version` selects an existing historical formula belonging to that product. History remains readable and cannot receive new current-formula ratings. Historical product responses retain inactive categories and their aggregate scores with `isActive: 0` and `canRate: 0`; current product responses and category discovery include only active categories. Profile responses contain only chosen handle/display name and rating/Tried counts. Individual rating history is private.
+
+## 6. Authenticated endpoints
 
 ### Rating
 
 ```text
 PUT /api/v1/ratings
-DELETE /api/v1/ratings/:ratingId
 ```
-
-Payload concept:
 
 ```json
 {
   "productVersionId": "...",
   "categoryId": "...",
-  "overallSimilarity": 5,
-  "conventionalRecency": "within_month",
-  "dimensions": [
-    { "dimensionId": "...", "score": 4 }
-  ]
+  "overallSimilarity": 5
 }
 ```
 
-The server validates that:
+The strict schema rejects extra ownership fields and non-integer scores. A challenged request may additionally send `challengeToken` (at most 2048 characters). The actual JSON stream is limited to 4096 bytes. The server checks origin, active session/account, integer 1–5 score, current formula, country and category eligibility, and configured rate limits. Authorization always derives the user from the server session.
 
-- version belongs to product;
-- product is eligible for category/country;
-- category dimension belongs to that category;
-- score is valid;
-- the current user is allowed to rate;
-- moderation/rate-limit conditions pass.
+The atomic write upserts one canonical user/formula/category rating, marks that formula Tried, and updates rebuildable aggregates. The response is `{data: {rating: {id, productVersionId, categoryId, overallSimilarity, updatedAt}, tried: true, outcome: "created" | "updated" | "unchanged"}, meta: {}}`. Outcomes come from the successfully committed snapshot, so identical retries neither duplicate records nor emit a second created/updated event. All write responses are private/no-store.
 
-### Personal state
+### Personal state and history
 
 ```text
-GET /api/v1/me/rating-state?categoryId=...&productIds=...
+GET /api/v1/me/rating-state?versionIds=id1,id2
 GET /api/v1/me/ratings?cursor=...
 ```
 
-This is how signed-in UI hydrates personal markers without making the shared public page personalized.
+Batched state accepts up to 40 unique formula IDs and returns `{user: {handle, displayName} | null, ratings, triedVersionIds, turnstileSiteKey}`. Anonymous state is neutral. All responses are private/no-store. My Ratings requires an active session, returns 20 records per page in `data`, and a nullable `meta.nextCursor`. Cursors encode the last `(updatedAt,id)` pair with descending stable ordering. Every row includes product/category, personal score/date and current or historical formula context; no other user's records are returned.
 
-### Product submission
+The browser stores anonymous intent in tab-scoped storage for 30 minutes, with a validated same-origin return destination. After `/auth/return` it automatically submits the original formula/category selection. Recoverable errors retain the selection for retry; a formula/eligibility conflict requires an explicit fresh score.
 
-```text
-POST /api/v1/products
-```
-
-### Comments
+### Analytics
 
 ```text
-POST /api/v1/products/:productId/comments
-PATCH /api/v1/comments/:commentId
-DELETE /api/v1/comments/:commentId
+POST /api/v1/events
 ```
 
-### Retailers
+The same-origin endpoint accepts at most 512 bytes and only `{event,route}` from fixed allowlists. Client events are `page_view`, `rating_save_failed`, and `sign_in_cancelled`; route values are coarse surface names. Successful write and auth events are emitted authoritatively on the server. Cookies, raw search text, URLs, user IDs and provider material are not event fields.
 
-```text
-POST /api/v1/products/:productId/retailer-confirmations
-POST /api/v1/retailers/proposals
-```
+### Media and later scope
 
-### Edit proposals
-
-```text
-POST /api/v1/edit-proposals
-POST /api/v1/edit-proposals/:proposalId/responses
-```
-
-### Reports
-
-```text
-POST /api/v1/reports
-```
-
-### Media
-
-```text
-POST /api/v1/media/uploads
-POST /api/v1/products/:productId/image-proposals
-```
-
-Implementation can use direct/signed upload patterns if server-side validation/security remains equivalent.
+`POST /api/v1/media/uploads` remains the administrator-only multipart upload API described in [deployment operations](operations/deployment.md). Standalone Tried/deletion controls, detailed dimensions, comments, retailers, product submissions, public individual rating lists, image proposals and moderation APIs are deferred; the schema's future capabilities do not imply exposed endpoints.
 
 ## 7. Admin/moderation routes
 
@@ -221,7 +160,7 @@ POST /api/v1/admin/moderation/products/:id/set-review-status
 
 ## 8. Pagination
 
-Use cursor pagination for comments, profiles, moderation queues and large product lists.
+My Ratings uses cursor pagination now. Future comments, moderation queues and large product lists must also use cursors. Public ranking pagination is deliberately capped at 100 pages of 20 records for this milestone.
 
 Do not rely on large OFFSET pagination for growing datasets.
 

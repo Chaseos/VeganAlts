@@ -1,5 +1,28 @@
-export const PUBLIC_LANDING_CACHE_CONTROL =
-  "public, max-age=0, s-maxage=1800, stale-while-revalidate=86400";
+import { publicRoute } from "./public-cache";
+
+export function conditionalMediaResponse(response: Response, request: Request) {
+  const etag = response.headers.get("ETag");
+  if (
+    response.status !== 200 ||
+    !etag ||
+    !["GET", "HEAD"].includes(request.method)
+  )
+    return response;
+  // Evaluate the visitor's validator after the shared entrypoint has served the
+  // full representation. A client-specific 304 never becomes a cached object.
+  const matched = request.headers
+    .get("If-None-Match")
+    ?.split(",")
+    .some((value) => {
+      const tag = value.trim();
+      return (
+        tag === "*" || tag.replace(/^W\//, "") === etag.replace(/^W\//, "")
+      );
+    });
+  return matched
+    ? new Response(null, { status: 304, headers: response.headers })
+    : response;
+}
 
 export function canonicalRedirect(request: Request, environment: string) {
   const url = new URL(request.url);
@@ -20,6 +43,7 @@ export function responsePolicy(
   request: Request,
   environment: string,
   requestId: string,
+  nonce?: string,
 ) {
   const result = new Response(response.body, response);
   const headers = result.headers;
@@ -32,24 +56,27 @@ export function responsePolicy(
     headers.set("Strict-Transport-Security", "max-age=31536000");
     headers.set(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self' https://accounts.google.com https://appleid.apple.com; upgrade-insecure-requests",
+      `default-src 'self'; script-src 'self' ${nonce ? `'nonce-${nonce}'` : ""} https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com https://*.cloudflareinsights.com https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self' https://accounts.google.com https://appleid.apple.com; upgrade-insecure-requests`,
     );
   }
   if (environment !== "production")
     headers.set("X-Robots-Tag", "noindex, nofollow");
-  const path = new URL(request.url).pathname;
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const route = publicRoute(url);
   const publicRead =
     (request.method === "GET" || request.method === "HEAD") &&
     !headers.has("Set-Cookie") &&
+    !/private|no-store/i.test(headers.get("Cache-Control") ?? "") &&
     (response.status === 200 || response.status === 304) &&
-    (path === "/" ||
+    (route !== null ||
       path.startsWith("/media/") ||
       path.startsWith("/assets/") ||
       ["/favicon.svg", "/social.png", "/social.svg", "/robots.txt"].includes(
         path,
       ));
   if (!publicRead) headers.set("Cache-Control", "private, no-store");
-  else if (path === "/")
-    headers.set("Cache-Control", PUBLIC_LANDING_CACHE_CONTROL);
+  else if (route && route.kind !== "media")
+    headers.set("Cache-Control", "public, max-age=0");
   return result;
 }

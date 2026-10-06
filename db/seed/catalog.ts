@@ -1,8 +1,7 @@
-// Development fixtures only. Manufacturer pages establish product identity, not
-// a reviewed formula, certification, availability, ingredient list, or nutrition.
+// Approved fictional fixtures for local/staging demonstrations only.
 export const SOURCE_CHECKED_AT = Date.parse("2026-10-04T00:00:00Z");
 export const DEVELOPMENT_NOTICE =
-  "Development record: manufacturer identity checked 2026-10-04. Ingredients, nutrition, certifications, packaging, and current US availability require review. Formula labels are illustrative development fixtures, not manufacturer claims.";
+  "Demo catalog: approved fictional development fixture. Images, formula details and sample ratings are illustrative, not verified manufacturer claims or organic community feedback.";
 
 export const seedCategories = [
   {

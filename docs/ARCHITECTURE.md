@@ -130,7 +130,7 @@ Example:
 ```text
 Public HTML: #1 Impossible, #2 Beyond...
                    +
-Client request: GET /api/v1/me/rating-state?category=...
+Client request: GET /api/v1/me/rating-state?versionIds=...
                    ↓
 Authenticated private response
 ```
@@ -139,14 +139,15 @@ Authenticated private response
 
 Initial target freshness:
 
-| Surface | Shared cache target | Notes |
-|---|---:|---|
-| Category ranking | ~10 minutes | Rankings do not need second-by-second updates. |
-| Product detail | 10–30 minutes | Product facts/comments summaries can tolerate short staleness. |
-| Homepage popular/trending | 30–60 minutes | Periodic discovery surface. |
-| Public profile | ~5–15 minutes | Contribution totals need not be real time. |
-| Static policies/about | Long-lived | Prefer static assets or very long caching. |
-| Private/account pages | No shared cache | Personalized. |
+| Surface                      | Shared cache target | Notes                                                           |
+| ---------------------------- | ------------------: | --------------------------------------------------------------- |
+| Category ranking             |         ~10 minutes | Rankings do not need second-by-second updates.                  |
+| Product detail               |          15 minutes | Current and historical formulas have separate cache identities. |
+| Homepage featured categories |          30 minutes | Configured discovery surface; Trending is deferred.             |
+| Public profile               |          10 minutes | Chosen public identity and contribution counts only.            |
+| Immutable image variants     |            24 hours | Stored derivatives; one-year immutable browser caching.         |
+| Static policies/about        |          Long-lived | Prefer static assets or very long caching.                      |
+| Private/account pages        |     No shared cache | Personalized.                                                   |
 
 Use `stale-while-revalidate` and `stale-if-error` where appropriate so a previously valid page can remain available while refresh occurs or a transient backend error happens.
 
@@ -169,7 +170,7 @@ Immediate purge/refresh is reserved for important factual events, for example:
 ## 7. Ranking write flow
 
 ```text
-POST similarity rating
+PUT similarity rating
        ↓
 Authenticate contributor
        ↓
@@ -456,3 +457,13 @@ AI-generated changes must follow these rules:
 - native mobile backend specialization.
 
 These can be reconsidered only when a real requirement appears.
+
+## Milestone 2 delivery boundaries
+
+The uncached Worker gateway normalizes public requests and calls the dedicated `PublicCatalog` entrypoint in the same Worker. Native Workers Cache owns request collapsing, freshness, background refresh and stale-on-error behavior. Identity includes deployment version, country, route, meaningful query parameters and document/data/API representation. Cookies, authorization, origin and client nonce headers never enter the public renderer. SSR loaders call application services directly and read aggregates, never raw ratings or sessions.
+
+Catalog responses use browser `Cache-Control: public, max-age=0`; the inner entrypoint uses `Cloudflare-CDN-Cache-Control` with its route TTL, `stale-while-revalidate=60` and `stale-if-error=86400`. Immutable accepted/archived image variants use the same normalized public boundary with one-day edge freshness and retain one-year immutable browser caching. The gateway evaluates their conditional ETags after cache delivery; pending/rejected/missing media is never stored. Do not add `s-maxage`, `must-revalidate` or `proxy-revalidate`: those disable native stale behavior. The gateway replaces the cached template nonce with a fresh nonce in authorized framework scripts at every delivery. Errors, redirects, private data, writes and Set-Cookie responses are excluded.
+
+React Router hydrates normally with route-level code splitting. One batched private request loads the session projection and visible formula ratings; score writes serialize per formula/category, coalesce rapid selections and never revalidate public loaders. The authoritative response contains the saved rating and Tried state. A pending anonymous selection lives in sessionStorage for 30 minutes and is bound to its original formula/category.
+
+Material profile/media changes invoke the internal cache-invalidation RPC after persistence. Product/category changes can invalidate affected discovery and ranking tags. Purge failures are logged and bounded by normal freshness; ordinary ratings never purge. Search index rebuilds run during catalog maintenance, not page views.

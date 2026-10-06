@@ -31,10 +31,22 @@ try {
       file,
       "--yes",
     ],
-    { stdio: "inherit" },
+    { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
   );
   if (result.status !== 0)
-    throw new Error("Seed execution failed. Re-running is safe.");
+    throw new Error(
+      `Seed execution failed. Re-running is safe. ${result.stderr?.slice(-1000) ?? ""}`,
+    );
+  console.log(JSON.stringify({ environment, catalogSeeded: true }));
+  const rebuild = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "scripts/rebuild-rankings.ts", environment],
+    { stdio: "inherit" },
+  );
+  if (rebuild.status !== 0)
+    throw new Error(
+      "Catalog seeded, but aggregate rebuild failed. Re-run the seed command before using rankings.",
+    );
 } finally {
   await rm(directory, { recursive: true, force: true });
 }

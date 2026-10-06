@@ -1,30 +1,51 @@
-import { isRouteErrorResponse, Links, Meta, Outlet } from "react-router";
+import {
+  isRouteErrorResponse,
+  Links,
+  Meta,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+} from "react-router";
+import { PersonalStateProvider } from "./components/personal-state";
+import { useContext } from "react";
+import { NonceContext } from "./lib/nonce";
+import { NavigationEvents } from "./components/navigation-events";
 import type { Route } from "./+types/root";
-import "./styles/site.css";
+import siteStyles from "./styles/site.css?url";
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const nonce = useContext(NonceContext);
   return (
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#203b2c" />
+        {/* Start the render-blocking stylesheet before framework module preloads. */}
+        <link rel="stylesheet" href={siteStyles} precedence="default" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <Meta />
-        <Links />
+        <Links nonce={nonce} />
       </head>
       <body>
         <a className="skip-link" href="#main">
           Skip to content
         </a>
         {children}
+        <ScrollRestoration nonce={nonce} />
+        <Scripts nonce={nonce} />
       </body>
     </html>
   );
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <PersonalStateProvider>
+      <NavigationEvents />
+      <Outlet />
+    </PersonalStateProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

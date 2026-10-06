@@ -24,13 +24,13 @@ A user's rating of a product as **Ground Beef** must not automatically become th
 
 A signed-in user submits one Overall Similarity score:
 
-| Score | Meaning |
-|---:|---|
-| 1 | Not close |
-| 2 | Slightly similar |
-| 3 | Fairly close |
-| 4 | Very close |
-| 5 | Extremely close |
+| Score | Meaning          |
+| ----: | ---------------- |
+|     1 | Not close        |
+|     2 | Slightly similar |
+|     3 | Fairly close     |
+|     4 | Very close       |
+|     5 | Extremely close  |
 
 Exact interface copy may evolve, but the underlying 1–5 scale remains stable unless a future data migration deliberately changes it.
 
@@ -128,9 +128,9 @@ The exact production constants are an implementation calibration decision, not a
 The public ranking should show:
 
 - rank position;
-- a clearly named Match score;
+- the adjusted score as **4.2/5**, without an attached “Match” label;
 - rating count;
-- Early/New labeling when sample size is small.
+- “Early” below 10 counted ratings; unrated products appear in a separate unranked section.
 
 Avoid presenting a confidence-adjusted score as if it were literally the raw average without explanation.
 
@@ -138,7 +138,7 @@ One workable UI pattern is:
 
 ```text
 #1 Impossible Beef
-4.7 Match · 2,841 ratings
+4.7/5 · 2,841 ratings
 ```
 
 Product detail can separately expose raw community averages and dimension distributions if useful.
@@ -198,7 +198,7 @@ Do not allow brands, contributor reputation, sponsorship or account popularity t
 
 Primary sort:
 
-1. Bayesian Match score descending.
+1. Full-precision Bayesian score descending; round to one decimal only for display.
 2. Counted rating count descending as a stable tie-breaker.
 3. Stable deterministic ID/order as a final tie-breaker.
 
@@ -241,8 +241,8 @@ A newly reformulated existing product is not necessarily a brand-new product, bu
 If a product belongs to multiple categories, each has independent data:
 
 ```text
-Product X → Ground Beef: 4.7 Match
-Product X → Beef Burger: 3.9 Match
+Product X → Ground Beef: 4.7/5
+Product X → Beef Burger: 3.9/5
 ```
 
 This is expected and meaningful.

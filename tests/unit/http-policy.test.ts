@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import {
   canonicalRedirect,
+  conditionalMediaResponse,
   responsePolicy,
 } from "../../server/shared/http/response-policy";
 
@@ -68,7 +69,35 @@ it("revalidates landing HTML in the browser even when the edge cache supplies a 
     "production",
     "cache-hit-test",
   );
-  expect(response.headers.get("Cache-Control")).toBe(
-    "public, max-age=0, s-maxage=1800, stale-while-revalidate=86400",
+  expect(response.headers.get("Cache-Control")).toBe("public, max-age=0");
+});
+
+it("evaluates image validators after shared delivery while retaining immutable browser caching", async () => {
+  const request = new Request(
+    "https://staging.veganalts.com/media/image_1/full",
+    {
+      headers: { "If-None-Match": '"older", W/"current"' },
+    },
   );
+  const shared = new Response("image bytes", {
+    headers: {
+      ETag: '"current"',
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
+  });
+  const conditional = conditionalMediaResponse(shared, request);
+  expect(conditional.status).toBe(304);
+  expect(await conditional.text()).toBe("");
+  expect(
+    responsePolicy(conditional, request, "staging", "image-test").headers.get(
+      "Cache-Control",
+    ),
+  ).toBe("public, max-age=31536000, immutable");
+  expect(
+    conditionalMediaResponse(
+      shared,
+      new Request(request.url, { headers: { "If-None-Match": '"different"' } }),
+    ).status,
+  ).toBe(200);
+  expect(await shared.text()).toBe("image bytes");
 });

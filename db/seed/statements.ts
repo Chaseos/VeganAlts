@@ -1,6 +1,9 @@
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { v5 as uuid } from "uuid";
 import * as schema from "../schema/app";
+import { sql } from "drizzle-orm";
+import { user } from "../schema/auth";
+import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
 import {
   DEVELOPMENT_NOTICE,
   seedCategories,
@@ -115,6 +118,9 @@ export function developmentSeedStatements(
   for (const product of seedProducts) {
     const brandId = seedId(`brand:${product.brand}`);
     const productId = seedId(`product:${product.slug}`);
+    const dataNotes = [DEVELOPMENT_NOTICE, product.notes]
+      .filter(Boolean)
+      .join(" ");
     if (product.family && !families.has(product.family)) {
       families.add(product.family);
       add(
@@ -144,15 +150,22 @@ export function developmentSeedStatements(
           name: product.name,
           slug: product.slug,
           manufacturerUrl: product.source,
-          veganStatus: "under_review",
+          veganStatus: "vegan",
+          manufacturerLabel: "vegan",
           developmentOnly: 1,
           sourceCheckedAt: SOURCE_CHECKED_AT,
-          dataNotes: [DEVELOPMENT_NOTICE, product.notes]
-            .filter(Boolean)
-            .join(" "),
+          dataNotes,
           ...times,
         })
-        .onConflictDoNothing(),
+        .onConflictDoUpdate({
+          target: schema.products.id,
+          set: {
+            veganStatus: "vegan",
+            manufacturerLabel: "vegan",
+            dataNotes,
+          },
+          setWhere: sql`${schema.products.developmentOnly} = 1`,
+        }),
     );
     add(
       db
@@ -160,12 +173,19 @@ export function developmentSeedStatements(
         .values({
           id: seedId(`formula:${product.slug}:current`),
           productId,
-          versionLabel: "Development current formula",
+          versionLabel: "Demo formula · 2026",
           isCurrent: 1,
           changeSummary: DEVELOPMENT_NOTICE,
           ...times,
         })
-        .onConflictDoNothing(),
+        .onConflictDoUpdate({
+          target: schema.productVersions.id,
+          set: {
+            versionLabel: "Demo formula · 2026",
+            changeSummary: DEVELOPMENT_NOTICE,
+          },
+          setWhere: sql`${schema.productVersions.versionLabel} = 'Development current formula'`,
+        }),
     );
     for (const category of product.categories)
       add(
@@ -178,20 +198,6 @@ export function developmentSeedStatements(
           })
           .onConflictDoNothing(),
       );
-    statements.push({
-      sql: "DELETE FROM search_index WHERE entity_type = 'product' AND entity_id = ?",
-      params: [productId],
-    });
-    statements.push({
-      sql: "INSERT INTO search_index(entity_type,entity_id,country_code,title,subtitle,aliases,body) VALUES ('product',?,'US',?,?,?,?)",
-      params: [
-        productId,
-        product.name,
-        product.brand,
-        product.categories.join(" "),
-        DEVELOPMENT_NOTICE,
-      ],
-    });
   }
   add(
     db
@@ -223,6 +229,87 @@ export function developmentSeedStatements(
         .onConflictDoNothing(),
     );
   }
+  // Synthetic accounts have reserved .invalid addresses and no credentials or
+  // sessions. Deterministic IDs and insert-only contributions preserve all real
+  // staging accounts, edits, verification records, and formula history.
+  for (let index = 0; index < 28; index++) {
+    const id = seedId(`taster:${index}`);
+    add(
+      db
+        .insert(user)
+        .values({
+          id,
+          name: "Demo taster",
+          email: `taster-${index}@demo.veganalts.invalid`,
+          createdAt: new Date(SOURCE_CHECKED_AT),
+          updatedAt: new Date(SOURCE_CHECKED_AT),
+        })
+        .onConflictDoNothing(),
+    );
+    add(
+      db
+        .insert(schema.profiles)
+        .values({
+          userId: id,
+          handle: `demo_taster_${String(index + 1).padStart(2, "0")}`,
+          displayName: `Demo taster ${index + 1}`,
+          ...times,
+        })
+        .onConflictDoNothing(),
+    );
+  }
+  function sampleRatings(
+    versionId: string,
+    categories: readonly string[],
+    count: number,
+    pattern: number,
+  ) {
+    for (let index = 0; index < count; index++) {
+      const userId = seedId(`taster:${index}`);
+      add(
+        db
+          .insert(schema.productTrials)
+          .values({ userId, productVersionId: versionId, ...times })
+          .onConflictDoNothing(),
+      );
+      for (const [categoryIndex, category] of categories.entries()) {
+        const categoryId = seedId(`category:${category}`);
+        add(
+          db
+            .insert(schema.ratings)
+            .values({
+              id: seedId(`rating:${versionId}:${categoryId}:${index}`),
+              userId,
+              productVersionId: versionId,
+              categoryId,
+              overallSimilarity: Math.max(
+                1,
+                5 - ((index + pattern + categoryIndex) % ((pattern % 3) + 2)),
+              ),
+              ...times,
+            })
+            .onConflictDoNothing(),
+        );
+      }
+    }
+  }
+  seedProducts.forEach((product, index) =>
+    sampleRatings(
+      seedId(`formula:${product.slug}:current`),
+      product.categories,
+      [28, 14, 4, 0][index % 4]!,
+      index,
+    ),
+  );
+  sampleRatings(
+    seedId("formula:beyond-beef:historical"),
+    ["ground-beef"],
+    8,
+    2,
+  );
+  statements.push(
+    ...SEARCH_INDEX_STATEMENTS.map((sql) => ({ sql, params: [] })),
+  );
   return statements;
 }
 

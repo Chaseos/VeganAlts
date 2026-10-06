@@ -6,9 +6,9 @@ VeganAlts helps people find vegan products that come closest to the foods they a
 
 ## Status and scope
 
-[Milestone 1: Foundation & Data Model](https://github.com/Chaseos/VeganAlts/milestone/1) covers issues #1–#6: the application foundation, database, development catalog, authentication/profiles, ranking services, and admin image ingestion. The public website is a coming-soon page at [veganalts.com](https://veganalts.com).
+[Milestone 2: Core Ranking Experience](https://github.com/Chaseos/VeganAlts/milestone/2) is implemented on [staging](https://staging.veganalts.com): discover a category, compare alternatives, explore a product, sign in, save a rating and revisit My Ratings. The public production website retains its coming-soon page at [veganalts.com](https://veganalts.com).
 
-Public search, category rankings, product pages, rating controls, and My Ratings belong to milestone 2. The older “core ranking loop” milestone description has been superseded by this split. See the [milestone scope](docs/MILESTONE_1_PLAN.md) and [verification record](docs/operations/milestone-one-evidence.md) for completed checks and remaining gates.
+The staging catalog contains explicitly labeled fictional development products, illustrations and sample ratings. See the [milestone specification](docs/MILESTONE_2_PLAN.md), [verification record](docs/verification/milestone-2.md) and [core ranking runbook](docs/operations/core-ranking.md). The [milestone 1 verification record](docs/operations/milestone-one-evidence.md) remains the historical foundation evidence.
 
 ## Development
 
@@ -25,7 +25,7 @@ npm run db:seed:local
 npm run dev
 ```
 
-Generate a local session secret with `node -e 'console.log(require("node:crypto").randomBytes(48).toString("base64url"))'` and put it in `.dev.vars`. Provider credentials are needed only to exercise actual sign-in. The public landing page does not read sessions or require credentials. Local bindings are simulated; local tests never contact production resources.
+Generate a local session secret with `node -e 'console.log(require("node:crypto").randomBytes(48).toString("base64url"))'` and put it in `.dev.vars`. Provider credentials are needed only to exercise actual sign-in. Public catalog loaders do not read sessions or require credentials. Local bindings are simulated; local tests never contact production resources.
 
 ```sh
 npm run check                 # strict types, unit/integration tests, Worker build
@@ -44,9 +44,12 @@ React Router v8, React, strict TypeScript, and Vite run as one Cloudflare Worker
 app/                       Route handlers, SSR screens, shared styles
 server/auth/               Session boundary and Better Auth adapter
 server/profiles/           Handle policies, profile service, repository
+server/catalog/            Bounded public catalog, FTS5 and aggregate queries
 server/ranking/            Pure ranking policy and aggregate reader
-server/ratings/            Internal rating/Tried services and atomic D1 adapter
+server/ratings/            Rating/Tried writes, private state and cursor history
 server/media/              Upload/recovery services and Images/R2/D1 adapters
+server/abuse/              Environment limits and server Turnstile verification
+server/observability/      Allowlisted events and safe dependency diagnostics
 server/shared/             Errors, bounded request parsing, response policy
 workers/                   Request handling, cache, schedules, platform composition
 db/schema/                 Auth-owned and application-owned schemas
@@ -58,22 +61,25 @@ tests/                     Domain, persistence, browser, and image fixtures
 
 Thin handlers call application services, which depend on domain policies and repository interfaces. Domain calculations do not import React, Cloudflare bindings, authentication APIs, or SQL. Raw ratings remain canonical; aggregate rows are rebuildable. Anonymous HTML is shared and independent of cookies. Account/admin/write responses are private and never cached.
 
-The landing page uses system fonts, a small stylesheet, and no application JavaScript. Native forms keep the initial account and admin workflows usable without hydration.
+Public pages render useful SSR content with system fonts, a shared stylesheet and standard React Router hydration with route splitting. Personal state loads privately after hydration. The dedicated public Worker entrypoint provides shared caching; the gateway delivers fresh CSP nonces. Native forms keep account and admin workflows usable without hydration.
 
 ## Documentation
 
-| Document                                                         | Purpose                                                            |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [Product Master](docs/PRODUCT_MASTER.md)                         | Product intent and behavior                                        |
-| [Architecture](docs/ARCHITECTURE.md)                             | Boundaries, request flows, and caching                             |
-| [Tech Stack](docs/TECH_STACK.md)                                 | Technology choices and upgrade triggers                            |
-| [Database Baseline](docs/DATABASE_BASELINE.md)                   | Relational model and invariants                                    |
-| [Ranking](docs/RANKING.md)                                       | Ranking semantics and derived data                                 |
-| [Moderation](docs/MODERATION.md)                                 | Contribution, trust, and moderation rules                          |
-| [API](docs/API.md)                                               | API conventions and future client compatibility                    |
-| [Milestone 1](docs/MILESTONE_1_PLAN.md)                          | Current scope and completion gates                                 |
-| [Operations](docs/operations/deployment.md)                      | Environments, migrations, secrets, deployment, rollback, and costs |
-| [Verification record](docs/operations/milestone-one-evidence.md) | Evidence and outstanding acceptance criteria                       |
-| [Reference SQL](db/0001_app_baseline.sql)                        | Original design reference, not an executable migration             |
+| Document                                                              | Purpose                                                             |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [Product Master](docs/PRODUCT_MASTER.md)                              | Product intent and behavior                                         |
+| [Architecture](docs/ARCHITECTURE.md)                                  | Boundaries, request flows, and caching                              |
+| [Tech Stack](docs/TECH_STACK.md)                                      | Technology choices and upgrade triggers                             |
+| [Database Baseline](docs/DATABASE_BASELINE.md)                        | Relational model and invariants                                     |
+| [Ranking](docs/RANKING.md)                                            | Ranking semantics and derived data                                  |
+| [Moderation](docs/MODERATION.md)                                      | Contribution, trust, and moderation rules                           |
+| [API](docs/API.md)                                                    | API conventions and future client compatibility                     |
+| [Milestone 1](docs/MILESTONE_1_PLAN.md)                               | Historical foundation scope                                         |
+| [Milestone 2](docs/MILESTONE_2_PLAN.md)                               | Core ranking scope and acceptance checklist                         |
+| [Operations](docs/operations/deployment.md)                           | Environments, migrations, secrets, deployment, rollback, and costs  |
+| [Core ranking operations](docs/operations/core-ranking.md)            | Caching, analytics, abuse controls, diagnostics and resource checks |
+| [Milestone 2 verification](docs/verification/milestone-2.md)          | Staging evidence against issues #7–#12                              |
+| [Milestone 1 verification](docs/operations/milestone-one-evidence.md) | Historical foundation evidence                                      |
+| [Reference SQL](db/0001_app_baseline.sql)                             | Original design reference, not an executable migration              |
 
 Read [AGENTS.md](AGENTS.md) before changing architecture or product rules. Commit, push, and pull-request creation each require explicit authorization.

@@ -11,7 +11,19 @@ const stream = (bytes: Uint8Array) =>
 export class CloudflareImageTransformer implements ImageTransformer {
   constructor(private readonly images: ImagesBinding) {}
   async inspect(bytes: Uint8Array): Promise<ImageInfo> {
-    const info = await this.images.info(stream(bytes));
+    let info;
+    try {
+      info = await this.images.info(stream(bytes));
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "dependency_failed",
+          dependency: "images",
+          operation: "inspect",
+        }),
+      );
+      throw error;
+    }
     if (!("width" in info))
       throw new ApplicationError(
         "INVALID_IMAGE",

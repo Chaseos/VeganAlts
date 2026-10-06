@@ -404,6 +404,11 @@ export const ratings = sqliteTable(
   },
   (table) => [
     index("ix_ratings_user_updated").on(table.userId, desc(table.updatedAt)),
+    index("ix_ratings_user_updated_id").on(
+      table.userId,
+      desc(table.updatedAt),
+      desc(table.id),
+    ),
     index("ix_ratings_version_category_counted").on(
       table.productVersionId,
       table.categoryId,

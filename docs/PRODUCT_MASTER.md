@@ -4,13 +4,13 @@
 
 Community-ranked vegan alternatives
 
-*Find the closest vegan alternative.*
+_Find the closest vegan alternative._
 
 | **THE RANKING IS THE PRODUCT.** |
-|---------------------------------|
+| ------------------------------- |
 
 | **VERSION**          | **1.0**                                               |
-|----------------------|-------------------------------------------------------|
+| -------------------- | ----------------------------------------------------- |
 | **DATE**             | October 3, 2026                                       |
 | **STATUS**           | Initial source of truth for product planning          |
 | **PRIMARY DOMAIN**   | VeganAlts.com                                         |
@@ -43,7 +43,7 @@ capture external patterns and a compact policy reference.</p></th>
 </table>
 
 | **01** | Product Definition & Mission               | **11** | Launch Strategy & Cold Start     |
-|--------|--------------------------------------------|--------|----------------------------------|
+| ------ | ------------------------------------------ | ------ | -------------------------------- |
 | **02** | Audience & Product Principles              | **12** | Growth, SEO & Ecosystem          |
 | **03** | Core Experience & Information Architecture | **13** | Monetization & Ranking Integrity |
 | **04** | Categories, Products & Versions            | **14** | Future Expansion                 |
@@ -77,20 +77,20 @@ implementation.</p></th>
 </table>
 
 | **Item**               | **Status** | **Decision**                                                 |
-|------------------------|------------|--------------------------------------------------------------|
+| ---------------------- | ---------- | ------------------------------------------------------------ |
 | Product format         | LOCKED     | Web-first community ranking platform                         |
 | Primary metric         | LOCKED     | Overall similarity to a specific non-vegan reference product |
 | Launch content         | LOCKED     | Commercial packaged food first                               |
 | Browsing               | LOCKED     | Public; sign-in required only to contribute                  |
 | Geography              | LOCKED     | Country-specific product records and rankings                |
 | Primary domain         | LOCKED     | VeganAlts.com                                                |
-| Initial launch country | OPEN       | Choose during milestone planning                             |
-| Rating display         | OPEN       | 4.7 Match vs. 4.7/5 vs. 94% Match                            |
+| Initial launch country | LOCKED     | United States for milestone 2                                |
+| Rating display         | LOCKED     | 4.2/5, without an attached label; Early below 10 ratings     |
 
 ## Interpretation of decision status
 
 | **Status** | **Meaning**                                                                                                  |
-|------------|--------------------------------------------------------------------------------------------------------------|
+| ---------- | ------------------------------------------------------------------------------------------------------------ |
 | LOCKED     | Treat as a v1.0 product decision. Change only through an intentional master-document revision.               |
 | OPEN       | A known decision still to be made during milestone planning, UX design, implementation research, or testing. |
 | FUTURE     | A supported direction that should not expand initial release scope.                                          |
@@ -180,7 +180,7 @@ valuable because their comparison reference is fresh.
 ## Product principles
 
 | **Principle**                   | **Meaning**                                                                                         |
-|---------------------------------|-----------------------------------------------------------------------------------------------------|
+| ------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Ranking first                   | A category page should answer the visitor’s question immediately.                                   |
 | Similarity, not generic quality | A delicious product can still be a poor imitation. Overall similarity is its own explicit judgment. |
 | Collective experience           | No single reviewer or editor decides what is “best.”                                                |
@@ -261,7 +261,7 @@ rather than forcing hierarchical navigation.
 ## Public vs. authenticated
 
 | **Public without account**                                                       | **Requires sign-in**                                               |
-|----------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Rankings, products, comments, photos, retailer information, contributor profiles | Similarity ratings                                                 |
 | Search, categories, historical formulas and public evidence                      | Comments and reports                                               |
 | Sharing and SEO landing pages                                                    | Product additions, edits, confirmations and retailer contributions |
@@ -293,7 +293,7 @@ Related market records can be linked through a shared Product Family.
 ## What is a distinct rankable product?
 
 | **Example**                                                      | **Treatment**                                                         | **Reason**                                                                       |
-|------------------------------------------------------------------|-----------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| ---------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Country Crock Original Plant Butter vs. Avocado Oil Plant Butter | Separate rankable products                                            | Meaningfully different formulas trying to solve the same Butter replacement job. |
 | 8 oz vs. 16 oz package                                           | Same product                                                          | Package size does not change the underlying experience.                          |
 | Plain cream cheese vs. strawberry cream cheese                   | Separate variant; strawberry excluded from Plain Cream Cheese ranking | The flavor intentionally moves away from the conventional reference.             |
@@ -331,7 +331,7 @@ foundational because a formulation change can alter the exact experience
 VeganAlts measures.
 
 | **Product** | **Formula state**              | **Rating behavior**                                                               |
-|-------------|--------------------------------|-----------------------------------------------------------------------------------|
+| ----------- | ------------------------------ | --------------------------------------------------------------------------------- |
 | Beyond Beef | Previous formula               | Historical ratings remain visible and permanently attached to the old formula.    |
 | Beyond Beef | Current / reformulated formula | Receives new ratings; only current-formula ratings drive the current leaderboard. |
 | Beyond Beef | Discontinued formula           | Preserved for history but removed from current ranking eligibility.               |
@@ -358,7 +358,7 @@ enough information to distinguish “5/5 closest” from “4/5 very close.”
 </table>
 
 | **Score** | **Meaning**      |
-|-----------|------------------|
+| --------- | ---------------- |
 | 1         | Not close        |
 | 2         | Slightly similar |
 | 3         | Fairly close     |
@@ -385,7 +385,7 @@ should be category-specific and optional. They do not replace the
 explicit Overall Similarity score.
 
 | **Category**               | **Possible optional dimensions**                                 |
-|----------------------------|------------------------------------------------------------------|
+| -------------------------- | ---------------------------------------------------------------- |
 | Ground Beef                | Taste; texture; browning/cooking behavior                        |
 | Mozzarella                 | Taste; texture; melt; stretch                                    |
 | Milk                       | Taste; mouthfeel; drinking experience; coffee/cereal performance |
@@ -409,7 +409,7 @@ determined empirically during implementation.
 ## Ranking views
 
 | **View** | **Purpose**                   | **Primary behavior**                                                          |
-|----------|-------------------------------|-------------------------------------------------------------------------------|
+| -------- | ----------------------------- | ----------------------------------------------------------------------------- |
 | Top      | Canonical answer              | Confidence-weighted lifetime/current-formula similarity ranking.              |
 | Trending | Discovery for rising products | Recent rating velocity and strong recent support; time-sensitive.             |
 | New      | Cold-start visibility         | Recently added products before they have enough evidence to rank confidently. |
@@ -436,7 +436,7 @@ what exactly is this product, and where can I find it?”
 ## Product detail information
 
 | **Area**         | **Content**                                                                                   |
-|------------------|-----------------------------------------------------------------------------------------------|
+| ---------------- | --------------------------------------------------------------------------------------------- |
 | Identity         | Product name, brand, country, product family, current formula                                 |
 | Ranking          | Rank position by category, similarity score, rating count, Tried count                        |
 | Community detail | Optional taste/texture/etc. aggregates, comments, conventional-product familiarity statistics |
@@ -451,8 +451,8 @@ Comments belong to products and should add context to the comparison.
 VeganAlts should not create independent forum threads or a general
 social feed in the initial product.
 
-*Useful example: “Very close in tacos, but I notice the difference more
-when it is used as a burger.”*
+_Useful example: “Very close in tacos, but I notice the difference more
+when it is used as a burger.”_
 
 ## Product additions
 
@@ -517,7 +517,7 @@ Evidence.
 ## Risk-based moderation
 
 | **Tier**        | **Examples**                                                                                                                | **Default behavior**                                                                  |
-|-----------------|-----------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| --------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | 1 · Low risk    | Ratings, comments, existing retailer confirmation, simple low-impact availability data                                      | Publish immediately or near-immediately; remain reportable.                           |
 | 2 · Confirmable | Packaging update, new variant, discontinued status, retailer removal, product rename, certain formula updates               | Create proposal; publish after enough independent confirmations or contributor trust. |
 | 3 · Protected   | Vegan-status change, major formula change, merge, deletion, major category reassignment, changing an established brand/name | Require strong corroboration, trusted review, and/or manual moderation.               |
@@ -554,7 +554,7 @@ rating.</p></th>
 ## Reports
 
 | **Object** | **Example report reasons**                                                                        |
-|------------|---------------------------------------------------------------------------------------------------|
+| ---------- | ------------------------------------------------------------------------------------------------- |
 | Product    | Not vegan; incorrect information; duplicate; discontinued; wrong category; misleading information |
 | Photo      | Wrong product; outdated; poor quality; inappropriate; copyright concern                           |
 | Comment    | Spam; harassment; off-topic; misleading product information                                       |
@@ -583,7 +583,7 @@ status.
 ## Suggested status model
 
 | **Status**    | **Meaning**                                                                                                                                           |
-|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Vegan         | Available evidence supports that the product contains no animal-derived ingredients.                                                                  |
 | Appears Vegan | No known animal-derived ingredients are identified, but evidence is incomplete or not yet strong enough for full verification.                        |
 | Plant-Based   | Manufacturer or market positioning uses plant-based language; this can coexist with other metadata and does not automatically guarantee vegan status. |
@@ -862,7 +862,7 @@ The core question is broad enough to support additional verticals later,
 but the first release should remain deliberately narrow.
 
 | **Phase**         | **Potential expansion**                                             | **How the core model survives**                                                                          |
-|-------------------|---------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| ----------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Core              | Commercial packaged food                                            | Rank products by similarity to a conventional reference.                                                 |
 | Natural extension | Chain restaurant / menu alternatives                                | Rank menu products at the country/market level; location discovery can be external or partnered.         |
 | Later             | Recipes intended to mimic conventional foods                        | Separate recipe rankings under the same reference category.                                              |
@@ -881,7 +881,7 @@ These boundaries protect the product from becoming another broad vegan
 platform before its core ranking value is proven.
 
 | — General discussion forum        | — Order fulfillment                       |
-|-----------------------------------|-------------------------------------------|
+| --------------------------------- | ----------------------------------------- |
 | — Social feed or follower network | — Generic 5-star review database          |
 | — Vegan news/blog publication     | — Ingredient-scanner app                  |
 | — Recipe website in v1            | — Comprehensive nutrition platform        |
@@ -896,7 +896,7 @@ later architecture work preserves the product relationships established
 in this master.
 
 | **Concept**                   | **Role**                                                                                      |
-|-------------------------------|-----------------------------------------------------------------------------------------------|
+| ----------------------------- | --------------------------------------------------------------------------------------------- |
 | Country                       | Defines market context.                                                                       |
 | Category                      | The conventional product being replaced.                                                      |
 | Product Family                | Links related products across markets and variants.                                           |
@@ -968,10 +968,10 @@ These questions should be resolved during milestone planning or
 implementation research. They do not block Product Master v1.0.
 
 | **Decision**                         | **Current direction**                                      | **When to settle**                            |
-|--------------------------------------|------------------------------------------------------------|-----------------------------------------------|
-| Initial launch country               | TBD                                                        | Before seed-data work.                        |
+| ------------------------------------ | ---------------------------------------------------------- | --------------------------------------------- |
+| Initial launch country               | United States                                              | Decided for milestone 2.                      |
 | Initial category list                | 10–20 high-value categories                                | Before seed-data work.                        |
-| Public rating presentation           | 4.7 Match / 4.7 of 5 / 94% Match                           | During UX design.                             |
+| Public rating presentation           | 4.2/5, without an attached label                           | Decided for milestone 2.                      |
 | Bayesian constants / priors          | Configurable confidence weighting                          | During implementation and testing.            |
 | Standalone Tried action              | Useful but not required for core rating flow               | During UX design.                             |
 | Authentication providers             | TBD                                                        | Before contribution implementation.           |
@@ -995,7 +995,7 @@ These products are useful references for patterns, not blueprints to
 copy wholesale. VeganAlts stays narrower than most of them.
 
 | **Reference**                | **Relevant pattern for VeganAlts**                                                                                                                                                         |
-|------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | HappyCow                     | Community-supported vegan restaurant discovery; contributor identity; moderated factual updates; business-owner participation; future complementary partner rather than direct competitor. |
 | Google Maps                  | Confidence-based factual edits; suggested changes can be accepted, rejected, or corroborated by other data/users; model for high-volume change moderation.                                 |
 | Wikipedia                    | Progressive protection and pending-change patterns for higher-risk content.                                                                                                                |
@@ -1034,7 +1034,7 @@ A compact set of rules intended to prevent future implementation
 decisions from drifting away from the product thesis.
 
 | **Question**                                      | **v1.0 policy**                                                                                 |
-|---------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | What is ranked?                                   | How closely a vegan alternative replaces a specific conventional product in a specific country. |
 | What is required to rate?                         | Authenticated user + Overall Similarity score.                                                  |
 | Are there downvotes?                              | No. Similarity scoring is the primary signal.                                                   |
@@ -1068,3 +1068,8 @@ is probably not part of the core product.</p></th>
 <tbody>
 </tbody>
 </table>
+## Milestone 2 implementation decisions
+
+The accepted [milestone specification](MILESTONE_2_PLAN.md) fixes the United States catalog, one-tap 1–5 ratings, and automatic submission of a tab-scoped selection after sign-in. A changed formula/category requires a fresh selection. Individual rating history remains private in My Ratings; public profiles expose only chosen identity and contribution counts.
+
+Local and staging catalog records are approved fictional development fixtures. Demo images, identities and deterministic sample ratings are visibly labeled; they are not verified manufacturer claims or organic community feedback. Repeat seeding preserves real accounts, contributions and historical verification records. Production seeding is prohibited. Production retains its coming-soon page through this milestone.

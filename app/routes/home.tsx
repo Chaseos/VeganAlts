@@ -1,122 +1,113 @@
 import { env } from "cloudflare:workers";
+import { Link } from "react-router";
+import { catalogService } from "@server/catalog/infrastructure/composition";
+import { publicLoader } from "@server/catalog/http/loader";
+import { ComingSoon } from "../components/coming-soon";
+import { CategoryCards, SearchForm, SiteShell } from "../components/catalog";
+import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/home";
-import { PUBLIC_LANDING_CACHE_CONTROL } from "@server/shared/http/response-policy";
 
-const description =
-  "Find the closest vegan alternative. Community-ranked alternatives to the foods you already love. Coming soon.";
-
-export function loader() {
-  return { staging: env.APP_ENV !== "production" };
+export async function loader() {
+  return {
+    staging: env.APP_ENV !== "production",
+    origin: env.APP_URL,
+    catalog:
+      env.APP_ENV === "production"
+        ? null
+        : await publicLoader(() => catalogService(env).home()),
+  };
 }
-
 export function meta({ loaderData }: Route.MetaArgs) {
-  return [
-    { title: "VeganAlts — Find the closest vegan alternative" },
-    { name: "description", content: description },
-    { tagName: "link", rel: "canonical", href: "https://veganalts.com/" },
-    { property: "og:title", content: "Find the closest vegan alternative." },
-    { property: "og:description", content: description },
-    { property: "og:type", content: "website" },
-    { property: "og:url", content: "https://veganalts.com/" },
-    { property: "og:image", content: "https://veganalts.com/social.png" },
-    { property: "og:image:width", content: "1200" },
-    { property: "og:image:height", content: "630" },
-    { name: "twitter:card", content: "summary_large_image" },
-    ...(loaderData?.staging
-      ? [{ name: "robots", content: "noindex, nofollow" }]
-      : []),
-  ];
-}
-
-export function headers() {
-  return { "Cache-Control": PUBLIC_LANDING_CACHE_CONTROL };
+  return publicMetadata(
+    "Find the closest vegan alternative",
+    "Discover vegan alternatives to the foods you love, ranked by how closely they resemble the original.",
+    "/",
+    loaderData?.origin ?? "https://veganalts.com",
+    loaderData?.staging ?? true,
+  );
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
+  if (!loaderData.catalog) return <ComingSoon />;
   return (
-    <div className="landing">
-      {loaderData.staging && (
-        <div className="environment-banner">
-          Development preview · VeganAlts is not open yet
+    <SiteShell>
+      <section className="discovery-hero">
+        <p className="eyebrow">Good food. Familiar favorites.</p>
+        <h1>
+          Your favorites.
+          <br />
+          <em>A little more plant-based.</em>
+        </h1>
+        <p>
+          Find the closest vegan alternatives to the foods you love.
+          <br className="desktop-break" /> Ranked by people who’ve tried them.
+        </p>
+        <SearchForm large />
+        <div className="popular-searches">
+          <span>Start with</span>
+          <Link to="/us/beef-burgers">Burgers ↗</Link>
+          <Link to="/us/cheese">Cheese ↗</Link>
+          <Link to="/us/milk">Milk ↗</Link>
         </div>
-      )}
-      <header className="site-header">
-        <a className="wordmark" href="/" aria-label="VeganAlts home">
-          VeganAlts<span aria-hidden="true">.</span>
-        </a>
-        <span className="launch-status">
-          <span aria-hidden="true" />
-          Coming soon
+        <span className="hero-sprout" aria-hidden="true">
+          <svg viewBox="0 0 160 180" fill="none">
+            <path d="M81 165V81" stroke="currentColor" strokeWidth="3" />
+            <path
+              d="M80 115C12 114 13 43 13 43s66-5 67 72Z"
+              fill="#d8e6b1"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <path
+              d="M81 84C79 13 144 14 144 14s6 62-63 70Z"
+              fill="#c7df86"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <path
+              d="m37 69 44 47m0-32 40-44"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+          </svg>
         </span>
-      </header>
-      <main id="main">
-        <section className="hero" aria-labelledby="hero-title">
-          <p className="eyebrow">Good food. Closer matches.</p>
-          <h1 id="hero-title">
-            Find the closest
-            <br />
-            <em>vegan alternative.</em>
-          </h1>
-          <p className="hero-description">
-            The burger that gets it right. The cheese that actually melts. Find
-            alternatives to the foods you love, ranked by people who’ve tried
-            them.
+      </section>
+      <section className="section-space" aria-labelledby="categories-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">A good place to start</p>
+            <h2 id="categories-title">What’s on your plate?</h2>
+          </div>
+          <Link className="text-link" to="/us/search">
+            All categories <span aria-hidden="true">↗</span>
+          </Link>
+        </div>
+        <CategoryCards categories={loaderData.catalog.featured} />
+      </section>
+      <section className="how-it-works" aria-label="How VeganAlts works">
+        <div>
+          <span>01 / DISCOVER</span>
+          <h2>Start with the original.</h2>
+          <p>
+            Pick a food you want to replace. Every ranking stays specific to
+            that food.
           </p>
-          <div
-            className="category-strip"
-            aria-label="Categories we’re starting with"
-          >
-            <span>Burgers</span>
-            <span>Milk</span>
-            <span>Cheese</span>
-            <span>Butter</span>
-            <span>Eggs</span>
-          </div>
-          <div className="coming-note">
-            <span className="leaf-mark" aria-hidden="true">
-              ↗
-            </span>
-            <p>
-              A better way to find your next favorite.
-              <br />
-              <strong>We’re getting things ready.</strong>
-            </p>
-          </div>
-        </section>
-        <section
-          className="principles"
-          aria-label="What makes VeganAlts different"
-        >
-          <article>
-            <span className="step-number">01</span>
-            <h2>Find your match</h2>
-            <p>
-              Start with what you want to replace. Discover alternatives
-              available in your country.
-            </p>
-          </article>
-          <article>
-            <span className="step-number">02</span>
-            <h2>Real people. Real experience.</h2>
-            <p>
-              Ranked by how closely they match the original, with more feedback
-              making the picture clearer.
-            </p>
-          </article>
-          <article>
-            <span className="step-number">03</span>
-            <h2>Independent by design</h2>
-            <p>
-              Community experience shapes the rankings. Brands can never buy
-              their way to the top.
-            </p>
-          </article>
-        </section>
-      </main>
-      <footer className="site-footer">
-        <p>Community-ranked vegan alternatives.</p>
-        <p>Made for your next good swap.</p>
-      </footer>
-    </div>
+        </div>
+        <div>
+          <span>02 / COMPARE</span>
+          <h2>Find a closer alternative.</h2>
+          <p>
+            See community scores with enough context to make your next choice.
+          </p>
+        </div>
+        <div>
+          <span>03 / CONTRIBUTE</span>
+          <h2>Tried it? Pass it on.</h2>
+          <p>
+            One quick rating helps the next person find something they’ll love.
+          </p>
+        </div>
+      </section>
+    </SiteShell>
   );
 }

@@ -4,6 +4,9 @@ export default defineConfig({
   testDir: "tests/e2e",
   outputDir: "test-results/playwright",
   fullyParallel: true,
+  // The local harness and dev Worker share one SQLite persistence directory.
+  // Concurrent-write behavior is exercised inside a single D1 binding in Vitest.
+  workers: process.env.TEST_BASE_URL ? undefined : 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   use: {
