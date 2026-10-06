@@ -4,6 +4,12 @@ import { getAuth, profilesService } from "./auth";
 export class BetterAuthSessionReader implements SessionReader {
   constructor(private readonly env: Cloudflare.Env) {}
   async getUser(headers: Headers) {
+    if (
+      !/(?:^|;\s*)(?:__Secure-)?better-auth\.session_token=/.test(
+        headers.get("Cookie") ?? "",
+      )
+    )
+      return null;
     const auth = await getAuth(this.env);
     const session = await auth.api.getSession({ headers });
     if (!session) return null;

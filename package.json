@@ -13,7 +13,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "wrangler types && react-router typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "tsx tests/e2e/prepare.ts && playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.jsonc --env=",
     "db:migrate:staging": "wrangler d1 migrations apply DB --remote --config wrangler.jsonc --env staging",
@@ -28,7 +28,9 @@
     "db:reset:local": "tsx scripts/reset-local.ts",
     "rankings:rebuild:local": "tsx scripts/rebuild-rankings.ts local",
     "rankings:rebuild:staging": "tsx scripts/rebuild-rankings.ts staging",
-    "rankings:rebuild:production": "tsx scripts/rebuild-rankings.ts production"
+    "rankings:rebuild:production": "tsx scripts/rebuild-rankings.ts production",
+    "db:seed-images:local": "tsx scripts/seed-images.ts local",
+    "db:seed-images:staging": "tsx scripts/seed-images.ts staging"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.7",

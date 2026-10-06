@@ -21,6 +21,8 @@
     "ADMIN_USER_IDS": "",
     "RANKING_PRIOR_MEAN": "3.5",
     "RANKING_PRIOR_STRENGTH": "10",
+    "TURNSTILE_SITE_KEY": "",
+    "WEB_ANALYTICS_TOKEN": "",
   },
   "d1_databases": [
     {
@@ -53,6 +55,46 @@
         "period": 60,
       },
     },
+    {
+      "name": "RATING_RATE_LIMIT",
+      "namespace_id": "1791141021",
+      "simple": {
+        "limit": 60,
+        "period": 60,
+      },
+    },
+    {
+      "name": "SEARCH_RATE_LIMIT",
+      "namespace_id": "1791141031",
+      "simple": {
+        "limit": 90,
+        "period": 60,
+      },
+    },
+    {
+      "name": "RATING_RISK_LIMIT",
+      "namespace_id": "1791141041",
+      "simple": {
+        "limit": 20,
+        "period": 60,
+      },
+    },
+    {
+      "name": "AUTH_RISK_LIMIT",
+      "namespace_id": "1791141051",
+      "simple": {
+        "limit": 5,
+        "period": 60,
+      },
+    },
+    {
+      "name": "EVENT_RATE_LIMIT",
+      "namespace_id": "1791141061",
+      "simple": {
+        "limit": 120,
+        "period": 60,
+      },
+    },
   ],
   "env": {
     "staging": {
@@ -80,6 +122,46 @@
             "period": 60,
           },
         },
+        {
+          "name": "RATING_RATE_LIMIT",
+          "namespace_id": "1791141022",
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
+        {
+          "name": "SEARCH_RATE_LIMIT",
+          "namespace_id": "1791141032",
+          "simple": {
+            "limit": 90,
+            "period": 60,
+          },
+        },
+        {
+          "name": "RATING_RISK_LIMIT",
+          "namespace_id": "1791141042",
+          "simple": {
+            "limit": 20,
+            "period": 60,
+          },
+        },
+        {
+          "name": "AUTH_RISK_LIMIT",
+          "namespace_id": "1791141052",
+          "simple": {
+            "limit": 5,
+            "period": 60,
+          },
+        },
+        {
+          "name": "EVENT_RATE_LIMIT",
+          "namespace_id": "1791141062",
+          "simple": {
+            "limit": 120,
+            "period": 60,
+          },
+        },
       ],
       "vars": {
         "APP_ENV": "staging",
@@ -87,6 +169,8 @@
         "ADMIN_USER_IDS": "01a108be-5e63-73fd-b102-43865ee3a4bb,01a108c7-bc76-73cf-b70f-8d3aadd41328",
         "RANKING_PRIOR_MEAN": "3.5",
         "RANKING_PRIOR_STRENGTH": "10",
+        "TURNSTILE_SITE_KEY": "0x4AAAAAAFOv4TTVy40p3IOo",
+        "WEB_ANALYTICS_TOKEN": "e7dbbaef8ad448a6bc2cb6e9ff38f8b3",
       },
       "d1_databases": [
         {
@@ -114,6 +198,29 @@
       },
       "version_metadata": {
         "binding": "VERSION_METADATA",
+      },
+      "analytics_engine_datasets": [
+        {
+          "binding": "APP_EVENTS",
+          "dataset": "veganalts_staging",
+        },
+      ],
+      "cache": {
+        "enabled": false,
+      },
+      "exports": {
+        "default": {
+          "type": "worker",
+          "cache": {
+            "enabled": false,
+          },
+        },
+        "PublicCatalog": {
+          "type": "worker",
+          "cache": {
+            "enabled": true,
+          },
+        },
       },
     },
     "production": {
@@ -145,6 +252,46 @@
             "period": 60,
           },
         },
+        {
+          "name": "RATING_RATE_LIMIT",
+          "namespace_id": "1791141023",
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
+        {
+          "name": "SEARCH_RATE_LIMIT",
+          "namespace_id": "1791141033",
+          "simple": {
+            "limit": 90,
+            "period": 60,
+          },
+        },
+        {
+          "name": "RATING_RISK_LIMIT",
+          "namespace_id": "1791141043",
+          "simple": {
+            "limit": 20,
+            "period": 60,
+          },
+        },
+        {
+          "name": "AUTH_RISK_LIMIT",
+          "namespace_id": "1791141053",
+          "simple": {
+            "limit": 5,
+            "period": 60,
+          },
+        },
+        {
+          "name": "EVENT_RATE_LIMIT",
+          "namespace_id": "1791141063",
+          "simple": {
+            "limit": 120,
+            "period": 60,
+          },
+        },
       ],
       "vars": {
         "APP_ENV": "production",
@@ -152,6 +299,8 @@
         "ADMIN_USER_IDS": "",
         "RANKING_PRIOR_MEAN": "3.5",
         "RANKING_PRIOR_STRENGTH": "10",
+        "TURNSTILE_SITE_KEY": "",
+        "WEB_ANALYTICS_TOKEN": "",
       },
       "d1_databases": [
         {
@@ -180,6 +329,29 @@
       "version_metadata": {
         "binding": "VERSION_METADATA",
       },
+      "analytics_engine_datasets": [
+        {
+          "binding": "APP_EVENTS",
+          "dataset": "veganalts_production",
+        },
+      ],
+      "cache": {
+        "enabled": false,
+      },
+      "exports": {
+        "default": {
+          "type": "worker",
+          "cache": {
+            "enabled": false,
+          },
+        },
+        "PublicCatalog": {
+          "type": "worker",
+          "cache": {
+            "enabled": true,
+          },
+        },
+      },
     },
   },
   "images": {
@@ -194,5 +366,28 @@
   },
   "version_metadata": {
     "binding": "VERSION_METADATA",
+  },
+  "analytics_engine_datasets": [
+    {
+      "binding": "APP_EVENTS",
+      "dataset": "veganalts_local",
+    },
+  ],
+  "cache": {
+    "enabled": false,
+  },
+  "exports": {
+    "default": {
+      "type": "worker",
+      "cache": {
+        "enabled": false,
+      },
+    },
+    "PublicCatalog": {
+      "type": "worker",
+      "cache": {
+        "enabled": false,
+      },
+    },
   },
 }

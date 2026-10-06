@@ -17,7 +17,7 @@ Establish a verified foundation for community-ranked vegan alternatives, and pub
 | [#5](https://github.com/Chaseos/VeganAlts/issues/5) | Pure authoritative ranking policy, internal rating/Tried services, atomic canonical/aggregate updates, aggregate ranking reads, full rebuild command                |
 | [#6](https://github.com/Chaseos/VeganAlts/issues/6) | Authenticated admin uploads, validated JPEG/PNG/WebP, stored derivatives in R2, metadata in D1, retry safety, abandoned-upload recovery                             |
 
-The ten seed categories are Ground Beef, Beef Burgers, Chicken Nuggets, Bacon, Milk, Butter, Cheddar, Mozzarella, Cream Cheese, and Eggs. All seed products are explicitly marked as development records with manufacturer references. Synthetic identities/ratings are limited to isolated automated tests. Seed tooling refuses production.
+The ten seed categories are Ground Beef, Beef Burgers, Chicken Nuggets, Bacon, Milk, Butter, Cheddar, Mozzarella, Cream Cheese, and Eggs. All seed products are explicitly marked as development records with manufacturer references. In milestone 1, synthetic identities/ratings were limited to isolated automated tests. The approved milestone 2 development-data policy now permits clearly labeled deterministic demo accounts and ratings in local/staging; this does not revise the historical milestone 1 verification record. Seed tooling refuses production.
 
 ## Decisions
 

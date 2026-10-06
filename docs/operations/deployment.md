@@ -21,6 +21,7 @@ Use Node 24 LTS and the committed npm lockfile. Wrangler authentication is requi
 3. `0002_operational_state.sql` — formula revisions, upload/attempt state, evidence derivatives.
 4. `0003_integrity_and_search.sql` — reviewed integrity/search triggers.
 5. `0004_media_lookup_indexes.sql` — derivative-key and recovery lookup indexes.
+6. `0005_core_ranking_reads.sql` — private rating cursor index.
 
 Check exact filenames in the directory before operating. Applied migrations are append-only. Generate future schema changes with `npm run db:generate`, inspect generated SQL, and add reviewed custom SQL for unsupported constructs. Better Auth schema generation uses `npm run auth:schema`; diff its output before creating any migration. Never run the reference baseline in addition to the migration history.
 
@@ -29,11 +30,11 @@ npm run db:migrate:local
 npm run db:seed:local
 npm run db:migrate:staging
 npm run db:seed:staging
-npm run rankings:rebuild:staging
+npm run db:seed-images:staging
 npx wrangler d1 execute DB --remote --config wrangler.jsonc --env staging --command 'PRAGMA foreign_key_check'
 ```
 
-The seed has deterministic UUIDs and does not overwrite existing edits. Re-running it is safe. Every catalog record is marked development-only; formula history is illustrative, not a manufacturer claim. Never seed production. Product names/source references are in `db/seed/catalog.ts`; verify labels and market/formula data before promoting records into a public catalog.
+The approved milestone 2 seed uses deterministic IDs for 31 products, ten categories, 28 explicitly labeled demo tasters and sample contributions. Re-running it inserts missing fixtures and updates only approved development classification/notice fields and the old development formula label. It preserves real accounts/contributions, formula transitions and historical verification records, and rebuilds aggregates and FTS after seeding. Demo images use stable upload keys through the normal processing pipeline, so completed retries do not transform again. Every catalog record is development-only; images/formula history/sample ratings are illustrative, not verified manufacturer claims or organic community feedback. Never seed production. Product names/source references are in `db/seed/catalog.ts`; verify labels and market/formula data before promoting records into a public catalog.
 
 Production migrations precede deployment of code requiring them:
 
@@ -85,7 +86,7 @@ The deployment commands build the selected environment before deploying its gene
 
 `/healthz` confirms the Worker can respond; it intentionally does not probe D1 or authentication. For data availability, run a bounded D1 read and the staging integration flows. Logging records generated request IDs, coarse route names, status, and duration, without full URLs, cookies, user emails, or provider responses. Invocation logs are disabled to avoid recording callback query strings.
 
-The public landing cache is keyed by deployment version. HTML does not read sessions and does not set cookies. Account, admin, errors, authentication, and write responses use private/no-store. Public assets use their content hashes; accepted and archived media derivatives use immutable URLs.
+Public home/search/category/product/profile documents, framework data and APIs use the isolated native `PublicCatalog` cache entrypoint, keyed by deployment version, country, route and representation. HTML does not read sessions and does not set cookies. See [core ranking operations](core-ranking.md) for TTLs, invalidation, diagnostics and analytics. Account, admin, errors, authentication, and write responses use private/no-store. Public assets use their content hashes; accepted and archived media derivatives use immutable URLs.
 
 For Worker rollback:
 

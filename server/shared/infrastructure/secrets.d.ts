@@ -8,5 +8,6 @@ declare namespace Cloudflare {
     APPLE_KEY_ID?: string;
     APPLE_PRIVATE_KEY?: string;
     BETTER_AUTH_API_KEY?: string;
+    TURNSTILE_SECRET_KEY?: string;
   }
 }

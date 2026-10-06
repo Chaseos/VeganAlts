@@ -5,6 +5,8 @@ import { requireSameOrigin } from "../../shared/http/security";
 import { limitedFormData } from "../../shared/http/limited-form";
 import { MAX_UPLOAD_BYTES, validateSlot } from "../domain/media";
 import { uploadService } from "../infrastructure/composition";
+import { waitUntil } from "cloudflare:workers";
+import { invalidateProductMedia } from "../../catalog/infrastructure/invalidation";
 
 export async function handleUpload(request: Request, env: Cloudflare.Env) {
   requireSameOrigin(request, env.APP_URL);
@@ -29,11 +31,22 @@ export async function handleUpload(request: Request, env: Cloudflare.Env) {
   const productVersionId = String(form.get("productVersionId"));
   if (productVersionId.length > 100)
     throw new ApplicationError("INVALID_FORM", "Invalid formula ID.");
-  return uploadService(env).upload({
+  const result = await uploadService(env).upload({
     userId: actor.id,
     productVersionId,
     slot: validateSlot(String(form.get("slot"))),
     idempotencyKey: String(form.get("idempotencyKey")),
     bytes: new Uint8Array(await file.arrayBuffer()),
   });
+  waitUntil(
+    invalidateProductMedia(env.DB, productVersionId).catch(() => {
+      console.error(
+        JSON.stringify({
+          event: "catalog_invalidation_failed",
+          kinds: ["product"],
+        }),
+      );
+    }),
+  );
+  return result;
 }

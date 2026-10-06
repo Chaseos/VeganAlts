@@ -204,8 +204,19 @@ export class D1RatingsRepository implements RatingsRepository {
           ),
       );
     }
-    const result = await this.db.batch(statements);
-    return result[0]!.meta.changes === 1;
+    try {
+      const result = await this.db.batch(statements);
+      return result[0]!.meta.changes === 1;
+    } catch (error) {
+      // SQLite aborts the transaction on snapshot contention. Recompute via the
+      // same bounded optimistic retry; other storage failures still propagate.
+      if (
+        error instanceof Error &&
+        /SQLITE_BUSY(?:_SNAPSHOT)?\b/.test(error.message)
+      )
+        return false;
+      throw error;
+    }
   }
 
   async listVersionIds(after: string | null, limit: number) {

@@ -1,0 +1,1 @@
+CREATE INDEX `ix_ratings_user_updated_id` ON `ratings` (`user_id`,"updated_at" desc,"id" desc);
