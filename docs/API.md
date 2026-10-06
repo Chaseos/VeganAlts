@@ -93,7 +93,7 @@ GET /api/v1/profiles/:handle
 
 Categories return all active rankable categories and configured featured categories. Category detail returns category/child metadata, separate ranked and unranked lists, page numbers and `hasNext` flags. Public pages use bounded 20-item pages, at most 100 pages. Search returns grouped categories (up to 12) and products (up to 20), matching canonical names, aliases, brands and ancestry. Query text is normalized, capped at 80 characters and compiled into at most eight literal prefix tokens for FTS5.
 
-Products have one canonical slug independent of category. An optional validated `version` selects an existing historical formula belonging to that product. History remains readable and cannot receive new current-formula ratings. Profile responses contain only chosen handle/display name and rating/Tried counts. Individual rating history is private.
+Products have one canonical slug independent of category. An optional validated `version` selects an existing historical formula belonging to that product. History remains readable and cannot receive new current-formula ratings. Historical product responses retain inactive categories and their aggregate scores with `isActive: 0` and `canRate: 0`; current product responses and category discovery include only active categories. Profile responses contain only chosen handle/display name and rating/Tried counts. Individual rating history is private.
 
 ## 6. Authenticated endpoints
 

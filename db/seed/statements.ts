@@ -118,6 +118,9 @@ export function developmentSeedStatements(
   for (const product of seedProducts) {
     const brandId = seedId(`brand:${product.brand}`);
     const productId = seedId(`product:${product.slug}`);
+    const dataNotes = [DEVELOPMENT_NOTICE, product.notes]
+      .filter(Boolean)
+      .join(" ");
     if (product.family && !families.has(product.family)) {
       families.add(product.family);
       add(
@@ -151,9 +154,7 @@ export function developmentSeedStatements(
           manufacturerLabel: "vegan",
           developmentOnly: 1,
           sourceCheckedAt: SOURCE_CHECKED_AT,
-          dataNotes: [DEVELOPMENT_NOTICE, product.notes]
-            .filter(Boolean)
-            .join(" "),
+          dataNotes,
           ...times,
         })
         .onConflictDoUpdate({
@@ -161,7 +162,7 @@ export function developmentSeedStatements(
           set: {
             veganStatus: "vegan",
             manufacturerLabel: "vegan",
-            dataNotes: DEVELOPMENT_NOTICE,
+            dataNotes,
           },
           setWhere: sql`${schema.products.developmentOnly} = 1`,
         }),

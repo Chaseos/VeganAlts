@@ -108,7 +108,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
         queue = new RatingQueue(
           async (selection) => {
             if (!userRef.current) {
-              signIn(selection, returnTo);
+              signIn(queue?.latestSelection(selection) ?? selection, returnTo);
               throw new SaveError(
                 "Continuing to sign in…",
                 "UNAUTHENTICATED",
@@ -138,11 +138,9 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
                 0,
               );
             }
-            const result = (await response
-              .json()
-              .catch(() => ({
-                title: "The service did not respond correctly. Please retry.",
-              }))) as {
+            const result = (await response.json().catch(() => ({
+              title: "The service did not respond correctly. Please retry.",
+            }))) as {
               data: SavedRating;
               title?: string;
               code?: string;
@@ -150,7 +148,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
             if (response.status === 401) {
               userRef.current = null;
               setUser(null);
-              signIn(selection, returnTo);
+              signIn(queue?.latestSelection(selection) ?? selection, returnTo);
             }
             if (!response.ok)
               throw new SaveError(

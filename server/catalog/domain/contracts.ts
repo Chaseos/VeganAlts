@@ -34,6 +34,7 @@ export interface ProductCategory {
   id: string;
   slug: string;
   name: string;
+  isActive: number;
   canRate: number;
   bayesianScore: number | null;
   ratingCount: number;

@@ -79,6 +79,49 @@ it("reads current aggregate rankings separately from unrated and historical form
   });
 });
 
+it("preserves inactive categories and their scores in read-only formula history", async () => {
+  const versionId = seedId("formula:beyond-beef:historical");
+  const categoryId = seedId("category:ground-beef");
+  const before = await catalog.product("beyond-beef", versionId);
+  const score = before.categories.find(
+    (category) => category.id === categoryId,
+  )!;
+  expect(score.ratingCount).toBeGreaterThan(0);
+  await env.DB.prepare("UPDATE categories SET is_active=0 WHERE id=?")
+    .bind(categoryId)
+    .run();
+  try {
+    const history = await catalog.product("beyond-beef", versionId);
+    expect(
+      history.categories.find((category) => category.id === categoryId),
+    ).toMatchObject({
+      bayesianScore: score.bayesianScore,
+      ratingCount: score.ratingCount,
+      isActive: 0,
+      canRate: 0,
+    });
+    const current = await catalog.product("beyond-beef", null);
+    expect(
+      current.categories.some((category) => category.id === categoryId),
+    ).toBe(false);
+    expect(current.categories.every((category) => category.canRate === 1)).toBe(
+      true,
+    );
+    await expect(catalog.category("ground-beef")).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(
+      (await catalog.home()).categories.some(
+        (category) => category.id === categoryId,
+      ),
+    ).toBe(false);
+  } finally {
+    await env.DB.prepare("UPDATE categories SET is_active=1 WHERE id=?")
+      .bind(categoryId)
+      .run();
+  }
+});
+
 it("preserves real staging-style accounts and contributions on repeated seeds", async () => {
   const f = await catalogFixture(env.DB, 1);
   const version = seedId("formula:beyond-beef:current"),

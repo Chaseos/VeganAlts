@@ -105,7 +105,11 @@ export default function Product({
                 <div>
                   <span className="eyebrow">Compared with</span>
                   <h3>
-                    <Link to={`/us/${c.slug}`}>{c.name} ↗</Link>
+                    {c.isActive ? (
+                      <Link to={`/us/${c.slug}`}>{c.name} ↗</Link>
+                    ) : (
+                      c.name
+                    )}
                   </h3>
                 </div>
                 <Score value={c.bayesianScore} count={c.ratingCount} />
@@ -119,9 +123,11 @@ export default function Product({
                 />
               ) : (
                 <p className="muted">
-                  {p.formula.isCurrent
-                    ? "Ratings aren’t available for this category right now."
-                    : "Historical scores are preserved. Choose the current formula to add your experience."}
+                  {!c.isActive
+                    ? "This category is inactive. Its historical scores are preserved."
+                    : p.formula.isCurrent
+                      ? "Ratings aren’t available for this category right now."
+                      : "Historical scores are preserved. Choose the current formula to add your experience."}
                 </p>
               )}
             </article>

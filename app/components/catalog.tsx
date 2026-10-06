@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Form, Link, useLocation } from "react-router";
 import type {
   CategorySummary,
@@ -17,6 +17,13 @@ export function SiteShell({
 }) {
   const { user } = usePersonalState();
   const location = useLocation();
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  // Cached HTML cannot know the visitor's fragment or discarded query params.
+  // Keep the first client render identical, then attach the full return URL.
+  const signInTo = hydrated
+    ? `/sign-in?returnTo=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`
+    : "/sign-in";
   return (
     <div className="site-shell">
       <aside className="demo-banner" aria-label="Development preview">
@@ -35,11 +42,7 @@ export function SiteShell({
           ) : location.pathname === "/sign-in" ? (
             <span aria-current="page">Sign in</span>
           ) : (
-            <Link
-              to={`/sign-in?returnTo=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`}
-            >
-              Sign in
-            </Link>
+            <Link to={signInTo}>Sign in</Link>
           )}
         </nav>
       </header>

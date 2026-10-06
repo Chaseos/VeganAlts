@@ -40,6 +40,10 @@ export class RatingQueue {
   initialize(score: number | null, tried: boolean) {
     if (this.state.status === "idle") this.set({ selected: score, tried });
   }
+  // Authentication may interrupt an older write after a newer score is queued.
+  latestSelection(inFlight: RatingInput): RatingInput {
+    return this.desired ?? inFlight;
+  }
   select(input: RatingInput) {
     this.desired = input;
     this.set({

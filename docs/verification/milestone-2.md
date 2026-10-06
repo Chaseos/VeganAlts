@@ -125,3 +125,9 @@ npx tsx scripts/verify-cache-staging.ts --staging
 The last two commands intentionally mutate only approved staging fixtures or deploy/remove an isolated verification Worker. Real provider returns require the account holder's normal sign-in. They are not replaced by the automated provider harness.
 
 Deferred scope remains Trending, standalone Tried, detailed-rating UI, community submissions/moderation, retailers and final public-launch hardening. GitHub issue closure follows pull-request review and integration; this record reports implementation and staging verification rather than claiming a merge or release.
+
+## Review follow-up: 2026-10-06
+
+[PR #27](https://github.com/Chaseos/VeganAlts/pull/27) feedback is covered by regressions for the latest queued score surviving reauthentication, inactive categories retaining read-only historical scores, and repeated seeds preserving product-specific notes. Each regression reproduced its reported failure before the fix. Browser checks also cover hydration-safe sign-in links that retain fragments and the visitor's full return URL.
+
+Local verification passed: strict types, **48 unit/integration tests in 17 files**, **18 desktop/mobile browser checks**, and the Worker build. Browser evidence is under ignored `test-results/pr-comment-fixes-final/`. These source changes were verified locally; the staging deployment evidence above remains the 2026-10-05 record.

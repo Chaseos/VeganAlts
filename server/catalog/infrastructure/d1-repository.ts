@@ -97,8 +97,8 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(row.id),
       this.db
         .prepare(
-          `SELECT c.id,c.slug,c.name,CASE WHEN pc.ranking_eligible=1 AND c.is_active=1 AND c.is_rankable=1 AND ${eligible} AND v.is_current=1 THEN 1 ELSE 0 END AS canRate,s.bayesian_score AS bayesianScore,COALESCE(s.rating_count,0) AS ratingCount
-        FROM product_categories pc JOIN categories c ON c.id=pc.category_id JOIN products p ON p.id=pc.product_id JOIN product_versions v ON v.product_id=p.id AND v.id=? LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=c.id WHERE pc.product_id=? AND c.is_active=1 ORDER BY c.name LIMIT 50`,
+          `SELECT c.id,c.slug,c.name,c.is_active AS isActive,CASE WHEN pc.ranking_eligible=1 AND c.is_active=1 AND c.is_rankable=1 AND ${eligible} AND v.is_current=1 THEN 1 ELSE 0 END AS canRate,s.bayesian_score AS bayesianScore,COALESCE(s.rating_count,0) AS ratingCount
+        FROM product_categories pc JOIN categories c ON c.id=pc.category_id JOIN products p ON p.id=pc.product_id JOIN product_versions v ON v.product_id=p.id AND v.id=? LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=c.id WHERE pc.product_id=? AND (c.is_active=1 OR v.is_current=0) ORDER BY c.name LIMIT 50`,
         )
         .bind(row.versionId, row.id),
       this.db

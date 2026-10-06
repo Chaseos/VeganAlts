@@ -102,7 +102,13 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
 
 test("alternate search URLs pass through the normalized public boundary", async ({
   request,
+  page,
 }) => {
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && /hydrat/i.test(message.text()))
+      hydrationErrors.push(message.text());
+  });
   for (const path of [
     "/us/search/",
     "/US/search",
@@ -120,6 +126,15 @@ test("alternate search URLs pass through the normalized public boundary", async 
     expect((await invalid.json()).code).toBe("INVALID_QUERY");
     expect(invalid.headers()["cache-control"]).toContain("no-store");
   }
+  const path = "/US/search/?q=beef&utm_source=browser-check#products";
+  await page.goto(path);
+  await expect(
+    page.getByRole("heading", { name: "Results for “beef”" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Sign in", exact: true }),
+  ).toHaveAttribute("href", `/sign-in?returnTo=${encodeURIComponent(path)}`);
+  expect(hydrationErrors).toEqual([]);
 });
 
 test("public HTML is session-independent apart from fresh CSP nonces; API/private boundaries hold", async ({
