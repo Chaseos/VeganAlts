@@ -3,46 +3,62 @@ import { ApplicationError } from "../domain/errors";
 export interface PublicRoute {
   kind: "home" | "search" | "category" | "product" | "profile" | "media";
   representation: "document" | "data" | "api" | "image";
+  pathname: string;
   ttl: number;
   slug?: string;
 }
 export function publicRoute(url: URL): PublicRoute | null {
-  const media = url.pathname.match(
-    /^\/media\/([a-zA-Z0-9_-]{1,100})\/(?:full|thumbnail|evidence)$/,
-  );
-  if (media)
-    return {
-      kind: "media",
-      representation: "image",
-      ttl: 86400,
-      slug: media[1],
-    };
   const data = url.pathname.endsWith(".data");
-  const path = data
+  let path = data
     ? url.pathname === "/_root.data"
       ? "/"
       : url.pathname.slice(0, -5)
     : url.pathname;
+  // Match the router's decoded segments, case-insensitive paths and trailing
+  // slashes before dispatch. Encoded slashes must remain within their segment.
+  try {
+    path = path
+      .split("/")
+      .map((segment) => decodeURIComponent(segment).replaceAll("/", "%2F"))
+      .join("/");
+  } catch {
+    return null;
+  }
+  path = path.replace(/\/+$/, "") || "/";
+  const media =
+    !data &&
+    path.match(/^\/media\/([a-zA-Z0-9_-]{1,100})\/(full|thumbnail|evidence)$/i);
+  if (media)
+    return {
+      kind: "media",
+      representation: "image",
+      pathname: `/media/${media[1]}/${media[2]!.toLowerCase()}`,
+      ttl: 86400,
+      slug: media[1],
+    };
+  path = path.toLowerCase();
   const representation = data
     ? "data"
     : path.startsWith("/api/")
       ? "api"
       : "document";
+  const canonical: Pick<PublicRoute, "representation" | "pathname"> = {
+    representation,
+    pathname: data ? (path === "/" ? "/_root.data" : `${path}.data`) : path,
+  };
   if (path === "/" || path === "/api/v1/categories")
-    return { kind: "home", representation, ttl: 1800 };
+    return { ...canonical, kind: "home", ttl: 1800 };
   if (path === "/us/search" || path === "/api/v1/search")
-    return { kind: "search", representation, ttl: 600 };
+    return { ...canonical, kind: "search", ttl: 600 };
   let match = path.match(
     /^\/(?:us\/products|api\/v1\/products)\/([a-z0-9-]+)$/,
   );
-  if (match)
-    return { kind: "product", representation, ttl: 900, slug: match[1] };
+  if (match) return { ...canonical, kind: "product", ttl: 900, slug: match[1] };
   match = path.match(/^\/(?:users|api\/v1\/profiles)\/([a-z0-9_]+)$/);
-  if (match)
-    return { kind: "profile", representation, ttl: 600, slug: match[1] };
+  if (match) return { ...canonical, kind: "profile", ttl: 600, slug: match[1] };
   match = path.match(/^\/(?:us|api\/v1\/categories)\/([a-z0-9-]+)$/);
   if (match)
-    return { kind: "category", representation, ttl: 600, slug: match[1] };
+    return { ...canonical, kind: "category", ttl: 600, slug: match[1] };
   return null;
 }
 
@@ -66,7 +82,7 @@ export function normalizedPublicRequest(
       "UNSUPPORTED_COUNTRY",
       "Choose the United States catalog.",
     );
-  const url = new URL(incoming.pathname, origin);
+  const url = new URL(route.pathname, origin);
   const keys =
     route.kind === "search"
       ? ["q"]

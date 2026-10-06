@@ -8,6 +8,57 @@ import {
 } from "../../server/shared/http/public-cache";
 
 const origin = "https://staging.veganalts.com";
+it("classifies router-accepted public aliases and gives them one canonical cache identity", () => {
+  for (const [canonical, aliases] of [
+    [
+      "/us/search",
+      ["/us/search/", "/US/search", "/us/se%61rch", "/%75s/search///"],
+    ],
+    [
+      "/us/search.data",
+      ["/US/search.data", "/us/search/.data", "/us/se%61rch.data"],
+    ],
+    ["/api/v1/search", ["/API/V1/search", "/api/v1/search/"]],
+    ["/us/ground-beef", ["/US/ground-beef/", "/us/GROUND-BEEF"]],
+    [
+      "/us/products/beyond-beef",
+      ["/US/products/beyond-beef/", "/us/products/Beyond-Beef"],
+    ],
+    [
+      "/users/demo_taster_01",
+      ["/USERS/demo_taster_01/", "/users/DEMO_TASTER_01"],
+    ],
+    ["/media/Image_1/full", ["/MEDIA/Image_1/full/", "/media/Image_1/%66ull"]],
+  ] as const) {
+    const request = new Request(`${origin}${canonical}?q=beef`);
+    const expectedRoute = publicRoute(new URL(request.url));
+    const expectedKey = normalizedPublicRequest(request, origin, "v1").url;
+    for (const alias of aliases) {
+      const variant = new Request(`${origin}${alias}?q=beef`);
+      expect(publicRoute(new URL(variant.url))).toEqual(expectedRoute);
+      expect(normalizedPublicRequest(variant, origin, "v1").url).toBe(
+        expectedKey,
+      );
+    }
+  }
+  for (const path of [
+    "/API/V1/ME/ratings/",
+    "/Sign-In/",
+    "/us%2fsearch",
+    "/us/search%2fextra",
+    "/us/%ZZ",
+  ]) {
+    expect(publicRoute(new URL(path, origin))).toBeNull();
+  }
+  expect(() =>
+    normalizedPublicRequest(
+      new Request(`${origin}/US/search/`, { method: "POST" }),
+      origin,
+      "v1",
+    ),
+  ).toThrow();
+});
+
 it("normalizes public identities without session state and separates representations/deployments", () => {
   const input = new Request(
     `${origin}/us/search?q=beef&utm_source=irrelevant`,

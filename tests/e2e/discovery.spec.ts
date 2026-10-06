@@ -34,6 +34,10 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   await expect(
     page.getByRole("heading", { name: "Results for “mince”" }),
   ).toBeVisible();
+  await expect(
+    page.locator(".product-row").filter({ hasText: "Beyond Beef" }),
+  ).toBeVisible();
+  await expect(page.locator(".product-row .unrated-label")).toHaveCount(0);
   await page.getByRole("link", { name: /Ground Beef 3 alternatives/ }).click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Ground Beef" }),
@@ -86,7 +90,36 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   await expect(
     page.getByRole("button", { name: "4 Very close (4 of 5)" }),
   ).toHaveCount(0);
+  await page.goto("/us/bacon");
+  await expect(
+    page
+      .locator(".product-row")
+      .filter({ hasText: "Bacon Seitan" })
+      .locator(".unrated-label"),
+  ).toHaveText("Not yet rated");
   expect(errors).toEqual([]);
+});
+
+test("alternate search URLs pass through the normalized public boundary", async ({
+  request,
+}) => {
+  for (const path of [
+    "/us/search/",
+    "/US/search",
+    "/us/se%61rch",
+    "/us/search/.data",
+    "/US/search.data",
+    "/API/V1/search",
+  ]) {
+    const response = await request.get(`${path}?q=beef`);
+    expect(response.status()).toBe(200);
+    expect(response.headers()["x-public-cache"]).toBeTruthy();
+    expect(response.headers()["cache-control"]).toBe("public, max-age=0");
+    const invalid = await request.get(`${path}?q=beef&q=milk`);
+    expect(invalid.status()).toBe(400);
+    expect((await invalid.json()).code).toBe("INVALID_QUERY");
+    expect(invalid.headers()["cache-control"]).toContain("no-store");
+  }
 });
 
 test("public HTML is session-independent apart from fresh CSP nonces; API/private boundaries hold", async ({

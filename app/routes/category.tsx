@@ -108,6 +108,7 @@ export default function Category({ loaderData: data }: Route.ComponentProps) {
               <ProductRows
                 products={data.unranked}
                 categoryId={data.category.id}
+                unranked
               />
               <Pagination
                 page={data.unrankedPage}

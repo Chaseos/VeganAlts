@@ -218,10 +218,12 @@ export function ProductRows({
   products,
   start,
   categoryId,
+  unranked = false,
 }: {
   products: (ProductSummary | RankingRow)[];
   start?: number;
   categoryId?: string;
+  unranked?: boolean;
 }) {
   return (
     <ol className="product-list" start={start}>
@@ -250,9 +252,9 @@ export function ProductRows({
           </Link>
           {"bayesianScore" in product ? (
             <Score value={product.bayesianScore} count={product.ratingCount} />
-          ) : (
+          ) : unranked ? (
             <span className="unrated-label">Not yet rated</span>
-          )}
+          ) : null}
           <Link
             className="row-arrow"
             to={`/us/products/${product.slug}${categoryId ? `#rate-${categoryId}` : ""}`}
