@@ -37,9 +37,27 @@ May require confidence/proposal workflows:
 
 ## 3. New product submissions
 
-Adding a missing product is intentionally lower risk than modifying a heavily established record.
+Adding a missing product is intentionally lower risk than modifying a heavily established record, but unapproved submissions must not be written into the canonical product catalog.
 
-An authenticated contributor can submit a product with required launch fields. The product may publish directly as **New** after automated validation/duplicate checks unless risk signals require review.
+Milestone 3 uses a deterministic/manual preflight with no external AI dependency:
+
+```text
+submit
+  ↓
+authenticate + rate limit
+  ↓
+deterministic validation
+  ↓
+duplicate / relationship checks
+  ↓
+temporary image staging
+  ↓
+READY / NEEDS_CHANGES / NEEDS_REVIEW
+  ↓
+READY → canonical insert
+REVIEW → pending submission
+CHANGES → return actionable errors
+```
 
 Minimum product submission should eventually include:
 
@@ -49,6 +67,16 @@ Minimum product submission should eventually include:
 - at least one replacement category;
 - product-front image or other credible identity evidence;
 - vegan/plant-based evidence state sufficient for current policy.
+
+Before approval:
+
+- canonical product/version/category/image rows are not created;
+- uploaded evidence may live temporarily in R2;
+- ambiguous submissions may be persisted only as pending-review records.
+
+After approval, canonical records are created and approved images are promoted to canonical R2 keys.
+
+Abandoned/rejected temporary uploads are deleted after a configured retention window.
 
 The exact launch minimum remains a milestone UX decision.
 
@@ -150,9 +178,11 @@ Protection rules belong in moderation policy/configuration, not scattered UI cod
 
 ## 8. Contributor trust
 
-Contributor trust may affect **how much confidence their factual edit contributes**.
+Contributor trust is a **post-launch** capability.
 
-Possible signals:
+Do not calibrate a trust/reputation algorithm until VeganAlts has enough real contribution history to identify which signals are actually predictive of reliable factual edits.
+
+Potential future signals include:
 
 - account age;
 - accepted product additions;
@@ -163,11 +193,13 @@ Possible signals:
 - previous moderation reversals;
 - rate-limit/abuse history.
 
+Milestone 4 moderation must work without a computed trust score.
+
 ### Important separation
 
-Contributor trust must **not** increase their ranking vote weight.
+Contributor trust must **not** increase ranking vote weight.
 
-A trusted moderator's 5/5 similarity rating counts as one person's rating.
+A trusted moderator's 5/5 similarity rating still counts as one person's rating.
 
 ## 9. Vegan / plant-based status
 
@@ -323,17 +355,75 @@ Formula history, product identity and accepted image history should never be des
 
 ## 18. Moderation automation
 
-Automation may:
+### 18.1 Deterministic controls first
 
-- detect obvious duplicates;
-- enforce rate limits;
-- reject malformed uploads;
-- flag bursts of suspicious votes;
-- assign risk tier;
-- auto-accept sufficiently confirmed low/medium-risk changes;
-- route high-risk changes to human review.
+Before any model call, ordinary code should:
 
-Automation should not make opaque substantive decisions about controversial vegan status without evidence and an appeal/review path.
+- authenticate contribution actions;
+- enforce per-account and IP/network rate limits;
+- enforce concurrency limits;
+- reject malformed/oversized uploads;
+- cap images and staged bytes per submission;
+- detect exact repeated image uploads using content hashes;
+- run exact/near duplicate checks;
+- validate known category/retailer/entity relationships;
+- enforce idempotency on submission/finalization operations.
+
+Do not spend model quota on questions deterministic code can answer.
+
+### 18.2 Temporary staging and quota protection
+
+Community-supplied images/evidence may be staged in temporary R2 storage before approval.
+
+Repeated identical uploads should not repeatedly trigger expensive image/model processing.
+
+Provider failures, quota exhaustion, and timeouts must degrade to a retryable or **NEEDS_REVIEW** state, never automatic approval.
+
+### 18.3 Clef is the initial automated decision provider
+
+Milestone 4 adds Cloudflare Workers AI **Clef / Clef-flash** behind a provider-neutral interface such as `ModerationDecisionService`.
+
+Use Clef-flash for simpler/high-volume finite decisions and full Clef for more ambiguous evidence/product/formula questions.
+
+Prefer narrow structured questions such as:
+
+- does this image match the claimed product?;
+- what type of product evidence is this?;
+- does this evidence support the proposed factual change?;
+- is this contribution likely spam/commercial promotion?;
+- does this product plausibly fit the proposed category?
+
+The policy layer converts model probabilities into:
+
+```text
+READY
+NEEDS_CHANGES
+NEEDS_REVIEW
+BLOCKED
+```
+
+Uncertainty routes to review rather than automatic rejection.
+
+### 18.4 AI is evidence, not truth
+
+Clef must not independently:
+
+- declare a product definitively vegan;
+- apply a major formula transition;
+- merge/delete an established product;
+- override community similarity ratings.
+
+Protected factual changes still require the appropriate evidence/community/human review path.
+
+Persist enough model/schema/probability metadata for auditability while avoiding unnecessary raw prompt/model text.
+
+### 18.5 Future provider evaluation
+
+OpenAI Decisions API, Jev, or later decision models may be benchmarked later against a labeled VeganAlts evaluation set.
+
+They are not dependencies for the initial implementation.
+
+Domain code should depend on the provider-neutral moderation interface so a later comparison does not require redesigning the workflow.
 
 ## 19. Brand/business participation
 
