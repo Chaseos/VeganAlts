@@ -21,6 +21,7 @@ export function CommunityFeedback({
       </div>
       {action.challenge && (
         <Turnstile
+          key={action.challengeAttempt}
           siteKey={siteKey}
           action="community"
           onToken={action.setToken}

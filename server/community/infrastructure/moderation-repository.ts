@@ -270,7 +270,7 @@ export class ModerationRepository {
     const rows = await this.db
       .prepare(
         `WITH items AS (
-      SELECT s.id,'submission' AS kind,COALESCE(p.name,json_extract(ps.proposed_data,'$.name'),'Product submission') AS title,s.state AS status,s.created_at AS createdAt,ps.resolution_note AS resolutionNote,p.slug AS productSlug FROM submission_receipts s LEFT JOIN pending_submissions ps ON ps.submission_id=s.id LEFT JOIN products p ON p.id=s.product_id WHERE s.user_id=? AND s.purpose='submission'
+      SELECT s.id,'submission' AS kind,COALESCE(p.name,json_extract(ps.proposed_data,'$.name'),'Product submission') AS title,CASE WHEN ps.superseded_by IS NOT NULL THEN 'superseded' ELSE s.state END AS status,s.created_at AS createdAt,ps.resolution_note AS resolutionNote,p.slug AS productSlug FROM submission_receipts s LEFT JOIN pending_submissions ps ON ps.submission_id=s.id LEFT JOIN products p ON p.id=s.product_id WHERE s.user_id=? AND s.purpose='submission'
       UNION ALL SELECT ep.id,'proposal',replace(ep.change_type,'_',' '),ep.status,ep.created_at,ep.resolution_note,p.slug FROM edit_proposals ep LEFT JOIN products p ON p.id=ep.target_id WHERE ep.submitted_by=?
       UNION ALL SELECT id,'report',replace(reason_code,'_',' '),status,created_at,resolution_note,NULL FROM reports WHERE reporter_user_id=?
     ) SELECT * FROM items WHERE ? IS NULL OR (createdAt,id)<(?,?) ORDER BY createdAt DESC,id DESC LIMIT 31`,

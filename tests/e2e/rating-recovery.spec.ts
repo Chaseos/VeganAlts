@@ -187,6 +187,9 @@ test("rate limits and an unavailable security check preserve a recoverable selec
   const session = await createBrowserSession();
   try {
     await context.addCookies([session.cookie]);
+    await page.route("https://challenges.cloudflare.com/**", (route) =>
+      route.abort("failed"),
+    );
     await page.goto("/us/products/beyond-burger");
     let challenge = false;
     await page.route("**/api/v1/ratings", (route) =>
@@ -212,7 +215,7 @@ test("rate limits and an unavailable security check preserve a recoverable selec
     challenge = true;
     await retry.click();
     await expect(page.getByRole("alert")).toContainText(
-      "The security check is unavailable",
+      "The security check could not load",
     );
     await expect(retry).toBeDisabled();
     await page.unroute("**/api/v1/ratings");

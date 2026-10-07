@@ -128,13 +128,22 @@ export async function ensureBrowserOperator() {
     );
     ids.add(user.id);
     const line = `ADMIN_USER_IDS=${[...ids].join(",")}`;
-    await writeFile(
-      ".dev.vars",
-      match
-        ? current.replace(/^ADMIN_USER_IDS=.*$/m, line)
-        : `${current.trimEnd()}\n${line}\n`,
-      { mode: 0o600 },
-    );
+    let updated = match
+      ? current.replace(/^ADMIN_USER_IDS=.*$/m, line)
+      : `${current.trimEnd()}\n${line}\n`;
+    // Public dummy sitekey, restricted to this local harness. The challenge
+    // test simulates the provider in-browser; no test secret is deployed.
+    // https://developers.cloudflare.com/turnstile/troubleshooting/testing/
+    const siteKey = "TURNSTILE_SITE_KEY=1x00000000000000000000AA";
+    const configuredSiteKey = updated
+      .match(/^TURNSTILE_SITE_KEY=(.*)$/m)?.[1]
+      ?.trim()
+      .replace(/^['"]|['"]$/g, "");
+    if (!configuredSiteKey)
+      updated = /^TURNSTILE_SITE_KEY=/m.test(updated)
+        ? updated.replace(/^TURNSTILE_SITE_KEY=.*$/m, siteKey)
+        : `${updated.trimEnd()}\n${siteKey}\n`;
+    await writeFile(".dev.vars", updated, { mode: 0o600 });
   } finally {
     await proxy.dispose();
   }

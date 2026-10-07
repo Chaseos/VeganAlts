@@ -32,7 +32,7 @@ export class QueueDecisionRepository {
     if (kind === "submission") {
       const row = await this.db
         .prepare(
-          "SELECT s.*,p.proposed_data,p.reasons,p.revision,p.resolution_note FROM submission_receipts s LEFT JOIN pending_submissions p ON p.submission_id=s.id WHERE s.id=? AND (s.user_id=? OR ?=1)",
+          "SELECT s.*,p.proposed_data,p.reasons,p.revision,p.resolution_note,p.resolved_at,p.superseded_by,prior.submission_id AS previous_submission_id FROM submission_receipts s LEFT JOIN pending_submissions p ON p.submission_id=s.id LEFT JOIN pending_submissions prior ON prior.superseded_by=s.id WHERE s.id=? AND (s.user_id=? OR ?=1)",
         )
         .bind(id, actor.id, Number(actor.administrator))
         .first<
@@ -41,6 +41,9 @@ export class QueueDecisionRepository {
             reasons: string | null;
             revision: number | null;
             resolution_note: string | null;
+            resolved_at: number | null;
+            superseded_by: string | null;
+            previous_submission_id: string | null;
           }
         >();
       if (!row)
@@ -51,7 +54,16 @@ export class QueueDecisionRepository {
       return {
         kind,
         id,
-        status: row.state,
+        status: row.superseded_by ? "superseded" : row.state,
+        supersededBy: row.superseded_by,
+        followUpOf: row.previous_submission_id,
+        canFollowUp:
+          row.user_id === actor.id &&
+          row.state === "review" &&
+          row.resolved_at === null &&
+          Boolean(row.resolution_note) &&
+          !row.superseded_by &&
+          row.expires_at > Date.now(),
         revision: row.revision ?? 0,
         proposed,
         referenceLabels: await this.referenceLabels(proposed, null),

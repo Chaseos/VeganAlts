@@ -44,6 +44,7 @@ export function useCommunityAction() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [challenge, setChallenge] = useState(false),
+    [challengeAttempt, setChallengeAttempt] = useState(0),
     [hasToken, setHasToken] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null),
     token = useRef("");
@@ -60,6 +61,9 @@ export function useCommunityAction() {
     }
     const value = token.current;
     setToken("");
+    // Tokens are single-use, including rejected requests. A multi-request flow
+    // may need another challenge before its next upload or finalization.
+    if (value) setChallengeAttempt((attempt) => attempt + 1);
     return communityRequest<T>(path, body, key, value);
   }
   async function run<T>(work: () => Promise<T>): Promise<T | undefined> {
@@ -89,6 +93,7 @@ export function useCommunityAction() {
     busy,
     error,
     challenge,
+    challengeAttempt,
     hasToken,
     errorRef,
     setToken,

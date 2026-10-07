@@ -53,10 +53,18 @@ export default function Contributions({
           <p>
             <Link to="/my-contributions">← All contributions</Link>
           </p>
-          {detail.resolutionNote && (
+          {detail.kind === "submission" && detail.canFollowUp && (
+            <Link className="button" to={`/add-product?followUp=${detail.id}`}>
+              Respond to follow-up →
+            </Link>
+          )}
+          {detail.kind === "submission" && detail.supersededBy && (
             <p>
-              For a requested correction, submit a fresh proposal with the
-              updated evidence. Your earlier record remains in this history.
+              This record was replaced by your{" "}
+              <Link to={`/my-contributions/submission/${detail.supersededBy}`}>
+                revised submission
+              </Link>
+              . The original details and evidence remain available here.
             </p>
           )}
         </div>

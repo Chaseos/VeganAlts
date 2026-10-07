@@ -128,25 +128,18 @@ export default {
             );
           if (route.kind === "search")
             await enforceLimit(env.SEARCH_RATE_LIMIT, clientKey(request));
-          const duplicate =
-            route.kind === "product" && route.slug
-              ? await (
-                  await import("../server/community/infrastructure/public-read")
-                ).readCanonicalRedirect(env.DB, route.slug)
-              : null;
-          response = duplicate
-            ? await requestHandler(request)
-            : await context.exports.PublicCatalog.fetch(
-                normalizedPublicRequest(
-                  request,
-                  env.APP_URL,
-                  env.VERSION_METADATA.id,
-                ),
-              );
-          cacheOutcome = duplicate
-            ? "BYPASS"
-            : (response.headers.get("CF-Cache-Status") ??
-              (env.APP_ENV === "local" ? "LOCAL" : "UNKNOWN"));
+          // Redirect lookup belongs to the public loaders on a cache miss.
+          // Material changes purge product tags; redirect responses are no-store.
+          response = await context.exports.PublicCatalog.fetch(
+            normalizedPublicRequest(
+              request,
+              env.APP_URL,
+              env.VERSION_METADATA.id,
+            ),
+          );
+          cacheOutcome =
+            response.headers.get("CF-Cache-Status") ??
+            (env.APP_ENV === "local" ? "LOCAL" : "UNKNOWN");
           if (
             response.ok &&
             request.method === "GET" &&

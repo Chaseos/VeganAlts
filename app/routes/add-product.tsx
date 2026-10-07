@@ -25,13 +25,17 @@ import { CatalogSelect } from "../components/catalog-select";
 import type { Route } from "./+types/add-product";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  await communityPageActor(request, env);
+  const actor = await communityPageActor(request, env);
+  const services = communityServices(env);
+  const query = new URL(request.url).searchParams;
+  const followUpId = query.get("followUp");
   return {
-    options: (await communityServices(
-      env,
-    ).lookup.options()) as unknown as CommunityOptions,
+    options: (await services.lookup.options()) as unknown as CommunityOptions,
     siteKey: env.TURNSTILE_SITE_KEY,
-    category: new URL(request.url).searchParams.get("category"),
+    category: query.get("category"),
+    followUp: followUpId
+      ? await services.submissions.revisionSource(actor, followUpId)
+      : null,
   };
 }
 export function meta() {
@@ -41,13 +45,13 @@ export function meta() {
   ];
 }
 export default function AddProduct({
-  loaderData: { options, siteKey, category },
+  loaderData: { options, siteKey, category, followUp },
 }: Route.ComponentProps) {
   const [step, setStep] = useState(1),
-    [name, setName] = useState(""),
-    [brand, setBrand] = useState(""),
+    [name, setName] = useState(followUp?.input.name ?? ""),
+    [brand, setBrand] = useState(followUp?.input.brand ?? ""),
     [categories, setCategories] = useState<string[]>(
-      category ? [category] : [],
+      followUp?.input.categoryIds ?? (category ? [category] : []),
     ),
     [candidates, setCandidates] = useState<Candidate[]>([]);
   const [brandOptions, setBrandOptions] = useState(options.brands);
@@ -70,8 +74,12 @@ export default function AddProduct({
     };
   }, [brand, options.brands]);
   const [files, setFiles] = useState<Partial<Record<ImageSlot, File>>>({}),
-    [ingredientUrl, setIngredientUrl] = useState(""),
-    [details, setDetails] = useState<SubmissionInput | null>(null),
+    [ingredientUrl, setIngredientUrl] = useState(
+      followUp?.input.ingredientUrl ?? "",
+    ),
+    [details, setDetails] = useState<SubmissionInput | null>(
+      followUp?.input ?? null,
+    ),
     [receipt, setReceipt] = useState<string | null>(null),
     [result, setResult] = useState<string | null>(null);
   const action = useCommunityAction(),
@@ -123,6 +131,14 @@ export default function AddProduct({
         form.get("manufacturerLabel"),
       ) as SubmissionInput["manufacturerLabel"],
       specialtyFlavor: form.get("specialty") === "on",
+      ...(followUp
+        ? {
+            followUp: {
+              submissionId: followUp.submissionId,
+              expectedRevision: followUp.expectedRevision,
+            },
+          }
+        : {}),
       ...(family ? { productFamilyId: family } : {}),
       ...(related
         ? {
@@ -191,6 +207,23 @@ export default function AddProduct({
             reliable alternative.
           </p>
         </header>
+        {followUp && (
+          <aside className="community-panel" aria-label="Requested follow-up">
+            <h2>Respond to the operator</h2>
+            <p>{followUp.note}</p>
+            <p>
+              Update the details and attach the photos you want reviewed. Your
+              <Link
+                to={`/my-contributions/submission/${followUp.submissionId}`}
+              >
+                {" "}
+                original submission and evidence
+              </Link>{" "}
+              remain in your history. This response will return to manual
+              review.
+            </p>
+          </aside>
+        )}
         <ol className="step-list" aria-label="Submission progress">
           {["Identify", "Check matches", "Add evidence", "Review"].map(
             (label, i) => (

@@ -50,6 +50,7 @@ export class SubmissionService {
         state: prior.state,
       };
     }
+    if (input.followUp) await this.checkFollowUp(actor, input.followUp);
     const context = await this.lookup.context(input);
     const decision = decideSubmission(
       input,
@@ -83,6 +84,42 @@ export class SubmissionService {
     );
     return { receiptId: receipt.id };
   }
+  async revisionSource(actor: Actor, submissionId: string) {
+    active(actor);
+    const source = await this.repository.followUpSource(submissionId, actor.id);
+    if (!source)
+      throw new ApplicationError("NOT_FOUND", "Submission not found.", 404);
+    if (
+      source.state !== "review" ||
+      source.expires_at <= this.clock() ||
+      source.resolved_at !== null ||
+      !source.resolution_note ||
+      source.superseded_by
+    )
+      throw new ApplicationError(
+        "SUBMISSION_CHANGED",
+        "This submission is no longer awaiting your response. Refresh its status.",
+        409,
+      );
+    return {
+      submissionId,
+      expectedRevision: source.revision,
+      note: source.resolution_note,
+      input: submissionInput.parse(JSON.parse(source.proposed_data)),
+    };
+  }
+  private async checkFollowUp(
+    actor: Actor,
+    followUp: NonNullable<SubmissionInput["followUp"]>,
+  ) {
+    const source = await this.revisionSource(actor, followUp.submissionId);
+    if (source.expectedRevision !== followUp.expectedRevision)
+      throw new ApplicationError(
+        "SUBMISSION_CHANGED",
+        "The operator's request changed. Reopen your contribution before responding.",
+        409,
+      );
+  }
   async finalize(actor: Actor, receiptId: string, input: SubmissionInput) {
     active(actor);
     const receipt = await this.owned(actor, receiptId);
@@ -105,6 +142,7 @@ export class SubmissionService {
         "This submission has expired or is already being finalized.",
         409,
       );
+    if (input.followUp) await this.checkFollowUp(actor, input.followUp);
     const context = await this.lookup.context(input);
     const decision = decideSubmission(
       input,
@@ -119,6 +157,7 @@ export class SubmissionService {
         input,
         decision.reasons,
         this.clock(),
+        this.newId(),
       );
       return { ...decision, receiptId };
     }

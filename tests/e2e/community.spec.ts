@@ -77,7 +77,8 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await expect(
       page.getByText("Status: review", { exact: true }),
     ).toBeVisible();
-    const receiptId = new URL(page.url()).pathname.split("/").at(-1)!;
+    let receiptId = new URL(page.url()).pathname.split("/").at(-1)!;
+    const originalReceiptId = receiptId;
     const unauthorized = await page.request.get(
       "/api/v1/admin/moderation/inbox",
     );
@@ -93,6 +94,78 @@ test("submission, private receipt, operator publication, reporting, formula hist
       path: testInfo.outputPath("operator-review.png"),
       fullPage: true,
     });
+    await page
+      .getByLabel("Decision", { exact: true })
+      .selectOption("follow_up");
+    await page
+      .getByLabel("Reason and next steps")
+      .fill(
+        "Please clarify the flavor and attach the corrected ingredient source.",
+      );
+    await page.getByRole("button", { name: "Save decision" }).click();
+    await expect(
+      page.getByText(
+        "Please clarify the flavor and attach the corrected ingredient source.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await context.addCookies([contributor.cookie]);
+    await page.goto(`/my-contributions/submission/${receiptId}`);
+    await page.getByRole("link", { name: "Respond to follow-up" }).click();
+    await expect(page.getByLabel("Product name", { exact: true })).toHaveValue(
+      name,
+    );
+    await expect(
+      page.getByRole("complementary", { name: "Requested follow-up" }),
+    ).toContainText("Please clarify");
+    await page.getByRole("button", { name: "Check for matches" }).click();
+    await page.getByRole("button", { name: "Add evidence" }).click();
+    await page
+      .getByLabel("Front photo (required)")
+      .setInputFiles("tests/fixtures/small.jpg");
+    await page
+      .getByLabel(/Manufacturer ingredient source/)
+      .fill("https://example.com/corrected-ingredients");
+    await page
+      .getByLabel("What supports the ingredient classification?")
+      .fill("Updated manufacturer source for the original flavor and recipe.");
+    await page
+      .getByText("Variants and related products (optional)", { exact: true })
+      .click();
+    await page.getByLabel(/Specialty flavor/).uncheck();
+    await accessible(page);
+    await page.screenshot({
+      path: testInfo.outputPath("submission-follow-up.png"),
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Review submission" }).click();
+    await page
+      .getByRole("button", { name: "Submit product", exact: true })
+      .click();
+    await page.getByRole("link", { name: "View submission receipt" }).click();
+    await expect(
+      page.getByText("Status: review", { exact: true }),
+    ).toBeVisible();
+    receiptId = new URL(page.url()).pathname.split("/").at(-1)!;
+    expect(receiptId).not.toBe(originalReceiptId);
+    await page
+      .getByRole("link", { name: "original submission and evidence" })
+      .click();
+    await expect(
+      page.getByText("Status: superseded", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("img", { name: "front evidence" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Respond to follow-up" }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("link", { name: "revised submission", exact: true })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/submission/${receiptId}$`));
+    await context.addCookies([operator.cookie]);
+    await page.goto(`/admin/moderation/submission/${receiptId}`);
     await page
       .getByLabel("Reason and next steps")
       .fill(
@@ -261,6 +334,22 @@ test("submission, private receipt, operator publication, reporting, formula hist
     expect(redirect.status()).toBe(302);
     expect(redirect.headers().location).toBe("/us/products/beyond-burger");
     expect(redirect.headers()["cache-control"]).toContain("no-store");
+    const apiRedirect = await page.request.get(
+      `/api/v1/products/${slug}?version=donor-only`,
+      { maxRedirects: 0 },
+    );
+    expect(apiRedirect.status()).toBe(302);
+    expect(apiRedirect.headers().location).toBe(
+      "/api/v1/products/beyond-burger",
+    );
+    expect(apiRedirect.headers()["cache-control"]).toContain("no-store");
+    const dataRedirect = await page.request.get(
+      `/us/products/${slug}.data?version=donor-only`,
+      { maxRedirects: 0 },
+    );
+    expect(dataRedirect.status()).toBe(202);
+    expect(dataRedirect.headers()["cache-control"]).toContain("no-store");
+    expect(await dataRedirect.text()).toContain("/us/products/beyond-burger");
     await page
       .locator("li")
       .filter({ has: page.getByText("consolidation", { exact: true }) })

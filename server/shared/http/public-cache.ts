@@ -116,6 +116,9 @@ export function normalizedPublicRequest(
   // nonce survives this boundary. Public loaders receive only normalized input.
   return new Request(url, {
     method: "GET",
+    // The internal fetch must return uncached redirects to the visitor instead
+    // of following them and potentially caching the survivor under the donor.
+    redirect: "manual",
     headers: {
       Accept: route.representation === "document" ? "text/html" : "*/*",
       "X-Request-ID":

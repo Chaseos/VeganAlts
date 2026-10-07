@@ -93,6 +93,8 @@ export function decideSubmission(
       candidates,
     };
   const reasons = [];
+  if (input.followUp)
+    reasons.push("Updated evidence must be reviewed by an operator.");
   if (candidates.length)
     reasons.push("A related catalog entry needs an identity check.");
   if (input.specialtyFlavor)

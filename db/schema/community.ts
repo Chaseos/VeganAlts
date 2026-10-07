@@ -128,8 +128,15 @@ export const pendingSubmissions = sqliteTable(
     }),
     resolutionNote: text("resolution_note"),
     resolvedAt: integer("resolved_at"),
+    supersededBy: text("superseded_by").references(
+      () => submissionReceipts.id,
+      {
+        onDelete: "restrict",
+      },
+    ),
   },
   (t) => [
+    uniqueIndex("ux_pending_superseded_by").on(t.supersededBy),
     check(
       "ck_pending_payload_json",
       sql`json_valid(${t.proposedData}) AND json_valid(${t.reasons})`,

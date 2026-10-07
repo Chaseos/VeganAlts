@@ -57,6 +57,13 @@
       "when": 1791406590815,
       "tag": "0007_staged_byte_accounting",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791414013649,
+      "tag": "0008_submission_followups",
+      "breakpoints": true
     }
   ]
 }

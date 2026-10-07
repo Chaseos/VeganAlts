@@ -163,6 +163,15 @@ export function ContributionContent({
         <strong>Status: {friendly(detail.status)}</strong>
         {detail.resolutionNote && <p>{detail.resolutionNote}</p>}
       </div>
+      {detail.kind === "submission" && detail.followUpOf && (
+        <p>
+          Follow-up to the{" "}
+          <Link to={`/my-contributions/submission/${detail.followUpOf}`}>
+            original submission and evidence
+          </Link>
+          .
+        </p>
+      )}
       {"publishedProduct" in detail && detail.publishedProduct && (
         <p>
           <Link

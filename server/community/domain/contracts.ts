@@ -77,6 +77,13 @@ export const submissionInput = z
       .enum(["variant", "specialty_flavor", "companion", "successor"])
       .optional(),
     specialtyFlavor: z.boolean().default(false),
+    followUp: z
+      .object({
+        submissionId: id,
+        expectedRevision: z.number().int().nonnegative(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine(

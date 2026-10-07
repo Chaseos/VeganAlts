@@ -72,6 +72,7 @@ it("normalizes public identities without session state and separates representat
     },
   );
   const normalized = normalizedPublicRequest(input, origin, "v1");
+  expect(normalized.redirect).toBe("manual");
   for (const header of ["Cookie", "Authorization", "Origin", "X-Render-Nonce"])
     expect(normalized.headers.has(header)).toBe(false);
   expect(normalized.url).not.toContain("utm_source");
@@ -135,6 +136,7 @@ it("uses native stale semantics with bounded stale errors and separate browser d
   for (const response of [
     new Response("failure", { status: 500 }),
     new Response(null, { status: 302, headers: { Location: "/sign-in" } }),
+    new Response("router data redirect", { status: 202 }),
     new Response("private", { headers: { "Set-Cookie": "secret" } }),
     new Response("personal", {
       headers: { "Cache-Control": "private, no-store" },

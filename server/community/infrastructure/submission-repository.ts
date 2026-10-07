@@ -41,6 +41,23 @@ export class SubmissionRepository {
       .bind(userId, key)
       .first<SubmissionReceipt>();
   }
+  followUpSource(id: string, userId: string) {
+    return this.db
+      .prepare(
+        `SELECT s.state,s.expires_at,p.* FROM submission_receipts s
+      JOIN pending_submissions p ON p.submission_id=s.id WHERE s.id=? AND s.user_id=?`,
+      )
+      .bind(id, userId)
+      .first<{
+        state: SubmissionReceipt["state"];
+        expires_at: number;
+        proposed_data: string;
+        revision: number;
+        resolution_note: string | null;
+        resolved_at: number | null;
+        superseded_by: string | null;
+      }>();
+  }
   async reserve(
     userId: string,
     key: string,
@@ -97,24 +114,89 @@ export class SubmissionRepository {
     input: SubmissionInput,
     reasons: string[],
     now: number,
+    token: string,
   ) {
-    const results = await this.db.batch([
+    // The new receipt becomes reviewable only if the original request still
+    // awaits this contributor. The same fence closes it and records the link.
+    const fence =
+      "EXISTS(SELECT 1 FROM submission_receipts WHERE id=? AND state='review' AND active_token=?)";
+    const guard = [receipt.id, token];
+    const statements = [
       this.db
         .prepare(
-          "UPDATE submission_receipts SET state='review',updated_at=?,expires_at=? WHERE id=? AND state='staging' AND expires_at>?",
+          `UPDATE submission_receipts SET state='review',active_token=?,updated_at=?,expires_at=? WHERE id=? AND state='staging' AND expires_at>?
+          AND EXISTS(SELECT 1 FROM profiles WHERE user_id=submission_receipts.user_id AND account_state='active')
+          ${
+            input.followUp
+              ? `AND EXISTS(SELECT 1 FROM submission_receipts s JOIN pending_submissions p ON p.submission_id=s.id
+            WHERE s.id=? AND s.user_id=? AND s.state='review' AND s.expires_at>? AND p.revision=?
+            AND p.resolved_at IS NULL AND p.resolution_note IS NOT NULL AND p.superseded_by IS NULL)`
+              : ""
+          }`,
         )
-        .bind(now, now + this.limits.reviewRetention, receipt.id, now),
+        .bind(
+          token,
+          now,
+          now + this.limits.reviewRetention,
+          receipt.id,
+          now,
+          ...(input.followUp
+            ? [
+                input.followUp.submissionId,
+                receipt.user_id,
+                now,
+                input.followUp.expectedRevision,
+              ]
+            : []),
+        ),
       this.db
         .prepare(
-          "INSERT INTO pending_submissions(submission_id,proposed_data,reasons) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM submission_receipts WHERE id=? AND state='review') ON CONFLICT DO NOTHING",
+          `INSERT INTO pending_submissions(submission_id,proposed_data,reasons) SELECT ?,?,? WHERE ${fence} ON CONFLICT DO NOTHING`,
         )
         .bind(
           receipt.id,
           JSON.stringify(input),
           JSON.stringify(reasons),
-          receipt.id,
+          ...guard,
         ),
-    ]);
+    ];
+    if (input.followUp)
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,before_data,after_data,created_at)
+        SELECT ?,?,'submission_amended','submission',submission_id,
+          json_object('proposed',json(proposed_data),'revision',revision,'resolutionNote',resolution_note),?,?
+        FROM pending_submissions WHERE submission_id=? AND ${fence}`,
+          )
+          .bind(
+            token,
+            receipt.user_id,
+            JSON.stringify({ supersededBy: receipt.id, proposed: input }),
+            now,
+            input.followUp.submissionId,
+            ...guard,
+          ),
+        this.db
+          .prepare(
+            `UPDATE pending_submissions SET revision=revision+1,superseded_by=?,resolved_at=?
+        WHERE submission_id=? AND ${fence}`,
+          )
+          .bind(receipt.id, now, input.followUp.submissionId, ...guard),
+        this.db
+          .prepare(
+            `UPDATE submission_receipts SET updated_at=? WHERE id=? AND ${fence}`,
+          )
+          .bind(now, input.followUp.submissionId, ...guard),
+      );
+    statements.push(
+      this.db
+        .prepare(
+          `UPDATE submission_receipts SET active_token=NULL WHERE id=? AND active_token=?`,
+        )
+        .bind(...guard),
+    );
+    const results = await this.db.batch(statements);
     if (
       !results[0]!.meta.changes &&
       (await this.get(receipt.id))?.state !== "review"
