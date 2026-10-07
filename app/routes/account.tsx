@@ -14,9 +14,13 @@ async function accountUser(request: Request) {
   return requirePageUser(request, env);
 }
 export async function loader({ request }: Route.LoaderArgs) {
+  const user = await accountUser(request);
   return {
-    user: await accountUser(request),
+    user,
     staging: env.APP_ENV !== "production",
+    administrator: env.ADMIN_USER_IDS.split(",")
+      .map((s) => s.trim())
+      .includes(user.id),
   };
 }
 export function meta() {
@@ -82,6 +86,10 @@ export default function Account({
         <div className="button-row">
           <Link to={`/users/${profile.handle}`}>View public profile ↗</Link>
           <Link to="/my-ratings">My Ratings →</Link>
+          <Link to="/my-contributions">My contributions →</Link>
+          {loaderData.administrator && (
+            <Link to="/admin/moderation">Moderation inbox →</Link>
+          )}
         </div>
         <Form method="post" className="account-form" reloadDocument>
           <label htmlFor="handle">Public handle</label>

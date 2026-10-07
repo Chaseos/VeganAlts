@@ -6,6 +6,7 @@ export default defineConfig({
     "./db/schema/auth.ts",
     "./db/schema/app.ts",
     "./db/schema/operations.ts",
+    "./db/schema/community.ts",
   ],
   out: "./db/migrations",
   strict: true,

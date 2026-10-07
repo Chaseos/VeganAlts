@@ -43,7 +43,7 @@ npm run db:migrate:production
 npm run deploy:production
 ```
 
-For a destructive future migration, first obtain a D1 Time Travel recovery bookmark/export and plan a compatible rollout. Worker rollback does not undo database migrations. Prefer additive schema changes and a forward repair migration to rewriting history.
+Before every staging migration, first obtain a D1 Time Travel recovery bookmark/export and plan a compatible rollout. Worker rollback does not undo database migrations. Prefer additive schema changes and a forward repair migration to rewriting history.
 
 ## Secrets and providers
 
@@ -143,3 +143,5 @@ Upload controls are 5 attempts/minute per user at the edge, 50 processing attemp
 Review account usage before enabling public contributions or increasing these limits. Check Workers requests/CPU, D1 reads/writes/storage, R2 operations/storage, and Images transformations. An existing enabled account-wide billing budget alert at $10 was confirmed on 2026-10-04 and preserved. It covers shared-account usage, not only VeganAlts. Alerts are monitoring controls, not a spending cap; review their threshold as other account workloads change.
 
 Current provider documentation: [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/), [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [R2 pricing](https://developers.cloudflare.com/r2/pricing/), [Images pricing](https://developers.cloudflare.com/images/pricing/), [DNS migration](https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/), and [Apple authentication](https://better-auth.com/docs/authentication/apple).
+
+Milestone 3 contribution limits, private staging, review decisions, reversals and bounded cleanup are documented in [community catalog operations](community-catalog.md).

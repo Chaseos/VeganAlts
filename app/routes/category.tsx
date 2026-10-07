@@ -60,6 +60,12 @@ export default function Category({ loaderData: data }: Route.ComponentProps) {
         <p className="eyebrow">United States · Alternatives to</p>
         <h1>{data.category.name}</h1>
         <p>All the familiar flavor. A different way to get there.</p>
+        <Link
+          className="text-link"
+          to={`/add-product?category=${data.category.id}`}
+        >
+          Know another alternative? Add a product →
+        </Link>
       </header>
       {!!data.children.length && (
         <section className="section-space">

@@ -36,6 +36,7 @@ export function SiteShell({
         <span className="country-label">United States</span>
         <nav aria-label="Main navigation">
           <Link to="/us/search">Discover</Link>
+          <Link to="/add-product">Add product</Link>
           <Link to="/my-ratings">My Ratings</Link>
           {user ? (
             <Link to="/account">Account</Link>
@@ -248,6 +249,7 @@ export function ProductRows({
             <div>
               <span className="product-brand">{product.brand}</span>
               <h3>{product.name}</h3>
+              <NewProductBadge publishedAt={product.publishedAt} />
               <span className="product-meta">
                 {product.developmentOnly ? "Demo product · " : ""}United States
               </span>
@@ -269,6 +271,18 @@ export function ProductRows({
       ))}
     </ol>
   );
+}
+
+export function NewProductBadge({
+  publishedAt,
+}: {
+  publishedAt?: number | null;
+}) {
+  return publishedAt &&
+    Date.now() - publishedAt < 30 * 86400000 &&
+    Date.now() >= publishedAt ? (
+    <span className="new-badge">New</span>
+  ) : null;
 }
 
 export function RankingExplanation() {

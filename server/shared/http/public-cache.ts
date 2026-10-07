@@ -144,12 +144,7 @@ export function cachePublicResponse(response: Response, route: PublicRoute) {
     result.headers.set("Cache-Control", "private, no-store");
     result.headers.set("Cloudflare-CDN-Cache-Control", "no-store");
   } else {
-    result.headers.set(
-      "Cache-Control",
-      route.kind === "media"
-        ? "public, max-age=31536000, immutable"
-        : "public, max-age=0",
-    );
+    result.headers.set("Cache-Control", "public, max-age=0");
     result.headers.set(
       "Cloudflare-CDN-Cache-Control",
       edgeCacheControl(route.ttl),
@@ -160,7 +155,7 @@ export function cachePublicResponse(response: Response, route: PublicRoute) {
 }
 
 export interface MaterialCatalogChange {
-  kind: "product" | "category" | "profile";
+  kind: "product" | "category" | "profile" | "media";
   slug: string;
   categorySlugs?: string[];
 }
@@ -176,6 +171,7 @@ export function invalidationTags(change: MaterialCatalogChange) {
       "Invalid catalog change.",
     );
   if (change.kind === "profile") return [`profile:${change.slug}`];
+  if (change.kind === "media") return [`media:${change.slug}`];
   return [
     ...new Set([
       `${change.kind}:${change.slug}`,

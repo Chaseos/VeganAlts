@@ -1,3 +1,5 @@
+import type { CommunityProductDetails } from "../../community/domain/public";
+
 export interface CategorySummary {
   id: string;
   slug: string;
@@ -15,6 +17,7 @@ export interface ProductSummary {
   versionId: string;
   imageId: string | null;
   developmentOnly: number;
+  publishedAt?: number | null;
 }
 
 export interface RankingRow extends ProductSummary {
@@ -28,6 +31,8 @@ export interface FormulaSummary {
   isCurrent: number;
   changeSummary: string | null;
   effectiveFrom: number | null;
+  effectiveDate: string | null;
+  effectiveDatePrecision: string;
 }
 
 export interface ProductCategory {
@@ -40,7 +45,8 @@ export interface ProductCategory {
   ratingCount: number;
 }
 
-export interface ProductDetails extends ProductSummary {
+export interface ProductDetails
+  extends ProductSummary, CommunityProductDetails {
   country: string;
   veganStatus: string;
   manufacturerLabel: string;

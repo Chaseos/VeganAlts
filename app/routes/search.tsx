@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { Link } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   publicLoader,
@@ -71,7 +72,7 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
           {!data.categories.length && !data.products.length && (
             <EmptyState title="No alternatives found yet.">
               Try a broader food name, such as beef, cheese or milk, or browse a
-              category.
+              category. <Link to="/add-product">Add a missing product →</Link>
             </EmptyState>
           )}
         </>

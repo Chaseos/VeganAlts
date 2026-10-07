@@ -14,8 +14,9 @@ import {
   rankedSampleSql,
   rankingOrderSql,
 } from "../../ranking/infrastructure/read-policy";
+import { readCommunityProduct } from "../../community/infrastructure/public-read";
 
-const identity = `p.id,p.slug,p.name,b.name AS brand,v.id AS versionId,p.development_only AS developmentOnly,
+const identity = `p.id,p.slug,p.name,b.name AS brand,v.id AS versionId,p.development_only AS developmentOnly,p.published_at AS publishedAt,
   (SELECT i.id FROM product_images i WHERE i.product_version_id=v.id AND i.slot='front' AND i.state='accepted' LIMIT 1) AS imageId`;
 const productJoins = `JOIN products p ON p.id=v.product_id JOIN countries country ON country.id=p.country_id AND country.iso2='US' AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id`;
 const visible = `p.lifecycle_status <> 'hidden'`;
@@ -92,7 +93,7 @@ export class D1CatalogRepository implements CatalogRepository {
     const [history, categories, images] = await this.db.batch([
       this.db
         .prepare(
-          `SELECT id,version_label AS versionLabel,is_current AS isCurrent,change_summary AS changeSummary,effective_from AS effectiveFrom FROM product_versions WHERE product_id=? ORDER BY is_current DESC,created_at DESC,id LIMIT 100`,
+          `SELECT id,version_label AS versionLabel,is_current AS isCurrent,change_summary AS changeSummary,effective_from AS effectiveFrom,effective_date AS effectiveDate,effective_date_precision AS effectiveDatePrecision FROM product_versions WHERE product_id=? ORDER BY is_current DESC,created_at DESC,id LIMIT 100`,
         )
         .bind(row.id),
       this.db
@@ -113,13 +114,25 @@ export class D1CatalogRepository implements CatalogRepository {
       formulas.find((item) => item.id === row.versionId) ??
       (await this.db
         .prepare(
-          `SELECT id,version_label AS versionLabel,is_current AS isCurrent,change_summary AS changeSummary,effective_from AS effectiveFrom FROM product_versions WHERE id=?`,
+          `SELECT id,version_label AS versionLabel,is_current AS isCurrent,change_summary AS changeSummary,effective_from AS effectiveFrom,effective_date AS effectiveDate,effective_date_precision AS effectiveDatePrecision FROM product_versions WHERE id=?`,
         )
         .bind(row.versionId)
         .first<FormulaSummary>());
     if (!formula) return null;
+    const community = await readCommunityProduct(
+      this.db,
+      row.id,
+      row.versionId,
+    );
     return {
       ...row,
+      ...community,
+      veganStatus:
+        community.classification?.veganStatus ??
+        (formula.isCurrent ? row.veganStatus : "not_recorded"),
+      manufacturerLabel:
+        community.classification?.manufacturerLabel ??
+        (formula.isCurrent ? row.manufacturerLabel : "unknown"),
       formula,
       history: formulas,
       categories: categories!.results as unknown as ProductCategory[],
@@ -136,7 +149,7 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(expression),
       this.db
         .prepare(
-          `SELECT ${identity} FROM search_index JOIN product_versions v ON v.product_id=search_index.entity_id AND v.is_current=1 ${productJoins} WHERE search_index MATCH ? AND entity_type='product' AND country_code='US' AND ${visible} ORDER BY rank,p.name,p.id LIMIT 20`,
+          `SELECT ${identity} FROM search_index JOIN product_versions v ON v.product_id=search_index.entity_id AND v.is_current=1 ${productJoins} WHERE search_index MATCH ? AND entity_type='product' AND country_code='US' AND p.lifecycle_status<>'discontinued' AND ${visible} ORDER BY rank,p.name,p.id LIMIT 20`,
         )
         .bind(expression),
     ]);
@@ -150,8 +163,8 @@ export class D1CatalogRepository implements CatalogRepository {
     return this.db
       .prepare(
         `SELECT pr.handle,pr.display_name AS displayName,
-      (SELECT COUNT(*) FROM ratings r WHERE r.user_id=pr.user_id AND r.is_counted=1) AS ratingCount,
-      (SELECT COUNT(*) FROM product_trials t WHERE t.user_id=pr.user_id) AS triedCount
+      (SELECT COUNT(*) FROM ratings r JOIN product_versions v ON v.id=r.product_version_id JOIN products p ON p.id=v.product_id WHERE r.user_id=pr.user_id AND r.is_counted=1 AND p.lifecycle_status<>'hidden') AS ratingCount,
+      (SELECT COUNT(*) FROM product_trials t JOIN product_versions v ON v.id=t.product_version_id JOIN products p ON p.id=v.product_id WHERE t.user_id=pr.user_id AND p.lifecycle_status<>'hidden') AS triedCount
       FROM profiles pr WHERE pr.handle=? AND pr.account_state='active'`,
       )
       .bind(handle)

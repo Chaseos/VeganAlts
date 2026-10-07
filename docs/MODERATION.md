@@ -254,6 +254,8 @@ VeganAlts does not claim live inventory.
 
 ## 14. Duplicate handling
 
+**Milestone 3 decision (2026-10-07):** the approved [milestone specification](MILESTONE_3_PLAN.md) replaces the transfer semantics below with archival consolidation. The selected survivor's metadata and scores stay unchanged; all donor data remains recoverable under its original identity but is excluded from public results. Do not transfer donor votes or discard canonical history. Retain reversible uncached redirects and an operator reversal. This explicitly amends issue #22.
+
 Duplicate reports are protected because merges affect ratings, URLs and history.
 
 A merge operation must define:
@@ -370,3 +372,7 @@ Community Ranking remains separate below.
 Creator partnerships may be paid if clearly disclosed. Neither payment nor creator status changes community scores.
 
 This layer may become more important when ranked recipes are added later.
+
+## Milestone 3 manual policy
+
+The [approved scope](MILESTONE_3_PLAN.md) uses deterministic submission checks and manual operators; no external AI provider or community-confidence auto-acceptance is enabled. Publication requires a front photo plus ingredient evidence and creates only provisional classification. Vegan classification requires review. Ingredient reports are prioritized but only an operator can apply Under Review. Pending submission media is private and expires after the configured review window. Comment-target reporting is supported/tested, with visible comment reporting deferred to the comment milestone. Retailer confirmations do not establish inventory; stale evidence is labeled after 180 days and an operator decides removal.

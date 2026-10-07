@@ -138,12 +138,16 @@ export const brands = sqliteTable(
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
+    normalizedName: text("normalized_name"),
     slug: text("slug").notNull(),
     websiteUrl: text("website_url"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
-  (table) => [uniqueIndex("ux_brands_slug").on(table.slug)],
+  (table) => [
+    uniqueIndex("ux_brands_slug").on(table.slug),
+    uniqueIndex("ux_brands_normalized").on(table.normalizedName),
+  ],
 );
 
 export const productFamilies = sqliteTable(
@@ -195,6 +199,7 @@ export const products = sqliteTable(
     developmentOnly: integer("development_only").notNull().default(0),
     sourceCheckedAt: integer("source_checked_at"),
     dataNotes: text("data_notes"),
+    publishedAt: integer("published_at"),
     createdBy: text("created_by").references(
       (): AnySQLiteColumn => profiles.userId,
       { onDelete: "set null" },
@@ -266,6 +271,10 @@ export const productVersions = sqliteTable(
       .references((): AnySQLiteColumn => products.id, { onDelete: "cascade" }),
     versionLabel: text("version_label"),
     effectiveFrom: integer("effective_from"),
+    effectiveDate: text("effective_date"),
+    effectiveDatePrecision: text("effective_date_precision")
+      .notNull()
+      .default("unknown"),
     effectiveTo: integer("effective_to"),
     isCurrent: integer("is_current").notNull().default(sql.raw("0")),
     changeSummary: text("change_summary"),
@@ -286,6 +295,10 @@ export const productVersions = sqliteTable(
       desc(table.effectiveFrom),
     ),
     check("ck_product_versions_1", sql.raw("is_current IN (0, 1)")),
+    check(
+      "ck_formula_date_precision",
+      sql`${table.effectiveDatePrecision} IN ('unknown','year','month','day')`,
+    ),
   ],
 );
 
@@ -601,12 +614,16 @@ export const retailers = sqliteTable(
   {
     id: text("id").primaryKey(),
     canonicalName: text("canonical_name").notNull(),
+    normalizedName: text("normalized_name"),
     slug: text("slug").notNull(),
     websiteUrl: text("website_url"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
-  (table) => [uniqueIndex("ux_retailers_slug").on(table.slug)],
+  (table) => [
+    uniqueIndex("ux_retailers_slug").on(table.slug),
+    uniqueIndex("ux_retailers_normalized").on(table.normalizedName),
+  ],
 );
 
 export const retailerMarkets = sqliteTable(
@@ -853,6 +870,14 @@ export const reports = sqliteTable(
       table.status,
     ),
     index("ix_reports_queue").on(table.status, table.createdAt),
+    uniqueIndex("ux_reports_active_reporter_reason")
+      .on(
+        table.reporterUserId,
+        table.targetType,
+        table.targetId,
+        table.reasonCode,
+      )
+      .where(sql`${table.status} IN ('open','reviewing')`),
     check(
       "ck_reports_1",
       sql.raw(

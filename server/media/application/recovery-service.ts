@@ -9,20 +9,18 @@ export class MediaRecoveryService {
 
   async recover() {
     await this.repository.recoverExpired(this.clock());
-    let cursor: string | undefined;
+    const cursor = await this.repository.recoveryCursor();
     let removed = 0;
-    do {
-      const page = await this.storage.list(cursor);
-      for (const key of page.keys) {
-        // Check every pass, including previously cleaned attempts: an interrupted
-        // worker may have finished an R2 write after an earlier cleanup pass.
-        if (await this.repository.canDeleteObject(key, this.clock())) {
-          await this.storage.delete(key);
-          removed++;
-        }
+    const page = await this.storage.list(cursor);
+    for (const key of page.keys) {
+      // Check every pass, including previously cleaned attempts: an interrupted
+      // worker may have finished an R2 write after an earlier cleanup pass.
+      if (await this.repository.canDeleteObject(key, this.clock())) {
+        await this.storage.delete(key);
+        removed++;
       }
-      cursor = page.cursor;
-    } while (cursor);
+    }
+    await this.repository.saveRecoveryCursor(page.cursor);
     return { removed };
   }
 }

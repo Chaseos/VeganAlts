@@ -1,0 +1,295 @@
+{
+  "workerVersion": "571b9295-b59e-4a2e-8694-fe709e5eb0ea",
+  "stagingOrigin": "https://staging.veganalts.com",
+  "heldSubmission": {
+    "receiptId": "01a11848-4679-71bb-9285-f976ef3d49b5",
+    "canonicalProductsBeforeApproval": 0,
+    "canonicalFormulasBeforeApproval": 0,
+    "canonicalImagesBeforeApproval": 0,
+    "anonymousEvidenceStatus": 401,
+    "cacheControl": "private, no-store"
+  },
+  "duplicateVerification": {
+    "survivorUnchanged": true,
+    "survivorSnapshot": {
+      "product": {
+        "count": 1,
+        "sha256": "0e7bc6cf04c8d8636580552536dcd4ff0d0734487b41bf321abdaa578e27080c"
+      },
+      "versions": {
+        "count": 1,
+        "sha256": "3714b15ad300fce7a34d97f1207193acf11a2e5755afeaed0505961792dc7c31"
+      },
+      "ratings": {
+        "count": 1,
+        "sha256": "56a48562c99f87a2da07ce168d502d46a307d7312f76a3c518f5234aae1ff46b"
+      },
+      "stats": {
+        "count": 1,
+        "sha256": "4ee8685a0de55d7509007f3c3d9b2bb38ebceea47d03b5bd818b5c5250685791"
+      },
+      "categories": {
+        "count": 1,
+        "sha256": "817b41d27ad80c0d6f456b40bcf0917786c83358cac770ac4e087a4c3908429f"
+      },
+      "classification": {
+        "count": 1,
+        "sha256": "decc2cddcbef397b667caf17db708e3b8e0de70311fbc3e9a97519274c870fd2"
+      },
+      "images": {
+        "count": 2,
+        "sha256": "fdb7df1a34306ff7bf7ad87c796573639864871c496384e16f9a2171890a87ee"
+      },
+      "retailers": {
+        "count": 1,
+        "sha256": "c0a34ff4c098e6424a1c01bc1f88be003f624788afa508f3769b434db477ebe8"
+      },
+      "confirmations": {
+        "count": 1,
+        "sha256": "c47eea797c6585ca6fecb8e26de081a3ce5d43b0dae6cd18a1901718b7dbb3c6"
+      }
+    },
+    "archivedDonorFormulas": [
+      {
+        "id": "01a11848-4679-71bb-9286-02d4bfcae3ed",
+        "version_label": "Original formula",
+        "is_current": 0,
+        "effective_date": null,
+        "effective_date_precision": "unknown",
+        "rating_count": 1,
+        "rating_sum": 3
+      },
+      {
+        "id": "01a1184f-5bcc-751a-99f3-1cc61d680a76",
+        "version_label": "September 2026 staging recipe",
+        "is_current": 1,
+        "effective_date": "2026-09",
+        "effective_date_precision": "month",
+        "rating_count": 1,
+        "rating_sum": 2
+      }
+    ],
+    "archivedState": {
+      "lifecycle_status": "hidden",
+      "active": 1,
+      "survivor_id": "01a1183f-5fd9-755f-bcfa-e1863f96e455"
+    },
+    "reversedState": {
+      "lifecycle_status": "active",
+      "active": 0,
+      "survivor_id": "01a1183f-5fd9-755f-bcfa-e1863f96e455"
+    },
+    "redirectStatus": 302,
+    "redirectCacheControl": "private, no-store",
+    "donorFormulaSelectorRemoved": true
+  },
+  "mediaRemoval": {
+    "cachedPublicBefore": 200,
+    "publicAfter": 404,
+    "publicCacheControlAfter": "private, no-store",
+    "operatorImageLoaded": true,
+    "reversed": true
+  },
+  "finalIntegrity": {
+    "checkedAt": "2026-10-07T21:51:28.748Z",
+    "phase": "final",
+    "survivorSnapshot": {
+      "product": {
+        "count": 1,
+        "sha256": "28c2b54c53edd0cd3281a182bff99fcef23fe385e8e1d3dd5325413fdf8786c4"
+      },
+      "versions": {
+        "count": 1,
+        "sha256": "3714b15ad300fce7a34d97f1207193acf11a2e5755afeaed0505961792dc7c31"
+      },
+      "ratings": {
+        "count": 1,
+        "sha256": "56a48562c99f87a2da07ce168d502d46a307d7312f76a3c518f5234aae1ff46b"
+      },
+      "stats": {
+        "count": 1,
+        "sha256": "85e40372d6ad204e4df18a3545187c327b8031a45034a9405b12ff3a9e7bab74"
+      },
+      "categories": {
+        "count": 1,
+        "sha256": "817b41d27ad80c0d6f456b40bcf0917786c83358cac770ac4e087a4c3908429f"
+      },
+      "classification": {
+        "count": 1,
+        "sha256": "decc2cddcbef397b667caf17db708e3b8e0de70311fbc3e9a97519274c870fd2"
+      },
+      "images": {
+        "count": 2,
+        "sha256": "fdb7df1a34306ff7bf7ad87c796573639864871c496384e16f9a2171890a87ee"
+      },
+      "retailers": {
+        "count": 1,
+        "sha256": "c0a34ff4c098e6424a1c01bc1f88be003f624788afa508f3769b434db477ebe8"
+      },
+      "confirmations": {
+        "count": 1,
+        "sha256": "c47eea797c6585ca6fecb8e26de081a3ce5d43b0dae6cd18a1901718b7dbb3c6"
+      }
+    },
+    "donorFormulas": [
+      {
+        "id": "01a11848-4679-71bb-9286-02d4bfcae3ed",
+        "version_label": "Original formula",
+        "is_current": 0,
+        "effective_date": null,
+        "effective_date_precision": "unknown",
+        "rating_count": 1,
+        "rating_sum": 3
+      },
+      {
+        "id": "01a1184f-5bcc-751a-99f3-1cc61d680a76",
+        "version_label": "September 2026 staging recipe",
+        "is_current": 1,
+        "effective_date": "2026-09",
+        "effective_date_precision": "month",
+        "rating_count": 1,
+        "rating_sum": 2
+      }
+    ],
+    "donorState": {
+      "lifecycle_status": "discontinued",
+      "active": 0,
+      "survivor_id": "01a1183f-5fd9-755f-bcfa-e1863f96e455"
+    },
+    "referencedR2": [
+      {
+        "id": "01a1183f-60e0-721c-8dee-50a8f2bb6e67",
+        "bytes": 6824,
+        "contentType": "image/webp"
+      },
+      {
+        "id": "01a1183f-6722-7161-a66c-8d927eef0238",
+        "bytes": 60864,
+        "contentType": "image/webp"
+      },
+      {
+        "id": "01a11848-47db-750b-b55e-359af94073da",
+        "bytes": 6824,
+        "contentType": "image/webp"
+      },
+      {
+        "id": "01a11848-4915-7326-8656-be884d2378e3",
+        "bytes": 60864,
+        "contentType": "image/webp"
+      },
+      {
+        "id": "01a11850-54cf-7287-846c-e5b9ab928a98",
+        "bytes": 6824,
+        "contentType": "image/webp"
+      }
+    ],
+    "foreignKeyViolations": 0,
+    "receiptStates": [
+      {
+        "purpose": "evidence",
+        "state": "published",
+        "count": 1
+      },
+      {
+        "purpose": "submission",
+        "state": "published",
+        "count": 2
+      }
+    ],
+    "actions": [
+      {
+        "kind": "consolidation",
+        "count": 1
+      },
+      {
+        "kind": "proposal_accept",
+        "count": 7
+      },
+      {
+        "kind": "report_resolve",
+        "count": 2
+      },
+      {
+        "kind": "reversal",
+        "count": 2
+      }
+    ],
+    "processing": {
+      "attempts": 2
+    }
+  },
+  "seedPreservation": {
+    "checkedAt": "2026-10-07T21:50:24.649Z",
+    "verified": true,
+    "protectedRecords": {
+      "realAccounts": {
+        "count": 2,
+        "sha256": "21b40e865de3808929f8a3c073921356b72fc475196ae7760d2d68d779fcfdf4"
+      },
+      "realRatings": {
+        "count": 5,
+        "sha256": "62cac0bd5d4eb6cf69d18930d62f9fea6ec68426857c8d2a77ff15eeed5e883e"
+      },
+      "realTrials": {
+        "count": 5,
+        "sha256": "0162b2674b4b6e02343d1aa24c670770e6ebba9118166c1b7e2f23950774e617"
+      },
+      "verifiedFormulas": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "historicalFormulas": {
+        "count": 2,
+        "sha256": "e8febbe394db724dc664998211a6054c8fadd0cf206176f48e90cc4e0422a695"
+      },
+      "catalogProducts": {
+        "count": 33,
+        "sha256": "5f04495dc2f8ca27bdcead41d0a554a6f69167320957ea2678e10d38b1f0125f"
+      },
+      "currentFormulas": {
+        "count": 33,
+        "sha256": "d97985ca8e94906e0227c82103e849e687631dafd4fd02f29d4ada28fad8b7f9"
+      },
+      "formulaClassifications": {
+        "count": 34,
+        "sha256": "d6b481348f394e53adf7e1e94b11f147e0e9ac1a0054a43e3be2a8a38a70fadc"
+      },
+      "categoryMemberships": {
+        "count": 34,
+        "sha256": "eea8e1317e48efffdee63fec416162c060b1fd4bd0f55304f3fb00957dcb6c46"
+      },
+      "productRelationships": {
+        "count": 2,
+        "sha256": "d95e863509b7613c3898bf1d00d8eaeed79f8a69c7cb28fe49c38597b6e0b8da"
+      },
+      "retailers": {
+        "count": 1,
+        "sha256": "45cd32c6722a8286c886fcb5ee2f9b35f10072f9cdb93799a6cca13b125ccd53"
+      },
+      "retailerConfirmations": {
+        "count": 1,
+        "sha256": "c47eea797c6585ca6fecb8e26de081a3ce5d43b0dae6cd18a1901718b7dbb3c6"
+      },
+      "proposals": {
+        "count": 7,
+        "sha256": "0672fcffc305eb1e35bf1e2fe290715c00fbc5a13faa26048e1dc514bd680815"
+      },
+      "reports": {
+        "count": 2,
+        "sha256": "043752c26c9b75c10e67aed56c4ebe25dac29a53a6d8e30e7e0894ea055a7c02"
+      },
+      "moderationActions": {
+        "count": 12,
+        "sha256": "25e6d472200f5416e90ba38dd9317c695871d175dc63a1412c915260e30b2bc7"
+      },
+      "duplicateConsolidations": {
+        "count": 1,
+        "sha256": "16719331583c73ec071f25a95859c9f932cbfc28f94ca8fed4a973f0c26a1ed7"
+      },
+      "auditHistory": {
+        "count": 16,
+        "sha256": "fa4c3178c0a45f6b99f5820cc7ac6b4d04ccb3485336b43d549800a45906fba9"
+      }
+    }
+  }
+}

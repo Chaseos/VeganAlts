@@ -139,15 +139,15 @@ Authenticated private response
 
 Initial target freshness:
 
-| Surface                      | Shared cache target | Notes                                                           |
-| ---------------------------- | ------------------: | --------------------------------------------------------------- |
-| Category ranking             |         ~10 minutes | Rankings do not need second-by-second updates.                  |
-| Product detail               |          15 minutes | Current and historical formulas have separate cache identities. |
-| Homepage featured categories |          30 minutes | Configured discovery surface; Trending is deferred.             |
-| Public profile               |          10 minutes | Chosen public identity and contribution counts only.            |
-| Immutable image variants     |            24 hours | Stored derivatives; one-year immutable browser caching.         |
-| Static policies/about        |          Long-lived | Prefer static assets or very long caching.                      |
-| Private/account pages        |     No shared cache | Personalized.                                                   |
+| Surface                      | Shared cache target | Notes                                                                  |
+| ---------------------------- | ------------------: | ---------------------------------------------------------------------- |
+| Category ranking             |         ~10 minutes | Rankings do not need second-by-second updates.                         |
+| Product detail               |          15 minutes | Current and historical formulas have separate cache identities.        |
+| Homepage featured categories |          30 minutes | Configured discovery surface; Trending is deferred.                    |
+| Public profile               |          10 minutes | Chosen public identity and contribution counts only.                   |
+| Immutable image variants     |            24 hours | Stored derivatives; browser revalidation supports moderation removals. |
+| Static policies/about        |          Long-lived | Prefer static assets or very long caching.                             |
+| Private/account pages        |     No shared cache | Personalized.                                                          |
 
 Use `stale-while-revalidate` and `stale-if-error` where appropriate so a previously valid page can remain available while refresh occurs or a transient backend error happens.
 
@@ -462,7 +462,11 @@ These can be reconsidered only when a real requirement appears.
 
 The uncached Worker gateway normalizes public requests and calls the dedicated `PublicCatalog` entrypoint in the same Worker. Native Workers Cache owns request collapsing, freshness, background refresh and stale-on-error behavior. Identity includes deployment version, country, route, meaningful query parameters and document/data/API representation. Cookies, authorization, origin and client nonce headers never enter the public renderer. SSR loaders call application services directly and read aggregates, never raw ratings or sessions.
 
-Catalog responses use browser `Cache-Control: public, max-age=0`; the inner entrypoint uses `Cloudflare-CDN-Cache-Control` with its route TTL, `stale-while-revalidate=60` and `stale-if-error=86400`. Immutable accepted/archived image variants use the same normalized public boundary with one-day edge freshness and retain one-year immutable browser caching. The gateway evaluates their conditional ETags after cache delivery; pending/rejected/missing media is never stored. Do not add `s-maxage`, `must-revalidate` or `proxy-revalidate`: those disable native stale behavior. The gateway replaces the cached template nonce with a fresh nonce in authorized framework scripts at every delivery. Errors, redirects, private data, writes and Set-Cookie responses are excluded.
+Catalog responses use browser `Cache-Control: public, max-age=0`; the inner entrypoint uses `Cloudflare-CDN-Cache-Control` with its route TTL, `stale-while-revalidate=60` and `stale-if-error=86400`. Immutable accepted/archived image variants use the same normalized public boundary with one-day edge freshness and use browser `max-age=0` so operator removals take effect on revalidation. The gateway evaluates their conditional ETags after cache delivery; pending/rejected/missing media is never stored. Do not add `s-maxage`, `must-revalidate` or `proxy-revalidate`: those disable native stale behavior. The gateway replaces the cached template nonce with a fresh nonce in authorized framework scripts at every delivery. Errors, redirects, private data, writes and Set-Cookie responses are excluded.
+
+## Milestone 3 contribution boundaries
+
+Follow [milestone 3](MILESTONE_3_PLAN.md): domain contribution decisions remain provider-neutral and deterministic, with manual operator resolution. Operational leases, hash reuse and D1 quotas protect staged uploads before canonical creation. Staged media is private. Canonical derivatives are promoted before an atomic fenced D1 publication; recovery removes only unreferenced expired objects. Existing hourly recovery is extended with bounded resumable processing. New private routes do not enter PublicCatalog. Protected changes update canonical state and audit together, maintain derived search and invalidate affected products/categories/media. Duplicate redirects bypass cache; donor data is retained without affecting survivor scores. Edge rate-limit bindings supplement rather than replace atomic account-wide accounting.
 
 React Router hydrates normally with route-level code splitting. One batched private request loads the session projection and visible formula ratings; score writes serialize per formula/category, coalesce rapid selections and never revalidate public loaders. The authoritative response contains the saved rating and Tried state. A pending anonymous selection lives in sessionStorage for 30 minutes and is bound to its original formula/category.
 

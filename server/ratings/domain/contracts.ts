@@ -44,6 +44,8 @@ export interface MyRating extends PersonalRating {
   isCurrent: number;
   canRate: number;
   imageId: string | null;
+  archivedDuplicate?: number;
+  canonicalSlug?: string | null;
 }
 
 export interface RatingCursor {

@@ -1,0 +1,194 @@
+import { ApplicationError } from "../../shared/domain/errors";
+import type { Candidate, SubmissionIdentity } from "../domain/contracts";
+import { identityKey, normalizeName, productName } from "../domain/policy";
+
+export interface SubmissionContext {
+  countryId: string;
+  brandId: string | null;
+  brandName: string;
+  identity: string;
+}
+export class CommunityLookupRepository {
+  constructor(private readonly db: D1Database) {}
+  async contributableProduct(id: string) {
+    const product = await this.db
+      .prepare(
+        "SELECT p.id FROM products p JOIN countries c ON c.id=p.country_id WHERE p.id=? AND p.lifecycle_status<>'hidden' AND c.iso2='US' AND c.is_active=1",
+      )
+      .bind(id)
+      .first();
+    if (!product)
+      throw new ApplicationError(
+        "NOT_FOUND",
+        "This product is not available for contributions.",
+        404,
+      );
+  }
+  async options(query = "") {
+    const term = `%${query
+      .trim()
+      .slice(0, 80)
+      .replace(/[\\%_]/g, "\\$&")}%`;
+    const normalized = `%${normalizeName(query.slice(0, 80)).replace(/[\\%_]/g, "\\$&")}%`;
+    const [brands, categories, families, products, retailers] =
+      await this.db.batch([
+        this.db
+          .prepare(
+            "SELECT id,name FROM brands WHERE name LIKE ? ESCAPE '\\' OR normalized_name LIKE ? ESCAPE '\\' OR id IN (SELECT brand_id FROM brand_aliases WHERE normalized_name LIKE ? ESCAPE '\\') ORDER BY name LIMIT 50",
+          )
+          .bind(term, normalized, normalized),
+        this.db.prepare(
+          "SELECT id,name,slug FROM categories WHERE is_active=1 AND is_rankable=1 ORDER BY name LIMIT 100",
+        ),
+        this.db
+          .prepare(
+            "SELECT id,canonical_name AS name,brand_id AS brandId FROM product_families WHERE canonical_name LIKE ? ESCAPE '\\' ORDER BY canonical_name LIMIT 50",
+          )
+          .bind(term),
+        this.db
+          .prepare(
+            "SELECT p.id,p.name,p.slug,p.country_id AS countryId FROM products p JOIN countries c ON c.id=p.country_id WHERE p.lifecycle_status<>'hidden' AND c.iso2='US' AND p.name LIKE ? ESCAPE '\\' ORDER BY p.name LIMIT 50",
+          )
+          .bind(term),
+        this.db
+          .prepare(
+            "SELECT r.id,r.canonical_name AS name,r.website_url AS websiteUrl FROM retailers r JOIN retailer_markets m ON m.retailer_id=r.id JOIN countries c ON c.id=m.country_id WHERE c.iso2='US' AND m.is_active=1 AND (r.canonical_name LIKE ? ESCAPE '\\' OR r.normalized_name LIKE ? ESCAPE '\\' OR r.id IN (SELECT retailer_id FROM retailer_aliases WHERE normalized_name LIKE ? ESCAPE '\\')) ORDER BY r.canonical_name LIMIT 50",
+          )
+          .bind(term, normalized, normalized),
+      ]);
+    return {
+      brands: brands!.results,
+      categories: categories!.results,
+      families: families!.results,
+      products: products!.results,
+      retailers: retailers!.results,
+    };
+  }
+  async context(input: SubmissionIdentity): Promise<SubmissionContext> {
+    if (
+      !/[\p{L}\p{N}]/u.test(normalizeName(input.brand)) ||
+      !/[\p{L}]/u.test(productName(input.name))
+    )
+      throw new ApplicationError(
+        "INVALID_IDENTITY",
+        "Use a recognizable brand and product name, with more than a package size.",
+      );
+    const country = await this.db
+      .prepare("SELECT id FROM countries WHERE iso2=? AND is_active=1")
+      .bind(input.country)
+      .first<{ id: string }>();
+    if (!country)
+      throw new ApplicationError(
+        "INVALID_COUNTRY",
+        "This country is not available for contributions.",
+      );
+    const categories = await this.db
+      .prepare(
+        `SELECT id FROM categories WHERE id IN (${input.categoryIds.map(() => "?").join(",")}) AND is_active=1 AND is_rankable=1`,
+      )
+      .bind(...input.categoryIds)
+      .all();
+    if (categories.results.length !== input.categoryIds.length)
+      throw new ApplicationError(
+        "INVALID_CATEGORY",
+        "Choose active replacement categories.",
+      );
+    const brand = await this.db
+      .prepare(
+        "SELECT id,name FROM brands WHERE normalized_name=? OR id IN (SELECT brand_id FROM brand_aliases WHERE normalized_name=?) LIMIT 1",
+      )
+      .bind(normalizeName(input.brand), normalizeName(input.brand))
+      .first<{ id: string; name: string }>();
+    if (input.productFamilyId) {
+      const family = await this.db
+        .prepare("SELECT brand_id FROM product_families WHERE id=?")
+        .bind(input.productFamilyId)
+        .first<{ brand_id: string | null }>();
+      if (!family || (family.brand_id && family.brand_id !== brand?.id))
+        throw new ApplicationError(
+          "INVALID_FAMILY",
+          "Choose a product family belonging to this brand.",
+        );
+    }
+    if (input.relatedProductId) {
+      const related = await this.db
+        .prepare(
+          "SELECT country_id FROM products WHERE id=? AND lifecycle_status<>'hidden'",
+        )
+        .bind(input.relatedProductId)
+        .first<{ country_id: string }>();
+      if (!related || related.country_id !== country.id)
+        throw new ApplicationError(
+          "INVALID_RELATIONSHIP",
+          "Variants must belong to the same country.",
+        );
+    }
+    return {
+      countryId: country.id,
+      brandId: brand?.id ?? null,
+      brandName: brand?.name ?? input.brand,
+      identity: identityKey(country.id, brand?.name ?? input.brand, input.name),
+    };
+  }
+  async candidates(
+    input: SubmissionIdentity,
+    context: SubmissionContext,
+  ): Promise<Candidate[]> {
+    const exact = await this.db
+      .prepare(
+        `SELECT p.id,p.slug,p.name,b.name AS brand,p.country_id AS countryId FROM product_identity_keys k
+      JOIN products original ON original.id=k.product_id LEFT JOIN duplicate_consolidations d ON d.donor_id=original.id AND d.active=1
+      JOIN products p ON p.id=COALESCE(d.survivor_id,original.id) LEFT JOIN brands b ON b.id=p.brand_id WHERE k.identity_key=?`,
+      )
+      .bind(context.identity)
+      .first<Omit<Candidate, "exact">>();
+    if (exact) return [{ ...exact, exact: true }];
+    const rows = await this.db
+      .prepare(
+        `SELECT p.id,p.slug,p.name,b.name AS brand,p.country_id AS countryId,
+      COALESCE((SELECT json_group_array(alias) FROM product_aliases WHERE product_id=p.id),'[]') AS aliases
+      FROM products p LEFT JOIN brands b ON b.id=p.brand_id WHERE p.country_id=? AND p.lifecycle_status<>'hidden'
+      AND (b.id=? OR b.normalized_name=? OR p.name LIKE ? ESCAPE '\\') ORDER BY p.id LIMIT 201`,
+      )
+      .bind(
+        context.countryId,
+        context.brandId,
+        normalizeName(context.brandName),
+        `%${input.name.slice(0, 40).replace(/[\\%_]/g, "\\$&")}%`,
+      )
+      .all<Omit<Candidate, "exact"> & { aliases: string }>();
+    if (rows.results.length > 200)
+      throw new ApplicationError(
+        "CATALOG_REVIEW_REQUIRED",
+        "Narrow the product name so we can check existing entries.",
+        409,
+      );
+    const tokens = input.name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+    return rows.results
+      .flatMap((row) => {
+        const names = [row.name, ...(JSON.parse(row.aliases) as string[])];
+        const same =
+          normalizeName(row.brand ?? "") === normalizeName(context.brandName) &&
+          names.some((name) => productName(name) === productName(input.name));
+        const similar = names.some(
+          (name) =>
+            tokens.filter(
+              (token) => token.length > 2 && name.toLowerCase().includes(token),
+            ).length >= Math.min(2, Math.max(1, tokens.length)),
+        );
+        return same || similar
+          ? [
+              {
+                id: row.id,
+                slug: row.slug,
+                name: row.name,
+                brand: row.brand,
+                countryId: row.countryId,
+                exact: same,
+              },
+            ]
+          : [];
+      })
+      .slice(0, 12);
+  }
+}

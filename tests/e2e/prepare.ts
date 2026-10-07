@@ -1,6 +1,7 @@
 import { access, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { ensureBrowserOperator } from "./session-fixture";
 
 if (!process.env.TEST_BASE_URL) {
   try {
@@ -27,4 +28,5 @@ if (!process.env.TEST_BASE_URL) {
   console.log(
     "Local migrations, demo catalog, aggregates and images are ready.",
   );
+  await ensureBrowserOperator();
 }

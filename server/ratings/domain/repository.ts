@@ -7,6 +7,7 @@ export interface FormulaSnapshot {
   versionId: string;
   revision: number;
   canRate: boolean;
+  archived: boolean;
   categories: { id: string; canRate: boolean }[];
   ratings: CanonicalRating[];
   triedUserIds: string[];

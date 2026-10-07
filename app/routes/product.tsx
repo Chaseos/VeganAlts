@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { Link } from "react-router";
+import { Link, redirect } from "react-router";
+import { readCanonicalRedirect } from "@server/community/infrastructure/public-read";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   publicLoader,
@@ -10,13 +11,21 @@ import {
   RankingExplanation,
   Score,
   SiteShell,
+  NewProductBadge,
 } from "../components/catalog";
 import { RatingControl } from "../components/rating-control";
 import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/product";
+import { dateLabel, friendly } from "../lib/community";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env.APP_ENV);
+  const canonical = await readCanonicalRedirect(env.DB, params.productSlug);
+  if (canonical)
+    throw redirect(`/us/products/${canonical.slug}`, {
+      status: 302,
+      headers: { "Cache-Control": "private, no-store" },
+    });
   return publicLoader(async () => ({
     product: await catalogService(env).product(
       params.productSlug,
@@ -72,6 +81,7 @@ export default function Product({
           <div className="classification">
             <span>{p.veganStatus.replaceAll("_", " ")}</span>
             {!!p.developmentOnly && <span>Demo product</span>}
+            <NewProductBadge publishedAt={p.publishedAt} />
           </div>
           <p className="product-description">
             A plant-based alternative to{" "}
@@ -85,6 +95,22 @@ export default function Product({
               ratings are unavailable.
             </p>
           )}
+          {p.veganStatus === "under_review" && (
+            <p className="notice">
+              An operator is assessing an ingredient concern. This formula is
+              excluded from active rankings and new ratings until the concern is
+              resolved.
+            </p>
+          )}
+          <div className="button-row">
+            <Link to={`/contribute/${p.id}`}>Suggest a change</Link>
+            <Link to={`/contribute/${p.id}?action=report`}>Report product</Link>
+            {p.imageId && (
+              <Link to={`/contribute/${p.id}?action=report&image=${p.imageId}`}>
+                Report front photo
+              </Link>
+            )}
+          </div>
           <div className="category-strip">
             {p.categories.map((c) => (
               <a href={`#rate-${c.id}`} key={c.id}>
@@ -146,6 +172,101 @@ export default function Product({
             <dt>Formula</dt>
             <dd>{p.formula.versionLabel}</dd>
           </dl>
+          <p className="small muted">
+            {p.classification?.reviewed
+              ? "Classification reviewed by an operator."
+              : p.formula.isCurrent
+                ? "Provisional classification. Uploaded evidence and manufacturer wording do not by themselves establish verification or certification."
+                : "Only classification recorded for this historical formula is shown. Today’s status is not applied to past formulas."}
+          </p>
+          {p.classification && (
+            <section>
+              <h2>Ingredient evidence</h2>
+              <p>{p.classification.evidence.note}</p>
+              {p.classification.evidence.urls.map((url, index) => (
+                <p key={url}>
+                  <a href={url} target="_blank" rel="noreferrer">
+                    Ingredient source {index + 1} ↗
+                  </a>
+                </p>
+              ))}
+              <h3>Third-party certifications</h3>
+              {p.classification.certifications.length ? (
+                <ul>
+                  {p.classification.certifications.map((c) => (
+                    <li key={c.sourceUrl}>
+                      <a href={c.sourceUrl} target="_blank" rel="noreferrer">
+                        {c.name} ↗
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="small muted">
+                  No third-party certification recorded for this formula.
+                </p>
+              )}
+            </section>
+          )}
+          <section id="retailers">
+            <h2>Commonly found at</h2>
+            <p className="small muted">
+              Community availability reports, not live inventory.
+            </p>
+            {p.retailers.length ? (
+              <ul className="retailer-list">
+                {p.retailers.map((r) => (
+                  <li key={r.id}>
+                    <strong>{r.name}</strong>
+                    <span>
+                      {r.status === "not_current"
+                        ? "No longer current"
+                        : r.stale || r.status === "uncertain"
+                          ? "Uncertain / stale"
+                          : "Recently confirmed"}
+                    </span>
+                    <p className="small muted">
+                      {r.contributorCount}{" "}
+                      {r.contributorCount === 1
+                        ? "contributor"
+                        : "contributors"}{" "}
+                      · {r.recentContributorCount} within 180 days
+                      <br />
+                      Last confirmed: {dateLabel(r.lastConfirmedAt)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No retailer confirmations yet.</p>
+            )}
+            <Link to={`/contribute/${p.id}?action=retailer`}>
+              Add or confirm a retailer →
+            </Link>
+          </section>
+          {!!p.relatedProducts.length && (
+            <section>
+              <h2>Related products</h2>
+              <ul>
+                {p.relatedProducts.map((r) => (
+                  <li key={r.id}>
+                    {r.country === "US" ? (
+                      <Link to={`/us/products/${r.slug}`}>{r.name}</Link>
+                    ) : (
+                      r.name
+                    )}
+                    <span className="small muted">
+                      {" "}
+                      · {r.country} · {friendly(r.relationship)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="small muted">
+                Each product and country keeps its own ratings.
+              </p>
+            </section>
+          )}
           {!!p.developmentOnly && (
             <p className="demo-note">
               Demo catalog. Product details, illustrations and sample ratings
@@ -169,6 +290,12 @@ export default function Product({
                     {v.versionLabel}
                   </Link>
                   <span>{v.isCurrent ? "Current" : "Historical"}</span>
+                  {v.effectiveDate && (
+                    <span>
+                      Effective {v.effectiveDate} ({v.effectiveDatePrecision}{" "}
+                      precision)
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -181,19 +308,27 @@ export default function Product({
                 {p.images
                   .filter((i) => i.slot !== "front")
                   .map((i) => (
-                    <a
-                      href={`/media/${i.id}/${i.hasEvidence ? "evidence" : "full"}`}
-                      key={i.id}
-                    >
-                      <img
-                        src={`/media/${i.id}/thumbnail`}
-                        alt={`${p.name}: ${i.slot}`}
-                        width="100"
-                        height="100"
-                        loading="lazy"
-                      />
-                      {i.slot}
-                    </a>
+                    <div key={i.id}>
+                      <a
+                        href={`/media/${i.id}/${i.hasEvidence ? "evidence" : "full"}`}
+                        key={i.id}
+                      >
+                        <img
+                          src={`/media/${i.id}/thumbnail`}
+                          alt={`${p.name}: ${i.slot}`}
+                          width="100"
+                          height="100"
+                          loading="lazy"
+                        />
+                        {i.slot}
+                      </a>
+                      <Link
+                        className="small"
+                        to={`/contribute/${p.id}?action=report&image=${i.id}`}
+                      >
+                        Report photo
+                      </Link>
+                    </div>
                   ))}
               </div>
             </section>

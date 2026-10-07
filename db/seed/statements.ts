@@ -1,9 +1,12 @@
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { v5 as uuid } from "uuid";
 import * as schema from "../schema/app";
-import { sql } from "drizzle-orm";
 import { user } from "../schema/auth";
 import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
+import {
+  identityKey,
+  normalizeName,
+} from "../../server/community/domain/policy";
 import {
   DEVELOPMENT_NOTICE,
   seedCategories,
@@ -109,6 +112,7 @@ export function developmentSeedStatements(
           id: seedId(`brand:${brand}`),
           slug: slug(brand),
           name: brand,
+          normalizedName: normalizeName(brand),
           ...times,
         })
         .onConflictDoNothing(),
@@ -155,17 +159,10 @@ export function developmentSeedStatements(
           developmentOnly: 1,
           sourceCheckedAt: SOURCE_CHECKED_AT,
           dataNotes,
+          publishedAt: SOURCE_CHECKED_AT,
           ...times,
         })
-        .onConflictDoUpdate({
-          target: schema.products.id,
-          set: {
-            veganStatus: "vegan",
-            manufacturerLabel: "vegan",
-            dataNotes,
-          },
-          setWhere: sql`${schema.products.developmentOnly} = 1`,
-        }),
+        .onConflictDoNothing(),
     );
     add(
       db
@@ -178,15 +175,23 @@ export function developmentSeedStatements(
           changeSummary: DEVELOPMENT_NOTICE,
           ...times,
         })
-        .onConflictDoUpdate({
-          target: schema.productVersions.id,
-          set: {
-            versionLabel: "Demo formula · 2026",
-            changeSummary: DEVELOPMENT_NOTICE,
-          },
-          setWhere: sql`${schema.productVersions.versionLabel} = 'Development current formula'`,
-        }),
+        .onConflictDoNothing(),
     );
+    statements.push({
+      sql: "INSERT INTO product_identity_keys(identity_key,product_id) VALUES(?,?) ON CONFLICT DO NOTHING",
+      params: [
+        identityKey(seedId("country:US"), product.brand, product.name),
+        productId,
+      ],
+    });
+    statements.push({
+      sql: "INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,updated_at) SELECT id,'vegan','vegan',?,? FROM product_versions WHERE id=? AND is_current=1 ON CONFLICT DO NOTHING",
+      params: [
+        JSON.stringify({ urls: [], imageIds: [], note: DEVELOPMENT_NOTICE }),
+        SOURCE_CHECKED_AT,
+        seedId(`formula:${product.slug}:current`),
+      ],
+    });
     for (const category of product.categories)
       add(
         db

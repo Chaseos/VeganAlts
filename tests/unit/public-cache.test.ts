@@ -173,7 +173,7 @@ it("invalidates all affected material representations without a rating invalidat
   ).toThrow();
 });
 
-it("shares only validated immutable image variants and preserves their browser lifetime", () => {
+it("shares validated image variants while allowing moderation revocation", () => {
   for (const variant of ["full", "thumbnail", "evidence"]) {
     const request = new Request(
       `${origin}/media/image_1/${variant}?irrelevant=1`,
@@ -195,9 +195,7 @@ it("shares only validated immutable image variants and preserves their browser l
       new Response("bytes", { headers: { ETag: '"image-etag"' } }),
       route,
     );
-    expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=31536000, immutable",
-    );
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=0");
     expect(response.headers.get("Cloudflare-CDN-Cache-Control")).toBe(
       edgeCacheControl(86400),
     );

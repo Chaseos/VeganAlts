@@ -1,0 +1,356 @@
+import { env } from "cloudflare:workers";
+import { expect, it } from "vitest";
+import { catalogFixture } from "./fixtures";
+import { communityServices } from "../../server/community/infrastructure/composition";
+import {
+  changeInput,
+  reportInput,
+  retailerInput,
+} from "../../server/community/domain/contracts";
+import { D1RatingsRepository } from "../../server/ratings/infrastructure/d1-repository";
+
+const id = () => crypto.randomUUID();
+const evidence = {
+  urls: ["https://example.com/ingredients"],
+  imageIds: [],
+  note: "Manufacturer ingredients checked against the current formula.",
+};
+async function fixture() {
+  const f = await catalogFixture(env.DB, 2);
+  await env.DB.prepare("UPDATE countries SET iso2=id WHERE iso2='US'").run();
+  await env.DB.prepare("UPDATE countries SET iso2='US' WHERE id=?")
+    .bind(f.countryId)
+    .run();
+  const services = communityServices(env, id),
+    actor = { ...f.users[0]!, administrator: false },
+    admin = { ...f.users[1]!, administrator: true };
+  return { f, ...services, actor, admin };
+}
+const decision = (revision: number) => ({
+  decision: "accept" as const,
+  expectedRevision: revision,
+  note: "Evidence reviewed; catalog change accepted.",
+  effect: "none" as const,
+});
+
+it("deduplicates reports, prioritizes ingredient concerns, and requires an operator decision to apply Under Review", async () => {
+  const { f, contributions, moderation, repository, actor, admin } =
+    await fixture();
+  const input = reportInput.parse({
+    targetType: "product",
+    targetId: f.productId,
+    reason: "ingredient_concern",
+    note: "Possible milk ingredient listed.",
+    evidenceUrls: ["https://example.com/milk"],
+  });
+  const a = await contributions.report(actor, id(), input),
+    b = await contributions.report(actor, id(), {
+      ...input,
+      evidenceUrls: ["https://example.com/label"],
+    });
+  expect(a.id).toBe(b.id);
+  expect((await repository.snapshot(f.productId)).veganStatus).toBe(
+    "appears_vegan",
+  );
+  const report = (await repository.report(a.id))!;
+  expect(JSON.parse(report.evidence_data)).toEqual(
+    expect.arrayContaining([
+      "https://example.com/milk",
+      "https://example.com/label",
+    ]),
+  );
+  expect((await moderation.inbox(admin, null)).items[0]).toMatchObject({
+    id: a.id,
+    priority: 1,
+  });
+  await expect(moderation.inbox(actor, null)).rejects.toMatchObject({
+    status: 403,
+  });
+  const oldRatingSnapshot = (await new D1RatingsRepository(env.DB).snapshot(
+    f.versionId,
+  ))!;
+  const product = await repository.snapshot(f.productId),
+    key = id();
+  const resolve = {
+    decision: "resolve" as const,
+    expectedRevision: report.revision,
+    expectedProductRevision: product.revision,
+    note: "Operator assessed the ingredient concern and requests evidence.",
+    effect: "under_review" as const,
+  };
+  const action = await moderation.decide(admin, key, "report", a.id, resolve);
+  expect(await moderation.decide(admin, key, "report", a.id, resolve)).toEqual(
+    action,
+  );
+  const updated = await repository.snapshot(f.productId);
+  expect(updated.veganStatus).toBe("under_review");
+  expect(
+    await new D1RatingsRepository(env.DB).commit(
+      oldRatingSnapshot,
+      { kind: "rebuild" },
+      [],
+      Date.now(),
+    ),
+  ).toBe(false);
+  await expect(
+    moderation.decide(admin, id(), "report", a.id, resolve),
+  ).rejects.toMatchObject({ status: 409 });
+  if (!("actionId" in action)) throw new Error("Expected moderation action");
+  await moderation.reverse(admin, id(), action.actionId, {
+    expectedRevision: updated.revision,
+    note: "Ingredient concern resolved after manufacturer clarification.",
+  });
+  expect((await repository.snapshot(f.productId)).veganStatus).toBe(
+    "appears_vegan",
+  );
+});
+
+it("preserves formula contributions through reformulation and reversal and stores approximate dates", async () => {
+  const { f, contributions, moderation, repository, actor, admin } =
+    await fixture();
+  const before = await repository.snapshot(f.productId);
+  const proposed = await contributions.propose(
+    actor,
+    id(),
+    changeInput.parse({
+      kind: "reformulation",
+      productId: f.productId,
+      expectedRevision: before.revision,
+      evidence,
+      versionLabel: "New recipe",
+      effectiveDate: "2026-09",
+      veganStatus: "vegan",
+      manufacturerLabel: "plant_based",
+    }),
+  );
+  const row = (await repository.proposal(proposed.id))!;
+  const accepted = await moderation.decide(
+    admin,
+    id(),
+    "proposal",
+    proposed.id,
+    decision(row.updated_at),
+  );
+  const after = await repository.snapshot(f.productId);
+  expect(after.versionId).not.toBe(f.versionId);
+  expect(
+    await env.DB.prepare(
+      "SELECT effective_date,effective_date_precision FROM product_versions WHERE id=?",
+    )
+      .bind(after.versionId)
+      .first(),
+  ).toEqual({ effective_date: "2026-09", effective_date_precision: "month" });
+  await env.DB.prepare(
+    "INSERT INTO ratings(id,user_id,product_version_id,category_id,overall_similarity,created_at,updated_at) VALUES(?,?,?,?,5,1,1)",
+  )
+    .bind(id(), actor.id, after.versionId, f.categories[0])
+    .run();
+  if (!("actionId" in accepted)) throw new Error("Expected moderation action");
+  await moderation.reverse(admin, id(), accepted.actionId, {
+    expectedRevision: after.revision,
+    note: "Manufacturer confirmed the reported change was not material.",
+  });
+  expect((await repository.snapshot(f.productId)).versionId).toBe(f.versionId);
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM ratings WHERE product_version_id=?",
+    )
+      .bind(after.versionId)
+      .first("n"),
+  ).toBe(1);
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM product_versions WHERE product_id=?",
+    )
+      .bind(f.productId)
+      .first("n"),
+  ).toBe(2);
+});
+
+it("archives duplicates without transferring contributions or changing the survivor and reverses the redirect", async () => {
+  const { f, moderation, repository, duplicates, actor, admin } =
+    await fixture();
+  const survivorId = id(),
+    version = id();
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?, ?,1,1)",
+    ).bind(survivorId, f.countryId, "Survivor", survivorId),
+    env.DB.prepare(
+      "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
+    ).bind(version, survivorId),
+    env.DB.prepare(
+      "INSERT INTO ratings(id,user_id,product_version_id,category_id,overall_similarity,created_at,updated_at) VALUES(?,?,?,?,4,1,1)",
+    ).bind(id(), actor.id, f.versionId, f.categories[0]),
+  ]);
+  const survivor = await repository.snapshot(survivorId),
+    donor = await repository.snapshot(f.productId);
+  const accepted = await moderation.consolidate(admin, id(), {
+    donorId: donor.id,
+    survivorId,
+    donorRevision: donor.revision,
+    survivorRevision: survivor.revision,
+    note: "Same product, package size variation only.",
+  });
+  expect(await repository.snapshot(survivorId)).toEqual(survivor);
+  expect(await duplicates.redirect(donor.slug)).toMatchObject({
+    id: survivorId,
+  });
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM ratings WHERE product_version_id=?",
+    )
+      .bind(f.versionId)
+      .first("n"),
+  ).toBe(1);
+  const archived = await repository.snapshot(donor.id);
+  await moderation.reverse(admin, id(), accepted.actionId, {
+    expectedRevision: archived.revision,
+    note: "Evidence shows the duplicate was a distinct formula.",
+  });
+  expect(await duplicates.redirect(donor.slug)).toBeNull();
+  expect((await repository.snapshot(donor.id)).lifecycleStatus).toBe("active");
+});
+
+it("accepts canonical retailer aliases and keeps one current contributor stance without automatic removal", async () => {
+  const {
+    f,
+    contributions,
+    contributionRepository,
+    moderation,
+    repository,
+    actor,
+    admin,
+  } = await fixture();
+  const retailer = await contributions.proposeRetailer(
+    actor,
+    id(),
+    retailerInput.parse({
+      name: "Green Mart",
+      websiteUrl: "https://example.com",
+      aliases: ["Green-Mart"],
+      country: "US",
+      note: "National retailer with a public store directory.",
+    }),
+  );
+  const proposal = (await repository.proposal(retailer.id))!;
+  await moderation.decide(
+    admin,
+    id(),
+    "proposal",
+    retailer.id,
+    decision(proposal.updated_at),
+  );
+  expect(
+    await contributionRepository.retailerExists("Green.Mart"),
+  ).toMatchObject({ id: retailer.id });
+  await contributions.confirm(actor, id(), {
+    productId: f.productId,
+    retailerId: retailer.id,
+    stance: "confirm",
+  });
+  await contributions.confirm(actor, id(), {
+    productId: f.productId,
+    retailerId: retailer.id,
+    stance: "confirm",
+  });
+  expect(
+    (
+      await contributionRepository.retailerSummaries(f.productId, Date.now())
+    )[0],
+  ).toMatchObject({ contributorCount: 1, stale: false });
+  await contributions.confirm(actor, id(), {
+    productId: f.productId,
+    retailerId: retailer.id,
+    stance: "not_current",
+  });
+  expect(
+    (
+      await contributionRepository.retailerSummaries(f.productId, Date.now())
+    )[0],
+  ).toMatchObject({
+    contributorCount: 0,
+    disagreementCount: 1,
+    status: "active",
+    stale: true,
+  });
+  const concern = await env.DB.prepare(
+    "SELECT id FROM edit_proposals WHERE target_id=? AND change_type='retailer_status' AND status='pending'",
+  )
+    .bind(f.productId)
+    .first<string>("id");
+  expect(concern).toBeTruthy();
+  await contributions.confirm(admin, id(), {
+    productId: f.productId,
+    retailerId: retailer.id,
+    stance: "confirm",
+  });
+  await expect(
+    moderation.decide(
+      admin,
+      id(),
+      "proposal",
+      concern!,
+      decision((await repository.proposal(concern!))!.updated_at),
+    ),
+  ).rejects.toMatchObject({ code: "STALE_PRODUCT" });
+  await contributions.confirm(actor, id(), {
+    productId: f.productId,
+    retailerId: retailer.id,
+    stance: "not_current",
+  });
+  const refreshed = await env.DB.prepare(
+    "SELECT id FROM edit_proposals WHERE target_id=? AND change_type='retailer_status' AND status='pending'",
+  )
+    .bind(f.productId)
+    .first<string>("id");
+  await moderation.decide(
+    admin,
+    id(),
+    "proposal",
+    refreshed!,
+    decision((await repository.proposal(refreshed!))!.updated_at),
+  );
+  expect(
+    (
+      await contributionRepository.retailerSummaries(f.productId, Date.now())
+    )[0]!.status,
+  ).toBe("not_current");
+});
+
+it("accepts valid comment targets while rejecting missing and hidden comments", async () => {
+  const { f, contributions, actor } = await fixture();
+  const comment = id();
+  await env.DB.prepare(
+    "INSERT INTO comments(id,user_id,product_version_id,body,created_at,updated_at) VALUES(?,?,?,'Test comment',1,1)",
+  )
+    .bind(comment, actor.id, f.versionId)
+    .run();
+  expect(
+    await contributions.report(
+      actor,
+      id(),
+      reportInput.parse({
+        targetType: "comment",
+        targetId: comment,
+        reason: "spam",
+      }),
+    ),
+  ).toHaveProperty("id");
+  await env.DB.prepare(
+    "UPDATE comments SET moderation_state='hidden' WHERE id=?",
+  )
+    .bind(comment)
+    .run();
+  await expect(
+    contributions.report(
+      actor,
+      id(),
+      reportInput.parse({
+        targetType: "comment",
+        targetId: comment,
+        reason: "spam",
+      }),
+    ),
+  ).rejects.toMatchObject({ status: 404 });
+});

@@ -547,3 +547,7 @@ Not required in the initial baseline unless implementation makes them immediatel
 - business/brand claim records.
 
 Add these through migrations when their milestone begins.
+
+## Milestone 3 persistence decisions
+
+The approved [milestone specification](MILESTONE_3_PLAN.md) adds operational submission/upload receipts, bounded quotas/leases, held payloads, formula classifications and evidence, canonical aliases, and reversible duplicate archival. Proposed catalog payloads are persisted only for manual review; operational hashes/leases are not canonical products. R2 promotion and D1 publication use a recoverable workflow because they are not one distributed transaction. Formula classifications preserve historical uncertainty; product classification columns project the current formula. Duplicate donors retain all original records and bytes without transfer to the survivor. Preserve canonical references during cleanup and record before/after/resolution provenance for every protected change.

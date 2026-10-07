@@ -47,6 +47,7 @@ export class D1RatingsRepository implements RatingsRepository {
     return {
       versionId,
       revision: Number(rows[0]!.results[0]?.revision ?? 0),
+      archived: version.lifecycle_status === "hidden",
       canRate:
         version.is_current === 1 &&
         version.lifecycle_status === "active" &&

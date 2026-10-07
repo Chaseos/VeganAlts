@@ -22,6 +22,7 @@
     "RANKING_PRIOR_MEAN": "3.5",
     "RANKING_PRIOR_STRENGTH": "10",
     "TURNSTILE_SITE_KEY": "",
+    "COMMUNITY_LIMITS": "{}",
     "WEB_ANALYTICS_TOKEN": "",
   },
   "d1_databases": [
@@ -170,6 +171,7 @@
         "RANKING_PRIOR_MEAN": "3.5",
         "RANKING_PRIOR_STRENGTH": "10",
         "TURNSTILE_SITE_KEY": "0x4AAAAAAFOv4TTVy40p3IOo",
+        "COMMUNITY_LIMITS": "{}",
         "WEB_ANALYTICS_TOKEN": "e7dbbaef8ad448a6bc2cb6e9ff38f8b3",
       },
       "d1_databases": [
@@ -300,6 +302,7 @@
         "RANKING_PRIOR_MEAN": "3.5",
         "RANKING_PRIOR_STRENGTH": "10",
         "TURNSTILE_SITE_KEY": "",
+        "COMMUNITY_LIMITS": "{}",
         "WEB_ANALYTICS_TOKEN": "",
       },
       "d1_databases": [
