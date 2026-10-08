@@ -1836,3 +1836,39 @@ blockquote.comment-body {
 .comment-composer {
   margin-top: 12px;
 }
+/* Canonical photo slots */
+.photo-slots {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 16px;
+}
+.photo-slots li {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+.photo-slots img,
+.photo-slot-empty {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  display: block;
+}
+.photo-slot-empty {
+  background: repeating-linear-gradient(
+    45deg,
+    #eef1e4,
+    #eef1e4 8px,
+    #f7f7ef 8px,
+    #f7f7ef 16px
+  );
+}
+.photo-slots a.small {
+  min-height: 24px;
+}
+

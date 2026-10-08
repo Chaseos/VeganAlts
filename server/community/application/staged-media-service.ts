@@ -153,6 +153,17 @@ export class StagedMediaService {
       throw new ApplicationError("NOT_FOUND", "Evidence not found.", 404);
     return object;
   }
+  /** The product's current front photo, as a reference for identity checks. */
+  async referenceImage(productId: string) {
+    const front = await this.repository.canonicalFront(productId);
+    const object = front && (await this.bucket.get(front.key));
+    if (!front || !object) return null;
+    return {
+      contentHash: `canonical:${front.id}`,
+      contentType: "image/webp" as const,
+      bytes: new Uint8Array(await new Response(object).arrayBuffer()),
+    };
+  }
   /** Normalized full-size derivatives for automated evidence checks. */
   async decisionImages(receiptId: string) {
     const images = [];

@@ -220,6 +220,14 @@ export class StagedMediaRepository {
         .bind(attemptId),
     ]);
   }
+  canonicalFront(productId: string) {
+    return this.db
+      .prepare(
+        "SELECT i.id,i.full_r2_key AS key FROM product_images i JOIN product_versions v ON v.id=i.product_version_id AND v.is_current=1 WHERE v.product_id=? AND i.slot='front' AND i.state='accepted'",
+      )
+      .bind(productId)
+      .first<{ id: string; key: string }>();
+  }
   async openProposalEvidence(receiptId: string) {
     return Boolean(
       await this.db

@@ -117,6 +117,19 @@ export class ContributionRepository {
     return (await replay<{ id: string }>(this.db, receipt))!;
   }
   /** Returns the photo slots attached to the evidence receipt. */
+  /** An open proposal of the same photo for the same product slot. */
+  duplicatePhoto(productId: string, slot: string, contentHash: string) {
+    return this.db
+      .prepare(
+        `SELECT e.id,e.submitted_by FROM edit_proposals e
+        JOIN submission_uploads u ON u.submission_id=json_extract(e.proposed_data,'$.evidenceReceiptId')
+        JOIN staged_blobs b ON b.id=u.blob_id
+        WHERE e.status='pending' AND e.target_type='product' AND e.target_id=? AND e.change_type='photo'
+        AND json_extract(e.proposed_data,'$.slot')=? AND b.content_hash=? LIMIT 1`,
+      )
+      .bind(productId, slot, contentHash)
+      .first<{ id: string; submitted_by: string }>();
+  }
   async rankableCategory(categoryId: string) {
     return Boolean(
       await this.db

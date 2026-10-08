@@ -66,12 +66,13 @@ export function proposalBaseline(
       return input.sameFormula
         ? { ...formula, classification: snapshot.classification }
         : formula;
+    case "photo":
     case "packaging":
       // Only the slots this proposal replaces; sorted for a stable comparison.
       return {
         versionId: snapshot.versionId,
         images: Object.fromEntries(
-          [...new Set(slots)]
+          [...new Set(input.kind === "photo" ? [input.slot] : slots)]
             .sort()
             .map((slot) => [
               slot,
@@ -230,7 +231,22 @@ export function planProductChange(
       before.lifecycleStatus = snapshot.lifecycleStatus;
       after.lifecycleStatus = "discontinued";
       break;
+    case "photo": {
+      const filled = snapshot.images.some(
+        (i) =>
+          i.versionId === snapshot.versionId &&
+          i.slot === input.slot &&
+          i.state === "accepted",
+      );
+      if (filled && input.reason === "missing")
+        throw new ApplicationError(
+          "PHOTO_REASON_REQUIRED",
+          "This slot already has a photo. Explain why the new photo is better.",
+        );
+      break;
+    }
     case "packaging":
+      // Images are promoted and the prior slot image archived on acceptance.
       break;
     case "retailer_status": {
       const current = snapshot.retailers.find(

@@ -187,6 +187,13 @@ export const reportInput = z
   );
 export type ReportInput = z.infer<typeof reportInput>;
 
+export const photoReason = z.enum([
+  "missing",
+  "outdated_packaging",
+  "blurry",
+  "wrong_market",
+  "incorrect",
+]);
 const changeBase = {
   productId: id,
   expectedRevision: z.number().int().nonnegative(),
@@ -265,6 +272,17 @@ export const changeInput = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({ ...changeBase, kind: z.literal("category_add"), categoryId: id })
+    .strict(),
+  // One canonical photo per slot: an empty slot is filled, a filled slot gets
+  // a replacement proposal. Formula evidence uses the reformulation flow.
+  z
+    .object({
+      ...changeBase,
+      kind: z.literal("photo"),
+      slot: imageSlot,
+      reason: photoReason,
+      evidenceReceiptId: id,
+    })
     .strict(),
 ]);
 export const responseInput = z

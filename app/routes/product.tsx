@@ -15,6 +15,7 @@ import {
 import { RatingControl } from "../components/rating-control";
 import { CommentSection } from "../components/comments/comment-section";
 import { ProposalResponses } from "../components/proposal-responses";
+import { PhotoSlots } from "../components/photo-slots";
 import { commentServices } from "@server/comments/infrastructure/composition";
 import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/product";
@@ -227,7 +228,7 @@ export default function Product({
               )}
             </section>
           )}
-          {p.formula.isCurrent && <ProposalResponses productId={p.id} />}
+          {p.formula.isCurrent ? <ProposalResponses productId={p.id} /> : null}
           <section id="retailers">
             <h2>Commonly found at</h2>
             <p className="small muted">
@@ -321,38 +322,14 @@ export default function Product({
             </ul>
             <p className="small muted">{p.formula.changeSummary}</p>
           </section>
-          {p.images.filter((i) => i.slot !== "front").length > 0 && (
-            <section>
-              <h2>Product images</h2>
-              <div className="evidence-images">
-                {p.images
-                  .filter((i) => i.slot !== "front")
-                  .map((i) => (
-                    <div key={i.id}>
-                      <a
-                        href={`/media/${i.id}/${i.hasEvidence ? "evidence" : "full"}`}
-                        key={i.id}
-                      >
-                        <img
-                          src={`/media/${i.id}/thumbnail`}
-                          alt={`${p.name}: ${i.slot}`}
-                          width="100"
-                          height="100"
-                          loading="lazy"
-                        />
-                        {i.slot}
-                      </a>
-                      <Link
-                        className="small"
-                        to={`/contribute/${p.id}?action=report&image=${i.id}`}
-                      >
-                        Report photo
-                      </Link>
-                    </div>
-                  ))}
-              </div>
-            </section>
-          )}
+          <PhotoSlots
+            productId={p.id}
+            productName={p.name}
+            images={p.images}
+            canPropose={
+              Boolean(p.formula.isCurrent) && p.lifecycleStatus !== "hidden"
+            }
+          />
         </aside>
       </div>
     </SiteShell>

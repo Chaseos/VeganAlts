@@ -31,7 +31,10 @@ export class ContributionService {
       "snapshot" | "brandName"
     >,
     private readonly decisions: ModerationDecisionService,
-    private readonly media: Pick<StagedMediaService, "decisionImages">,
+    private readonly media: Pick<
+      StagedMediaService,
+      "decisionImages" | "referenceImage"
+    >,
     private readonly autoApply: AutoApplyPolicy,
     // Applies a tier 1 proposal through the audited system-actor path.
     private readonly accept: (proposalId: string) => Promise<unknown>,
@@ -99,12 +102,45 @@ export class ContributionService {
       );
     // Deterministic validity (no-op or invalid changes) before any model call.
     planProductChange(snapshot, input, actor.id, this.newId());
+    const staged = input.evidenceReceiptId
+      ? await this.media.decisionImages(input.evidenceReceiptId)
+      : [];
+    if (input.kind === "photo") {
+      if (staged.length !== 1 || staged[0]!.slot !== input.slot)
+        throw new ApplicationError(
+          "EVIDENCE_REQUIRED",
+          `Upload exactly one ${input.slot} photo for this proposal.`,
+          409,
+        );
+      // The same photo proposed again for this slot counts as independent
+      // support for the open proposal instead of a duplicate gallery entry.
+      const duplicate = await this.repository.duplicatePhoto(
+        input.productId,
+        input.slot,
+        staged[0]!.contentHash,
+      );
+      if (duplicate) {
+        if (duplicate.submitted_by !== actor.id)
+          await this.respond(actor, key, duplicate.id, {
+            stance: "confirm",
+            note: "Submitted the same photo independently.",
+          });
+        return { id: duplicate.id, duplicateOf: true };
+      }
+    }
     const id = this.newId(),
       tier = riskTier(input, snapshot, this.autoApply, slots);
+    const reference =
+      input.kind === "photo"
+        ? await this.media.referenceImage(input.productId)
+        : null;
     const automated = await this.decisions.evaluate({
-      kind: ["classification", "reformulation"].includes(input.kind)
-        ? "formula_evidence"
-        : "edit_proposal",
+      kind:
+        input.kind === "photo"
+          ? "image"
+          : ["classification", "reformulation"].includes(input.kind)
+            ? "formula_evidence"
+            : "edit_proposal",
       subject: { type: "edit_proposal", id },
       userId: actor.id,
       state: {
@@ -116,11 +152,25 @@ export class ContributionService {
         },
         change: this.describe(input),
         evidence: { note: input.evidence.note, urls: input.evidence.urls },
+        ...(input.kind === "photo"
+          ? {
+              images: [
+                { position: 1, claimedSlot: input.slot },
+                ...(reference
+                  ? [{ position: 2, role: "current front photo" }]
+                  : []),
+              ],
+            }
+          : {}),
       },
-      images: input.evidenceReceiptId
-        ? (await this.media.decisionImages(input.evidenceReceiptId)).slice(0, 3)
-        : [],
-      context: { lowRisk: tier === 1 },
+      images:
+        input.kind === "photo"
+          ? [staged[0]!, ...(reference ? [reference] : [])]
+          : staged.slice(0, 3),
+      context:
+        input.kind === "photo"
+          ? { slots: [input.slot] }
+          : { lowRisk: tier === 1 },
     });
     // Actionable problems return before any proposal or evidence is reserved.
     if (

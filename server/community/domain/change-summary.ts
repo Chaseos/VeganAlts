@@ -18,6 +18,10 @@ export function describeChange(
       return `Also replaces ${names[change.categoryId] ?? "another category"}`;
     case "packaging":
       return "Updated packaging photos";
+    case "photo":
+      return change.reason === "missing"
+        ? `New ${change.slot} photo`
+        : `Better ${change.slot} photo (${label(change.reason)})`;
     case "discontinue":
       return "No longer sold";
     case "reintroduce":

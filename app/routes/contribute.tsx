@@ -5,6 +5,7 @@ import { communityPageActor } from "@server/community/http/page";
 import { communityServices } from "@server/community/infrastructure/composition";
 import {
   reportReasons,
+  imageSlot,
   type ProductChange,
 } from "@server/community/domain/contracts";
 import type { ImageSlot } from "@server/media/domain/media";
@@ -30,6 +31,7 @@ import {
   type CommunityOptions,
   friendly,
 } from "../lib/community";
+import { PhotoProposalForm } from "../components/photo-proposal-form";
 import type { Route } from "./+types/contribute";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -45,6 +47,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     )) as unknown as CommunityOptions,
     siteKey: env.TURNSTILE_SITE_KEY,
     initialAction: query.get("action") ?? "change",
+    initialSlot: imageSlot.safeParse(query.get("slot")).data ?? "front",
     image: image && product.images.some((i) => i.id === image) ? image : null,
     administrator: actor.administrator,
   };
@@ -83,6 +86,7 @@ export default function Contribute({
     initialAction,
     image,
     administrator,
+    initialSlot,
   },
 }: Route.ComponentProps) {
   const [tab, setTab] = useState(initialAction),
@@ -270,6 +274,7 @@ export default function Contribute({
         <nav className="contribution-tabs" aria-label="Contribution type">
           {[
             ["change", "Suggest a change"],
+            ["photo", "Photos"],
             ["report", "Report a concern"],
             ["retailer", "Retailer availability"],
           ].map(([value, label]) => (
@@ -284,6 +289,13 @@ export default function Contribute({
           ))}
         </nav>
         <section className="community-panel">
+          {tab === "photo" && (
+            <PhotoProposalForm
+              product={product}
+              initialSlot={initialSlot}
+              action={action}
+            />
+          )}
           {tab === "report" && (
             <form className="community-form" onSubmit={saveReport}>
               <h2>{image ? "Report this photo" : "Report this product"}</h2>

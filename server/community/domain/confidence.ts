@@ -62,6 +62,17 @@ export function riskTier(
       return change.sameFormula && !mature ? 2 : 3;
     case "packaging":
       return slots.some((s) => EVIDENCE_SLOTS.has(s)) ? 3 : 2;
+    case "photo": {
+      const filled = snapshot.images.some(
+        (i) =>
+          i.versionId === snapshot.versionId &&
+          i.slot === change.slot &&
+          i.state === "accepted",
+      );
+      // Ingredient and nutrition photos are classification evidence.
+      if (!filled) return 1;
+      return EVIDENCE_SLOTS.has(change.slot) ? 3 : 2;
+    }
     case "alias":
       return 1;
     case "source_url":
@@ -80,6 +91,7 @@ const AUTOMATIC = new Set<ProductChange["kind"]>([
   "source_url",
   "rename",
   "packaging",
+  "photo",
   "relationships",
   "discontinue",
   "reintroduce",
