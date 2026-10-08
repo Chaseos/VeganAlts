@@ -25,6 +25,7 @@
     "COMMUNITY_LIMITS": "{}",
     "MODERATION_PROVIDER": "fake",
     "MODERATION_POLICY": "{}",
+    "PROPOSAL_AUTO_APPLY": "{}",
     "WEB_ANALYTICS_TOKEN": "",
   },
   "d1_databases": [
@@ -208,6 +209,7 @@
         "COMMUNITY_LIMITS": "{}",
         "MODERATION_PROVIDER": "clef",
         "MODERATION_POLICY": "{}",
+        "PROPOSAL_AUTO_APPLY": "{\"minAgeHours\":1}",
         "WEB_ANALYTICS_TOKEN": "e7dbbaef8ad448a6bc2cb6e9ff38f8b3",
       },
       "d1_databases": [
@@ -360,6 +362,7 @@
         "COMMUNITY_LIMITS": "{}",
         "MODERATION_PROVIDER": "disabled",
         "MODERATION_POLICY": "{}",
+        "PROPOSAL_AUTO_APPLY": "{}",
         "WEB_ANALYTICS_TOKEN": "",
       },
       "d1_databases": [

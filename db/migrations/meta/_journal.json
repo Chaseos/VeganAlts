@@ -85,6 +85,20 @@
       "when": 1791500591298,
       "tag": "0011_comment_votes",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1791501692522,
+      "tag": "0012_system_actor",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1791501696373,
+      "tag": "0013_proposal_confidence",
+      "breakpoints": true
     }
   ]
 }

@@ -252,7 +252,33 @@ export const changeInput = z.discriminatedUnion("kind", [
       status: z.enum(["active", "uncertain", "not_current"]),
     })
     .strict(),
+  // Established facts: the display name (identity and URL stay stable), a
+  // search alias, the manufacturer source and an additional category.
+  z
+    .object({ ...changeBase, kind: z.literal("rename"), name: shortText })
+    .strict(),
+  z
+    .object({ ...changeBase, kind: z.literal("alias"), alias: shortText })
+    .strict(),
+  z
+    .object({ ...changeBase, kind: z.literal("source_url"), url: evidenceUrl })
+    .strict(),
+  z
+    .object({ ...changeBase, kind: z.literal("category_add"), categoryId: id })
+    .strict(),
 ]);
+export const responseInput = z
+  .object({
+    stance: z.enum(["confirm", "disagree", "evidence"]),
+    note: z.string().trim().max(2000).default(""),
+    urls: z.array(evidenceUrl).max(5).default([]),
+  })
+  .strict()
+  .refine(
+    (v) => v.stance === "confirm" || v.note.length >= 8 || v.urls.length > 0,
+    "Explain the disagreement or add an evidence source.",
+  );
+export type ResponseInput = z.infer<typeof responseInput>;
 export type ProductChange = z.infer<typeof changeInput>;
 export const retailerInput = z
   .object({
@@ -295,6 +321,14 @@ export const consolidationInput = z
   })
   .strict();
 export type ConsolidationInput = z.infer<typeof consolidationInput>;
+export const inboxFilter = z.enum([
+  "all",
+  "confirmation",
+  "high_risk",
+  "comments",
+  "flagged",
+]);
+export type InboxFilter = z.infer<typeof inboxFilter>;
 export interface QueueItem {
   id: string;
   kind: ReviewKind;
@@ -303,6 +337,11 @@ export interface QueueItem {
   priority: number;
   createdAt: number;
   revision: number;
+  tier: number | null;
+  confirms: number;
+  disagrees: number;
+  // An automated check held, corrected or could not evaluate the item.
+  flagged: number;
 }
 export interface ContributionItem {
   id: string;

@@ -1657,7 +1657,8 @@ p {
   gap: 8px;
   margin: 0 0 20px;
 }
-.contribution-tabs button {
+.contribution-tabs button,
+.contribution-tabs a {
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 30px;
@@ -1666,7 +1667,8 @@ p {
   font: inherit;
   cursor: pointer;
 }
-.contribution-tabs button[aria-current] {
+.contribution-tabs button[aria-current],
+.contribution-tabs a[aria-current] {
   background: #264b34;
   color: #fff;
 }

@@ -288,7 +288,11 @@ export const moderationActions = sqliteTable(
     reversedBy: text("reversed_by"),
     createdAt: integer("created_at").notNull(),
   },
-  (t) => [index("ix_moderation_action_product").on(t.productId, t.createdAt)],
+  (t) => [
+    index("ix_moderation_action_product").on(t.productId, t.createdAt),
+    // Lets operators filter automated (system actor) decisions.
+    index("ix_moderation_action_actor").on(t.actorId, t.createdAt),
+  ],
 );
 export const duplicateConsolidations = sqliteTable(
   "duplicate_consolidations",

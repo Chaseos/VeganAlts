@@ -117,6 +117,109 @@ export class ContributionRepository {
     return (await replay<{ id: string }>(this.db, receipt))!;
   }
   /** Returns the photo slots attached to the evidence receipt. */
+  async rankableCategory(categoryId: string) {
+    return Boolean(
+      await this.db
+        .prepare(
+          "SELECT 1 FROM categories WHERE id=? AND is_active=1 AND is_rankable=1",
+        )
+        .bind(categoryId)
+        .first(),
+    );
+  }
+  /**
+   * One current stance per contributor. Counts are recomputed from the
+   * responses in the same batch, so concurrent responses never drift, and the
+   * proposal revision advances so any decision drafted before it is stale.
+   */
+  async respond(
+    proposalId: string,
+    actor: Actor,
+    stance: "confirm" | "disagree" | "evidence",
+    note: string,
+    urls: string[],
+    receipt: ReceiptWrite,
+  ) {
+    const counted = (value: string) =>
+      `(SELECT COUNT(*) FROM edit_proposal_responses r JOIN profiles p ON p.user_id=r.user_id AND p.account_state='active' WHERE r.proposal_id=edit_proposals.id AND r.stance='${value}')`;
+    const responded =
+      "EXISTS(SELECT 1 FROM edit_proposal_responses WHERE proposal_id=? AND user_id=? AND updated_at=?)";
+    const results = await this.db.batch([
+      this.db
+        .prepare(
+          `INSERT INTO edit_proposal_responses(proposal_id,user_id,stance,note,evidence_data,created_at,updated_at)
+          SELECT ?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM edit_proposals WHERE id=? AND status='pending' AND target_type='product' AND submitted_by<>?)
+          AND EXISTS(SELECT 1 FROM profiles WHERE user_id=? AND account_state='active')
+          ON CONFLICT(proposal_id,user_id) DO UPDATE SET stance=excluded.stance,note=excluded.note,evidence_data=excluded.evidence_data,updated_at=excluded.updated_at`,
+        )
+        .bind(
+          proposalId,
+          actor.id,
+          stance,
+          note || null,
+          JSON.stringify({ urls }),
+          receipt.now,
+          receipt.now,
+          proposalId,
+          actor.id,
+          actor.id,
+        ),
+      this.db
+        .prepare(
+          `UPDATE edit_proposals SET confirm_count=${counted("confirm")},disagree_count=${counted("disagree")},evidence_count=${counted("evidence")},updated_at=max(updated_at+1,?)
+          WHERE id=? AND status='pending' AND ${responded}`,
+        )
+        .bind(receipt.now, proposalId, proposalId, actor.id, receipt.now),
+      this.db
+        .prepare(
+          `INSERT INTO contribution_receipts(user_id,operation,idempotency_key,input_hash,result_data,created_at) SELECT ?,?,?,?,?,? WHERE ${responded}`,
+        )
+        .bind(
+          receipt.userId,
+          receipt.operation,
+          receipt.key,
+          receipt.hash,
+          JSON.stringify({ proposalId, stance }),
+          receipt.now,
+          proposalId,
+          actor.id,
+          receipt.now,
+        ),
+    ]);
+    if (!results[0]!.meta.changes)
+      throw new ApplicationError(
+        "PROPOSAL_CLOSED",
+        "This proposal is closed, or it is your own proposal.",
+        409,
+      );
+    return { proposalId, stance };
+  }
+  /** Open proposals on one product with response counts and the viewer's stance. */
+  async openProposals(productId: string, viewerId: string) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT e.id,e.change_type AS kind,e.risk_tier AS tier,e.proposed_data AS proposedData,e.note,e.created_at AS createdAt,
+          e.confirm_count AS confirms,e.disagree_count AS disagrees,e.evidence_count AS evidence,e.submitted_by=? AS own,r.stance
+          FROM edit_proposals e LEFT JOIN edit_proposal_responses r ON r.proposal_id=e.id AND r.user_id=?
+          WHERE e.target_type='product' AND e.target_id=? AND e.status='pending' ORDER BY e.created_at DESC LIMIT 20`,
+        )
+        .bind(viewerId, viewerId, productId)
+        .all<{
+          id: string;
+          kind: string;
+          tier: number;
+          proposedData: string;
+          note: string;
+          createdAt: number;
+          confirms: number;
+          disagrees: number;
+          evidence: number;
+          own: number;
+          stance: string | null;
+        }>()
+    ).results;
+  }
   async validateEvidence(actor: Actor, input: ProductChange, now: number) {
     let slots: string[] = [];
     if (input.evidenceReceiptId) {
@@ -173,6 +276,7 @@ export class ContributionRepository {
     id: string,
     receipt: ReceiptWrite,
     baseline: unknown = null,
+    tier: 1 | 2 | 3 = 2,
   ) {
     const product = "kind" in input;
     let guard = product
@@ -207,7 +311,7 @@ export class ContributionRepository {
           product ? "product" : "retailer",
           product ? input.productId : id,
           product ? input.kind : "retailer",
-          product && input.kind === "classification" ? 3 : 2,
+          tier,
           JSON.stringify(input),
           baseline === null ? null : JSON.stringify(baseline),
           product ? input.evidence.note : input.note,

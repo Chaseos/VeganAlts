@@ -5,7 +5,7 @@ import { z } from "zod";
 import { communityPageActor } from "@server/community/http/page";
 import { parse } from "@server/community/http/handlers";
 import { communityServices } from "@server/community/infrastructure/composition";
-import { reviewKind } from "@server/community/domain/contracts";
+import { inboxFilter, reviewKind } from "@server/community/domain/contracts";
 import type { ProductSnapshot } from "@server/community/domain/moderation";
 import { hasCatalogChanges } from "@server/community/domain/change-policy";
 import { SiteShell, EmptyState } from "../components/catalog";
@@ -72,7 +72,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   return {
     ...common,
     view: "inbox" as const,
-    ...(await services.moderation.inbox(actor, url.searchParams.get("cursor"))),
+    filter: parse(inboxFilter, url.searchParams.get("filter") ?? "all"),
+    ...(await services.moderation.inbox(
+      actor,
+      url.searchParams.get("cursor"),
+      parse(inboxFilter, url.searchParams.get("filter") ?? "all"),
+    )),
   };
 }
 export function meta() {
@@ -198,6 +203,29 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         </header>
         {data.view === "inbox" && (
           <>
+            <nav className="contribution-tabs" aria-label="Inbox filter">
+              {(
+                [
+                  ["all", "Everything"],
+                  ["confirmation", "Awaiting confirmation"],
+                  ["high_risk", "High risk"],
+                  ["comments", "Held comments"],
+                  ["flagged", "Automated signals"],
+                ] as const
+              ).map(([value, label]) => (
+                <Link
+                  key={value}
+                  to={
+                    value === "all"
+                      ? "/admin/moderation"
+                      : `/admin/moderation?filter=${value}`
+                  }
+                  aria-current={data.filter === value ? "page" : undefined}
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
             {data.items.length ? (
               <ul className="contribution-list">
                 {data.items.map((item) => (
@@ -213,6 +241,16 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                         ? "Ingredient priority"
                         : friendly(item.status)}
                     </span>
+                    {item.tier !== null && (
+                      <span className="small muted">
+                        Tier {item.tier} · {item.confirms} confirm
+                        {item.confirms === 1 ? "" : "s"} · {item.disagrees}{" "}
+                        disagree
+                      </span>
+                    )}
+                    {item.flagged === 1 && (
+                      <span className="small">Automated signal</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -223,7 +261,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
             )}
             {data.nextCursor && (
               <Link
-                to={`/admin/moderation?cursor=${encodeURIComponent(data.nextCursor)}`}
+                to={`/admin/moderation?${new URLSearchParams({ ...(data.filter === "all" ? {} : { filter: data.filter }), cursor: data.nextCursor })}`}
               >
                 Next reviews →
               </Link>

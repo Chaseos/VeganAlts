@@ -19,9 +19,9 @@ Approved on 2026-10-08. Complete [milestone 4](https://github.com/Chaseos/VeganA
 - **Comments** belong to a formula. The product page shows the current formula's comments with earlier formulas available and labeled. Best ordering uses the Wilson lower bound of upvote share; Newest is chronological. Heavily downvoted comments collapse behind **Show**. Votes measure usefulness, never agreement, and never affect rankings.
 - **Risk tiers** are domain configuration. Auto-application uses an explicit allow-list rather than a stored tier:
   - Tier 1, immediate after deterministic checks and an automated READY: alias/search term, manufacturer source URL, filling an empty photo slot.
-  - Tier 2, community-confirmable and eligible for automatic acceptance: packaging, package size, rename with package evidence, variant relationship without eligibility change, discontinuation and same-formula reintroduction of non-established products, category membership addition, front/back/prepared photo replacement.
+  - Tier 2, community-confirmable and eligible for automatic acceptance: packaging photos, rename with package evidence, replacing an existing manufacturer source, variant relationship without eligibility change, discontinuation and same-formula reintroduction of non-established products, category membership addition, front/back/prepared photo replacement.
   - Tier 3, operator only: classification, reformulation, category removal or eligibility change, brand/identity change, ingredient or nutrition photo replacement, merges, category proposals and discontinuation of established products.
-- **Confidence** is the Wilson lower bound of distinct independent confirmations against disagreements, excluding the proposer, adjusted by evidence quality and product importance. Automatic acceptance additionally requires an enabled provider's latest READY decision, a minimum age and minimum confirmations. No contributor-trust score exists.
+- **Confidence** is the Wilson lower bound of distinct independent confirmations against disagreements from active accounts, excluding the proposer; it orders review and is derived from stored response counts. Automatic acceptance of tier 2 requires an enabled provider's latest READY evidence decision, no disagreement, a minimum age and a minimum number of confirmations that rises for established products (product importance). Any disagreement sends the proposal to an operator. No contributor-trust score exists. Products have no canonical package-size field (package sizes are distinct products under the identity rules), and category removal remains the tier 3 eligibility change.
 - **Trending** uses canonical daily activity: counted ratings, trials and distinct commenters over seven days with a three-day half-life, relative to the preceding week's baseline and weighted by recent similarity quality. All constants are configurable and provisional until real traffic calibrates them. **New** lists eligible products published within 90 days, newest first.
 - **Structured data** uses breadcrumbs and item lists only. Similarity scores are not product-quality reviews, so no aggregate-rating markup is emitted.
 - **Launch gate:** one `PUBLIC_LAUNCH` variable replaces the hard-coded production checks and remains disabled in production.
@@ -62,21 +62,21 @@ Expand cross-milestone browser coverage, authorization and abuse tests, migratio
 
 ## Configurable defaults
 
-| Control                  | Default                                                                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Clef daily evaluations   | 300 per environment; 30 per account; 2 concurrent per account                                                             |
-| Decision reuse           | Identical kind/policy/model/input hash within 30 days                                                                     |
-| Comment length           | 2–2,000 characters, plain text                                                                                            |
-| Comments                 | 10 per minute and 30 per day per account                                                                                  |
-| Comment votes            | 60 per minute per account                                                                                                 |
-| Collapse                 | At least 5 downvotes and a 95% upper bound on upvote share below 0.4                                                      |
-| Comment re-evaluation    | 20 held comments per hourly pass                                                                                          |
-| Proposal auto-acceptance | Provider READY, at least 24 hours old, confidence ≥ 0.5; 1 confirmation on products under 25 counted ratings, 3 otherwise |
-| Established product      | 25 counted ratings                                                                                                        |
-| Category proposals       | 3 per account per day                                                                                                     |
-| Merge page               | 500 moved ratings and 50 conflicts                                                                                        |
-| Trending                 | 7-day window, 3-day half-life, 7-day baseline, at least 3 events, top 200 per category                                    |
-| New                      | 90 days                                                                                                                   |
+| Control                  | Default                                                                                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Clef daily evaluations   | 300 per environment; 30 per account; 2 concurrent per account                                                                                |
+| Decision reuse           | Identical kind/policy/model/input hash within 30 days                                                                                        |
+| Comment length           | 2–2,000 characters, plain text                                                                                                               |
+| Comments                 | 10 per minute and 30 per day per account                                                                                                     |
+| Comment votes            | 60 per minute per account                                                                                                                    |
+| Collapse                 | At least 5 downvotes and a 95% upper bound on upvote share below 0.4                                                                         |
+| Comment re-evaluation    | 20 held comments per hourly pass                                                                                                             |
+| Proposal auto-acceptance | Provider READY, at least 24 hours old (1 hour on staging), no disagreement; 1 confirmation on products under 25 counted ratings, 3 otherwise |
+| Established product      | 25 counted ratings                                                                                                                           |
+| Category proposals       | 3 per account per day                                                                                                                        |
+| Merge page               | 500 moved ratings and 50 conflicts                                                                                                           |
+| Trending                 | 7-day window, 3-day half-life, 7-day baseline, at least 3 events, top 200 per category                                                       |
+| New                      | 90 days                                                                                                                                      |
 
 ## Verification and staging delivery
 

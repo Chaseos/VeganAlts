@@ -9,6 +9,13 @@ import {
 } from "@server/community/domain/contracts";
 import type { ImageSlot } from "@server/media/domain/media";
 import { SiteShell } from "../components/catalog";
+import {
+  FactChangeFields,
+  factChangeDetails,
+  factKinds,
+  factLabels,
+  isFactKind,
+} from "../components/fact-change-fields";
 import { CatalogSelect } from "../components/catalog-select";
 import { CommunityControls } from "../components/community-form";
 import {
@@ -49,6 +56,7 @@ export function meta() {
   ];
 }
 const kinds = [
+  ...factKinds,
   "classification",
   "reformulation",
   "packaging",
@@ -58,6 +66,7 @@ const kinds = [
   "retailer_status",
 ] as const;
 const labels = {
+  ...factLabels,
   classification: "Classification evidence",
   reformulation: "Material reformulation",
   packaging: "Packaging update",
@@ -77,7 +86,7 @@ export default function Contribute({
   },
 }: Route.ComponentProps) {
   const [tab, setTab] = useState(initialAction),
-    [kind, setKind] = useState<ProductChange["kind"]>("classification"),
+    [kind, setKind] = useState<ProductChange["kind"]>("rename"),
     [newRetailer, setNewRetailer] = useState(false),
     [query, setQuery] = useState(""),
     [retailers, setRetailers] = useState(options.retailers),
@@ -235,6 +244,7 @@ export default function Contribute({
           retailerId: form.get("retailer"),
           status: form.get("status"),
         };
+      if (isFactKind(kind)) details = factChangeDetails(kind, form);
       const saved = await action.request<{ id: string }>("proposals", {
         ...base,
         ...details,
@@ -587,6 +597,14 @@ export default function Contribute({
                   </fieldset>
                 </>
               )}
+              {isFactKind(kind) && (
+                <FactChangeFields
+                  kind={kind}
+                  currentName={product.name}
+                  categories={options.categories}
+                  existing={product.categories.map((c) => c.categoryId)}
+                />
+              )}
               {kind === "retailer_status" && (
                 <>
                   <label htmlFor="change-retailer">Relationship</label>
@@ -614,6 +632,7 @@ export default function Contribute({
                 "reformulation",
                 "reintroduce",
                 "packaging",
+                "rename",
               ].includes(kind) && (
                 <fieldset disabled={!!receiptId}>
                   <legend>Supporting photos</legend>
@@ -628,8 +647,9 @@ export default function Contribute({
                     />
                   ))}
                   <p className="small muted">
-                    Up to 10 MiB per photo. Evidence stays private during
-                    review.
+                    Up to 10 MiB per photo. While a proposal is open for
+                    community confirmation, signed-in contributors can see its
+                    evidence; otherwise it stays private during review.
                   </p>
                 </fieldset>
               )}

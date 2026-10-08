@@ -22,6 +22,10 @@ export interface ProductSnapshot {
   lifecycleStatus: string;
   veganStatus: VeganStatus;
   manufacturerLabel: ManufacturerLabel;
+  manufacturerUrl: string | null;
+  aliases: string[];
+  // Counted ratings on the current formula; drives adaptive protection.
+  countedRatings: number;
   revision: number;
   versionId: string;
   versionLabel: string | null;
@@ -48,6 +52,9 @@ export interface ProposalRecord {
   baseline_data: string | null;
   status: string;
   updated_at: number;
+  created_at: number;
+  confirm_count: number;
+  disagree_count: number;
   resolution_note: string | null;
 }
 // Compensation restores only catalog fields affected by a decision. Raw ratings,
@@ -62,6 +69,15 @@ export interface CatalogPatch {
   classification?: { versionId: string; value: FormulaClassification | null };
   familyId?: string | null;
   categories?: { categoryId: string; eligible: boolean }[];
+  name?: string;
+  // Identity key for a new name; added on acceptance, never removed.
+  identityKey?: string;
+  manufacturerUrl?: string | null;
+  aliases?: string[];
+  // Categories this change links or unlinks. Unlinking keeps memberships that
+  // ratings reference, marked ineligible, so raw ratings are never orphaned.
+  addedCategories?: string[];
+  removedCategories?: string[];
   imageStates?: { id: string; state: string }[];
   // Moderation visibility of comments on this product, never their text.
   commentStates?: { id: string; state: string }[];

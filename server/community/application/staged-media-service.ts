@@ -129,9 +129,15 @@ export class StagedMediaService {
   async read(actor: Actor, receiptId: string, imageId: string, kind: string) {
     active(actor);
     const receipt = await this.repository.receipt(receiptId);
+    // Evidence on a proposal open for community confirmation is visible to
+    // signed-in contributors; held submissions stay owner/operator only.
+    const shared =
+      receipt?.purpose === "evidence" &&
+      receipt.state === "review" &&
+      (await this.repository.openProposalEvidence(receiptId));
     if (
       !receipt ||
-      (receipt.user_id !== actor.id && !actor.administrator) ||
+      (receipt.user_id !== actor.id && !actor.administrator && !shared) ||
       (receipt.state !== "published" && receipt.expires_at <= this.clock()) ||
       ["expired", "rejected"].includes(receipt.state)
     )

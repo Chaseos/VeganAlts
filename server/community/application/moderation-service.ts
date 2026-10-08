@@ -6,8 +6,22 @@ import {
   type ConsolidationInput,
   type ReviewDecision,
   type ReviewKind,
+  type InboxFilter,
 } from "../domain/contracts";
-import { administrator, active } from "../domain/policy";
+import {
+  administrator,
+  active,
+  identityKey,
+  SYSTEM_ACTOR,
+  SYSTEM_ACTOR_ID,
+} from "../domain/policy";
+import {
+  autoAcceptance,
+  established,
+  riskTier,
+  type AutoApplyPolicy,
+} from "../domain/confidence";
+import type { ModerationDecisionService } from "../../moderation/application/decision-service";
 import {
   assertCompensable,
   assertProposalCurrent,
@@ -15,7 +29,7 @@ import {
   hasCatalogChanges,
   type ProposalBaseline,
 } from "../domain/change-policy";
-import type { CatalogPatch } from "../domain/moderation";
+import type { CatalogPatch, ProposalRecord } from "../domain/moderation";
 import {
   ModerationRepository,
   type ActionWrite,
@@ -38,12 +52,18 @@ export class ModerationService {
     private readonly receipts: SubmissionRepository,
     private readonly submissions: SubmissionService,
     private readonly media: StagedMediaService,
+    private readonly decisions: ModerationDecisionService,
+    private readonly autoApply: AutoApplyPolicy,
     private readonly newId: () => string,
     private readonly clock = Date.now,
   ) {}
-  async inbox(actor: Actor, cursor: string | null) {
+  async inbox(
+    actor: Actor,
+    cursor: string | null,
+    filter: InboxFilter = "all",
+  ) {
     administrator(actor);
-    return this.repository.inbox(cursor);
+    return this.repository.inbox(cursor, filter);
   }
   contributions(actor: Actor, cursor: string | null) {
     active(actor);
@@ -261,6 +281,21 @@ export class ModerationService {
         receipt,
       );
     }
+    return this.acceptChange(
+      action,
+      proposal,
+      input.expectedProductRevision,
+      receipt,
+    );
+  }
+  /** Accepts a pending proposal through the fenced, audited decision path. */
+  private async acceptChange(
+    action: ActionWrite,
+    proposal: ProposalRecord,
+    expectedProductRevision: number | undefined,
+    receipt: ReceiptWrite,
+  ) {
+    const actor = action.actor;
     if (proposal.status !== "pending")
       throw new ApplicationError(
         "STALE_DECISION",
@@ -279,8 +314,8 @@ export class ModerationService {
     // The operator's reviewed product state fences their decision; the
     // contributor's drafting baseline only covers facts the change depends on.
     if (
-      input.expectedProductRevision !== undefined &&
-      input.expectedProductRevision !== snapshot.revision
+      expectedProductRevision !== undefined &&
+      expectedProductRevision !== snapshot.revision
     )
       throw new ApplicationError(
         "STALE_PRODUCT",
@@ -296,6 +331,22 @@ export class ModerationService {
     );
     await this.catalog.validateRelationships(snapshot, change);
     const plan = planProductChange(snapshot, change, actor.id, this.newId());
+    if (change.kind === "rename") {
+      // A new display name must not collide with another product's identity.
+      const key = identityKey(
+        snapshot.countryId,
+        (await this.repository.brandName(snapshot.brandId)) ?? "",
+        change.name,
+      );
+      const owner = await this.repository.identityOwner(key);
+      if (owner && owner !== snapshot.id)
+        throw new ApplicationError(
+          "DUPLICATE_PRODUCT",
+          "Another product already uses this brand and name.",
+          409,
+        );
+      plan.after.identityKey = key;
+    }
     let images: StagedAttachment[] = [],
       token: string | undefined;
     try {
@@ -361,6 +412,91 @@ export class ModerationService {
         );
       throw error;
     }
+  }
+  /**
+   * Applies an eligible community-confirmed or tier 1 proposal as the system
+   * actor. Eligibility is recomputed from fresh state; the shared fenced path
+   * rejects anything that changed since it was read.
+   */
+  async autoAccept(proposalId: string) {
+    const now = this.clock();
+    const proposal = await this.repository.proposal(proposalId);
+    if (
+      !proposal ||
+      proposal.status !== "pending" ||
+      proposal.target_type !== "product"
+    )
+      return { applied: false, reason: "closed" };
+    const change = changeInput.parse(JSON.parse(proposal.proposed_data)),
+      snapshot = await this.repository.snapshot(change.productId);
+    const baseline = proposal.baseline_data
+      ? (JSON.parse(proposal.baseline_data) as { images?: object })
+      : null;
+    const tier = riskTier(
+      change,
+      snapshot,
+      this.autoApply,
+      Object.keys(baseline?.images ?? {}),
+    );
+    const latest = await this.decisions.latest("edit_proposal", proposalId);
+    const verdict = autoAcceptance(
+      {
+        tier,
+        change,
+        confirms: proposal.confirm_count,
+        disagrees: proposal.disagree_count,
+        established: established(snapshot, this.autoApply),
+        ageMs: now - proposal.created_at,
+        decision: latest?.outcome ?? null,
+      },
+      this.autoApply,
+    );
+    if (!verdict.eligible) return { applied: false, reason: verdict.reason };
+    const receipt = await receiptWrite(
+      SYSTEM_ACTOR_ID,
+      "proposal-auto-accept",
+      `auto-${proposalId}-${proposal.updated_at}`,
+      { proposalId, revision: proposal.updated_at },
+      now,
+    );
+    const prior = await this.repository.replay<{
+      actionId: string;
+      productId: string | null;
+    }>(receipt);
+    if (prior) return { applied: true, reason: verdict.reason, ...prior };
+    const result = await this.acceptChange(
+      {
+        id: this.newId(),
+        actor: SYSTEM_ACTOR,
+        kind: "proposal_accept",
+        targetId: proposalId,
+        productId: null,
+        before: { review: proposal },
+        after: {},
+        note:
+          verdict.reason === "tier_one"
+            ? "Automatically applied: a low-risk addition with a supporting automated check."
+            : `Automatically applied after ${proposal.confirm_count} independent confirmation(s), no disagreement and a supporting automated evidence check.`,
+        now,
+      },
+      proposal,
+      snapshot.revision,
+      receipt,
+    );
+    return { applied: true, reason: verdict.reason, ...result };
+  }
+  /** Hourly: bounded evaluation of proposals automation may apply. */
+  async sweepProposals() {
+    let applied = 0;
+    for (const id of await this.repository.automationCandidates(
+      this.autoApply.perPass,
+    ))
+      try {
+        if ((await this.autoAccept(id)).applied) applied++;
+      } catch {
+        // A stale or conflicting proposal stays pending for an operator.
+      }
+    return applied;
   }
   async previewConsolidation(
     actor: Actor,

@@ -28,6 +28,11 @@ export function hasCatalogChanges(value: unknown) {
       "classification",
       "familyId",
       "categories",
+      "name",
+      "manufacturerUrl",
+      "aliases",
+      "addedCategories",
+      "removedCategories",
       "imageStates",
       "commentStates",
       "relationships",
@@ -91,6 +96,14 @@ export function proposalBaseline(
           snapshot.retailers.find((r) => r.retailerId === input.retailerId)
             ?.status ?? null,
       };
+    case "rename":
+      return { name: snapshot.name };
+    case "alias":
+      return { aliases: snapshot.aliases };
+    case "source_url":
+      return { manufacturerUrl: snapshot.manufacturerUrl };
+    case "category_add":
+      return { categories: snapshot.categories.map((c) => c.categoryId) };
   }
 }
 export type ProposalBaseline = ReturnType<typeof proposalBaseline>;
@@ -232,6 +245,48 @@ export function planProductChange(
       after.retailer = { retailerId: input.retailerId, status: input.status };
       break;
     }
+    case "rename":
+      if (input.name === snapshot.name)
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "The product already has this name.",
+        );
+      before.name = snapshot.name;
+      after.name = input.name;
+      break;
+    case "alias": {
+      if (
+        snapshot.aliases.some(
+          (a) => a.toLowerCase() === input.alias.toLowerCase(),
+        ) ||
+        input.alias.toLowerCase() === snapshot.name.toLowerCase()
+      )
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "This name already finds the product.",
+        );
+      before.aliases = snapshot.aliases;
+      after.aliases = [...snapshot.aliases, input.alias].sort();
+      break;
+    }
+    case "source_url":
+      if (input.url === snapshot.manufacturerUrl)
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "This is already the manufacturer source.",
+        );
+      before.manufacturerUrl = snapshot.manufacturerUrl;
+      after.manufacturerUrl = input.url;
+      break;
+    case "category_add":
+      if (snapshot.categories.some((c) => c.categoryId === input.categoryId))
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "The product is already in this category.",
+        );
+      before.removedCategories = [input.categoryId];
+      after.addedCategories = [input.categoryId];
+      break;
     case "relationships":
       if (
         new Set(input.categoryEligibility.map((c) => c.categoryId)).size !==
@@ -327,6 +382,25 @@ export function assertCompensable(
     patch.retailer &&
     snapshot.retailers.find((r) => r.retailerId === patch.retailer!.retailerId)
       ?.status !== patch.retailer.status
+  )
+    conflict();
+  if (patch.name !== undefined && patch.name !== snapshot.name) conflict();
+  if (
+    patch.manufacturerUrl !== undefined &&
+    patch.manufacturerUrl !== snapshot.manufacturerUrl
+  )
+    conflict();
+  if (
+    patch.aliases &&
+    JSON.stringify([...patch.aliases].sort()) !==
+      JSON.stringify([...snapshot.aliases].sort())
+  )
+    conflict();
+  if (
+    patch.addedCategories?.some(
+      (id) =>
+        !snapshot.categories.some((c) => c.categoryId === id && c.eligible),
+    )
   )
     conflict();
   if (

@@ -347,6 +347,85 @@ export class CatalogDecisionRepository {
           .bind(snapshot.id, ...values),
       );
     }
+    if (patch.name !== undefined)
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE products SET name=?,updated_at=? WHERE id=? AND ${sql}`,
+          )
+          .bind(patch.name, now, snapshot.id, ...values),
+      );
+    // The new name also identifies the product for duplicate checks; earlier
+    // keys stay so the former name still resolves to the same product.
+    if (patch.identityKey)
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO product_identity_keys(identity_key,product_id) SELECT ?,? WHERE ${sql} ON CONFLICT(identity_key) DO NOTHING`,
+          )
+          .bind(patch.identityKey, snapshot.id, ...values),
+      );
+    if (patch.manufacturerUrl !== undefined)
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE products SET manufacturer_url=?,updated_at=? WHERE id=? AND ${sql}`,
+          )
+          .bind(patch.manufacturerUrl, now, snapshot.id, ...values),
+      );
+    if (patch.aliases) {
+      const aliases = JSON.stringify(patch.aliases);
+      statements.push(
+        this.db
+          .prepare(
+            `DELETE FROM product_aliases WHERE product_id=? AND alias COLLATE NOCASE NOT IN (SELECT value FROM json_each(?)) AND ${sql}`,
+          )
+          .bind(snapshot.id, aliases, ...values),
+        this.db
+          .prepare(
+            `INSERT INTO product_aliases(id,product_id,alias,created_at) SELECT lower(hex(randomblob(16))),?,value,? FROM json_each(?) WHERE ${sql} ON CONFLICT DO NOTHING`,
+          )
+          .bind(snapshot.id, now, aliases, ...values),
+        this.db
+          .prepare(
+            `UPDATE catalog_revisions SET revision=revision+1 WHERE product_id=? AND ${sql}`,
+          )
+          .bind(snapshot.id, ...values),
+      );
+    }
+    if (patch.addedCategories?.length)
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO product_categories(product_id,category_id,ranking_eligible,created_by,created_at,updated_at)
+            SELECT ?,c.id,1,?,?,? FROM categories c JOIN json_each(?) j ON j.value=c.id WHERE c.is_active=1 AND c.is_rankable=1 AND ${sql}
+            ON CONFLICT(product_id,category_id) DO UPDATE SET ranking_eligible=1,updated_at=excluded.updated_at`,
+          )
+          .bind(
+            snapshot.id,
+            actor.id,
+            now,
+            now,
+            JSON.stringify(patch.addedCategories),
+            ...values,
+          ),
+      );
+    if (patch.removedCategories?.length) {
+      const removed = JSON.stringify(patch.removedCategories);
+      // Ratings keep their membership; only an unrated link is removed.
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE product_categories SET ranking_eligible=0,updated_at=? WHERE product_id=? AND category_id IN (SELECT value FROM json_each(?)) AND EXISTS(SELECT 1 FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=product_categories.product_id AND r.category_id=product_categories.category_id) AND ${sql}`,
+          )
+          .bind(now, snapshot.id, removed, ...values),
+        this.db
+          .prepare(
+            `DELETE FROM product_categories WHERE product_id=? AND category_id IN (SELECT value FROM json_each(?)) AND NOT EXISTS(SELECT 1 FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=product_categories.product_id AND r.category_id=product_categories.category_id) AND ${sql}`,
+          )
+          .bind(snapshot.id, removed, ...values),
+      );
+    }
     if (patch.consolidation && !patch.consolidation.active)
       statements.push(
         this.db
@@ -355,9 +434,14 @@ export class CatalogDecisionRepository {
           )
           .bind(snapshot.id, ...values),
       );
-    // The search document holds names, brand and categories; only visibility
-    // (hidden or restored) changes it among these catalog patches.
-    if (patch.lifecycleStatus !== undefined)
+    // The search document holds names, aliases, brand and categories.
+    if (
+      patch.lifecycleStatus !== undefined ||
+      patch.name !== undefined ||
+      patch.aliases ||
+      patch.addedCategories?.length ||
+      patch.removedCategories?.length
+    )
       statements.push(
         ...productSearchStatements(
           this.db,

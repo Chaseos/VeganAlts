@@ -62,6 +62,8 @@ export interface PolicyContext {
   slots?: ImageSlot[];
   /** Whether a photo is the only ingredient evidence (no manufacturer URL). */
   ingredientPhotoRequired?: boolean;
+  /** Tier 1 additions need no direct evidence, only no warning signs. */
+  lowRisk?: boolean;
 }
 export interface PolicyResult {
   outcome: Outcome;
@@ -199,12 +201,14 @@ export function evaluatePolicy(
           ],
           flags: ["contradicts"],
         };
-      const supported =
-        p(answers, "claim_support", "SUPPORTS") >= policy.ready &&
-        p(answers, "evidence_relevance", "STRONG") +
-          p(answers, "evidence_relevance", "PARTIAL") >=
-          policy.ready &&
-        p(answers, "recommended_action", "MODERATOR_REVIEW") < 0.5;
+      const supported = context.lowRisk
+        ? p(answers, "recommended_action", "MODERATOR_REVIEW") < policy.hold &&
+          p(answers, "claim_support", "CONTRADICTS") < 0.5
+        : p(answers, "claim_support", "SUPPORTS") >= policy.ready &&
+          p(answers, "evidence_relevance", "STRONG") +
+            p(answers, "evidence_relevance", "PARTIAL") >=
+            policy.ready &&
+          p(answers, "recommended_action", "MODERATOR_REVIEW") < 0.5;
       if (p(answers, "risk", "HIGH") >= 0.5) flags.push("high_risk");
       return supported && !flags.length
         ? { outcome: "READY", reasons: [], flags }

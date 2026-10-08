@@ -829,6 +829,10 @@ export const editProposals = sqliteTable(
       { onDelete: "set null" },
     ),
     resolutionNote: text("resolution_note"),
+    // Derived from edit_proposal_responses; the response write recomputes them.
+    confirmCount: integer("confirm_count").notNull().default(0),
+    disagreeCount: integer("disagree_count").notNull().default(0),
+    evidenceCount: integer("evidence_count").notNull().default(0),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     resolvedAt: integer("resolved_at"),

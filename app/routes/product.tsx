@@ -14,6 +14,7 @@ import {
 } from "../components/catalog";
 import { RatingControl } from "../components/rating-control";
 import { CommentSection } from "../components/comments/comment-section";
+import { ProposalResponses } from "../components/proposal-responses";
 import { commentServices } from "@server/comments/infrastructure/composition";
 import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/product";
@@ -226,6 +227,7 @@ export default function Product({
               )}
             </section>
           )}
+          {p.formula.isCurrent && <ProposalResponses productId={p.id} />}
           <section id="retailers">
             <h2>Commonly found at</h2>
             <p className="small muted">

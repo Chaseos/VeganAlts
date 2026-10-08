@@ -24,6 +24,7 @@ import {
   retailerInput,
   reviewDecision,
   reviewKind,
+  inboxFilter,
   consolidationInput,
   note,
   type Actor,
@@ -116,6 +117,16 @@ export async function communityApi(
       root === "community" &&
       second === "products" &&
       third &&
+      parts[3] === "proposals" &&
+      parts.length === 4
+    )
+      return respond(
+        await services.contributions.openProposals(actor, parse(id, third)),
+      );
+    if (
+      root === "community" &&
+      second === "products" &&
+      third &&
       parts.length === 3
     )
       return respond(
@@ -167,7 +178,11 @@ export async function communityApi(
       );
     if (path === "admin/moderation/inbox")
       return respond(
-        await services.moderation.inbox(actor, url.searchParams.get("cursor")),
+        await services.moderation.inbox(
+          actor,
+          url.searchParams.get("cursor"),
+          parse(inboxFilter, url.searchParams.get("filter") ?? "all"),
+        ),
       );
     if (path === "admin/moderation/duplicate-preview")
       return respond(
@@ -263,6 +278,18 @@ export async function communityApi(
         actor,
         requestKey,
         parse(changeInput, body),
+      );
+    else if (
+      root === "proposals" &&
+      second &&
+      third === "responses" &&
+      parts.length === 3
+    )
+      result = await services.contributions.respond(
+        actor,
+        requestKey,
+        parse(id, second),
+        body,
       );
     else if (path === "retailers/proposals")
       result = await services.contributions.proposeRetailer(

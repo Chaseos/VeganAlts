@@ -260,6 +260,42 @@ const cases: Case[] = [
     images: [animalIngredients],
   },
   {
+    name: "supported rename",
+    kind: "edit_proposal",
+    expected: ["READY", "NEEDS_REVIEW"],
+    state: {
+      product: { brand: "Orchard Table", name: "Crumbles" },
+      change: { kind: "rename", name: "Garden Crumbles" },
+      evidence: {
+        note: "The current package front prints the full name.",
+        urls: [],
+      },
+    },
+    images: [orchardFront],
+  },
+  {
+    name: "contradicted rename",
+    kind: "edit_proposal",
+    expected: ["NEEDS_CHANGES", "NEEDS_REVIEW"],
+    state: {
+      product: { brand: "Orchard Table", name: "Garden Crumbles" },
+      change: { kind: "rename", name: "Smoky Bacon Bits" },
+      evidence: { note: "The package front shows the new name.", urls: [] },
+    },
+    images: [orchardFront],
+  },
+  {
+    name: "low-risk alias",
+    kind: "edit_proposal",
+    expected: ["READY"],
+    state: {
+      product: { brand: "Orchard Table", name: "Garden Crumbles" },
+      change: { kind: "alias", alias: "veggie mince" },
+      evidence: { note: "Shoppers call it veggie mince.", urls: [] },
+    },
+    context: { lowRisk: true },
+  },
+  {
     name: "food category",
     kind: "category_proposal",
     expected: ["NEEDS_REVIEW"],

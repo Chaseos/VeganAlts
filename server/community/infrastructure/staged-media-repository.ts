@@ -220,6 +220,16 @@ export class StagedMediaRepository {
         .bind(attemptId),
     ]);
   }
+  async openProposalEvidence(receiptId: string) {
+    return Boolean(
+      await this.db
+        .prepare(
+          "SELECT 1 FROM edit_proposals WHERE status='pending' AND target_type='product' AND json_extract(proposed_data,'$.evidenceReceiptId')=? LIMIT 1",
+        )
+        .bind(receiptId)
+        .first(),
+    );
+  }
   async attachments(receiptId: string): Promise<StagedAttachment[]> {
     const rows = await this.db
       .prepare(

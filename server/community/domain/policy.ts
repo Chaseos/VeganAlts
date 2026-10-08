@@ -42,6 +42,13 @@ export function communityLimits(value?: string): CommunityLimits {
   }
   return result;
 }
+// Application-owned account that records automated decisions (migration 0012).
+export const SYSTEM_ACTOR_ID = "veganalts-system";
+export const SYSTEM_ACTOR: Actor = {
+  id: SYSTEM_ACTOR_ID,
+  accountState: "active",
+  administrator: false,
+};
 export function active(actor: Actor) {
   assertActiveAccount(actor);
 }

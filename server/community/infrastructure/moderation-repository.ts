@@ -1,3 +1,4 @@
+import type { InboxFilter } from "../domain/contracts";
 import { ApplicationError } from "../../shared/domain/errors";
 import type { Actor, ContributionItem, QueueItem } from "../domain/contracts";
 import type {
@@ -45,7 +46,8 @@ export class ModerationRepository {
     const rows = await this.db.batch<Record<string, unknown>>([
       this.db
         .prepare(
-          `SELECT p.id,p.name,p.slug,p.country_id AS countryId,p.brand_id AS brandId,p.product_family_id AS familyId,p.lifecycle_status AS lifecycleStatus,p.vegan_status AS veganStatus,p.manufacturer_label AS manufacturerLabel,r.revision,v.id AS versionId,v.version_label AS versionLabel FROM products p JOIN catalog_revisions r ON r.product_id=p.id JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.id=?`,
+          `SELECT p.id,p.name,p.slug,p.country_id AS countryId,p.brand_id AS brandId,p.product_family_id AS familyId,p.lifecycle_status AS lifecycleStatus,p.vegan_status AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.manufacturer_url AS manufacturerUrl,r.revision,v.id AS versionId,v.version_label AS versionLabel,
+          (SELECT COUNT(*) FROM ratings x WHERE x.product_version_id=v.id AND x.is_counted=1) AS countedRatings FROM products p JOIN catalog_revisions r ON r.product_id=p.id JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.id=?`,
         )
         .bind(productId),
       this.db
@@ -66,6 +68,11 @@ export class ModerationRepository {
       this.db
         .prepare(
           "SELECT to_product_id AS productId,relation_type AS type FROM product_relationships WHERE from_product_id=? ORDER BY to_product_id,relation_type",
+        )
+        .bind(productId),
+      this.db
+        .prepare(
+          "SELECT alias FROM product_aliases WHERE product_id=? ORDER BY alias",
         )
         .bind(productId),
       this.db
@@ -102,7 +109,8 @@ export class ModerationRepository {
       })),
       images: rows[3]!.results,
       relationships: rows[4]!.results,
-      retailers: rows[5]!.results,
+      aliases: rows[5]!.results.map((r) => String(r.alias)),
+      retailers: rows[6]!.results,
     } as unknown as ProductSnapshot;
   }
   proposal(id: string) {
@@ -212,6 +220,33 @@ export class ModerationRepository {
     }
     return result;
   }
+  async brandName(brandId: string | null) {
+    if (!brandId) return null;
+    return this.db
+      .prepare("SELECT name FROM brands WHERE id=?")
+      .bind(brandId)
+      .first<string>("name");
+  }
+  identityOwner(key: string) {
+    return this.db
+      .prepare(
+        "SELECT product_id FROM product_identity_keys WHERE identity_key=?",
+      )
+      .bind(key)
+      .first<string>("product_id");
+  }
+  /** Pending product proposals automation may evaluate, oldest first. */
+  async automationCandidates(limit: number) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT id FROM edit_proposals WHERE target_type='product' AND status='pending' AND risk_tier<=2 AND disagree_count=0
+          AND (risk_tier=1 OR confirm_count>0) ORDER BY created_at LIMIT ?`,
+        )
+        .bind(limit)
+        .all<{ id: string }>()
+    ).results.map((r) => r.id);
+  }
   async comment(id: string) {
     return this.db
       .prepare(
@@ -240,7 +275,7 @@ export class ModerationRepository {
       .all<{ id: string; moderation_state: string }>();
     return new Map(rows.results.map((r) => [r.id, r.moderation_state]));
   }
-  async inbox(cursor: string | null) {
+  async inbox(cursor: string | null, filter: InboxFilter = "all") {
     let point: [number, number, string] | null = null;
     if (cursor)
       try {
@@ -265,17 +300,30 @@ export class ModerationRepository {
     const rows = await this.db
       .prepare(
         `WITH inbox AS (
-      SELECT s.id,'submission' AS kind,COALESCE(json_extract(p.proposed_data,'$.name'),'Submission') AS title,s.state AS status,2 AS priority,s.created_at AS createdAt,p.revision FROM submission_receipts s JOIN pending_submissions p ON p.submission_id=s.id WHERE s.state='review' AND p.resolved_at IS NULL
-      UNION ALL SELECT r.id,'report',replace(r.reason_code,'_',' '),r.status,CASE WHEN r.reason_code='ingredient_concern' THEN 1 ELSE 3 END,r.created_at,COALESCE(e.revision,0) FROM reports r LEFT JOIN report_evidence e ON e.report_id=r.id WHERE r.status IN ('open','reviewing')
-      UNION ALL SELECT id,'proposal',replace(change_type,'_',' '),status,CASE WHEN change_type='classification' THEN 1 ELSE 2 END,created_at,updated_at FROM edit_proposals WHERE status='pending'
-      UNION ALL SELECT id,'comment','held comment',moderation_state,2,created_at,updated_at FROM comments WHERE moderation_state='pending' AND deleted_at IS NULL
-    ) SELECT * FROM inbox WHERE ? IS NULL OR (priority,createdAt,kind||'_'||id)>(?,?,?) ORDER BY priority,createdAt,kind||'_'||id LIMIT 31`,
+      SELECT s.id,'submission' AS kind,COALESCE(json_extract(p.proposed_data,'$.name'),'Submission') AS title,s.state AS status,2 AS priority,s.created_at AS createdAt,p.revision,NULL AS tier,0 AS confirms,0 AS disagrees,
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='submission' AND d.subject_id=s.id AND d.outcome<>'READY') AS flagged
+        FROM submission_receipts s JOIN pending_submissions p ON p.submission_id=s.id WHERE s.state='review' AND p.resolved_at IS NULL
+      UNION ALL SELECT r.id,'report',replace(r.reason_code,'_',' '),r.status,CASE WHEN r.reason_code='ingredient_concern' THEN 1 ELSE 3 END,r.created_at,COALESCE(e.revision,0),NULL,0,0,0 FROM reports r LEFT JOIN report_evidence e ON e.report_id=r.id WHERE r.status IN ('open','reviewing')
+      UNION ALL SELECT id,'proposal',replace(change_type,'_',' '),status,CASE WHEN change_type='classification' THEN 1 ELSE 2 END,created_at,updated_at,risk_tier,confirm_count,disagree_count,
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='edit_proposal' AND d.subject_id=edit_proposals.id AND d.outcome<>'READY')
+        FROM edit_proposals WHERE status='pending'
+      UNION ALL SELECT id,'comment','held comment',moderation_state,2,created_at,updated_at,NULL,0,0,
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='comment' AND d.subject_id=comments.id AND d.outcome<>'READY')
+        FROM comments WHERE moderation_state='pending' AND deleted_at IS NULL
+    ) SELECT * FROM inbox WHERE (? IS NULL OR (priority,createdAt,kind||'_'||id)>(?,?,?))
+      AND CASE ? WHEN 'confirmation' THEN kind='proposal' AND tier<=2
+        WHEN 'high_risk' THEN (kind='proposal' AND tier=3) OR priority=1
+        WHEN 'comments' THEN kind='comment'
+        WHEN 'flagged' THEN flagged=1
+        ELSE 1 END
+      ORDER BY priority,createdAt,kind||'_'||id LIMIT 31`,
       )
       .bind(
         point?.[0] ?? null,
         point?.[0] ?? 0,
         point?.[1] ?? 0,
         point?.[2] ?? "",
+        filter,
       )
       .all<QueueItem>();
     const items = rows.results.slice(0, 30),

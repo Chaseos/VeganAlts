@@ -206,17 +206,15 @@ export class QueueDecisionRepository {
       // Operators see the reported comment's text to judge it.
       reportedComment:
         actor.administrator && row.target_type === "comment"
-          ? await this.repository
-              .comment(row.target_id)
-              .then((c) =>
-                c
-                  ? {
-                      body: c.body,
-                      author: c.handle,
-                      state: c.moderation_state,
-                    }
-                  : null,
-              )
+          ? await this.repository.comment(row.target_id).then((c) =>
+              c
+                ? {
+                    body: c.body,
+                    author: c.handle,
+                    state: c.moderation_state,
+                  }
+                : null,
+            )
           : null,
     };
   }
