@@ -104,6 +104,12 @@ export class RatingsService {
   ) {
     assertActiveAccount(actor);
     return this.change(versionId, (snapshot) => {
+      if (tried && snapshot.archived)
+        throw new ApplicationError(
+          "ARCHIVED_PRODUCT",
+          "Archived products cannot receive new contributions.",
+          409,
+        );
       if (
         !tried &&
         snapshot.ratings.some((rating) => rating.userId === actor.id)

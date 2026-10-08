@@ -12,9 +12,11 @@ Before substantial implementation work, read:
 4. `docs/RANKING.md` — ranking semantics and derived data.
 5. `docs/MODERATION.md` — contribution and trust rules.
 6. `docs/API.md` — API conventions.
-7. `docs/MILESTONE_2_PLAN.md` — current implementation scope and acceptance gates.
+7. `docs/MILESTONE_3_PLAN.md` — current implementation scope and acceptance gates.
 
-`docs/MILESTONE_1_PLAN.md` and its verification record preserve foundation history.
+`docs/MILESTONE_1_PLAN.md`, `docs/MILESTONE_2_PLAN.md`, and their verification records preserve foundation and core-ranking history.
+
+Milestone 3 uses deterministic contribution checks and manual moderation, without an external AI decision provider. Duplicate consolidation archives the donor without transferring its ratings or metadata to the survivor. Protected changes remain auditable and reversible. Visible comment reporting ships with the later comment feature; this milestone tests the shared comment-target reporting contract.
 
 If these documents conflict, do not guess. Preserve existing behavior and surface the conflict for an explicit documentation decision.
 

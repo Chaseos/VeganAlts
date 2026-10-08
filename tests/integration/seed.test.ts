@@ -10,6 +10,8 @@ import {
   seedCategories,
   seedProducts,
 } from "../../db/seed/catalog";
+import { communityServices } from "../../server/community/infrastructure/composition";
+import { changeInput } from "../../server/community/domain/contracts";
 
 it("seeds approved demonstration data repeatably without changing real contributions", async () => {
   const statements = developmentSeedStatements("test");
@@ -93,4 +95,81 @@ it("seeds approved demonstration data repeatably without changing real contribut
       "SELECT COUNT(*) AS count FROM products WHERE development_only=1 AND vegan_status='under_review'",
     ).first("count"),
   ).toBe(0);
+});
+
+it("preserves accepted moderation, current formula changes, and real ratings when reseeded", async () => {
+  const seed = async () => {
+    const statements = developmentSeedStatements("test");
+    for (let i = 0; i < statements.length; i += 50)
+      await env.DB.batch(
+        statements
+          .slice(i, i + 50)
+          .map((s) => env.DB.prepare(s.sql).bind(...s.params)),
+      );
+  };
+  await seed();
+  const id = () => crypto.randomUUID(),
+    services = communityServices(env, id),
+    productId = seedId("product:beyond-burger"),
+    userId = id(),
+    admin = {
+      id: seedId("taster:0"),
+      accountState: "active",
+      administrator: true,
+    };
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO user(id,name,email,created_at,updated_at) VALUES(?,?,?,1,1)",
+    ).bind(userId, "Real contribution fixture", `${userId}@example.invalid`),
+    env.DB.prepare(
+      "INSERT INTO profiles(user_id,handle,created_at,updated_at) VALUES(?,?,1,1)",
+    ).bind(userId, userId),
+  ]);
+  const before = await services.repository.snapshot(productId);
+  const proposal = await services.contributions.propose(
+    admin,
+    id(),
+    changeInput.parse({
+      kind: "reformulation",
+      productId,
+      expectedRevision: before.revision,
+      versionLabel: "Operator-accepted replacement",
+      effectiveDate: "2026-09",
+      veganStatus: "under_review",
+      manufacturerLabel: "plant_based",
+      evidence: {
+        urls: ["https://example.com/recipe"],
+        note: "Current ingredients require operator follow-up before ratings resume.",
+      },
+    }),
+  );
+  await services.moderation.decide(admin, id(), "proposal", proposal.id, {
+    decision: "accept",
+    expectedRevision: (await services.repository.proposal(proposal.id))!
+      .updated_at,
+    effect: "none",
+    note: "Manufacturer recipe evidence reviewed and history preserved.",
+  });
+  const approved = await services.repository.snapshot(productId),
+    ratingId = id();
+  await env.DB.prepare(
+    "INSERT INTO ratings(id,user_id,product_version_id,category_id,overall_similarity,created_at,updated_at) VALUES(?,?,?,?,3,2,2)",
+  )
+    .bind(ratingId, userId, before.versionId, before.categories[0]!.categoryId)
+    .run();
+  const rating = await env.DB.prepare("SELECT * FROM ratings WHERE id=?")
+    .bind(ratingId)
+    .first();
+  const actions = await services.repository.actions(productId);
+  await seed();
+  expect(await services.repository.snapshot(productId)).toEqual(approved);
+  expect(
+    await env.DB.prepare("SELECT * FROM ratings WHERE id=?")
+      .bind(ratingId)
+      .first(),
+  ).toEqual(rating);
+  expect(await services.repository.actions(productId)).toEqual(actions);
+  expect(
+    (await env.DB.prepare("PRAGMA foreign_key_check").all()).results,
+  ).toEqual([]);
 });

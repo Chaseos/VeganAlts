@@ -47,7 +47,7 @@ export function Turnstile({
   onToken,
 }: {
   siteKey: string | null;
-  action: "rating" | "sign-in";
+  action: "rating" | "sign-in" | "community";
   onToken: (token: string) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);

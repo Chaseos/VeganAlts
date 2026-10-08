@@ -22,7 +22,9 @@ export class D1MediaRepository implements MediaRepository {
     now: number,
   ): Promise<UploadRecord> {
     const version = await this.db
-      .prepare("SELECT id FROM product_versions WHERE id=?")
+      .prepare(
+        "SELECT v.id FROM product_versions v JOIN products p ON p.id=v.product_id WHERE v.id=? AND p.lifecycle_status<>'hidden'",
+      )
       .bind(input.productVersionId)
       .first();
     if (!version)
@@ -60,12 +62,13 @@ export class D1MediaRepository implements MediaRepository {
     const results = await this.db.batch([
       this.db
         .prepare(
-          "UPDATE media_uploads SET state='processing',active_attempt_id=?,failure_code=NULL,updated_at=? WHERE id=? AND state IN ('pending','failed') AND (SELECT COUNT(*) FROM media_attempts WHERE created_at>=?) < ? AND (SELECT COUNT(*) FROM media_attempts WHERE upload_id=?) < ?",
+          "UPDATE media_uploads SET state='processing',active_attempt_id=?,failure_code=NULL,updated_at=? WHERE id=? AND state IN ('pending','failed') AND (SELECT COUNT(*) FROM media_attempts WHERE created_at>=?)+(SELECT COUNT(*) FROM staged_attempts WHERE created_at>=?) < ? AND (SELECT COUNT(*) FROM media_attempts WHERE upload_id=?) < ?",
         )
         .bind(
           attemptId,
           now,
           uploadId,
+          Math.floor(now / DAY_MS) * DAY_MS,
           Math.floor(now / DAY_MS) * DAY_MS,
           DAILY_ATTEMPTS,
           uploadId,
@@ -103,7 +106,7 @@ export class D1MediaRepository implements MediaRepository {
     const results = await this.db.batch([
       this.db
         .prepare(
-          "UPDATE media_uploads SET state='complete',image_id=?,updated_at=? WHERE id=? AND state='processing' AND active_attempt_id=? AND EXISTS (SELECT 1 FROM media_attempts WHERE id=? AND state='processing' AND lease_expires_at>?)",
+          "UPDATE media_uploads SET state='complete',image_id=?,updated_at=? WHERE id=? AND state='processing' AND active_attempt_id=? AND EXISTS (SELECT 1 FROM media_attempts WHERE id=? AND state='processing' AND lease_expires_at>?) AND EXISTS(SELECT 1 FROM product_versions v JOIN products p ON p.id=v.product_id WHERE v.id=media_uploads.product_version_id AND p.lifecycle_status<>'hidden')",
         )
         .bind(imageId, now, upload.id, attempt.id, attempt.id, now),
       this.db
@@ -158,12 +161,12 @@ export class D1MediaRepository implements MediaRepository {
     await this.db.batch([
       this.db
         .prepare(
-          "UPDATE media_uploads SET state='failed',failure_code='INTERRUPTED',updated_at=? WHERE (state='processing' AND active_attempt_id IN (SELECT id FROM media_attempts WHERE state='processing' AND lease_expires_at<=?)) OR (state='pending' AND updated_at<=?)",
+          "UPDATE media_uploads SET state='failed',failure_code='INTERRUPTED',updated_at=? WHERE id IN(SELECT id FROM media_uploads WHERE (state='processing' AND active_attempt_id IN (SELECT id FROM media_attempts WHERE state='abandoned' OR (state='processing' AND lease_expires_at<=?))) OR (state='pending' AND updated_at<=?) ORDER BY updated_at,id LIMIT 100)",
         )
         .bind(now, now, now - LEASE_MS),
       this.db
         .prepare(
-          "UPDATE media_attempts SET state='abandoned' WHERE state='processing' AND lease_expires_at<=?",
+          "UPDATE media_attempts SET state='abandoned' WHERE id IN(SELECT id FROM media_attempts WHERE state='processing' AND lease_expires_at<=? ORDER BY lease_expires_at,id LIMIT 100)",
         )
         .bind(now),
     ]);
@@ -191,5 +194,22 @@ export class D1MediaRepository implements MediaRepository {
       attempt?.state === "abandoned" ||
       (attempt?.state === "committed" && match[2] === "original")
     );
+  }
+  async recoveryCursor() {
+    return (
+      (await this.db
+        .prepare(
+          "SELECT cursor FROM community_recovery WHERE prefix='uploads/'",
+        )
+        .first<string>("cursor")) ?? undefined
+    );
+  }
+  async saveRecoveryCursor(cursor: string | undefined) {
+    await this.db
+      .prepare(
+        "INSERT INTO community_recovery(prefix,cursor) VALUES('uploads/',?) ON CONFLICT(prefix) DO UPDATE SET cursor=excluded.cursor",
+      )
+      .bind(cursor ?? null)
+      .run();
   }
 }

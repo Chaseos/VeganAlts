@@ -5,12 +5,31 @@ const columns = {
   thumbnail: "thumbnail_r2_key",
   evidence: "evidence_r2_key",
 } as const;
-export async function readMedia(
+export function readMedia(
   db: D1Database,
   bucket: R2Bucket,
   imageId: string,
   variant: string,
   request: Request,
+) {
+  return readStoredMedia(db, bucket, imageId, variant, request, false);
+}
+export function readModeratedMedia(
+  db: D1Database,
+  bucket: R2Bucket,
+  imageId: string,
+  variant: string,
+  request: Request,
+) {
+  return readStoredMedia(db, bucket, imageId, variant, request, true);
+}
+async function readStoredMedia(
+  db: D1Database,
+  bucket: R2Bucket,
+  imageId: string,
+  variant: string,
+  request: Request,
+  operator: boolean,
 ) {
   if (
     !Object.hasOwn(columns, variant) ||
@@ -22,7 +41,7 @@ export async function readMedia(
   // keeps working and recovery retains its objects. Rejected/pending bytes stay private.
   const row = await db
     .prepare(
-      `SELECT ${column} AS objectKey FROM product_images WHERE id=? AND state IN ('accepted','archived')`,
+      `SELECT i.${column} AS objectKey FROM product_images i JOIN product_versions v ON v.id=i.product_version_id JOIN products p ON p.id=v.product_id WHERE i.id=? ${operator ? "" : "AND i.state IN ('accepted','archived') AND p.lifecycle_status<>'hidden'"}`,
     )
     .bind(imageId)
     .first<{ objectKey: string | null }>();
@@ -31,7 +50,7 @@ export async function readMedia(
   if (!object) return new Response("Not found", { status: 404 });
   const headers = new Headers({
     "Content-Type": "image/webp",
-    "Cache-Control": "public, max-age=31536000, immutable",
+    "Cache-Control": operator ? "private, no-store" : "public, max-age=0",
     ETag: object.httpEtag,
     "X-Content-Type-Options": "nosniff",
   });

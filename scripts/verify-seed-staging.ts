@@ -14,11 +14,29 @@ const snapshot = () =>
       realRatings:
         "SELECT r.* FROM ratings r JOIN user u ON u.id=r.user_id WHERE u.email NOT LIKE '%@demo.veganalts.invalid' ORDER BY r.id",
       realTrials:
-      "SELECT t.* FROM product_trials t JOIN user u ON u.id=t.user_id WHERE u.email NOT LIKE '%@demo.veganalts.invalid' ORDER BY t.user_id,t.product_version_id",
+        "SELECT t.* FROM product_trials t JOIN user u ON u.id=t.user_id WHERE u.email NOT LIKE '%@demo.veganalts.invalid' ORDER BY t.user_id,t.product_version_id",
       verifiedFormulas:
         "SELECT id,verified_at FROM product_versions WHERE verified_at IS NOT NULL ORDER BY id",
       historicalFormulas:
         "SELECT * FROM product_versions WHERE is_current=0 ORDER BY id",
+      catalogProducts: "SELECT * FROM products ORDER BY id",
+      currentFormulas:
+        "SELECT * FROM product_versions WHERE is_current=1 ORDER BY id",
+      formulaClassifications:
+        "SELECT * FROM formula_classifications ORDER BY product_version_id",
+      categoryMemberships:
+        "SELECT * FROM product_categories ORDER BY product_id,category_id",
+      productRelationships:
+        "SELECT * FROM product_relationships ORDER BY from_product_id,to_product_id,relation_type",
+      retailers: "SELECT * FROM retailers ORDER BY id",
+      retailerConfirmations:
+        "SELECT * FROM retailer_confirmations ORDER BY user_id,product_id,retailer_id",
+      proposals: "SELECT * FROM edit_proposals ORDER BY id",
+      reports: "SELECT * FROM reports ORDER BY id",
+      moderationActions: "SELECT * FROM moderation_actions ORDER BY id",
+      duplicateConsolidations:
+        "SELECT * FROM duplicate_consolidations ORDER BY donor_id",
+      auditHistory: "SELECT * FROM audit_log ORDER BY id",
     };
     const summary: Record<string, { count: number; sha256: string }> = {};
     for (const [name, sql] of Object.entries(groups)) {
@@ -44,9 +62,9 @@ const report = {
   verified: true,
   protectedRecords: after,
 };
-await mkdir("test-results/milestone-2", { recursive: true });
+await mkdir("test-results/milestone-3", { recursive: true });
 await writeFile(
-  "test-results/milestone-2/seed-preservation.json",
+  "test-results/milestone-3/seed-preservation.json",
   JSON.stringify(report, null, 2),
 );
 console.log(JSON.stringify(report, null, 2));

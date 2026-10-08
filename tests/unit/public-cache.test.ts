@@ -72,6 +72,7 @@ it("normalizes public identities without session state and separates representat
     },
   );
   const normalized = normalizedPublicRequest(input, origin, "v1");
+  expect(normalized.redirect).toBe("manual");
   for (const header of ["Cookie", "Authorization", "Origin", "X-Render-Nonce"])
     expect(normalized.headers.has(header)).toBe(false);
   expect(normalized.url).not.toContain("utm_source");
@@ -135,6 +136,7 @@ it("uses native stale semantics with bounded stale errors and separate browser d
   for (const response of [
     new Response("failure", { status: 500 }),
     new Response(null, { status: 302, headers: { Location: "/sign-in" } }),
+    new Response("router data redirect", { status: 202 }),
     new Response("private", { headers: { "Set-Cookie": "secret" } }),
     new Response("personal", {
       headers: { "Cache-Control": "private, no-store" },
@@ -171,9 +173,18 @@ it("invalidates all affected material representations without a rating invalidat
   expect(() =>
     invalidationTags({ kind: "product", slug: "bad,tag" }),
   ).toThrow();
+  // Retailer evidence changes only the product page; listings stay cached.
+  expect(
+    invalidationTags({
+      kind: "product",
+      slug: "example",
+      categorySlugs: ["milk"],
+      pageOnly: true,
+    }),
+  ).toEqual(["product:example"]);
 });
 
-it("shares only validated immutable image variants and preserves their browser lifetime", () => {
+it("shares validated image variants while allowing moderation revocation", () => {
   for (const variant of ["full", "thumbnail", "evidence"]) {
     const request = new Request(
       `${origin}/media/image_1/${variant}?irrelevant=1`,
@@ -195,9 +206,7 @@ it("shares only validated immutable image variants and preserves their browser l
       new Response("bytes", { headers: { ETag: '"image-etag"' } }),
       route,
     );
-    expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=31536000, immutable",
-    );
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=0");
     expect(response.headers.get("Cloudflare-CDN-Cache-Control")).toBe(
       edgeCacheControl(86400),
     );

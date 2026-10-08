@@ -1,0 +1,2 @@
+ALTER TABLE `pending_submissions` ADD `superseded_by` text REFERENCES submission_receipts(id);--> statement-breakpoint
+CREATE UNIQUE INDEX `ux_pending_superseded_by` ON `pending_submissions` (`superseded_by`);

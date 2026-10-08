@@ -1,3 +1,5 @@
+import type { CommunityProductDetails } from "../../community/domain/public";
+
 export interface CategorySummary {
   id: string;
   slug: string;
@@ -15,6 +17,9 @@ export interface ProductSummary {
   versionId: string;
   imageId: string | null;
   developmentOnly: number;
+  publishedAt?: number | null;
+  // Decided when the response is built so cached HTML and hydration agree.
+  isNew?: boolean;
 }
 
 export interface RankingRow extends ProductSummary {
@@ -28,6 +33,8 @@ export interface FormulaSummary {
   isCurrent: number;
   changeSummary: string | null;
   effectiveFrom: number | null;
+  effectiveDate: string | null;
+  effectiveDatePrecision: string;
 }
 
 export interface ProductCategory {
@@ -40,7 +47,8 @@ export interface ProductCategory {
   ratingCount: number;
 }
 
-export interface ProductDetails extends ProductSummary {
+export interface ProductDetails
+  extends ProductSummary, CommunityProductDetails {
   country: string;
   veganStatus: string;
   manufacturerLabel: string;
@@ -80,4 +88,5 @@ export interface CatalogRepository {
     expression: string,
   ): Promise<{ categories: CategorySummary[]; products: ProductSummary[] }>;
   profile(handle: string): Promise<PublicProfile | null>;
+  canonicalRedirect(slug: string): Promise<{ id: string; slug: string } | null>;
 }

@@ -141,6 +141,8 @@ export interface MediaRepository {
   fail(attempt: UploadAttempt, code: string, now: number): Promise<void>;
   recoverExpired(now: number): Promise<void>;
   canDeleteObject(key: string, now: number): Promise<boolean>;
+  recoveryCursor(): Promise<string | undefined>;
+  saveRecoveryCursor(cursor: string | undefined): Promise<void>;
 }
 export interface ImageTransformer {
   inspect(bytes: Uint8Array): Promise<ImageInfo>;

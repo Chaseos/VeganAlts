@@ -1,0 +1,1 @@
+ALTER TABLE `edit_proposals` ADD `baseline_data` text;

@@ -27,7 +27,7 @@ export async function enforceLimit(binding: RateLimit, key: string) {
 
 export async function verifyChallenge(
   token: string | undefined,
-  action: "sign-in" | "rating",
+  action: "sign-in" | "rating" | "community",
   request: Request,
   env: ChallengeConfig,
   verify: typeof fetch = fetch,
@@ -83,16 +83,16 @@ export async function verifyChallenge(
 export async function protectContribution(
   request: Request,
   env: ContributionProtectionConfig,
-  action: "sign-in" | "rating",
+  action: "sign-in" | "rating" | "community",
   actor: string,
   token?: string,
 ) {
   const hard =
-    action === "rating" ? env.RATING_RATE_LIMIT : env.AUTH_RATE_LIMIT;
+    action !== "sign-in" ? env.RATING_RATE_LIMIT : env.AUTH_RATE_LIMIT;
   const risk =
-    action === "rating" ? env.RATING_RISK_LIMIT : env.AUTH_RISK_LIMIT;
+    action !== "sign-in" ? env.RATING_RISK_LIMIT : env.AUTH_RISK_LIMIT;
   await enforceLimit(hard, `ip:${clientKey(request)}`);
-  if (action === "rating") await enforceLimit(hard, `user:${actor}`);
+  if (action !== "sign-in") await enforceLimit(hard, `user:${actor}`);
   const elevated = !(
     await risk.limit({ key: `${actor}:${clientKey(request)}` })
   ).success;

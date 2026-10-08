@@ -43,7 +43,11 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
                 <span className="product-brand">{rating.brand}</span>
                 <h2>
                   <Link
-                    to={`/us/products/${rating.productSlug}${rating.isCurrent ? "" : `?version=${rating.productVersionId}`}#rate-${rating.categoryId}`}
+                    to={
+                      rating.archivedDuplicate
+                        ? `/us/products/${rating.canonicalSlug}`
+                        : `/us/products/${rating.productSlug}${rating.isCurrent ? "" : `?version=${rating.productVersionId}`}#rate-${rating.categoryId}`
+                    }
                   >
                     {rating.productName}
                   </Link>
@@ -54,7 +58,11 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
                 </p>
                 <p className="small muted">
                   {rating.versionLabel} ·{" "}
-                  {rating.isCurrent ? "Current formula" : "Historical rating"}
+                  {rating.archivedDuplicate
+                    ? "Archived duplicate · Your rating is preserved here"
+                    : rating.isCurrent
+                      ? "Current formula"
+                      : "Historical rating"}
                 </p>
                 <time
                   className="small muted"
@@ -68,9 +76,17 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
               </div>
               <Link
                 className="button secondary"
-                to={`/us/products/${rating.productSlug}${rating.isCurrent ? "" : `?version=${rating.productVersionId}`}#${rating.canRate ? `rate-${rating.categoryId}` : "formula-history"}`}
+                to={
+                  rating.archivedDuplicate
+                    ? `/us/products/${rating.canonicalSlug}`
+                    : `/us/products/${rating.productSlug}${rating.isCurrent ? "" : `?version=${rating.productVersionId}`}#${rating.canRate ? `rate-${rating.categoryId}` : "formula-history"}`
+                }
               >
-                {rating.canRate ? "Edit rating" : "View history"}
+                {rating.archivedDuplicate
+                  ? "View canonical product"
+                  : rating.canRate
+                    ? "Edit rating"
+                    : "View history"}
               </Link>
             </li>
           ))}

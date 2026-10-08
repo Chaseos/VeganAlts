@@ -53,7 +53,7 @@ it("decodes and stores evidence derivatives once, serves R2 bytes, and never enl
     new Request("https://example.invalid/media"),
   );
   expect(response.status).toBe(200);
-  expect(response.headers.get("Cache-Control")).toContain("immutable");
+  expect(response.headers.get("Cache-Control")).toBe("public, max-age=0");
   const decoded = await transformer.inspect(
     new Uint8Array(await response.arrayBuffer()),
   );

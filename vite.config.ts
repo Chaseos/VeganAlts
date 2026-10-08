@@ -5,4 +5,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [cloudflare({ viteEnvironment: { name: "ssr" } }), reactRouter()],
   resolve: { tsconfigPaths: true },
+  // Only lazily loaded contribution routes import zod in the browser. Without
+  // pre-bundling, a cold dev server discovers it mid-navigation and reloads.
+  optimizeDeps: { include: ["zod"] },
 });

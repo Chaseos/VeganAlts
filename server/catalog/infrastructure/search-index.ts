@@ -24,3 +24,27 @@ export const SEARCH_INDEX_STATEMENTS = [
 export async function rebuildSearchIndex(db: D1Database) {
   await db.batch(SEARCH_INDEX_STATEMENTS.map((sql) => db.prepare(sql)));
 }
+
+// Used inside the same fenced transaction as a material catalog change.
+export function productSearchStatements(
+  db: D1Database,
+  productId: string,
+  guard = "1",
+  parameters: (string | number)[] = [],
+) {
+  return [
+    db
+      .prepare(
+        `DELETE FROM search_index WHERE entity_type='product' AND entity_id=? AND (${guard})`,
+      )
+      .bind(productId, ...parameters),
+    db
+      .prepare(
+        SEARCH_INDEX_STATEMENTS[2].replace(
+          "WHERE p.lifecycle_status<>'hidden'",
+          `WHERE p.id=? AND (${guard}) AND p.lifecycle_status<>'hidden'`,
+        ),
+      )
+      .bind(productId, ...parameters),
+  ];
+}

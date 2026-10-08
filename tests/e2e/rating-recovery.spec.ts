@@ -105,7 +105,11 @@ test("session loss and a cancelled sign-in retain the score for a later successf
     await context.addCookies([session.cookie]);
     await page.goto(`/auth/return?returnTo=${encodeURIComponent(returnTo)}`);
     await expect(
-      page.getByRole("status").filter({ hasText: "Saved 2/5" }),
+      // A pending personal-state fetch can observe the restored cookie and save
+      // before this navigation. Either confirmation must show the same persisted score.
+      page
+        .getByRole("status")
+        .filter({ hasText: /(?:Saved|Your rating:) 2\/5/ }),
     ).toBeVisible();
     const ratings = await (await page.request.get("/api/v1/me/ratings")).json();
     expect(ratings.data).toHaveLength(1);
@@ -183,6 +187,9 @@ test("rate limits and an unavailable security check preserve a recoverable selec
   const session = await createBrowserSession();
   try {
     await context.addCookies([session.cookie]);
+    await page.route("https://challenges.cloudflare.com/**", (route) =>
+      route.abort("failed"),
+    );
     await page.goto("/us/products/beyond-burger");
     let challenge = false;
     await page.route("**/api/v1/ratings", (route) =>
@@ -208,7 +215,7 @@ test("rate limits and an unavailable security check preserve a recoverable selec
     challenge = true;
     await retry.click();
     await expect(page.getByRole("alert")).toContainText(
-      "The security check is unavailable",
+      "The security check could not load",
     );
     await expect(retry).toBeDisabled();
     await page.unroute("**/api/v1/ratings");

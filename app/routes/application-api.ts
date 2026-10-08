@@ -13,9 +13,12 @@ import { limitedJson, success } from "@server/shared/http/json";
 import { clientEvents, recordEvent } from "@server/observability/events";
 import { clientKey, enforceLimit } from "@server/abuse/service";
 import type { Route } from "./+types/application-api";
+import { communityApi } from "@server/community/http/handlers";
 
 async function handle(request: Request, path: string) {
   try {
+    const community = await communityApi(request, path, env);
+    if (community) return community;
     const url = new URL(request.url);
     if (request.method === "GET" || request.method === "HEAD") {
       if (path === "me/rating-state") return await ratingState(request, env);
@@ -42,10 +45,20 @@ async function handle(request: Request, path: string) {
               catalogPage(url.searchParams.get("unrankedPage")),
             ),
           );
-        if (family === "products")
+        if (family === "products") {
+          const canonical = await catalog.canonicalRedirect(slug);
+          if (canonical)
+            return new Response(null, {
+              status: 302,
+              headers: {
+                Location: `/api/v1/products/${canonical.slug}`,
+                "Cache-Control": "private, no-store",
+              },
+            });
           return success(
             await catalog.product(slug, url.searchParams.get("version")),
           );
+        }
         if (family === "profiles") return success(await catalog.profile(slug));
       }
     } else if (path === "ratings") return await saveRating(request, env);
