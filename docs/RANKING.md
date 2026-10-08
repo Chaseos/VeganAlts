@@ -288,6 +288,8 @@ Provide an administrative/background operation that can recompute:
 - Bayesian score;
 - tried count;
 - dimension aggregates;
+- daily activity statistics;
+- trending scores;
 
 from canonical tables.
 
@@ -311,3 +313,25 @@ Do not publish detailed anti-abuse thresholds that make manipulation easier.
 - Product popularity outside the category does not automatically affect similarity rank.
 - Price/health/retailer availability do not affect Top.
 - Raw ratings remain recoverable even when a derived score changes.
+
+## Milestone 4 discovery decisions
+
+The approved [milestone 4 specification](MILESTONE_4_PLAN.md) implements §14 and §15 with provisional, configurable constants. They should be recalibrated once real traffic exists.
+
+**Daily statistics.** `product_category_daily_stats` is derived hourly from canonical rows for each UTC day, formula and active category: counted ratings created that day and their similarity sum, trials and distinct commenters on visible comments. Recent days are re-derived every hour and the full window daily and after category merges.
+
+**Trending.** For each formula/category:
+
+```text
+activity(day) = ratings + 0.5 × trials + 0.25 × distinct commenters
+recent        = Σ activity(day) × 0.5^(age_days / 3)   over the last 7 days
+baseline      = mean daily activity over days 8–14
+quality       = Bayesian mean of the recent similarity scores, normalized to 0–1
+trending      = recent / (baseline + 1) × (0.5 + 0.5 × quality)
+```
+
+A score is zero unless the last seven days contain at least three rating or trial events. Only eligible current formulas in active rankable categories qualify. Scores live in a separate rebuildable read model, `product_category_trends`, refreshed by the hourly schedule. Sponsorship, moderation status, contributor trust and comment votes are not inputs. Trending never changes `product_category_stats` or Top ordering.
+
+**New.** New lists eligible products in the category whose `published_at` falls within 90 days, newest first. Reformulations do not re-enter New.
+
+**Category merges.** When an operator merges two categories describing the same reference product, the donor's ratings move to the survivor. A user who rated the same formula in both keeps their most recently updated rating counted; the other remains stored with `is_counted=0`. Aggregates and trends are rebuilt from canonical rows. Reversal restores the original categories and counted flags.

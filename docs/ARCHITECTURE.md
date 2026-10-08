@@ -143,7 +143,7 @@ Initial target freshness:
 | ---------------------------- | ------------------: | ---------------------------------------------------------------------- |
 | Category ranking             |         ~10 minutes | Rankings do not need second-by-second updates.                         |
 | Product detail               |          15 minutes | Current and historical formulas have separate cache identities.        |
-| Homepage featured categories |          30 minutes | Configured discovery surface; Trending is deferred.                    |
+| Homepage featured categories |          30 minutes | Configured features plus Trending/New sections from precomputed data.  |
 | Public profile               |          10 minutes | Chosen public identity and contribution counts only.                   |
 | Immutable image variants     |            24 hours | Stored derivatives; browser revalidation supports moderation removals. |
 | Static policies/about        |          Long-lived | Prefer static assets or very long caching.                             |
@@ -471,3 +471,13 @@ Follow [milestone 3](MILESTONE_3_PLAN.md): domain contribution decisions remain 
 React Router hydrates normally with route-level code splitting. One batched private request loads the session projection and visible formula ratings; score writes serialize per formula/category, coalesce rapid selections and never revalidate public loaders. The authoritative response contains the saved rating and Tried state. A pending anonymous selection lives in sessionStorage for 30 minutes and is bound to its original formula/category.
 
 Material profile/media changes invoke the internal cache-invalidation RPC after persistence. Product/category changes can invalidate affected discovery and ranking tags. Purge failures are logged and bounded by normal freshness; ordinary ratings never purge. Search index rebuilds run during catalog maintenance, not page views.
+
+## Milestone 4 boundaries
+
+Follow [milestone 4](MILESTONE_4_PLAN.md). Automated moderation lives in `server/moderation/`: domain question sets and a pure policy engine, an application `ModerationDecisionService`, and infrastructure providers (Workers AI Clef and a local-only fake). Contribution services depend on the service interface, never on Clef response shapes. Deterministic validation, limits, staging and hash deduplication always run first; atomic D1 accounting reserves budget before a provider call. Provider output is schema-validated, and failure degrades to review.
+
+Comments render their first page in the shared product document. Sorting and pagination use a cookie-free comments API with a short shared TTL; the viewer's own votes and pending comments load from a private endpoint after hydration. Only moderation removals and author deletions purge the product tag. Comment writes never touch rating aggregates.
+
+The hourly schedule runs independent passes: media recovery, community recovery, trending statistics, and automation (decision lease expiry, held-comment re-evaluation, automatic proposal acceptance and resumable category-merge pages). Each pass is bounded and resumable. Category slug redirects, like product redirects, are resolved inside the public entrypoint on a cache miss and returned uncached. A `view` query parameter is part of category cache identity.
+
+Production catalog availability is controlled by one `PUBLIC_LAUNCH` variable instead of environment-name checks.

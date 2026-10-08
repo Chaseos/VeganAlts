@@ -1037,7 +1037,7 @@ decisions from drifting away from the product thesis.
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | What is ranked?                                   | How closely a vegan alternative replaces a specific conventional product in a specific country. |
 | What is required to rate?                         | Authenticated user + Overall Similarity score.                                                  |
-| Are there downvotes?                              | No. Similarity scoring is the primary signal.                                                   |
+| Are there downvotes?                              | Not on products. Similarity is the signal; comment usefulness votes may be up or down.          |
 | Do optional details affect overall automatically? | No. Overall Similarity is independently supplied.                                               |
 | Can one product appear in multiple categories?    | Yes, with independent ratings for each category.                                                |
 | Do reformulations create new public products?     | No. Create a new Formula Version under the existing product.                                    |
@@ -1077,3 +1077,13 @@ Local and staging catalog records are approved fictional development fixtures. D
 ## Milestone 3 implementation decisions
 
 The approved [milestone 3 specification](MILESTONE_3_PLAN.md) governs community submissions, retailers, manual reporting/review, formula/lifecycle changes, classification evidence and duplicate/variant management. New submissions require a front photo and ingredient-panel photo or manufacturer ingredient source; deterministic validation precedes canonical insertion. Automatic publication is provisional; Vegan classification and Under Review require operator assessment. Separate formula-specific evidence, manufacturer wording and known certification. Duplicate consolidation archives the donor without transferring its ratings or metadata, leaves the survivor unchanged, and remains reversible. Public comment reporting is deferred to the comment feature while its shared reporting contract is tested here. Staging is the delivery destination; production launch, external AI moderation, community acceptance voting and contributor trust remain later work.
+
+## Milestone 4 implementation decisions
+
+The approved [milestone 4 specification](MILESTONE_4_PLAN.md) adds product comments, canonical photo slots, Cloudflare Clef-assisted moderation, community confirmation of factual edits, category proposals and taxonomy management, Top / Trending / New discovery and launch hardening.
+
+Comments appear on the product page and are stored against the formula they describe; earlier formulas' comments remain readable and labeled. Comment voting has up and down votes that measure usefulness only. It never affects similarity ranking. Best ordering accounts for sample size, Newest is chronological and heavily downvoted comments collapse rather than disappear.
+
+Automated decisions are confidence evidence, not truth. They can hold or correct a contribution but cannot declare a product vegan, apply a formula transition, merge or delete an established product or override ratings. Community confirmations can make some lower-risk facts true without an operator; protected facts still require one. Category merges transfer ratings because both categories describe the same conventional product; product duplicates remain archived without transfer.
+
+Trending and New are separate discovery views and never change the Top score. Public policy pages explain privacy, community guidelines, moderation and reporting, ranking methodology and vegan-status classification. Staging remains the delivery destination; production launch is a separately approved cutover.
