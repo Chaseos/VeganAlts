@@ -310,3 +310,76 @@ export const duplicateConsolidations = sqliteTable(
     check("ck_duplicate_different", sql`${t.donorId} <> ${t.survivorId}`),
   ],
 );
+// Automated decision records: structured answers only, never prompts or prose.
+export const moderationDecisions = sqliteTable(
+  "moderation_decisions",
+  {
+    id: text("id").primaryKey(),
+    subjectType: text("subject_type").notNull(),
+    subjectId: text("subject_id").notNull(),
+    kind: text("kind").notNull(),
+    schemaVersion: integer("schema_version").notNull(),
+    policyVersion: integer("policy_version").notNull(),
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    inputHash: text("input_hash").notNull(),
+    userId: text("user_id").references(() => profiles.userId, {
+      onDelete: "restrict",
+    }),
+    status: text("status").notNull(),
+    outcome: text("outcome"),
+    charged: integer("charged").notNull().default(0),
+    resultData: text("result_data"),
+    reusedFrom: text("reused_from"),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    latencyMs: integer("latency_ms"),
+    errorCode: text("error_code"),
+    leaseExpiresAt: integer("lease_expires_at"),
+    createdAt: integer("created_at").notNull(),
+    completedAt: integer("completed_at"),
+  },
+  (t) => [
+    index("ix_decision_subject").on(t.subjectType, t.subjectId, t.createdAt),
+    index("ix_decision_reuse")
+      .on(
+        t.kind,
+        t.schemaVersion,
+        t.policyVersion,
+        t.model,
+        t.inputHash,
+        t.createdAt,
+      )
+      .where(sql`${t.status} = 'completed'`),
+    index("ix_decision_budget")
+      .on(t.createdAt)
+      .where(sql`${t.charged} = 1`),
+    index("ix_decision_account_budget")
+      .on(t.userId, t.createdAt)
+      .where(sql`${t.charged} = 1`),
+    index("ix_decision_leases")
+      .on(t.leaseExpiresAt)
+      .where(sql`${t.status} = 'reserved'`),
+    check(
+      "ck_decision_subject",
+      sql`${t.subjectType} IN ('submission','comment','edit_proposal','category_proposal')`,
+    ),
+    check(
+      "ck_decision_status",
+      sql`${t.status} IN ('reserved','completed','reused','failed','over_budget')`,
+    ),
+    check(
+      "ck_decision_outcome",
+      sql`${t.outcome} IS NULL OR ${t.outcome} IN ('READY','NEEDS_REVIEW','NEEDS_CHANGES','BLOCKED')`,
+    ),
+    // A failed or unaccounted evaluation can never carry an approving outcome.
+    check(
+      "ck_decision_failure_reviews",
+      sql`(${t.status} = 'reserved' AND ${t.outcome} IS NULL) OR (${t.status} IN ('completed','reused') AND ${t.outcome} IS NOT NULL) OR (${t.status} IN ('failed','over_budget') AND ${t.outcome} = 'NEEDS_REVIEW')`,
+    ),
+    check(
+      "ck_decision_result",
+      sql`${t.resultData} IS NULL OR json_valid(${t.resultData})`,
+    ),
+  ],
+);

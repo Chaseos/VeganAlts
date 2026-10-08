@@ -19,6 +19,9 @@ import { SubmissionRepository } from "../infrastructure/submission-repository";
 import { StagedMediaRepository } from "../infrastructure/staged-media-repository";
 import type { StagedMediaService } from "./staged-media-service";
 import type { ReceiptWrite } from "../infrastructure/receipts";
+import type { SubmissionContext } from "../infrastructure/lookup-repository";
+import type { ModerationDecisionService } from "../../moderation/application/decision-service";
+import { combineDecisions } from "../../moderation/domain/decisions";
 
 export class SubmissionService {
   constructor(
@@ -26,6 +29,7 @@ export class SubmissionService {
     private readonly lookup: CommunityLookupRepository,
     private readonly staged: StagedMediaRepository,
     private readonly media: StagedMediaService,
+    private readonly decisions: ModerationDecisionService,
     private readonly newId: () => string,
     private readonly clock = Date.now,
   ) {}
@@ -174,6 +178,11 @@ export class SubmissionService {
     if (publication) return publication;
     if (receipt.state === "review")
       return { decision: "NEEDS_REVIEW" as const, receiptId: receipt.id };
+    if (receipt.state === "rejected") {
+      const latest = await this.decisions.latest("submission", receipt.id);
+      if (latest?.outcome === "BLOCKED")
+        return { ...this.blocked(latest.result_data), receiptId };
+    }
     if (receipt.state !== "staging" || receipt.expires_at <= this.clock())
       throw new ApplicationError(
         "SUBMISSION_CLOSED",
@@ -189,15 +198,46 @@ export class SubmissionService {
     if (decision.decision === "NEEDS_CHANGES")
       return { ...decision, receiptId };
     await this.validateImages(receipt, input);
-    if (decision.decision === "NEEDS_REVIEW") {
+    // Automated evidence checks run only after every deterministic gate and
+    // can only make the decision more restrictive.
+    const automated = await this.decisions.evaluate({
+      kind: "submission",
+      subject: { type: "submission", id: receipt.id },
+      userId: actor.id,
+      ...(await this.decisionInput(receipt, input, context)),
+    });
+    const outcome = combineDecisions(decision.decision, automated.outcome);
+    if (outcome === "BLOCKED") {
+      await this.repository.block(receipt.id, this.clock());
+      return {
+        ...decision,
+        decision: outcome,
+        reasons: automated.reasons,
+        receiptId,
+      };
+    }
+    if (outcome === "NEEDS_CHANGES")
+      return {
+        ...decision,
+        decision: outcome,
+        reasons: automated.reasons,
+        receiptId,
+      };
+    if (outcome === "NEEDS_REVIEW") {
+      const reasons = [
+        ...new Set([
+          ...decision.reasons,
+          ...(automated.outcome === "NEEDS_REVIEW" ? automated.reasons : []),
+        ]),
+      ];
       await this.repository.hold(
         receipt,
         input,
-        decision.reasons,
+        reasons,
         this.clock(),
         this.newId(),
       );
-      return { ...decision, receiptId };
+      return { ...decision, decision: outcome, reasons, receiptId };
     }
     // READY implies the contributor evidence supports a provisional status.
     return this.publish(actor, receipt, input, {
@@ -302,6 +342,44 @@ export class SubmissionService {
         );
       throw error;
     }
+  }
+  private async decisionInput(
+    receipt: SubmissionReceipt,
+    input: SubmissionInput,
+    context: SubmissionContext,
+  ) {
+    const images = await this.media.decisionImages(receipt.id);
+    return {
+      state: {
+        product: {
+          brand: context.brandName,
+          name: input.name,
+          country: input.country,
+          categories: await this.lookup.categoryNames(input.categoryIds),
+          manufacturerLabel: input.manufacturerLabel,
+          contributorNote: input.statusBasis,
+        },
+        images: images.map((i, index) => ({
+          position: index + 1,
+          claimedSlot: i.slot,
+        })),
+      },
+      images,
+      context: {
+        slots: images.map((i) => i.slot),
+        ingredientPhotoRequired: !input.ingredientUrl,
+      },
+    };
+  }
+  private blocked(resultData: string | null) {
+    const reasons = resultData
+      ? (JSON.parse(resultData) as { reasons: string[] }).reasons
+      : [];
+    return {
+      decision: "BLOCKED" as const,
+      reasons,
+      candidates: [],
+    };
   }
   private async validateImages(
     receipt: SubmissionReceipt,

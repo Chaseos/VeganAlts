@@ -14,11 +14,16 @@ import { SubmissionService } from "../application/submission-service";
 import { StagedMediaService } from "../application/staged-media-service";
 import { ContributionService } from "../application/contribution-service";
 import { ModerationService } from "../application/moderation-service";
+import {
+  moderationDecisions,
+  type ModerationEnv,
+} from "../../moderation/infrastructure/composition";
 
 export function communityServices(
-  env: Pick<Cloudflare.Env, "DB" | "MEDIA_BUCKET" | "IMAGES"> & {
-    COMMUNITY_LIMITS?: string;
-  },
+  env: Pick<Cloudflare.Env, "DB" | "MEDIA_BUCKET" | "IMAGES"> &
+    Partial<Omit<ModerationEnv, "DB">> & {
+      COMMUNITY_LIMITS?: string;
+    },
   newId: () => string = uuid,
   clock = Date.now,
 ) {
@@ -33,11 +38,17 @@ export function communityServices(
     newId,
     clock,
   );
+  const decisions = moderationDecisions(
+    { ...env, APP_ENV: env.APP_ENV ?? "local" },
+    newId,
+    clock,
+  );
   const submissions = new SubmissionService(
     receipts,
     lookup,
     staged,
     media,
+    decisions,
     newId,
     clock,
   );
@@ -70,5 +81,6 @@ export function communityServices(
     ),
     repository,
     contributionRepository,
+    decisions,
   };
 }

@@ -18,6 +18,7 @@ export interface StagedAttachment {
   derivatives: StoredDerivative[];
   inputBytes: number;
   state: string;
+  contentHash: string;
 }
 export class StagedMediaRepository {
   constructor(
@@ -222,7 +223,7 @@ export class StagedMediaRepository {
   async attachments(receiptId: string): Promise<StagedAttachment[]> {
     const rows = await this.db
       .prepare(
-        "SELECT u.slot,u.image_id AS imageId,u.blob_id AS blobId,b.derivatives,b.input_bytes AS inputBytes,b.state FROM submission_uploads u JOIN staged_blobs b ON b.id=u.blob_id WHERE u.submission_id=? ORDER BY u.slot",
+        "SELECT u.slot,u.image_id AS imageId,u.blob_id AS blobId,b.derivatives,b.input_bytes AS inputBytes,b.state,b.content_hash AS contentHash FROM submission_uploads u JOIN staged_blobs b ON b.id=u.blob_id WHERE u.submission_id=? ORDER BY u.slot",
       )
       .bind(receiptId)
       .all<

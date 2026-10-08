@@ -26,6 +26,49 @@ export class QueueDecisionRepository {
   private get db() {
     return this.repository.db;
   }
+  /** Operator-only view of the latest automated decision for a subject. */
+  async automated(
+    subjectType:
+      "submission" | "edit_proposal" | "comment" | "category_proposal",
+    id: string,
+    actor: Actor,
+  ) {
+    if (!actor.administrator) return null;
+    const row = await this.db
+      .prepare(
+        "SELECT status,outcome,provider,model,result_data,error_code,created_at FROM moderation_decisions WHERE subject_type=? AND subject_id=? AND status<>'reserved' ORDER BY created_at DESC, id DESC LIMIT 1",
+      )
+      .bind(subjectType, id)
+      .first<{
+        status: string;
+        outcome: string | null;
+        provider: string;
+        model: string;
+        result_data: string | null;
+        error_code: string | null;
+        created_at: number;
+      }>();
+    if (!row) return null;
+    const result = row.result_data
+      ? (JSON.parse(row.result_data) as {
+          answers: Record<string, { option: string; confidence: number }>;
+          flags: string[];
+        })
+      : null;
+    return {
+      status: row.status,
+      outcome: row.outcome,
+      model: row.model,
+      errorCode: row.error_code,
+      createdAt: row.created_at,
+      flags: result?.flags ?? [],
+      answers: Object.entries(result?.answers ?? {}).map(([question, a]) => ({
+        question,
+        option: a.option,
+        confidence: a.confidence,
+      })),
+    };
+  }
   async detail(
     kind: "submission" | "report" | "proposal",
     id: string,
@@ -73,6 +116,7 @@ export class QueueDecisionRepository {
         resolutionNote: row.resolution_note,
         evidenceReceiptId: row.id,
         images: await this.privateImages(row.id),
+        automated: await this.automated("submission", id, actor),
         productId: row.product_id,
         publishedProduct: row.product_id
           ? await this.db
@@ -110,6 +154,7 @@ export class QueueDecisionRepository {
         images: evidenceReceiptId
           ? await this.privateImages(evidenceReceiptId)
           : [],
+        automated: await this.automated("edit_proposal", id, actor),
         product,
       };
     }

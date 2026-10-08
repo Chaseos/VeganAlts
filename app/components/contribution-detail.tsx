@@ -151,18 +151,62 @@ export function ProposalSummary({
     </>
   );
 }
+export function AutomatedChecks({
+  checks,
+}: {
+  checks: NonNullable<
+    Extract<ContributionDetail, { automated: unknown }>["automated"]
+  >;
+}) {
+  return (
+    <section aria-labelledby="automated-checks">
+      <h2 id="automated-checks">Automated checks</h2>
+      <p className="small muted">
+        Advisory {checks.model} answers ({friendly(checks.status)}
+        {checks.errorCode ? `: ${friendly(checks.errorCode)}` : ""}). They are
+        evidence, not a decision.
+      </p>
+      {checks.outcome && (
+        <p>
+          <strong>Suggested outcome:</strong>{" "}
+          {friendly(checks.outcome.toLowerCase())}
+        </p>
+      )}
+      {checks.flags.length > 0 && (
+        <p>
+          <strong>Signals:</strong> {checks.flags.map(friendly).join(", ")}
+        </p>
+      )}
+      {checks.answers.length > 0 && (
+        <dl className="review-facts">
+          {checks.answers.map((a) => (
+            <div key={a.question}>
+              <dt>{friendly(a.question)}</dt>
+              <dd>
+                {friendly(a.option.toLowerCase())} (
+                {Math.round(a.confidence * 100)}%)
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  );
+}
 export function ContributionContent({
   detail,
 }: {
   detail: ContributionDetail;
 }) {
   const product = "product" in detail ? detail.product : null;
+  const automated = "automated" in detail ? detail.automated : null;
   return (
     <>
       <div className="notice">
         <strong>Status: {friendly(detail.status)}</strong>
         {detail.resolutionNote && <p>{detail.resolutionNote}</p>}
       </div>
+      {automated && <AutomatedChecks checks={automated} />}
       {detail.kind === "submission" && detail.followUpOf && (
         <p>
           Follow-up to the{" "}

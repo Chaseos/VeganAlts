@@ -225,6 +225,15 @@ export default {
       console.error(JSON.stringify({ event: "community_recovery_failed" }));
       failed.push("community");
     }
+    try {
+      const { runAutomation } = await import("../server/automation/hourly");
+      const result = await runAutomation(env);
+      console.log(JSON.stringify({ event: "automation", ...result }));
+      if (result.failed.length) failed.push("automation");
+    } catch {
+      console.error(JSON.stringify({ event: "automation_failed" }));
+      failed.push("automation");
+    }
     if (failed.length)
       throw new Error(`Scheduled recovery failed: ${failed.join(", ")}.`);
   },

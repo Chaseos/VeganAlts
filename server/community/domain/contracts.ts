@@ -123,7 +123,7 @@ export interface Candidate {
   exact: boolean;
 }
 export type SubmissionDecision = {
-  decision: "READY" | "NEEDS_CHANGES" | "NEEDS_REVIEW";
+  decision: "READY" | "NEEDS_CHANGES" | "NEEDS_REVIEW" | "BLOCKED";
   reasons: string[];
   candidates: Candidate[];
 };

@@ -196,9 +196,18 @@ export default function AddProduct({
         await navigate(`/us/products/${saved.slug}`);
         return;
       }
+      if (saved.decision === "BLOCKED") {
+        // A blocked receipt is closed; any revision starts a fresh submission.
+        setReceipt(null);
+        key.current = null;
+        uploaded.current.clear();
+        throw new Error(
+          saved.reasons?.join(" ") || "This submission cannot be accepted.",
+        );
+      }
       if (saved.decision === "NEEDS_CHANGES")
         throw new Error(
-          saved.reasons?.join(" ") ?? "Review the product details.",
+          `${saved.reasons?.join(" ") ?? "Review the product details."} Choose “Revise submission” to replace the photos.`,
         );
       setResult(receiptId);
       go(5);

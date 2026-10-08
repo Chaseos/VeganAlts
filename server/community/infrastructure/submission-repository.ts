@@ -252,6 +252,15 @@ export class SubmissionRepository {
       .run();
     return result.meta.changes === 1;
   }
+  /** Closes a receipt blocked by an explicit abuse rule; media expires normally. */
+  async block(id: string, now: number) {
+    await this.db
+      .prepare(
+        "UPDATE submission_receipts SET state='rejected',updated_at=? WHERE id=? AND state='staging'",
+      )
+      .bind(now, id)
+      .run();
+  }
   async release(id: string, token: string, now: number) {
     await this.db
       .prepare(

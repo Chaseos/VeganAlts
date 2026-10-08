@@ -64,6 +64,15 @@ export class CommunityLookupRepository {
       retailers: retailers!.results,
     };
   }
+  async categoryNames(ids: string[]) {
+    const rows = await this.db
+      .prepare(
+        "SELECT c.id,c.name FROM categories c JOIN json_each(?) j ON j.value=c.id",
+      )
+      .bind(JSON.stringify(ids))
+      .all<{ id: string; name: string }>();
+    return ids.map((id) => rows.results.find((r) => r.id === id)?.name ?? id);
+  }
   async context(input: SubmissionIdentity): Promise<SubmissionContext> {
     if (
       !/[\p{L}\p{N}]/u.test(normalizeName(input.brand)) ||

@@ -147,6 +147,27 @@ export class StagedMediaService {
       throw new ApplicationError("NOT_FOUND", "Evidence not found.", 404);
     return object;
   }
+  /** Normalized full-size derivatives for automated evidence checks. */
+  async decisionImages(receiptId: string) {
+    const images = [];
+    for (const image of await this.repository.attachments(receiptId)) {
+      const full = image.derivatives.find((d) => d.kind === "full");
+      const object = full && (await this.bucket.get(full.key));
+      if (image.state !== "complete" || !object)
+        throw new ApplicationError(
+          "EVIDENCE_EXPIRED",
+          "The staged evidence is unavailable. Please upload it again.",
+          409,
+        );
+      images.push({
+        slot: image.slot,
+        contentHash: image.contentHash,
+        contentType: "image/webp" as const,
+        bytes: new Uint8Array(await new Response(object).arrayBuffer()),
+      });
+    }
+    return images;
+  }
   async promote(
     receiptId: string,
     productId: string,

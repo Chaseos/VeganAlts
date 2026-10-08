@@ -30,7 +30,8 @@
     "rankings:rebuild:staging": "tsx scripts/rebuild-rankings.ts staging",
     "rankings:rebuild:production": "tsx scripts/rebuild-rankings.ts production",
     "db:seed-images:local": "tsx scripts/seed-images.ts local",
-    "db:seed-images:staging": "tsx scripts/seed-images.ts staging"
+    "db:seed-images:staging": "tsx scripts/seed-images.ts staging",
+    "moderation:calibrate": "tsx scripts/calibrate-clef.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.7",
