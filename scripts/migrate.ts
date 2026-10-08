@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { getPlatformProxy } from "wrangler";
 import { parse } from "jsonc-parser";
 import { prepareLegacyReports } from "../db/upgrades/legacy-reports";
+import { checkCommentRebuild } from "../db/upgrades/comment-rebuild";
 import { normalizeCatalogIdentity } from "../db/upgrades/catalog-identity";
 
 const environment = process.argv[2];
@@ -48,6 +49,7 @@ console.log(
   JSON.stringify({
     environment,
     legacyReports: await withDatabase((db) => prepareLegacyReports(db)),
+    commentRebuild: await withDatabase((db) => checkCommentRebuild(db)),
   }),
 );
 const result = spawnSync(

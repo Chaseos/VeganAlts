@@ -98,6 +98,22 @@
         "period": 60,
       },
     },
+    {
+      "name": "COMMENT_RATE_LIMIT",
+      "namespace_id": "1791141071",
+      "simple": {
+        "limit": 10,
+        "period": 60,
+      },
+    },
+    {
+      "name": "VOTE_RATE_LIMIT",
+      "namespace_id": "1791141081",
+      "simple": {
+        "limit": 60,
+        "period": 60,
+      },
+    },
   ],
   "env": {
     "staging": {
@@ -162,6 +178,22 @@
           "namespace_id": "1791141062",
           "simple": {
             "limit": 120,
+            "period": 60,
+          },
+        },
+        {
+          "name": "COMMENT_RATE_LIMIT",
+          "namespace_id": "1791141072",
+          "simple": {
+            "limit": 10,
+            "period": 60,
+          },
+        },
+        {
+          "name": "VOTE_RATE_LIMIT",
+          "namespace_id": "1791141082",
+          "simple": {
+            "limit": 60,
             "period": 60,
           },
         },
@@ -298,6 +330,22 @@
           "namespace_id": "1791141063",
           "simple": {
             "limit": 120,
+            "period": 60,
+          },
+        },
+        {
+          "name": "COMMENT_RATE_LIMIT",
+          "namespace_id": "1791141073",
+          "simple": {
+            "limit": 10,
+            "period": 60,
+          },
+        },
+        {
+          "name": "VOTE_RATE_LIMIT",
+          "namespace_id": "1791141083",
+          "simple": {
+            "limit": 60,
             "period": 60,
           },
         },

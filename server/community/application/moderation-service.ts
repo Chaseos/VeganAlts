@@ -5,6 +5,7 @@ import {
   type Actor,
   type ConsolidationInput,
   type ReviewDecision,
+  type ReviewKind,
 } from "../domain/contracts";
 import { administrator, active } from "../domain/policy";
 import {
@@ -23,7 +24,7 @@ import { CatalogDecisionRepository } from "../infrastructure/catalog-decision-re
 import { QueueDecisionRepository } from "../infrastructure/queue-decision-repository";
 import { DuplicateRepository } from "../infrastructure/duplicate-repository";
 import { SubmissionRepository } from "../infrastructure/submission-repository";
-import { receiptWrite } from "../infrastructure/receipts";
+import { receiptWrite, type ReceiptWrite } from "../infrastructure/receipts";
 import type { StagedAttachment } from "../infrastructure/staged-media-repository";
 import type { StagedMediaService } from "./staged-media-service";
 import type { SubmissionService } from "./submission-service";
@@ -48,7 +49,7 @@ export class ModerationService {
     active(actor);
     return this.repository.contributions(actor.id, cursor);
   }
-  detail(actor: Actor, kind: "submission" | "report" | "proposal", id: string) {
+  detail(actor: Actor, kind: ReviewKind, id: string) {
     active(actor);
     return this.queue.detail(kind, id, actor);
   }
@@ -62,7 +63,7 @@ export class ModerationService {
   async decide(
     actor: Actor,
     key: string,
-    kind: "submission" | "report" | "proposal",
+    kind: ReviewKind,
     id: string,
     input: ReviewDecision,
   ) {
@@ -99,6 +100,8 @@ export class ModerationService {
         "INVALID_DECISION",
         "Only an accepted submission takes a reviewed classification.",
       );
+    if (kind === "comment")
+      return this.decideComment(action, id, input, receipt);
     if (kind === "submission") {
       if (input.effect !== "none")
         throw new ApplicationError(
@@ -160,7 +163,19 @@ export class ModerationService {
             "Review the current product before applying this change.",
             409,
           );
-        if (input.effect === "under_review") {
+        if (input.effect === "hide_comment") {
+          const comment =
+            report.target_type === "comment"
+              ? await this.repository.comment(report.target_id)
+              : null;
+          if (!comment || comment.moderation_state !== "visible")
+            throw new ApplicationError(
+              "INVALID_DECISION",
+              "Select a visible reported comment to hide it.",
+            );
+          before.commentStates = [{ id: comment.id, state: "visible" }];
+          after.commentStates = [{ id: comment.id, state: "hidden" }];
+        } else if (input.effect === "under_review") {
           if (
             report.target_type !== "product" ||
             report.reason_code !== "ingredient_concern"
@@ -395,6 +410,59 @@ export class ModerationService {
       receipt,
     );
   }
+  /** Publish or hide a comment held by automated review; reversible. */
+  private async decideComment(
+    action: ActionWrite,
+    id: string,
+    input: ReviewDecision,
+    receipt: ReceiptWrite,
+  ) {
+    const comment = await this.repository.comment(id);
+    if (!comment || comment.deleted_at)
+      throw new ApplicationError("NOT_FOUND", "Comment not found.", 404);
+    if (
+      comment.moderation_state !== "pending" ||
+      comment.updated_at !== input.expectedRevision
+    )
+      throw new ApplicationError(
+        "STALE_DECISION",
+        "This comment changed. Refresh before deciding.",
+        409,
+      );
+    if (
+      (input.decision !== "accept" && input.decision !== "reject") ||
+      input.effect !== "none"
+    )
+      throw new ApplicationError(
+        "INVALID_DECISION",
+        "Publish or hide the held comment.",
+      );
+    const snapshot = await this.repository.snapshot(comment.product_id);
+    const after: CatalogPatch = {
+      commentStates: [
+        { id, state: input.decision === "accept" ? "visible" : "hidden" },
+      ],
+    };
+    action.productId = comment.product_id;
+    action.before = { commentStates: [{ id, state: "pending" }] };
+    action.after = { ...after, decision: input.decision };
+    return this.repository.commit(
+      action,
+      {
+        sql: "EXISTS(SELECT 1 FROM comments WHERE id=? AND moderation_state='pending' AND updated_at=? AND deleted_at IS NULL)",
+        values: [id, comment.updated_at],
+      },
+      (fence) =>
+        this.catalog.patchStatements(
+          snapshot,
+          after,
+          action.actor,
+          action.now,
+          fence,
+        ),
+      receipt,
+    );
+  }
   async reverse(
     actor: Actor,
     key: string,
@@ -436,6 +504,17 @@ export class ModerationService {
         "This action did not change the catalog.",
       );
     assertCompensable(snapshot, after, before);
+    if (after.commentStates?.length) {
+      const states = await this.repository.commentStates(
+        after.commentStates.map((c) => c.id),
+      );
+      if (after.commentStates.some((c) => states.get(c.id) !== c.state))
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "This comment changed after the decision. Review it before reversing.",
+          409,
+        );
+    }
     return this.duplicates.reverse(
       {
         id: this.newId(),

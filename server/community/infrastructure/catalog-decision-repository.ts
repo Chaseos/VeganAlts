@@ -305,6 +305,14 @@ export class CatalogDecisionRepository {
             )
             .bind(now, image.id, ...values),
         );
+    for (const comment of patch.commentStates ?? [])
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE comments SET moderation_state=?,updated_at=max(updated_at+1,?) WHERE id=? AND product_id=? AND ${sql}`,
+          )
+          .bind(comment.state, now, comment.id, snapshot.id, ...values),
+      );
     if (images.length)
       statements.push(
         ...imageInsertStatements(

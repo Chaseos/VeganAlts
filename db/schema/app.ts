@@ -560,6 +560,12 @@ export const comments = sqliteTable(
       .references((): AnySQLiteColumn => profiles.userId, {
         onDelete: "cascade",
       }),
+    // Denormalized from the formula so product-level lists need one index.
+    productId: text("product_id")
+      .notNull()
+      .references((): AnySQLiteColumn => products.id, {
+        onDelete: "cascade",
+      }),
     productVersionId: text("product_version_id")
       .notNull()
       .references((): AnySQLiteColumn => productVersions.id, {
@@ -573,6 +579,16 @@ export const comments = sqliteTable(
     moderationState: text("moderation_state")
       .notNull()
       .default(sql.raw("'visible'")),
+    upCount: integer("up_count").notNull().default(0),
+    downCount: integer("down_count").notNull().default(0),
+    // floor(Wilson lower bound of upvote share * 1e9), maintained with votes.
+    bestRank: integer("best_rank").notNull().default(0),
+    voteRevision: integer("vote_revision").notNull().default(0),
+    // Written by each successful count update so the same batch can prove it
+    // owns the revision before changing the voter's row.
+    voteToken: text("vote_token"),
+    decisionId: text("decision_id"),
+    editedAt: integer("edited_at"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     deletedAt: integer("deleted_at"),
@@ -582,15 +598,42 @@ export const comments = sqliteTable(
       table.productVersionId,
       desc(table.createdAt),
     ),
+    index("ix_comments_version_best")
+      .on(
+        table.productVersionId,
+        desc(table.bestRank),
+        desc(table.createdAt),
+        desc(table.id),
+      )
+      .where(sql.raw("moderation_state = 'visible' AND deleted_at IS NULL")),
+    index("ix_comments_version_newest")
+      .on(table.productVersionId, desc(table.createdAt), desc(table.id))
+      .where(sql.raw("moderation_state = 'visible' AND deleted_at IS NULL")),
+    index("ix_comments_product_newest")
+      .on(table.productId, desc(table.createdAt), desc(table.id))
+      .where(sql.raw("moderation_state = 'visible' AND deleted_at IS NULL")),
+    index("ix_comments_user_created").on(table.userId, desc(table.createdAt)),
+    index("ix_comments_pending")
+      .on(table.createdAt)
+      .where(sql.raw("moderation_state = 'pending' AND deleted_at IS NULL")),
+    index("ix_comments_created").on(table.createdAt),
     check(
       "ck_comments_1",
-      sql.raw("moderation_state IN ('visible', 'hidden', 'removed')"),
+      sql.raw(
+        "moderation_state IN ('pending', 'visible', 'hidden', 'removed')",
+      ),
+    ),
+    check("ck_comments_body", sql.raw("length(body) BETWEEN 1 AND 4000")),
+    check(
+      "ck_comments_counts",
+      sql.raw("up_count >= 0 AND down_count >= 0 AND best_rank >= 0"),
     ),
   ],
 );
 
-export const commentReactions = sqliteTable(
-  "comment_reactions",
+// One active usefulness vote per account and comment; removing a vote deletes it.
+export const commentVotes = sqliteTable(
+  "comment_votes",
   {
     commentId: text("comment_id")
       .notNull()
@@ -600,12 +643,14 @@ export const commentReactions = sqliteTable(
       .references((): AnySQLiteColumn => profiles.userId, {
         onDelete: "cascade",
       }),
-    reaction: text("reaction").notNull().default(sql.raw("'helpful'")),
+    value: integer("value").notNull(),
     createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.commentId, table.userId, table.reaction] }),
-    check("ck_comment_reactions_1", sql.raw("reaction = 'helpful'")),
+    primaryKey({ columns: [table.commentId, table.userId] }),
+    index("ix_comment_votes_user").on(table.userId, desc(table.updatedAt)),
+    check("ck_comment_votes_value", sql.raw("value IN (-1, 1)")),
   ],
 );
 

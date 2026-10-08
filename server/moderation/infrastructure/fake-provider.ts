@@ -27,7 +27,11 @@ export class FakeDecisionProvider implements ModerationProvider {
     return `fake-${tier}`;
   }
   async decide(request: ProviderRequest): Promise<ProviderResult> {
-    const text = JSON.stringify(request.state);
+    // Markers steer only the content being judged, never context such as
+    // other people's recent comments.
+    const text = JSON.stringify(request.state, (key, value: unknown) =>
+      key === "recentComments" ? undefined : value,
+    );
     if (text.includes("[fake:error]"))
       throw new ProviderError("provider_error");
     if (text.includes("[fake:rate_limited]"))

@@ -23,6 +23,7 @@ import {
   changeInput,
   retailerInput,
   reviewDecision,
+  reviewKind,
   consolidationInput,
   note,
   type Actor,
@@ -137,7 +138,7 @@ export async function communityApi(
       return respond(
         await services.moderation.detail(
           actor,
-          parse(z.enum(["submission", "proposal", "report"]), third),
+          parse(reviewKind, third),
           parse(id, fourth),
         ),
       );
@@ -184,7 +185,7 @@ export async function communityApi(
       return respond(
         await services.moderation.detail(
           actor,
-          parse(z.enum(["submission", "proposal", "report"]), third),
+          parse(reviewKind, third),
           parse(id, fourth),
         ),
       );
@@ -318,7 +319,7 @@ export async function communityApi(
       result = await services.moderation.decide(
         actor,
         requestKey,
-        parse(z.enum(["submission", "proposal", "report"]), third),
+        parse(reviewKind, third),
         parse(id, fourth),
         parse(reviewDecision, body),
       );

@@ -69,7 +69,7 @@ Expand cross-milestone browser coverage, authorization and abuse tests, migratio
 | Comment length           | 2–2,000 characters, plain text                                                                                            |
 | Comments                 | 10 per minute and 30 per day per account                                                                                  |
 | Comment votes            | 60 per minute per account                                                                                                 |
-| Collapse                 | At least 5 downvotes and a 95% upper bound on upvote share below 0.3                                                      |
+| Collapse                 | At least 5 downvotes and a 95% upper bound on upvote share below 0.4                                                      |
 | Comment re-evaluation    | 20 held comments per hourly pass                                                                                          |
 | Proposal auto-acceptance | Provider READY, at least 24 hours old, confidence ≥ 0.5; 1 confirmation on products under 25 counted ratings, 3 otherwise |
 | Established product      | 25 counted ratings                                                                                                        |

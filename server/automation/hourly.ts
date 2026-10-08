@@ -1,4 +1,5 @@
 import { moderationDecisions } from "../moderation/infrastructure/composition";
+import { commentServices } from "../comments/infrastructure/composition";
 
 /**
  * Hourly automation. Each step is bounded and independent so one failing step
@@ -16,5 +17,8 @@ export async function runAutomation(env: Cloudflare.Env) {
   };
   const decisions = moderationDecisions(env);
   await step("expiredDecisionLeases", () => decisions.expireLeases());
+  await step("releasedComments", () =>
+    commentServices(env).reevaluateHeld(),
+  );
   return { ...summary, failed };
 }

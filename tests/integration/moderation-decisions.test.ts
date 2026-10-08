@@ -52,16 +52,18 @@ it("records structured answers only and reuses identical payloads without chargi
   const second = await decisions.evaluate(comment(f.users[0]!.id, body));
   expect(second).toMatchObject({ status: "reused", outcome: "READY" });
   expect(decide).toHaveBeenCalledTimes(1);
-  const stored = await env.DB.prepare(
-    "SELECT status,charged,reused_from,result_data FROM moderation_decisions WHERE id IN (?,?) ORDER BY created_at,id",
-  )
-    .bind(first.id, second.id)
-    .all<{
-      status: string;
-      charged: number;
-      reused_from: string | null;
-      result_data: string;
-    }>();
+  const row = (id: string | null) =>
+    env.DB.prepare(
+      "SELECT status,charged,reused_from,result_data FROM moderation_decisions WHERE id=?",
+    )
+      .bind(id)
+      .first<{
+        status: string;
+        charged: number;
+        reused_from: string | null;
+        result_data: string;
+      }>();
+  const stored = { results: [(await row(first.id))!, (await row(second.id))!] };
   expect(stored.results.map((r) => [r.status, r.charged])).toEqual([
     ["completed", 1],
     ["reused", 0],

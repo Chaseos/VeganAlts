@@ -86,9 +86,13 @@ export async function protectContribution(
   action: "sign-in" | "rating" | "community",
   actor: string,
   token?: string,
+  // A write family with its own namespace (comments, votes) keeps its burst
+  // allowance separate while sharing the elevated-risk challenge.
+  namespace?: RateLimit,
 ) {
   const hard =
-    action !== "sign-in" ? env.RATING_RATE_LIMIT : env.AUTH_RATE_LIMIT;
+    namespace ??
+    (action !== "sign-in" ? env.RATING_RATE_LIMIT : env.AUTH_RATE_LIMIT);
   const risk =
     action !== "sign-in" ? env.RATING_RISK_LIMIT : env.AUTH_RISK_LIMIT;
   await enforceLimit(hard, `ip:${clientKey(request)}`);

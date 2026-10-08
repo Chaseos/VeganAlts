@@ -212,6 +212,34 @@ export class ModerationRepository {
     }
     return result;
   }
+  async comment(id: string) {
+    return this.db
+      .prepare(
+        "SELECT c.id,c.product_id,c.product_version_id,c.body,c.moderation_state,c.updated_at,c.created_at,c.deleted_at,pr.handle FROM comments c JOIN profiles pr ON pr.user_id=c.user_id WHERE c.id=?",
+      )
+      .bind(id)
+      .first<{
+        id: string;
+        product_id: string;
+        product_version_id: string;
+        body: string;
+        moderation_state: string;
+        updated_at: number;
+        created_at: number;
+        deleted_at: number | null;
+        handle: string;
+      }>();
+  }
+  async commentStates(ids: string[]) {
+    if (!ids.length) return new Map<string, string>();
+    const rows = await this.db
+      .prepare(
+        "SELECT c.id,c.moderation_state FROM comments c JOIN json_each(?) j ON j.value=c.id",
+      )
+      .bind(JSON.stringify(ids))
+      .all<{ id: string; moderation_state: string }>();
+    return new Map(rows.results.map((r) => [r.id, r.moderation_state]));
+  }
   async inbox(cursor: string | null) {
     let point: [number, number, string] | null = null;
     if (cursor)
@@ -240,6 +268,7 @@ export class ModerationRepository {
       SELECT s.id,'submission' AS kind,COALESCE(json_extract(p.proposed_data,'$.name'),'Submission') AS title,s.state AS status,2 AS priority,s.created_at AS createdAt,p.revision FROM submission_receipts s JOIN pending_submissions p ON p.submission_id=s.id WHERE s.state='review' AND p.resolved_at IS NULL
       UNION ALL SELECT r.id,'report',replace(r.reason_code,'_',' '),r.status,CASE WHEN r.reason_code='ingredient_concern' THEN 1 ELSE 3 END,r.created_at,COALESCE(e.revision,0) FROM reports r LEFT JOIN report_evidence e ON e.report_id=r.id WHERE r.status IN ('open','reviewing')
       UNION ALL SELECT id,'proposal',replace(change_type,'_',' '),status,CASE WHEN change_type='classification' THEN 1 ELSE 2 END,created_at,updated_at FROM edit_proposals WHERE status='pending'
+      UNION ALL SELECT id,'comment','held comment',moderation_state,2,created_at,updated_at FROM comments WHERE moderation_state='pending' AND deleted_at IS NULL
     ) SELECT * FROM inbox WHERE ? IS NULL OR (priority,createdAt,kind||'_'||id)>(?,?,?) ORDER BY priority,createdAt,kind||'_'||id LIMIT 31`,
       )
       .bind(

@@ -13,6 +13,8 @@ import {
   NewProductBadge,
 } from "../components/catalog";
 import { RatingControl } from "../components/rating-control";
+import { CommentSection } from "../components/comments/comment-section";
+import { commentServices } from "@server/comments/infrastructure/composition";
 import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/product";
 import { dateLabel, friendly } from "../lib/community";
@@ -32,6 +34,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       params.productSlug,
       new URL(request.url).searchParams.get("version"),
     ),
+    // The first Best page is crawler-visible and shares the product cache.
+    comments: await commentServices(env).page(
+      params.productSlug,
+      "best",
+      "current",
+      null,
+    ),
     origin: env.APP_URL,
     staging: env.APP_ENV !== "production",
   }));
@@ -49,7 +58,7 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
   );
 }
 export default function Product({
-  loaderData: { product: p },
+  loaderData: { product: p, comments },
 }: Route.ComponentProps) {
   return (
     <SiteShell>
@@ -160,6 +169,14 @@ export default function Product({
             </article>
           ))}
           <RankingExplanation />
+          <CommentSection
+            key={p.id}
+            productSlug={p.slug}
+            categories={p.categories
+              .filter((c) => c.isActive)
+              .map((c) => ({ id: c.id, name: c.name }))}
+            initial={comments}
+          />
         </section>
         <aside className="product-facts">
           <h2>About this product</h2>

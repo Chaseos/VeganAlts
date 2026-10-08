@@ -206,6 +206,29 @@ export function ContributionContent({
         <strong>Status: {friendly(detail.status)}</strong>
         {detail.resolutionNote && <p>{detail.resolutionNote}</p>}
       </div>
+      {detail.kind === "comment" && (
+        <section aria-labelledby="held-comment">
+          <h2 id="held-comment">Held comment</h2>
+          <p className="small muted">
+            By @{String((detail.proposed as { author: string }).author)}
+          </p>
+          <blockquote className="comment-body">
+            {String((detail.proposed as { body: string }).body)}
+          </blockquote>
+        </section>
+      )}
+      {"reportedComment" in detail && detail.reportedComment && (
+        <section aria-labelledby="reported-comment">
+          <h2 id="reported-comment">Reported comment</h2>
+          <p className="small muted">
+            By @{detail.reportedComment.author} ·{" "}
+            {friendly(detail.reportedComment.state)}
+          </p>
+          <blockquote className="comment-body">
+            {detail.reportedComment.body}
+          </blockquote>
+        </section>
+      )}
       {automated && <AutomatedChecks checks={automated} />}
       {detail.kind === "submission" && detail.followUpOf && (
         <p>

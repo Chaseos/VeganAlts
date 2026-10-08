@@ -63,6 +63,8 @@ export interface CatalogPatch {
   familyId?: string | null;
   categories?: { categoryId: string; eligible: boolean }[];
   imageStates?: { id: string; state: string }[];
+  // Moderation visibility of comments on this product, never their text.
+  commentStates?: { id: string; state: string }[];
   relationships?: { productId: string; type: string }[];
   retailer?: { retailerId: string; status: string };
   consolidation?: { survivorId: string; active: boolean };

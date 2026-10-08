@@ -1,4 +1,4 @@
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test, type Route } from "./fixtures";
 import { createBrowserSession } from "./session-fixture";
 
 test("reauthentication saves the latest score selected during an expired in-flight request", async ({

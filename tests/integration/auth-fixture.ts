@@ -20,6 +20,8 @@ export async function authenticatedFixture() {
     RATING_RATE_LIMIT: pass,
     RATING_RISK_LIMIT: pass,
     AUTH_RISK_LIMIT: pass,
+    COMMENT_RATE_LIMIT: pass,
+    VOTE_RATE_LIMIT: pass,
     APP_EVENTS: {
       writeDataPoint: (point) => {
         if (point) events.push(point);

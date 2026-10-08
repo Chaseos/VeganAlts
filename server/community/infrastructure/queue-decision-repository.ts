@@ -1,5 +1,5 @@
 import { ApplicationError } from "../../shared/domain/errors";
-import type { Actor, SubmissionReceipt } from "../domain/contracts";
+import type { Actor, ReviewKind, SubmissionReceipt } from "../domain/contracts";
 import {
   contributorProduct,
   type CatalogPatch,
@@ -69,11 +69,30 @@ export class QueueDecisionRepository {
       })),
     };
   }
-  async detail(
-    kind: "submission" | "report" | "proposal",
-    id: string,
-    actor: Actor,
-  ) {
+  async detail(kind: ReviewKind, id: string, actor: Actor) {
+    if (kind === "comment") {
+      const row = actor.administrator
+        ? await this.repository.comment(id)
+        : null;
+      if (!row)
+        throw new ApplicationError("NOT_FOUND", "Comment not found.", 404);
+      return {
+        kind,
+        id,
+        status: row.deleted_at ? "deleted" : row.moderation_state,
+        revision: row.updated_at,
+        proposed: { body: row.body, author: row.handle },
+        referenceLabels: {} as Record<string, string>,
+        resolutionNote: null,
+        evidenceReceiptId: null,
+        images: [],
+        automated: await this.automated("comment", id, actor),
+        product: this.visibleProduct(
+          await this.repository.snapshot(row.product_id),
+          actor,
+        ),
+      };
+    }
     if (kind === "submission") {
       const row = await this.db
         .prepare(
@@ -184,6 +203,21 @@ export class QueueDecisionRepository {
       resolutionNote: row.resolution_note,
       product,
       referenceLabels: await this.referenceLabels(null, product),
+      // Operators see the reported comment's text to judge it.
+      reportedComment:
+        actor.administrator && row.target_type === "comment"
+          ? await this.repository
+              .comment(row.target_id)
+              .then((c) =>
+                c
+                  ? {
+                      body: c.body,
+                      author: c.handle,
+                      state: c.moderation_state,
+                    }
+                  : null,
+              )
+          : null,
     };
   }
   private visibleProduct(

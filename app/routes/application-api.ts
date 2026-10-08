@@ -14,9 +14,12 @@ import { clientEvents, recordEvent } from "@server/observability/events";
 import { clientKey, enforceLimit } from "@server/abuse/service";
 import type { Route } from "./+types/application-api";
 import { communityApi } from "@server/community/http/handlers";
+import { commentsApi, publicComments } from "@server/comments/http/handlers";
 
 async function handle(request: Request, path: string) {
   try {
+    const comments = await commentsApi(request, path, env);
+    if (comments) return comments;
     const community = await communityApi(request, path, env);
     if (community) return community;
     const url = new URL(request.url);
@@ -36,6 +39,8 @@ async function handle(request: Request, path: string) {
         return success(await catalog.search(url.searchParams.get("q") ?? ""));
       if (path === "categories") return success(await catalog.home());
       const [family, slug, extra] = path.split("/");
+      if (family === "products" && slug && extra === "comments")
+        return await publicComments(request, slug, env);
       if (slug && !extra) {
         if (family === "categories")
           return success(

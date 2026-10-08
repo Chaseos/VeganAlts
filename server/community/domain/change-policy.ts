@@ -29,6 +29,7 @@ export function hasCatalogChanges(value: unknown) {
       "familyId",
       "categories",
       "imageStates",
+      "commentStates",
       "relationships",
       "retailer",
       "consolidation",

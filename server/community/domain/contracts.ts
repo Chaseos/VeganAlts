@@ -269,13 +269,22 @@ export const reviewDecision = z
     decision: z.enum(["accept", "reject", "resolve", "dismiss", "follow_up"]),
     expectedRevision: z.number().int().nonnegative(),
     note,
-    effect: z.enum(["none", "under_review", "remove_image"]).default("none"),
+    effect: z
+      .enum(["none", "under_review", "remove_image", "hide_comment"])
+      .default("none"),
     expectedProductRevision: z.number().int().nonnegative().optional(),
     // The operator-reviewed classification for an accepted submission.
     veganStatus: veganStatus.optional(),
   })
   .strict();
 export type ReviewDecision = z.infer<typeof reviewDecision>;
+export const reviewKind = z.enum([
+  "submission",
+  "proposal",
+  "report",
+  "comment",
+]);
+export type ReviewKind = z.infer<typeof reviewKind>;
 export const consolidationInput = z
   .object({
     donorId: id,
@@ -288,7 +297,7 @@ export const consolidationInput = z
 export type ConsolidationInput = z.infer<typeof consolidationInput>;
 export interface QueueItem {
   id: string;
-  kind: "submission" | "report" | "proposal";
+  kind: ReviewKind;
   title: string;
   status: string;
   priority: number;

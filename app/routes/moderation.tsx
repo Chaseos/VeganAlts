@@ -5,6 +5,7 @@ import { z } from "zod";
 import { communityPageActor } from "@server/community/http/page";
 import { parse } from "@server/community/http/handlers";
 import { communityServices } from "@server/community/infrastructure/composition";
+import { reviewKind } from "@server/community/domain/contracts";
 import type { ProductSnapshot } from "@server/community/domain/moderation";
 import { hasCatalogChanges } from "@server/community/domain/change-policy";
 import { SiteShell, EmptyState } from "../components/catalog";
@@ -64,7 +65,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       view: "detail" as const,
       detail: await services.moderation.detail(
         actor,
-        parse(z.enum(["submission", "proposal", "report"]), kind),
+        parse(reviewKind, kind),
         id,
       ),
     };
@@ -258,7 +259,12 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                 <form className="community-form" onSubmit={decide}>
                   <label htmlFor="decision">Decision</label>
                   <select id="decision" name="decision">
-                    {data.detail.kind === "report" ? (
+                    {data.detail.kind === "comment" ? (
+                      <>
+                        <option value="accept">Publish comment</option>
+                        <option value="reject">Hide comment</option>
+                      </>
+                    ) : data.detail.kind === "report" ? (
                       <>
                         <option value="resolve">Resolve concern</option>
                         <option value="dismiss">Dismiss report</option>
@@ -269,9 +275,11 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                         <option value="reject">Reject contribution</option>
                       </>
                     )}
-                    <option value="follow_up">
-                      Request follow-up evidence
-                    </option>
+                    {data.detail.kind !== "comment" && (
+                      <option value="follow_up">
+                        Request follow-up evidence
+                      </option>
+                    )}
                   </select>
                   {data.detail.kind === "submission" && (
                     <>
@@ -320,11 +328,22 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                             Remove photo from public view
                           </option>
                         )}
+                        {reported.targetType === "comment" && (
+                          <option value="hide_comment">
+                            Hide comment from public view
+                          </option>
+                        )}
                       </select>
                       {effect === "under_review" && (
                         <p className="notice">
                           This removes active ranking eligibility and prevents
                           new ratings until the concern is resolved.
+                        </p>
+                      )}
+                      {effect === "hide_comment" && (
+                        <p className="notice">
+                          The comment is collapsed from public view. Its text,
+                          votes and audit history remain recoverable.
                         </p>
                       )}
                       {effect === "remove_image" && (
