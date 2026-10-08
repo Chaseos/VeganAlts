@@ -159,4 +159,85 @@ Two code reviews of this branch against `develop` raised the findings below. All
 
 The local browser suite ran against the container's preinstalled Chromium, because Playwright 1.63 expects a newer revision than the one installed. The repository configuration was unchanged; a session-only override set the executable path. `npm run test:e2e` preparation applied `0009`, and the identity repair ran successfully. 23 of 24 tests passed on the first run. The desktop community flow timed out after a cold Vite dependency reload of the contribute route sent the browser back to the product page; the same flow passed on mobile in that run, and both desktop community tests passed on an immediate rerun (46.0 s and 15.0 s).
 
-These fixes have not been deployed to staging. Before rollout, apply `0008` and `0009` with `npm run db:migrate:staging`; it also runs the identity repair and prints its counts. Then repeat the affected contributor and operator checks on staging.
+These fixes have not been deployed to staging. Before rollout, apply `0008` and `0009` with `npm run db:migrate:staging`; it also runs the identity repair and prints its counts. Then repeat the affected contributor and operator checks on staging. The [staging rollout below](#staging-rollout-of-review-fixes--2026-10-08) records that deployment.
+
+## Staging rollout of review fixes — 2026-10-08
+
+This rollout deployed both review-fix commits (`2352dd4` and `c059bea`) to staging and repeated the affected checks with the genuine signed-in account. No production migration, deployment or binding changed.
+
+### Local verification
+
+Run on macOS with Node 24.21.0 (Homebrew `node@24`) after `npm ci`, using the repository's Playwright configuration and its Chromium 1243.
+
+- `npm run check` passed **91 tests across 25 files**, type generation, strict TypeScript and the build.
+- The first `npm run test:e2e` passed 23 of 24. The desktop community flow timed out again, matching the earlier cloud run. Its trace showed the cause: Vite logged `[vite] connecting…` right after the **Report product** click, and the client dependency metadata was rewritten mid-test with `zod` added. The browser does not load `zod` until the first lazy contribution or moderation route. On a cold cache, Vite's optimizer discovers it mid-navigation and reloads the page, which leaves the test on the product page.
+- `vite.config.ts` now pre-bundles `zod` (`optimizeDeps.include`). This affects only the dev server; the production build is unchanged.
+- After deleting `node_modules/.vite`, the full suite passed **24 of 24** in 2.1 minutes. `npm run check` passed again.
+
+### Rollout
+
+Staging D1, deployment and secret commands used `--config wrangler.jsonc --env staging`. `npm run deploy:staging` and its dry run deploy the generated staging build configuration, and the R2 check queried `veganalts-media-staging` by name.
+
+| Step | Result |
+| --- | --- |
+| Bindings | Worker `veganalts-staging` on custom domain `staging.veganalts.com`, hourly cron `17 * * * *`; D1 `veganalts-staging` (`398b7461-5ad0-48fe-aaa9-332922dad93b`); R2 `veganalts-media-staging`; `IMAGES`; two-user `ADMIN_USER_IDS` allowlist; Better Auth, Google, Apple and Turnstile secret names present. The dry-run deployment artifact matched, and the built Worker contains no browser-session fixture. |
+| Pending migrations | `0008_submission_followups.sql` and `0009_proposal_baselines.sql` only. |
+| Pre-migration data | 33 products, 35 formulas, 409 ratings, 37 images, 19 brands, 1 retailer, 33 identity keys, 7 proposals (none pending), 2 reports (none active), 1 resolved held submission, 12 moderation actions, 16 audit entries. Foreign-key violations: **0**. |
+| D1 recovery bookmark | **`000000a0-00000004-000050fe-ec017edaf3e2e864d5e4d9729c6f6069`**, captured at 2026-10-08T21:31:25Z, immediately before migration. |
+| Worker before | **`571b9295-b59e-4a2e-8694-fe709e5eb0ea`** |
+| `npm run db:migrate:staging` | Legacy-report preflight: 0 groups, 0 archived. Both migrations applied. Identity repair: **names 0, keys 0, conflicts 0**. A read-only preview using the same normalization functions predicted the same counts and found no product identity-key collisions. Row counts were unchanged, and foreign-key violations remained 0. |
+| `npm run deploy:staging` | Worker after: **`4e9c3510-924f-42de-a27f-16c266b3dcae`**. Foreign-key violations after deployment: 0. `/healthz` returned 200; home, search, category and categories API returned cached 200s. |
+
+### Genuine-account verification
+
+Staging has two real accounts, and both are on the operator allowlist. As in the 2026-10-07 acceptance, the signed-in allowlisted account used the ordinary contributor pages for contributor actions and `/admin/moderation` for operator actions. The account was signed in through the owner's own browser session. There were no forged sessions, test fixtures or authentication bypasses.
+
+Preflight replays were same-origin API requests sent from that signed-in page. Each replay reused the idempotency key and body that the add-product form had sent. No request triggered a Turnstile challenge; requests stayed below the risk threshold.
+
+Every catalog record created here is a synthetic staging fixture. All use the brand "M3 Synthetic Staging Fixtures", product names ending in "(staging fixture)", generated images labelled **SYNTHETIC STAGING FIXTURE**, and `example.com` ingredient sources.
+
+| Check | Result |
+| --- | --- |
+| Submission follow-up | A held submission (contributor did not confirm ingredients) received an operator follow-up request. **Respond to follow-up** appeared on its My contributions receipt and reopened the guided form with the details restored. The response, with the reattached front photo, created a new receipt held for manual review ("Updated evidence must be reviewed by an operator"). The original now shows **superseded**, links to the response, keeps its private evidence and offers no further response. D1 shows `superseded_by` set and one `submission_amended` audit entry. [Superseded original](milestone-3/staging-review-follow-up-superseded.jpg). |
+| Classification when accepted | Accepting the response with "Keep the provisional classification" was refused: `CLASSIFICATION_REQUIRED`, "Choose the reviewed ingredient classification before publishing this submission". The item stayed in review. Accepting with **Plant-based** published the product. D1 stores `plant_based` with a non-null reviewer who is an allowlisted operator. The contributor API reports `reviewed: true`. The automatically published fixture keeps provisional `appears_vegan` with no reviewer. [Refusal](milestone-3/staging-review-classification-required.jpg). |
+| Unrelated activity does not stale a proposal | Two packaging proposals were drafted for the same front-photo slot. A retailer confirmation then bumped the product revision. The first proposal (X) was still **accepted**. The competing proposal (Y) was refused with `STALE_PRODUCT` ("The catalog facts this proposal relies on changed after it was drafted") and stayed pending until it was rejected. Both proposals stored `baseline_data`. [Stale competing proposal](milestone-3/staging-review-stale-competing-proposal.jpg). |
+| Photo removal reversal | A photo report was resolved with **Remove photo from public view**, and the cached public media URL changed from `200 HIT` to `404 private, no-store`. Accepting X put a newer front photo in that slot. Reversing the removal then returned **`409 REVERSAL_CONFLICT`** with `private, no-store`, in the UI and by direct API call. Neither action was reversed, and the product revision stayed at 8. The removed bytes remain readable only through the operator media endpoint (`200 private, no-store`). [Reversal conflict](milestone-3/staging-photo-reversal-conflict.jpg). |
+| Contributor product view | `GET /api/v1/community/products/:id` returned `200 private, no-store`, with no `reviewedBy` or `reviewed_by` anywhere in the body. Images listed only accepted photos. The rejected (removed) front photo and the private proposal evidence were absent, both before and after X was accepted. |
+| Retailer confirmation invalidation | Confirming "Milestone Three Staging Market" purged only the product page. The next anonymous product request was a `MISS`, and its HTML showed the retailer, one contributor and the confirmation date. Home, `/us/search?q=burger`, `/us/beef-burgers` and `/api/v1/categories` stayed `HIT`, and their age rose from 41 s to 59 s across the confirmation. |
+| New badge and hydration | Both published fixtures show **New** on their product pages, in search results and in the Beef Burgers "Waiting for a first rating" section. The anonymous server HTML carries the same badges. Full Chrome page loads of both products, search and the category produced no application console messages, so no hydration warnings. [Category](milestone-3/staging-new-badges-category.jpg). |
+| Duplicate redirect and reversal | The preview listed 0 ratings, 1 photo and 1 formula to archive. After consolidation, with a donor formula selector supplied: the donor document returned `302` to the survivor, the API returned `302` to the survivor API, and framework data returned `202` carrying the survivor path. All were `private, no-store`, and the selector was dropped. Reversal restored `200` for all three donor URLs, with no active redirect. The survivor's canonical hash (`3555a79902b20b22`), covering formulas, categories, images, retailers, ratings and aggregates, was identical before consolidation, after it and after reversal. |
+| Preflight replay | Same key and body: the held receipt returned `NEEDS_REVIEW` with its two stored reasons and the original receipt ID. The automatically published receipt and the follow-up response returned their publications (`READY`, product ID, slug, `state: published`). A deliberately rejected third fixture returned **`409 SUBMISSION_CLOSED`** and has no canonical product rows. |
+
+| Reference | ID |
+| --- | --- |
+| Automatically published fixture (photo checks, consolidation survivor) | `01a11d79-43fb-77db-9ba3-5415bf7453db` |
+| Follow-up fixture (consolidation donor) | `01a11d7b-a9c8-762d-a11e-905ce11535df` |
+| Original held receipt / follow-up response receipt | `01a11d7a-3f3a-747a-a570-0f0661fcef52` / `01a11d7b-a9c8-762d-a11e-8ee25d7096a7` |
+| Rejected receipt | `01a11d7d-a611-76cd-b7f8-bc165829f5ad` |
+| Photo report / removal action | `01a11d7e-7759-7098-9046-be14cf60ec5a` / `01a11d7e-cf53-753d-9210-c2c4e35051f9` |
+| Packaging proposals X / Y | `01a11d7f-50e2-7320-83e5-862223555616` / `01a11d7f-b5e6-774e-8ac9-8eac7f23f4e6` |
+| Consolidation (reversed) | `01a11d85-13e7-70fc-a421-688350c3cba4` |
+
+### Final state
+
+- **Data:** 35 products, 37 formulas, 409 ratings (unchanged), 41 images, 20 brands, 9 proposals, 3 reports, 19 moderation actions, 27 audit entries and 2 retailer confirmations. Foreign-key violations: **0**. The review inbox is empty.
+- **Fixtures:** both synthetic products remain active and visibly labelled. They have not been retired, unlike the 2026-10-07 fixtures.
+- **Remote regression:** `TEST_BASE_URL=https://staging.veganalts.com npm run test:e2e` passed **6 public tests** across desktop and mobile. The 18 tests that need the local session fixture skip remote targets by design.
+- **Production:** still the coming-soon page with its restrictive CSP. Its latest deployment remains the 2026-10-04 version; read-only checks only.
+
+```sh
+npm ci
+npm run check
+npm run test:e2e
+npx wrangler deployments list --config wrangler.jsonc --env staging
+npx wrangler d1 migrations list DB --remote --config wrangler.jsonc --env staging
+npx wrangler d1 time-travel info DB --config wrangler.jsonc --env staging --json
+npm run db:migrate:staging
+npm run deploy:staging
+npx wrangler d1 execute DB --remote --config wrangler.jsonc --env staging --command 'PRAGMA foreign_key_check'
+TEST_BASE_URL=https://staging.veganalts.com npm run test:e2e
+```
+
+Local logs, cache probes, redirect probes, count snapshots and the identity-repair preview are under ignored `test-results/milestone-3-rollout-2026-10-08/`. Screenshots contain no cookies, secrets or signed URLs, and private evidence thumbnails are redacted.
+
+Recovery is unchanged: roll back to Worker `571b9295-b59e-4a2e-8694-fe709e5eb0ea` if needed, leaving the additive schema in place, and prefer forward repairs. Restoring D1 to the bookmark above would discard every contribution written after it, so it needs an explicit operator decision.
