@@ -7,6 +7,7 @@ import type {
   SubmissionInput,
   Candidate,
   SubmissionDecision,
+  VeganStatus,
 } from "./contracts";
 
 export const DAY = 86_400_000;
@@ -16,8 +17,13 @@ export const DEFAULT_LIMITS = {
   submissionBytes: 30 * 1024 * 1024,
   accountBytes: 100 * 1024 * 1024,
   submissionsPerDay: 5,
+  // Evidence receipts for proposals have their own allowance.
+  evidencePerDay: 10,
   concurrentUploads: 2,
   processingPerDay: 50,
+  // One account cannot spend the whole environment's processing budget.
+  accountProcessingPerDay: 20,
+  // Unsuccessful attempts per processing key per UTC day.
   retries: 3,
   stagingRetention: DAY,
   reviewRetention: 30 * DAY,
@@ -80,6 +86,12 @@ export function slug(value: string) {
       .slice(0, 75) || "product"
   );
 }
+// The classification contributor evidence supports without operator review.
+// Null means an operator must choose one before publication.
+export function provisionalStatus(input: SubmissionInput): VeganStatus | null {
+  if (input.noKnownAnimalIngredients) return "appears_vegan";
+  return input.manufacturerLabel === "plant_based" ? "plant_based" : null;
+}
 export function decideSubmission(
   input: SubmissionInput,
   candidates: Candidate[],
@@ -101,10 +113,7 @@ export function decideSubmission(
     reasons.push("A specialty flavor needs a category-eligibility review.");
   if (input.relatedProductId || input.productFamilyId)
     reasons.push("The proposed product relationship needs review.");
-  if (
-    !input.noKnownAnimalIngredients &&
-    input.manufacturerLabel !== "plant_based"
-  )
+  if (!provisionalStatus(input))
     reasons.push("The ingredient classification needs review.");
   return {
     decision: reasons.length ? "NEEDS_REVIEW" : "READY",

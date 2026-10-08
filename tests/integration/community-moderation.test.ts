@@ -8,6 +8,7 @@ import {
   retailerInput,
 } from "../../server/community/domain/contracts";
 import { D1RatingsRepository } from "../../server/ratings/infrastructure/d1-repository";
+import { catalogService } from "../../server/catalog/infrastructure/composition";
 
 const id = () => crypto.randomUUID();
 const evidence = {
@@ -49,6 +50,15 @@ it("deduplicates reports, prioritizes ingredient concerns, and requires an opera
       evidenceUrls: ["https://example.com/label"],
     });
   expect(a.id).toBe(b.id);
+  // Repeat reports keep the original explanation and add new ones.
+  await contributions.report(actor, id(), { ...input, note: "" });
+  await contributions.report(actor, id(), {
+    ...input,
+    note: "A second label photo lists whey.",
+  });
+  expect((await repository.report(a.id))!.note).toBe(
+    "Possible milk ingredient listed.\n\nA second label photo lists whey.",
+  );
   expect((await repository.snapshot(f.productId)).veganStatus).toBe(
     "appears_vegan",
   );
@@ -84,6 +94,17 @@ it("deduplicates reports, prioritizes ingredient concerns, and requires an opera
   );
   const updated = await repository.snapshot(f.productId);
   expect(updated.veganStatus).toBe("under_review");
+  // Contributors see that the classification was reviewed, never by whom.
+  expect(updated.classification?.reviewedBy).toBe(admin.id);
+  const view = await contributions.product(actor, f.productId);
+  expect(view.classification).toMatchObject({
+    veganStatus: "under_review",
+    reviewed: true,
+  });
+  expect(JSON.stringify(view)).not.toContain(admin.id);
+  expect(
+    JSON.stringify(await moderation.detail(actor, "report", a.id)),
+  ).not.toContain(admin.id);
   expect(
     await new D1RatingsRepository(env.DB).commit(
       oldRatingSnapshot,
@@ -168,8 +189,8 @@ it("preserves formula contributions through reformulation and reversal and store
 });
 
 it("archives duplicates without transferring contributions or changing the survivor and reverses the redirect", async () => {
-  const { f, moderation, repository, duplicates, actor, admin } =
-    await fixture();
+  const { f, moderation, repository, actor, admin } = await fixture();
+  const catalog = catalogService(env);
   const survivorId = id(),
     version = id();
   await env.DB.batch([
@@ -193,7 +214,7 @@ it("archives duplicates without transferring contributions or changing the survi
     note: "Same product, package size variation only.",
   });
   expect(await repository.snapshot(survivorId)).toEqual(survivor);
-  expect(await duplicates.redirect(donor.slug)).toMatchObject({
+  expect(await catalog.canonicalRedirect(donor.slug)).toMatchObject({
     id: survivorId,
   });
   expect(
@@ -208,7 +229,7 @@ it("archives duplicates without transferring contributions or changing the survi
     expectedRevision: archived.revision,
     note: "Evidence shows the duplicate was a distinct formula.",
   });
-  expect(await duplicates.redirect(donor.slug)).toBeNull();
+  expect(await catalog.canonicalRedirect(donor.slug)).toBeNull();
   expect((await repository.snapshot(donor.id)).lifecycleStatus).toBe("active");
 });
 
@@ -254,25 +275,25 @@ it("accepts canonical retailer aliases and keeps one current contributor stance 
     retailerId: retailer.id,
     stance: "confirm",
   });
-  expect(
-    (
-      await contributionRepository.retailerSummaries(f.productId, Date.now())
-    )[0],
-  ).toMatchObject({ contributorCount: 1, stale: false });
+  // Assert through the production public reader, not a test-only copy.
+  const publicRetailer = async () =>
+    (await catalogService(env).product(f.productId, null)).retailers[0];
+  expect(await publicRetailer()).toMatchObject({
+    contributorCount: 1,
+    stale: false,
+  });
   await contributions.confirm(actor, id(), {
     productId: f.productId,
     retailerId: retailer.id,
     stance: "not_current",
   });
-  expect(
-    (
-      await contributionRepository.retailerSummaries(f.productId, Date.now())
-    )[0],
-  ).toMatchObject({
+  expect(await publicRetailer()).toMatchObject({
     contributorCount: 0,
-    disagreementCount: 1,
     status: "active",
     stale: true,
+  });
+  expect((await repository.snapshot(f.productId)).retailers[0]).toMatchObject({
+    disagreementCount: 1,
   });
   const concern = await env.DB.prepare(
     "SELECT id FROM edit_proposals WHERE target_id=? AND change_type='retailer_status' AND status='pending'",
@@ -280,42 +301,25 @@ it("accepts canonical retailer aliases and keeps one current contributor stance 
     .bind(f.productId)
     .first<string>("id");
   expect(concern).toBeTruthy();
+  // Fresh evidence fences the operator's reviewed view, but leaves the concern
+  // itself acceptable after a refresh.
+  const reviewed = await repository.snapshot(f.productId);
   await contributions.confirm(admin, id(), {
     productId: f.productId,
     retailerId: retailer.id,
     stance: "confirm",
   });
   await expect(
-    moderation.decide(
-      admin,
-      id(),
-      "proposal",
-      concern!,
-      decision((await repository.proposal(concern!))!.updated_at),
-    ),
+    moderation.decide(admin, id(), "proposal", concern!, {
+      ...decision((await repository.proposal(concern!))!.updated_at),
+      expectedProductRevision: reviewed.revision,
+    }),
   ).rejects.toMatchObject({ code: "STALE_PRODUCT" });
-  await contributions.confirm(actor, id(), {
-    productId: f.productId,
-    retailerId: retailer.id,
-    stance: "not_current",
+  await moderation.decide(admin, id(), "proposal", concern!, {
+    ...decision((await repository.proposal(concern!))!.updated_at),
+    expectedProductRevision: (await repository.snapshot(f.productId)).revision,
   });
-  const refreshed = await env.DB.prepare(
-    "SELECT id FROM edit_proposals WHERE target_id=? AND change_type='retailer_status' AND status='pending'",
-  )
-    .bind(f.productId)
-    .first<string>("id");
-  await moderation.decide(
-    admin,
-    id(),
-    "proposal",
-    refreshed!,
-    decision((await repository.proposal(refreshed!))!.updated_at),
-  );
-  expect(
-    (
-      await contributionRepository.retailerSummaries(f.productId, Date.now())
-    )[0]!.status,
-  ).toBe("not_current");
+  expect((await publicRetailer())!.status).toBe("not_current");
 });
 
 it("accepts valid comment targets while rejecting missing and hidden comments", async () => {

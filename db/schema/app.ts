@@ -774,6 +774,9 @@ export const editProposals = sqliteTable(
     changeType: text("change_type").notNull(),
     riskTier: integer("risk_tier").notNull(),
     proposedData: text("proposed_data").notNull(),
+    // Catalog facts the proposal was drafted against; unrelated activity must
+    // not make it stale. Null for proposals created before baselines existed.
+    baselineData: text("baseline_data"),
     note: text("note"),
     status: text("status").notNull().default(sql.raw("'pending'")),
     resolvedBy: text("resolved_by").references(

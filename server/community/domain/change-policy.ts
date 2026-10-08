@@ -35,6 +35,85 @@ export function hasCatalogChanges(value: unknown) {
     ].some((key) => Object.hasOwn(value, key)),
   );
 }
+// The catalog facts a proposal depends on. A proposal stays acceptable while
+// these facts are unchanged; unrelated activity such as retailer confirmations,
+// other photo slots or other decisions on the product must not make it stale.
+export function proposalBaseline(
+  snapshot: ProductSnapshot,
+  input: ProductChange,
+  slots: readonly string[] = [],
+) {
+  const formula = {
+    versionId: snapshot.versionId,
+    lifecycleStatus: snapshot.lifecycleStatus,
+  };
+  switch (input.kind) {
+    case "classification":
+      return {
+        versionId: snapshot.versionId,
+        classification: snapshot.classification,
+      };
+    case "reformulation":
+    case "discontinue":
+      return formula;
+    case "reintroduce":
+      return input.sameFormula
+        ? { ...formula, classification: snapshot.classification }
+        : formula;
+    case "packaging":
+      // Only the slots this proposal replaces; sorted for a stable comparison.
+      return {
+        versionId: snapshot.versionId,
+        images: Object.fromEntries(
+          [...new Set(slots)]
+            .sort()
+            .map((slot) => [
+              slot,
+              snapshot.images.find(
+                (i) =>
+                  i.versionId === snapshot.versionId &&
+                  i.slot === slot &&
+                  i.state === "accepted",
+              )?.id ?? null,
+            ]),
+        ),
+      };
+    case "relationships":
+      return {
+        familyId: snapshot.familyId,
+        categories: snapshot.categories,
+        relationships: snapshot.relationships,
+      };
+    case "retailer_status":
+      return {
+        retailer:
+          snapshot.retailers.find((r) => r.retailerId === input.retailerId)
+            ?.status ?? null,
+      };
+  }
+}
+export type ProposalBaseline = ReturnType<typeof proposalBaseline>;
+export function assertProposalCurrent(
+  snapshot: ProductSnapshot,
+  input: ProductChange,
+  baseline: ProposalBaseline | null,
+) {
+  const slots =
+    baseline && "images" in baseline && baseline.images
+      ? Object.keys(baseline.images)
+      : [];
+  // Proposals created before baselines were recorded keep the strict revision rule.
+  const current = baseline
+    ? JSON.stringify(proposalBaseline(snapshot, input, slots)) ===
+      JSON.stringify(baseline)
+    : snapshot.revision === input.expectedRevision;
+  if (!current)
+    throw new ApplicationError(
+      "STALE_PRODUCT",
+      "The catalog facts this proposal relies on changed after it was drafted. Request a fresh proposal.",
+      409,
+    );
+}
 export function planProductChange(
   snapshot: ProductSnapshot,
   input: ProductChange,
@@ -45,12 +124,6 @@ export function planProductChange(
     throw new ApplicationError(
       "ARCHIVED_PRODUCT",
       "Archived products cannot receive catalog changes.",
-      409,
-    );
-  if (snapshot.revision !== input.expectedRevision)
-    throw new ApplicationError(
-      "STALE_PRODUCT",
-      "The catalog changed after this proposal was drafted. Request a fresh proposal.",
       409,
     );
   const before: CatalogPatch = {},
@@ -210,6 +283,7 @@ export function planProductChange(
 export function assertCompensable(
   snapshot: ProductSnapshot,
   patch: CatalogPatch,
+  restore: CatalogPatch = {},
 ) {
   const conflict = () => {
     throw new ApplicationError(
@@ -260,4 +334,27 @@ export function assertCompensable(
       JSON.stringify(snapshot.relationships)
   )
     conflict();
+  // A restored photo must not collide with a later photo that now holds its
+  // formula slot, unless the same reversal also retires that photo.
+  const retiring = new Set(
+    restore.imageStates
+      ?.filter((i) => i.state !== "accepted")
+      .map((i) => i.id) ?? [],
+  );
+  for (const image of restore.imageStates ?? []) {
+    if (image.state !== "accepted") continue;
+    const restored = snapshot.images.find((i) => i.id === image.id);
+    if (
+      !restored ||
+      snapshot.images.some(
+        (i) =>
+          i.id !== image.id &&
+          i.versionId === restored.versionId &&
+          i.slot === restored.slot &&
+          i.state === "accepted" &&
+          !retiring.has(i.id),
+      )
+    )
+      conflict();
+  }
 }

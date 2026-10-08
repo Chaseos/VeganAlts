@@ -196,21 +196,36 @@ export default {
     return response;
   },
   async scheduled(_controller, env) {
-    const { mediaRecoveryService } =
-      await import("../server/media/infrastructure/composition");
+    // Independent passes: a persistent failure in one must not stall the
+    // other's lease revocation, expiry or cleanup.
+    const failed: string[] = [];
     try {
+      const { mediaRecoveryService } =
+        await import("../server/media/infrastructure/composition");
       console.log(
         JSON.stringify({
           event: "media_recovery",
           ...(await mediaRecoveryService(env).recover()),
         }),
       );
-      const { recoverCommunity } =
-        await import("../server/community/infrastructure/recovery");
-      await recoverCommunity(env.DB, env.MEDIA_BUCKET, Date.now());
     } catch {
       console.error(JSON.stringify({ event: "media_recovery_failed" }));
-      throw new Error("Media recovery failed.");
+      failed.push("media");
     }
+    try {
+      const { recoverCommunity } =
+        await import("../server/community/infrastructure/recovery");
+      console.log(
+        JSON.stringify({
+          event: "community_recovery",
+          ...(await recoverCommunity(env.DB, env.MEDIA_BUCKET, Date.now())),
+        }),
+      );
+    } catch {
+      console.error(JSON.stringify({ event: "community_recovery_failed" }));
+      failed.push("community");
+    }
+    if (failed.length)
+      throw new Error(`Scheduled recovery failed: ${failed.join(", ")}.`);
   },
 } satisfies ExportedHandler<Cloudflare.Env>;

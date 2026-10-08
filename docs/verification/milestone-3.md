@@ -127,3 +127,36 @@ The fixes below follow the initial staging acceptance above. They require additi
 `npm run build:staging` passed; its local log is `test-results/milestone-3-review-staging-build.log`.
 
 These review fixes have not been deployed or reaccepted on staging. The deployment version and genuine-provider evidence above apply to the original milestone implementation. Before rollout, use the [documented migration preflight and recovery procedure](../operations/deployment.md), apply `0008`, and repeat affected contributor/operator and native-cache checks on staging. No production operation or CI inspection was performed for these fixes.
+
+## Code review fixes — 2026-10-08
+
+Two code reviews of this branch against `develop` raised the findings below. All are fixed. The schema change is additive migration `0009_proposal_baselines.sql`. Applied migrations `0006` and `0007`, and unapplied `0008`, are unchanged.
+
+| Finding | Fix and regression evidence |
+| --- | --- |
+| Retailer confirmations, photo changes and unrelated decisions permanently staled every pending proposal | Proposals store the facts they depend on (`baseline_data`) and stay acceptable while those facts are unchanged. Competing changes are still rejected. The operator's reviewed product revision fences each decision. Covered by lifecycle, moderation and unit tests. |
+| Duplicate checks failed for brands with more than 200 products, and could drop exact alias matches past the first 12 | The database ranks a brand's products by shared name tokens, with no hard failure. Exact matches always sort first. A 230-product brand test exercises both. |
+| Legacy normalized names and identity keys came from ASCII-only SQL; publication re-resolved brands by name | `db/upgrades/catalog-identity.ts` recomputes them after migrations (idempotent; conflicts are counted). Publication keeps the matched brand ID. Covered by migration and submission tests. |
+| Retry cap per photo key counted lifetime attempts; one account could exhaust the environment budget; evidence receipts had no daily cap | Only same-day failures count toward the key. New limits: 20 processing attempts per account per day and 10 evidence receipts per account per day. Covered by recovery tests. |
+| Relationship acceptance failed once an existing linked product was archived | Only newly linked products must be visible. |
+| Reversing a photo removal could collide with a newer accepted photo and return a 500 | The reversal is rejected with `REVERSAL_CONFLICT` unless it also retires the newer photo. |
+| Operator approval of unconfirmed ingredients published `plant_based` | Approval requires an operator-chosen classification, recorded as reviewed (`CLASSIFICATION_REQUIRED`). |
+| Promoted proposal evidence was credited to the operator | Credited to the contributor. |
+| Rejecting a proposal during acceptance left its evidence reusable or orphaned; lease release had three differing rules | One release rule closes evidence whose proposal was decided. Covered by release and recovery tests. |
+| Concurrent proposals could attach the same evidence | The proposal batch rechecks the receipt and returns `EVIDENCE_CHANGED`. |
+| Repeat reports replaced the earlier note | Notes are merged; the audit log keeps every submission. |
+| Preflight replays reported `READY` for any receipt | Replays return held review reasons, a fresh decision, the publication, or `SUBMISSION_CLOSED`. |
+| Community recovery was skipped whenever media recovery failed | The two passes run and log independently. |
+| Contributors received reviewer user IDs and private image states | Contributor views expose only `reviewed` and public photos. |
+| Routes called repositories directly | Routes now call services. This includes the canonical redirect, which goes through the catalog service. |
+| Tests asserted test-only copies of production queries | The copies are removed. Tests read through the catalog service. |
+| The moderation workspace kept its effect and reversal state across items | The workspace remounts per path. Report effects are sent only for reports. |
+| “New” badges read the clock during render of cached pages | The catalog service decides `isNew` with its response. |
+| Retailer confirmations purged home, search, categories and every historical photo | They now purge only the product page. Decisions purge only photos whose visibility changed. |
+| Product pages made an extra D1 round trip, and every decision rebuilt the search document | Community reads join the product batch. Search documents are rebuilt only when visibility changes. |
+
+`npm run check` passed **91 tests across 25 files** (up from 77), plus type generation, strict TypeScript and the application build. Before the fixes were restored, the new photo-reversal and archived-relationship tests were confirmed to fail against the original logic.
+
+The local browser suite ran against the container's preinstalled Chromium, because Playwright 1.63 expects a newer revision than the one installed. The repository configuration was unchanged; a session-only override set the executable path. `npm run test:e2e` preparation applied `0009`, and the identity repair ran successfully. 23 of 24 tests passed on the first run. The desktop community flow timed out after a cold Vite dependency reload of the contribute route sent the browser back to the product page; the same flow passed on mobile in that run, and both desktop community tests passed on an immediate rerun (46.0 s and 15.0 s).
+
+These fixes have not been deployed to staging. Before rollout, apply `0008` and `0009` with `npm run db:migrate:staging`; it also runs the identity repair and prints its counts. Then repeat the affected contributor and operator checks on staging.

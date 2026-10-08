@@ -14,7 +14,6 @@ import { clientEvents, recordEvent } from "@server/observability/events";
 import { clientKey, enforceLimit } from "@server/abuse/service";
 import type { Route } from "./+types/application-api";
 import { communityApi } from "@server/community/http/handlers";
-import { readCanonicalRedirect } from "@server/community/infrastructure/public-read";
 
 async function handle(request: Request, path: string) {
   try {
@@ -47,7 +46,7 @@ async function handle(request: Request, path: string) {
             ),
           );
         if (family === "products") {
-          const canonical = await readCanonicalRedirect(env.DB, slug);
+          const canonical = await catalog.canonicalRedirect(slug);
           if (canonical)
             return new Response(null, {
               status: 302,

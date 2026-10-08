@@ -271,6 +271,8 @@ export const reviewDecision = z
     note,
     effect: z.enum(["none", "under_review", "remove_image"]).default("none"),
     expectedProductRevision: z.number().int().nonnegative().optional(),
+    // The operator-reviewed classification for an accepted submission.
+    veganStatus: veganStatus.optional(),
   })
   .strict();
 export type ReviewDecision = z.infer<typeof reviewDecision>;

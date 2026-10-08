@@ -437,3 +437,59 @@ it("shares the environment processing ceiling with legacy uploads and fences exh
   }
   expect(await staged.claim(second, actor.id, id(), clock.now)).toBe(false);
 });
+
+it("pauses a processing key only after repeated same-day failures and caps one account's daily share", async () => {
+  const { actor, service, input, staged, clock } = await setup({
+    accountProcessingPerDay: 5,
+  });
+  // Start on a day the shared environment budget has not been used by other tests.
+  clock.now += DAY * 10;
+  const receipt = (await service.preflight(actor, id(), input)).receiptId!;
+  const reserve = (slot: "front" | "back" | "nutrition") =>
+    staged.reserve({
+      userId: actor.id,
+      submissionId: receipt,
+      slot,
+      key: id(),
+      hash: id(),
+      profile: "standard-v1",
+      bytes: 1,
+      blobId: id(),
+      imageId: id(),
+      now: clock.now,
+    });
+  const [a, b, c] = [
+    await reserve("front"),
+    await reserve("back"),
+    await reserve("nutrition"),
+  ];
+  // A successful attempt never counts: expired staging can be reprocessed.
+  const done = id();
+  expect(await staged.claim(a, actor.id, done, clock.now)).toBe(true);
+  expect(await staged.complete(a.id, done, [], clock.now)).toBe(true);
+  await env.DB.prepare("UPDATE staged_blobs SET state='expired' WHERE id=?")
+    .bind(a.id)
+    .run();
+  for (let i = 0; i < 3; i++) {
+    const attempt = id();
+    expect(await staged.claim(a, actor.id, attempt, clock.now)).toBe(true);
+    await staged.fail(a.id, attempt, clock.now);
+  }
+  expect(await staged.claim(a, actor.id, id(), clock.now)).toBe(false);
+  const other = id();
+  expect(await staged.claim(b, actor.id, other, clock.now)).toBe(true);
+  await staged.fail(b.id, other, clock.now);
+  // Five attempts today: this account's share is spent, not the environment's.
+  expect(await staged.claim(c, actor.id, id(), clock.now)).toBe(false);
+  clock.now += DAY;
+  expect(await staged.claim(a, actor.id, id(), clock.now)).toBe(true);
+});
+
+it("limits evidence receipts separately from new submissions", async () => {
+  const { actor, f, service, input } = await setup({ evidencePerDay: 1 });
+  await service.evidenceReceipt(actor, id(), f.productId);
+  await expect(
+    service.evidenceReceipt(actor, id(), f.productId),
+  ).rejects.toMatchObject({ code: "SUBMISSION_LIMIT" });
+  expect((await service.preflight(actor, id(), input)).receiptId).toBeTruthy();
+});

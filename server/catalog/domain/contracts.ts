@@ -18,6 +18,8 @@ export interface ProductSummary {
   imageId: string | null;
   developmentOnly: number;
   publishedAt?: number | null;
+  // Decided when the response is built so cached HTML and hydration agree.
+  isNew?: boolean;
 }
 
 export interface RankingRow extends ProductSummary {
@@ -86,4 +88,5 @@ export interface CatalogRepository {
     expression: string,
   ): Promise<{ categories: CategorySummary[]; products: ProductSummary[] }>;
   profile(handle: string): Promise<PublicProfile | null>;
+  canonicalRedirect(slug: string): Promise<{ id: string; slug: string } | null>;
 }

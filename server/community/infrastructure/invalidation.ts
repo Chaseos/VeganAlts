@@ -3,7 +3,10 @@ import { scheduleCatalogInvalidation } from "../../catalog/infrastructure/invali
 export async function invalidateCommunityProduct(
   db: D1Database,
   productId: string,
-  actionId?: string,
+  {
+    actionId,
+    pageOnly = false,
+  }: { actionId?: string; pageOnly?: boolean } = {},
 ) {
   try {
     const product = await db
@@ -11,6 +14,14 @@ export async function invalidateCommunityProduct(
       .bind(productId)
       .first<{ slug: string }>();
     if (!product) return;
+    if (pageOnly) {
+      scheduleCatalogInvalidation([
+        { kind: "product", slug: product.slug, pageOnly: true },
+      ]);
+      return;
+    }
+    // Purge only photos whose visibility this action changed. Hiding or
+    // restoring a product changes every photo's public availability.
     const [categories, images, related] = await db.batch<{
       slug: string;
       id: string;
@@ -22,9 +33,13 @@ export async function invalidateCommunityProduct(
         .bind(productId),
       db
         .prepare(
-          "SELECT i.id FROM product_images i JOIN product_versions v ON v.id=i.product_version_id WHERE v.product_id=?",
+          `WITH action AS (SELECT before_data,after_data FROM moderation_actions WHERE id=?)
+          SELECT i.id FROM product_images i JOIN product_versions v ON v.id=i.product_version_id WHERE v.product_id=? AND (
+            i.id IN (SELECT json_extract(value,'$.id') FROM action,json_each(action.before_data,'$.imageStates')
+              UNION SELECT json_extract(value,'$.id') FROM action,json_each(action.after_data,'$.imageStates'))
+            OR EXISTS(SELECT 1 FROM action WHERE 'hidden' IN (json_extract(before_data,'$.lifecycleStatus'),json_extract(after_data,'$.lifecycleStatus'))))`,
         )
-        .bind(productId),
+        .bind(actionId ?? null, productId),
       db
         .prepare(
           `WITH prior AS (SELECT before_data FROM moderation_actions WHERE id=?)

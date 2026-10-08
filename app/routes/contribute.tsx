@@ -28,13 +28,14 @@ import type { Route } from "./+types/contribute";
 export async function loader({ request, params }: Route.LoaderArgs) {
   const actor = await communityPageActor(request, env),
     services = communityServices(env);
-  await services.lookup.contributableProduct(params.productId);
-  const product = await services.repository.snapshot(params.productId),
+  const product = await services.contributions.product(actor, params.productId),
     query = new URL(request.url).searchParams;
   const image = query.get("image");
   return {
     product,
-    options: (await services.lookup.options()) as unknown as CommunityOptions,
+    options: (await services.contributions.options(
+      actor,
+    )) as unknown as CommunityOptions,
     siteKey: env.TURNSTILE_SITE_KEY,
     initialAction: query.get("action") ?? "change",
     image: image && product.images.some((i) => i.id === image) ? image : null,

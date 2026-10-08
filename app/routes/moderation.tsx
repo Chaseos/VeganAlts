@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useRevalidator } from "react-router";
+import { Link, useLocation, useNavigate, useRevalidator } from "react-router";
 import { z } from "zod";
 import { communityPageActor } from "@server/community/http/page";
 import { parse } from "@server/community/http/handlers";
@@ -35,11 +35,15 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       ...(await services.moderation.product(actor, id)),
     };
   if (kind === "consolidate") {
-    const options =
-      (await services.lookup.options()) as unknown as CommunityOptions;
+    const options = (await services.contributions.options(
+      actor,
+    )) as unknown as CommunityOptions;
     const donorId = url.searchParams.get("donor");
     if (donorId && !options.products.some((p) => p.id === donorId)) {
-      const donor = await services.repository.snapshot(donorId);
+      const { product: donor } = await services.moderation.product(
+        actor,
+        donorId,
+      );
       options.products.push({
         id: donor.id,
         name: donor.name,
@@ -76,7 +80,12 @@ export function meta() {
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
-export default function Moderation({ loaderData: data }: Route.ComponentProps) {
+// The route component stays mounted across moderation paths. Keying the
+// workspace by path discards a previous item's effect, preview and reversal.
+export default function Moderation(props: Route.ComponentProps) {
+  return <ModerationWorkspace key={useLocation().pathname} {...props} />;
+}
+function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
   const action = useCommunityAction(),
     revalidator = useRevalidator(),
     navigate = useNavigate(),
@@ -92,7 +101,8 @@ export default function Moderation({ loaderData: data }: Route.ComponentProps) {
     event.preventDefault();
     if (data.view !== "detail") return;
     const form = new FormData(event.currentTarget),
-      product = "product" in data.detail ? data.detail.product : null;
+      product = "product" in data.detail ? data.detail.product : null,
+      veganStatus = form.get("veganStatus");
     await action.run(async () => {
       await action.request(
         `admin/moderation/${data.detail.kind}/${data.detail.id}/decide`,
@@ -100,9 +110,13 @@ export default function Moderation({ loaderData: data }: Route.ComponentProps) {
           decision: form.get("decision"),
           expectedRevision: data.detail.revision,
           note: form.get("note"),
-          effect,
-          ...(effect !== "none" && product
-            ? { expectedProductRevision: product.revision }
+          effect: reported ? effect : "none",
+          // Fences the decision to the product state shown in this review.
+          ...(product ? { expectedProductRevision: product.revision } : {}),
+          ...(data.detail.kind === "submission" &&
+          form.get("decision") === "accept" &&
+          veganStatus
+            ? { veganStatus }
             : {}),
         },
       );
@@ -259,6 +273,32 @@ export default function Moderation({ loaderData: data }: Route.ComponentProps) {
                       Request follow-up evidence
                     </option>
                   </select>
+                  {data.detail.kind === "submission" && (
+                    <>
+                      <label htmlFor="classification">
+                        Classification when accepted
+                      </label>
+                      <select
+                        id="classification"
+                        name="veganStatus"
+                        defaultValue=""
+                        aria-describedby="classification-help"
+                      >
+                        <option value="">
+                          Keep the provisional classification
+                        </option>
+                        <option value="appears_vegan">Appears vegan</option>
+                        <option value="vegan">Vegan</option>
+                        <option value="plant_based">Plant-based</option>
+                        <option value="under_review">Under review</option>
+                      </select>
+                      <p id="classification-help" className="muted small">
+                        Required when the contributor could not confirm the
+                        ingredients. A chosen classification is recorded as
+                        operator-reviewed.
+                      </p>
+                    </>
+                  )}
                   {reported && (
                     <>
                       <label htmlFor="effect">Catalog effect</label>

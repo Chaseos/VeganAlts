@@ -249,7 +249,7 @@ export function ProductRows({
             <div>
               <span className="product-brand">{product.brand}</span>
               <h3>{product.name}</h3>
-              <NewProductBadge publishedAt={product.publishedAt} />
+              <NewProductBadge isNew={product.isNew} />
               <span className="product-meta">
                 {product.developmentOnly ? "Demo product · " : ""}United States
               </span>
@@ -273,16 +273,10 @@ export function ProductRows({
   );
 }
 
-export function NewProductBadge({
-  publishedAt,
-}: {
-  publishedAt?: number | null;
-}) {
-  return publishedAt &&
-    Date.now() - publishedAt < 30 * 86400000 &&
-    Date.now() >= publishedAt ? (
-    <span className="new-badge">New</span>
-  ) : null;
+// The service decides newness; rendering never reads the clock, so a cached
+// page hydrates with the same markup it was served with.
+export function NewProductBadge({ isNew }: { isNew?: boolean }) {
+  return isNew ? <span className="new-badge">New</span> : null;
 }
 
 export function RankingExplanation() {

@@ -1,6 +1,5 @@
 import { env } from "cloudflare:workers";
 import { Link, redirect } from "react-router";
-import { readCanonicalRedirect } from "@server/community/infrastructure/public-read";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   publicLoader,
@@ -20,7 +19,9 @@ import { dateLabel, friendly } from "../lib/community";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env.APP_ENV);
-  const canonical = await readCanonicalRedirect(env.DB, params.productSlug);
+  const canonical = await catalogService(env).canonicalRedirect(
+    params.productSlug,
+  );
   if (canonical)
     throw redirect(`/us/products/${canonical.slug}`, {
       status: 302,
@@ -81,7 +82,7 @@ export default function Product({
           <div className="classification">
             <span>{p.veganStatus.replaceAll("_", " ")}</span>
             {!!p.developmentOnly && <span>Demo product</span>}
-            <NewProductBadge publishedAt={p.publishedAt} />
+            <NewProductBadge isNew={p.isNew} />
           </div>
           <p className="product-description">
             A plant-based alternative to{" "}

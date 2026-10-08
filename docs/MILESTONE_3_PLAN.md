@@ -56,17 +56,20 @@ Add typed `/api/v1` submission preflight/uploads/finalization, personal contribu
 
 Use stable IDs, strict shared validation, bounded request bodies, same-origin checks, idempotency, opaque cursors and Problem Details. URLs are validated evidence references, not arbitrary server-side fetch targets.
 
-| Control               | Configurable default                                |
-| --------------------- | --------------------------------------------------- |
-| Submission images     | 3                                                   |
-| Image bytes/pixels    | Existing 10 MiB / 40 megapixels                     |
-| Staged bytes          | 30 MiB/submission, 100 MiB/account/day              |
-| New submissions       | 5/account/day; retries reuse receipts               |
-| Concurrent processing | 2 uploads/account                                   |
-| Processing attempts   | Preserve 50/day/environment, 3/key                  |
-| Abandoned staging     | 24 hours                                            |
-| Pending-review media  | 30 days, then expire submission                     |
-| Recovery              | Existing hourly schedule, bounded resumable batches |
+| Control               | Configurable default                                            |
+| --------------------- | --------------------------------------------------------------- |
+| Submission images     | 3                                                               |
+| Image bytes/pixels    | Existing 10 MiB / 40 megapixels                                 |
+| Staged bytes          | 30 MiB/submission, 100 MiB/account/day                          |
+| New submissions       | 5/account/day; retries reuse receipts                           |
+| Proposal evidence     | 10 receipts/account/day                                         |
+| Concurrent processing | 2 uploads/account                                               |
+| Processing attempts   | Preserve 50/day/environment; 20/account/day; 3 failures/key/day |
+| Abandoned staging     | 24 hours                                                        |
+| Pending-review media  | 30 days, then expire submission                                 |
+| Recovery              | Existing hourly schedule, bounded resumable batches             |
+
+Review amendment (2026-10-08): the account processing share, evidence-receipt allowance and same-day failure window per processing key close an environment-wide denial of service and a permanently stuck photo found in code review. They only tighten the approved budget.
 
 Use edge burst limits and selective Turnstile, with atomic D1 quotas/leases for exact accounting. Edge limits are location-local and eventually consistent.
 

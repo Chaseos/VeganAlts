@@ -1,3 +1,5 @@
+import { RESTORED_RECEIPT_STATE } from "./submission-repository";
+
 // Bounded, durable scans keep cleanup independent of catalog traffic. Every pass
 // checks live leases and canonical references, including late writes by an expired worker.
 export async function recoverCommunity(
@@ -18,9 +20,9 @@ export async function recoverCommunity(
       .bind(now),
     db
       .prepare(
-        "UPDATE submission_receipts SET state=CASE WHEN EXISTS(SELECT 1 FROM pending_submissions p WHERE p.submission_id=submission_receipts.id) OR EXISTS(SELECT 1 FROM edit_proposals WHERE status='pending' AND json_extract(proposed_data,'$.evidenceReceiptId')=submission_receipts.id) THEN 'review' ELSE 'staging' END,active_token=NULL,lease_expires_at=NULL WHERE id IN(SELECT id FROM submission_receipts WHERE state='publishing' AND lease_expires_at<=? ORDER BY lease_expires_at,id LIMIT 100)",
+        `UPDATE submission_receipts SET state=${RESTORED_RECEIPT_STATE},active_token=NULL,lease_expires_at=NULL,updated_at=? WHERE id IN(SELECT id FROM submission_receipts WHERE state='publishing' AND lease_expires_at<=? ORDER BY lease_expires_at,id LIMIT 100)`,
       )
-      .bind(now),
+      .bind(now, now),
     db
       .prepare(
         "UPDATE submission_receipts SET state='expired',updated_at=? WHERE id IN(SELECT id FROM submission_receipts WHERE state IN ('staging','review') AND expires_at<=? ORDER BY expires_at,id LIMIT 100)",
@@ -147,9 +149,9 @@ export async function mayDeleteCommunityObject(
     // Revoke an expired publisher before deleting its private attempt keys.
     await db
       .prepare(
-        "UPDATE submission_receipts SET state=CASE WHEN purpose='evidence' OR EXISTS(SELECT 1 FROM pending_submissions WHERE submission_id=submission_receipts.id) THEN 'review' ELSE 'staging' END,active_token=NULL,lease_expires_at=NULL WHERE id=? AND active_token=? AND lease_expires_at<=?",
+        `UPDATE submission_receipts SET state=${RESTORED_RECEIPT_STATE},active_token=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND active_token=? AND lease_expires_at<=?`,
       )
-      .bind(promotion.id, promotion.lease_token, now)
+      .bind(now, promotion.id, promotion.lease_token, now)
       .run();
   }
   // A publication may have committed between the first reference check and the

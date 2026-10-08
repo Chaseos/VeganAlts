@@ -75,13 +75,25 @@ export class CatalogDecisionRepository {
         " AND EXISTS(SELECT 1 FROM product_families WHERE id=? AND (brand_id IS NULL OR brand_id=?))";
       guard.values.push(plan.after.familyId, snapshot.brandId);
     }
-    if (plan.after.relationships?.length) {
+    // Only newly linked products must be visible. Existing links to a later
+    // archived duplicate are preserved history and stay valid for reversal.
+    const added = [
+      ...new Set(
+        (plan.after.relationships ?? [])
+          .map((r) => r.productId)
+          .filter(
+            (id) => !snapshot.relationships.some((r) => r.productId === id),
+          ),
+      ),
+    ];
+    if (added.length) {
       guard.sql +=
         " AND (SELECT COUNT(*) FROM products WHERE id IN(SELECT value FROM json_each(?)) AND country_id=? AND lifecycle_status<>'hidden')=?";
-      const ids = [
-        ...new Set(plan.after.relationships.map((r) => r.productId)),
-      ];
-      guard.values.push(JSON.stringify(ids), snapshot.countryId, ids.length);
+      guard.values.push(
+        JSON.stringify(added),
+        snapshot.countryId,
+        added.length,
+      );
     }
     if (evidenceReceiptId) {
       guard.sql +=
@@ -100,6 +112,8 @@ export class CatalogDecisionRepository {
           fence,
           plan.newFormula,
           images,
+          // Promoted evidence belongs to the contributor who uploaded it.
+          proposal.submitted_by,
         ),
         this.db
           .prepare(
@@ -139,6 +153,7 @@ export class CatalogDecisionRepository {
     fence: DecisionGuard,
     newFormula?: NewFormula,
     images: StagedAttachment[] = [],
+    imagesSubmittedBy = actor.id,
   ) {
     const statements: D1PreparedStatement[] = [];
     const { sql, values } = fence;
@@ -295,7 +310,7 @@ export class CatalogDecisionRepository {
         ...imageInsertStatements(
           this.db,
           patch.currentVersionId ?? snapshot.versionId,
-          actor.id,
+          imagesSubmittedBy,
           images,
           now,
           sql,
@@ -332,14 +347,17 @@ export class CatalogDecisionRepository {
           )
           .bind(snapshot.id, ...values),
       );
-    statements.push(
-      ...productSearchStatements(
-        this.db,
-        snapshot.id,
-        sql,
-        values.filter((v): v is string | number => v !== null),
-      ),
-    );
+    // The search document holds names, brand and categories; only visibility
+    // (hidden or restored) changes it among these catalog patches.
+    if (patch.lifecycleStatus !== undefined)
+      statements.push(
+        ...productSearchStatements(
+          this.db,
+          snapshot.id,
+          sql,
+          values.filter((v): v is string | number => v !== null),
+        ),
+      );
     return statements;
   }
   async acceptRetailer(

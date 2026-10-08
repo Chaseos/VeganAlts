@@ -6,17 +6,31 @@ import type {
   RetailerInput,
 } from "../domain/contracts";
 import { active, effectiveDate } from "../domain/policy";
+import { proposalBaseline } from "../domain/change-policy";
+import { contributorProduct } from "../domain/moderation";
 import { ContributionRepository } from "../infrastructure/contribution-repository";
 import { receiptWrite } from "../infrastructure/receipts";
 import { CommunityLookupRepository } from "../infrastructure/lookup-repository";
+import type { ModerationRepository } from "../infrastructure/moderation-repository";
 
 export class ContributionService {
   constructor(
     private readonly repository: ContributionRepository,
     private readonly lookup: CommunityLookupRepository,
+    private readonly catalog: Pick<ModerationRepository, "snapshot">,
     private readonly newId: () => string,
     private readonly clock = Date.now,
   ) {}
+  options(actor: Actor, query = "") {
+    active(actor);
+    return this.lookup.options(query);
+  }
+  /** The contributor-facing product state, without private moderation data. */
+  async product(actor: Actor, productId: string) {
+    active(actor);
+    await this.lookup.contributableProduct(productId);
+    return contributorProduct(await this.catalog.snapshot(productId));
+  }
   async report(actor: Actor, key: string, input: ReportInput) {
     active(actor);
     const receipt = await receiptWrite(
@@ -44,8 +58,27 @@ export class ContributionService {
     if (prior) return prior;
     await this.lookup.contributableProduct(input.productId);
     if ("effectiveDate" in input) effectiveDate(input.effectiveDate);
-    await this.repository.validateEvidence(actor, input, this.clock());
-    return this.repository.propose(actor, input, this.newId(), receipt);
+    // The repository batch re-fences this revision, so the baseline recorded
+    // with the proposal is exactly the state it was drafted against.
+    const snapshot = await this.catalog.snapshot(input.productId);
+    if (snapshot.revision !== input.expectedRevision)
+      throw new ApplicationError(
+        "STALE_PRODUCT",
+        "The product changed. Review its current details before proposing this change.",
+        409,
+      );
+    const slots = await this.repository.validateEvidence(
+      actor,
+      input,
+      this.clock(),
+    );
+    return this.repository.propose(
+      actor,
+      input,
+      this.newId(),
+      receipt,
+      proposalBaseline(snapshot, input, slots),
+    );
   }
   async proposeRetailer(actor: Actor, key: string, input: RetailerInput) {
     active(actor);

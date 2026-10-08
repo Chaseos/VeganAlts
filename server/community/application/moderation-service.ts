@@ -9,8 +9,10 @@ import {
 import { administrator, active } from "../domain/policy";
 import {
   assertCompensable,
+  assertProposalCurrent,
   planProductChange,
   hasCatalogChanges,
+  type ProposalBaseline,
 } from "../domain/change-policy";
 import type { CatalogPatch } from "../domain/moderation";
 import {
@@ -89,6 +91,14 @@ export class ModerationService {
       note: input.note,
       now,
     };
+    if (
+      input.veganStatus &&
+      (kind !== "submission" || input.decision !== "accept")
+    )
+      throw new ApplicationError(
+        "INVALID_DECISION",
+        "Only an accepted submission takes a reviewed classification.",
+      );
     if (kind === "submission") {
       if (input.effect !== "none")
         throw new ApplicationError(
@@ -105,6 +115,7 @@ export class ModerationService {
           input.expectedRevision,
           input.note,
           receipt,
+          input.veganStatus,
         );
       if (input.decision !== "reject" && input.decision !== "follow_up")
         throw new ApplicationError(
@@ -250,6 +261,24 @@ export class ModerationService {
       );
     const change = changeInput.parse(JSON.parse(proposal.proposed_data)),
       snapshot = await this.repository.snapshot(change.productId);
+    // The operator's reviewed product state fences their decision; the
+    // contributor's drafting baseline only covers facts the change depends on.
+    if (
+      input.expectedProductRevision !== undefined &&
+      input.expectedProductRevision !== snapshot.revision
+    )
+      throw new ApplicationError(
+        "STALE_PRODUCT",
+        "The product changed while you were reviewing. Refresh before deciding.",
+        409,
+      );
+    assertProposalCurrent(
+      snapshot,
+      change,
+      proposal.baseline_data
+        ? (JSON.parse(proposal.baseline_data) as ProposalBaseline)
+        : null,
+    );
     await this.catalog.validateRelationships(snapshot, change);
     const plan = planProductChange(snapshot, change, actor.id, this.newId());
     let images: StagedAttachment[] = [],
@@ -406,7 +435,7 @@ export class ModerationService {
         "INVALID_REVERSAL",
         "This action did not change the catalog.",
       );
-    assertCompensable(snapshot, after);
+    assertCompensable(snapshot, after, before);
     return this.duplicates.reverse(
       {
         id: this.newId(),

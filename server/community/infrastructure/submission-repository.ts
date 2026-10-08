@@ -4,6 +4,7 @@ import type {
   Actor,
   SubmissionInput,
   SubmissionReceipt,
+  VeganStatus,
 } from "../domain/contracts";
 import {
   DAY,
@@ -16,6 +17,14 @@ import type { SubmissionContext } from "./lookup-repository";
 import type { StagedAttachment } from "./staged-media-repository";
 import { receiptStatement, type ReceiptWrite } from "./receipts";
 
+// The single rule for releasing or revoking a publication lease. Held
+// submissions and evidence for a still-pending proposal return to review.
+// Evidence whose proposal was decided during the lease is closed, never reused.
+// An interrupted automatic publication returns to staging.
+export const RESTORED_RECEIPT_STATE = `CASE
+  WHEN purpose='evidence' THEN CASE WHEN EXISTS(SELECT 1 FROM edit_proposals WHERE status='pending' AND json_extract(proposed_data,'$.evidenceReceiptId')=submission_receipts.id) THEN 'review' ELSE 'rejected' END
+  WHEN EXISTS(SELECT 1 FROM pending_submissions WHERE submission_id=submission_receipts.id) THEN 'review'
+  ELSE 'staging' END`;
 export interface Publication {
   productId: string;
   slug: string;
@@ -58,6 +67,13 @@ export class SubmissionRepository {
         superseded_by: string | null;
       }>();
   }
+  async reviewReasons(id: string) {
+    const row = await this.db
+      .prepare("SELECT reasons FROM pending_submissions WHERE submission_id=?")
+      .bind(id)
+      .first<{ reasons: string }>();
+    return row ? (JSON.parse(row.reasons) as string[]) : [];
+  }
   async reserve(
     userId: string,
     key: string,
@@ -69,7 +85,7 @@ export class SubmissionRepository {
     await this.db
       .prepare(
         `INSERT INTO submission_receipts(id,user_id,idempotency_key,input_hash,purpose,planned_product_id,planned_version_id,created_at,updated_at,expires_at)
-      SELECT ?,?,?,?,?,?,?,?,?,? WHERE ?='evidence' OR (SELECT COUNT(*) FROM submission_receipts WHERE user_id=? AND purpose='submission' AND created_at>=?) < ?
+      SELECT ?,?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM submission_receipts WHERE user_id=? AND purpose=? AND created_at>=?) < ?
       ON CONFLICT(user_id,idempotency_key) DO NOTHING`,
       )
       .bind(
@@ -83,10 +99,12 @@ export class SubmissionRepository {
         now,
         now,
         now + this.limits.stagingRetention,
-        purpose,
         userId,
+        purpose,
         Math.floor(now / DAY) * DAY,
-        this.limits.submissionsPerDay,
+        purpose === "evidence"
+          ? this.limits.evidencePerDay
+          : this.limits.submissionsPerDay,
       )
       .run();
     const receipt = await this.db
@@ -98,7 +116,9 @@ export class SubmissionRepository {
     if (!receipt)
       throw new ApplicationError(
         "SUBMISSION_LIMIT",
-        "Today's submission allowance is exhausted. Please try again tomorrow.",
+        purpose === "evidence"
+          ? "Today's evidence upload allowance is exhausted. Please try again tomorrow."
+          : "Today's submission allowance is exhausted. Please try again tomorrow.",
         429,
       );
     if (receipt.input_hash !== hash || receipt.purpose !== purpose)
@@ -235,9 +255,9 @@ export class SubmissionRepository {
   async release(id: string, token: string, now: number) {
     await this.db
       .prepare(
-        "UPDATE submission_receipts SET state=CASE WHEN EXISTS(SELECT 1 FROM pending_submissions WHERE submission_id=?) OR EXISTS(SELECT 1 FROM edit_proposals WHERE status='pending' AND json_extract(proposed_data,'$.evidenceReceiptId')=?) THEN 'review' ELSE 'staging' END,active_token=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND state='publishing' AND active_token=?",
+        `UPDATE submission_receipts SET state=${RESTORED_RECEIPT_STATE},active_token=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND state='publishing' AND active_token=?`,
       )
-      .bind(id, id, now, id, token)
+      .bind(now, id, token)
       .run();
   }
   async claimEvidence(id: string, token: string, now: number) {
@@ -274,6 +294,7 @@ export class SubmissionRepository {
     receipt: SubmissionReceipt,
     input: SubmissionInput,
     context: SubmissionContext,
+    classification: { veganStatus: VeganStatus; reviewedBy: string | null },
     images: StagedAttachment[],
     token: string,
     newBrandId: string,
@@ -310,9 +331,7 @@ export class SubmissionRepository {
     const productId = receipt.planned_product_id,
       versionId = receipt.planned_version_id;
     const productSlug = `${slug(`${context.brandName} ${input.name}`)}-${productId.slice(-8)}`;
-    const status = input.noKnownAnimalIngredients
-      ? "appears_vegan"
-      : "plant_based";
+    const status = classification.veganStatus;
     const statements: D1PreparedStatement[] = [];
     if (!context.brandId)
       statements.push(
@@ -334,11 +353,14 @@ export class SubmissionRepository {
       this.db
         .prepare(
           `INSERT INTO products(id,country_id,brand_id,product_family_id,name,slug,vegan_status,manufacturer_label,manufacturer_url,created_by,published_at,created_at,updated_at)
-        SELECT ?,?,(SELECT id FROM brands WHERE normalized_name=?),?,?,?,?,?,?,?,?,?,? WHERE ${guard}`,
+        SELECT ?,?,COALESCE(?,(SELECT id FROM brands WHERE normalized_name=?)),?,?,?,?,?,?,?,?,?,? WHERE ${guard}`,
         )
         .bind(
           productId,
           context.countryId,
+          // A brand matched by name or alias keeps its identity; only a new
+          // brand is resolved by the normalized key inserted above.
+          context.brandId,
           normalizeName(context.brandName),
           input.productFamilyId ?? null,
           input.name,
@@ -387,7 +409,7 @@ export class SubmissionRepository {
       ),
       this.db
         .prepare(
-          `INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,updated_at) SELECT ?,?,?,?,? WHERE ${guard}`,
+          `INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,reviewed_by,updated_at) SELECT ?,?,?,?,?,? WHERE ${guard}`,
         )
         .bind(
           versionId,
@@ -400,6 +422,7 @@ export class SubmissionRepository {
               .map((i) => i.imageId),
             note: input.statusBasis,
           }),
+          classification.reviewedBy,
           now,
           ...fence,
         ),

@@ -25,10 +25,13 @@ Use Node 24 LTS and the committed npm lockfile. Wrangler authentication is requi
 7. `0006_community_catalog.sql` — community receipts, identities, evidence, moderation and duplicate history.
 8. `0007_staged_byte_accounting.sql` — per-upload staged byte accounting.
 9. `0008_submission_followups.sql` — durable links between an original submission and its revised receipt.
+10. `0009_proposal_baselines.sql` — the catalog facts each proposal was drafted against.
 
 Check exact filenames in the directory before operating. Applied migrations are append-only. Generate future schema changes with `npm run db:generate`, inspect generated SQL, and add reviewed custom SQL for unsupported constructs. Better Auth schema generation uses `npm run auth:schema`; diff its output before creating any migration. Never run the reference baseline in addition to the migration history.
 
 Use the `npm run db:migrate:*` commands below, which run the legacy-report preflight before Wrangler applies migrations. Do not apply `0006` directly to an older database: duplicate active reports from earlier releases would prevent its unique index from being created. Before that upgrade, capture a recovery reference and pause legacy report writers until the migration completes. The preflight archives duplicates without deleting rows, combines notes on the earliest active report, retains reviewing priority, and records original fields under `audit_log.action='legacy_report_deduplication'`. It prints counts only. A failed or interrupted run can be repeated; completed groups are skipped. Already-upgraded databases and fresh installations need no normalization. For recovery, inspect the recorded audit privately or use the pre-upgrade recovery reference; do not reopen duplicate reports while the unique constraint is in place.
+
+After a successful apply, the same commands recompute legacy brand/retailer normalized names and product identity keys with the application normalization (`db/upgrades/catalog-identity.ts`). It prints counts of corrected names, keys and conflicts only, and is safe to repeat. A non-zero conflict count names legacy brands or retailers whose corrected keys collide; consolidate them deliberately rather than editing keys by hand.
 
 ```sh
 npm run db:migrate:local

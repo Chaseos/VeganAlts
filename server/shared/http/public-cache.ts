@@ -161,6 +161,9 @@ export interface MaterialCatalogChange {
   kind: "product" | "category" | "profile" | "media";
   slug: string;
   categorySlugs?: string[];
+  // The change appears only on the product page (for example retailer
+  // evidence); listings, home and search stay cached.
+  pageOnly?: boolean;
 }
 export function invalidationTags(change: MaterialCatalogChange) {
   if (
@@ -175,6 +178,8 @@ export function invalidationTags(change: MaterialCatalogChange) {
     );
   if (change.kind === "profile") return [`profile:${change.slug}`];
   if (change.kind === "media") return [`media:${change.slug}`];
+  if (change.kind === "product" && change.pageOnly)
+    return [`product:${change.slug}`];
   return [
     ...new Set([
       `${change.kind}:${change.slug}`,

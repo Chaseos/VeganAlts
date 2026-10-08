@@ -53,6 +53,7 @@ export function communityServices(
     contributions: new ContributionService(
       contributionRepository,
       lookup,
+      repository,
       newId,
       clock,
     ),
@@ -68,7 +69,6 @@ export function communityServices(
       clock,
     ),
     repository,
-    duplicates,
     contributionRepository,
   };
 }

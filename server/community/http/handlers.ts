@@ -101,7 +101,10 @@ export async function communityApi(
       );
     if (path === "community/options")
       return respond(
-        await services.lookup.options(url.searchParams.get("q") ?? ""),
+        await services.contributions.options(
+          actor,
+          url.searchParams.get("q") ?? "",
+        ),
       );
     if (path === "community/session")
       return respond({
@@ -113,11 +116,10 @@ export async function communityApi(
       second === "products" &&
       third &&
       parts.length === 3
-    ) {
-      if (!actor.administrator)
-        await services.lookup.contributableProduct(parse(id, third));
-      return respond(await services.repository.snapshot(parse(id, third)));
-    }
+    )
+      return respond(
+        await services.contributions.product(actor, parse(id, third)),
+      );
     if (path === "me/contributions")
       return respond(
         await services.moderation.contributions(
@@ -221,13 +223,12 @@ export async function communityApi(
     }
     const body = await limitedJson(request, 32 * 1024);
     let result: unknown;
-    if (path === "submissions/check-identity") {
-      const input = parse(submissionIdentity, body);
-      result = await services.lookup.candidates(
-        input,
-        await services.lookup.context(input),
+    if (path === "submissions/check-identity")
+      result = await services.submissions.checkIdentity(
+        actor,
+        parse(submissionIdentity, body),
       );
-    } else if (path === "submissions/preflight")
+    else if (path === "submissions/preflight")
       result = await services.submissions.preflight(
         actor,
         requestKey,
@@ -328,13 +329,14 @@ export async function communityApi(
       "productId" in result &&
       typeof result.productId === "string"
     )
-      await invalidateCommunityProduct(
-        env.DB,
-        result.productId,
-        "actionId" in result && typeof result.actionId === "string"
-          ? result.actionId
-          : undefined,
-      );
+      await invalidateCommunityProduct(env.DB, result.productId, {
+        actionId:
+          "actionId" in result && typeof result.actionId === "string"
+            ? result.actionId
+            : undefined,
+        // Retailer evidence is shown only on the product page.
+        pageOnly: path === "retailer-confirmations",
+      });
     return respond(result);
   }
   throw new ApplicationError("NOT_FOUND", "Endpoint not found.", 404);

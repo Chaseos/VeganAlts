@@ -45,6 +45,7 @@ export interface ProposalRecord {
   target_id: string;
   change_type: string;
   proposed_data: string;
+  baseline_data: string | null;
   status: string;
   updated_at: number;
   resolution_note: string | null;
@@ -76,4 +77,30 @@ export interface ModerationAction {
   note: string;
   reversed_by: string | null;
   created_at: number;
+}
+export type ContributorProduct = Omit<
+  ProductSnapshot,
+  "classification" | "images"
+> & {
+  classification:
+    (Omit<FormulaClassification, "reviewedBy"> & { reviewed: boolean }) | null;
+  images: ProductSnapshot["images"];
+};
+// Contributors see the same facts as public readers: reviewer identities and
+// rejected or pending photos remain operator-only moderation data.
+export function contributorProduct(
+  snapshot: ProductSnapshot,
+): ContributorProduct {
+  const { classification, images, ...product } = snapshot;
+  return {
+    ...product,
+    classification: classification && {
+      veganStatus: classification.veganStatus,
+      manufacturerLabel: classification.manufacturerLabel,
+      evidence: classification.evidence,
+      certifications: classification.certifications,
+      reviewed: classification.reviewedBy !== null,
+    },
+    images: images.filter((i) => ["accepted", "archived"].includes(i.state)),
+  };
 }

@@ -15,6 +15,10 @@ import {
   readModeratedMedia,
 } from "../../server/media/infrastructure/media-reader";
 import { D1MediaRepository } from "../../server/media/infrastructure/d1-repository";
+import { SubmissionRepository } from "../../server/community/infrastructure/submission-repository";
+import { recoverCommunity } from "../../server/community/infrastructure/recovery";
+import { receiptWrite } from "../../server/community/infrastructure/receipts";
+import { DEFAULT_LIMITS, LEASE } from "../../server/community/domain/policy";
 
 const id = () => crypto.randomUUID();
 const evidence = {
@@ -58,7 +62,44 @@ async function fixture() {
       note: "Operator reviewed the evidence and accepted this change.",
       effect: "none",
     });
-  return { f, ...services, actor, admin, ratings, ranking, propose, accept };
+  // Stage a front photo as evidence for a proposal by the contributor.
+  const stagePhoto = async () => {
+    const { receiptId } = await services.submissions.evidenceReceipt(
+      actor,
+      id(),
+      f.productId,
+    );
+    const photo = await services.media.upload(actor, {
+      receiptId,
+      slot: "front",
+      idempotencyKey: id(),
+      bytes: Uint8Array.from(atob(env.TEST_IMAGES.jpeg), (c) =>
+        c.charCodeAt(0),
+      ),
+    });
+    return { receiptId, imageId: photo.imageId };
+  };
+  const packaging = async () => {
+    const photo = await stagePhoto();
+    const proposal = await propose({
+      kind: "packaging",
+      evidenceReceiptId: photo.receiptId,
+      evidence: { ...evidence, imageIds: [photo.imageId] },
+    });
+    return { ...photo, proposalId: proposal.id };
+  };
+  return {
+    f,
+    ...services,
+    actor,
+    admin,
+    ratings,
+    ranking,
+    propose,
+    accept,
+    stagePhoto,
+    packaging,
+  };
 }
 it("keeps packaging updates on the same formula, removes reported media privately, and reverses without discarding later ratings", async () => {
   const {
@@ -219,21 +260,31 @@ it("discontinues and reintroduces equivalent or new formulas while preserving ra
     rawAverage: 2,
   });
 });
-it("rejects competing proposals and excludes specialty variants from inappropriate categories without losing their scores", async () => {
+it("rejects competing proposals, keeps independent ones acceptable, and excludes specialty variants from inappropriate categories without losing their scores", async () => {
   const { f, propose, accept, repository, ratings, ranking, actor } =
     await fixture();
   await ratings.rate(actor, f.versionId, f.categories[0]!, 4);
-  const first = await propose({
-      kind: "relationships",
-      productFamilyId: null,
-      categoryEligibility: [{ categoryId: f.categories[0], eligible: false }],
-    }),
-    stale = await propose({ kind: "discontinue" });
+  const eligibility = (eligible: boolean) => ({
+    kind: "relationships",
+    productFamilyId: null,
+    categoryEligibility: [{ categoryId: f.categories[0], eligible }],
+  });
+  const first = await propose(eligibility(false)),
+    stale = await propose(eligibility(true)),
+    independent = await propose({
+      kind: "classification",
+      veganStatus: "vegan",
+      manufacturerLabel: "vegan",
+    });
   await accept(first.id);
   await expect(accept(stale.id)).rejects.toMatchObject({
     code: "STALE_PRODUCT",
   });
   expect((await repository.proposal(stale.id))!.status).toBe("pending");
+  // The eligibility decision changed the catalog revision, but not the facts
+  // the classification proposal was drafted against.
+  await accept(independent.id);
+  expect((await repository.snapshot(f.productId)).veganStatus).toBe("vegan");
   expect(await ranking.top(f.countryId, f.categories[0]!)).toEqual([]);
   expect(
     await env.DB.prepare(
@@ -329,4 +380,151 @@ it("paginates the moderation inbox without repeats and rejects malformed cursors
   await expect(moderation.inbox(admin, "bad cursor")).rejects.toMatchObject({
     code: "INVALID_CURSOR",
   });
+});
+
+it("credits promoted evidence to its contributor and refuses to restore a photo over a newer one", async () => {
+  const {
+    f,
+    contributions,
+    moderation,
+    repository,
+    actor,
+    admin,
+    accept,
+    packaging,
+  } = await fixture();
+  const first = await packaging();
+  await accept(first.proposalId);
+  expect(
+    await env.DB.prepare("SELECT submitted_by FROM product_images WHERE id=?")
+      .bind(first.imageId)
+      .first("submitted_by"),
+  ).toBe(actor.id);
+  const report = await contributions.report(
+    actor,
+    id(),
+    reportInput.parse({
+      targetType: "product_image",
+      targetId: first.imageId,
+      reason: "outdated",
+      note: "The pictured packaging was replaced.",
+    }),
+  );
+  const removed = await moderation.decide(admin, id(), "report", report.id, {
+    decision: "resolve",
+    expectedRevision: (await repository.report(report.id))!.revision,
+    expectedProductRevision: (await repository.snapshot(f.productId)).revision,
+    note: "Outdated photo removed from public view.",
+    effect: "remove_image",
+  });
+  if (!("actionId" in removed)) throw new Error("Expected an audited action");
+  const second = await packaging();
+  await accept(second.proposalId);
+  await expect(
+    moderation.reverse(admin, id(), removed.actionId, {
+      expectedRevision: (await repository.snapshot(f.productId)).revision,
+      note: "Attempt to restore the older front photo.",
+    }),
+  ).rejects.toMatchObject({ code: "REVERSAL_CONFLICT" });
+  expect((await repository.snapshot(f.productId)).images).toContainEqual(
+    expect.objectContaining({ id: second.imageId, state: "accepted" }),
+  );
+});
+it("keeps relationship changes acceptable after a linked product is archived as a duplicate", async () => {
+  const { f, moderation, repository, admin, propose, accept } = await fixture();
+  const product = async () => {
+    const productId = id();
+    await env.DB.batch([
+      env.DB.prepare(
+        "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+      ).bind(productId, f.countryId, productId, productId),
+      env.DB.prepare(
+        "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
+      ).bind(id(), productId),
+    ]);
+    return productId;
+  };
+  const variant = await product(),
+    survivor = await product(),
+    companion = await product();
+  const link = (relatedProductId: string, relationship: string) =>
+    propose({
+      kind: "relationships",
+      productFamilyId: null,
+      relatedProductId,
+      relationship,
+      categoryEligibility: [],
+    });
+  await accept((await link(variant, "variant")).id);
+  await moderation.consolidate(admin, id(), {
+    donorId: variant,
+    survivorId: survivor,
+    donorRevision: (await repository.snapshot(variant)).revision,
+    survivorRevision: (await repository.snapshot(survivor)).revision,
+    note: "The variant was listed twice; archive the duplicate entry.",
+  });
+  await accept((await link(companion, "companion")).id);
+  expect((await repository.snapshot(f.productId)).relationships).toEqual(
+    expect.arrayContaining([
+      { productId: variant, type: "variant" },
+      { productId: companion, type: "companion" },
+    ]),
+  );
+});
+it("attaches staged evidence to one proposal and closes it when that proposal is rejected mid-acceptance", async () => {
+  const {
+    f,
+    actor,
+    admin,
+    moderation,
+    repository,
+    contributionRepository,
+    stagePhoto,
+    propose,
+  } = await fixture();
+  const photo = await stagePhoto();
+  const input = changeInput.parse({
+    kind: "packaging",
+    productId: f.productId,
+    expectedRevision: (await repository.snapshot(f.productId)).revision,
+    evidenceReceiptId: photo.receiptId,
+    evidence: { ...evidence, imageIds: [photo.imageId] },
+  });
+  const proposal = await propose(input);
+  // A concurrent proposal that passed its pre-checks is fenced in the batch.
+  await expect(
+    contributionRepository.propose(
+      actor,
+      input,
+      id(),
+      await receiptWrite(actor.id, "proposal", id(), input, Date.now()),
+    ),
+  ).rejects.toMatchObject({ code: "EVIDENCE_CHANGED" });
+  const receipts = new SubmissionRepository(env.DB, DEFAULT_LIMITS),
+    token = id();
+  await receipts.claimEvidence(photo.receiptId, token, Date.now());
+  await moderation.decide(admin, id(), "proposal", proposal.id, {
+    decision: "reject",
+    expectedRevision: (await repository.proposal(proposal.id))!.updated_at,
+    note: "The packaging photo does not show this product.",
+    effect: "none",
+  });
+  await receipts.release(photo.receiptId, token, Date.now());
+  expect((await receipts.get(photo.receiptId))!.state).toBe("rejected");
+  // An expired lease reaches the same state through recovery.
+  const late = await stagePhoto(),
+    lateProposal = await propose({
+      kind: "packaging",
+      evidenceReceiptId: late.receiptId,
+      evidence: { ...evidence, imageIds: [late.imageId] },
+    });
+  await receipts.claimEvidence(late.receiptId, id(), Date.now());
+  await moderation.decide(admin, id(), "proposal", lateProposal.id, {
+    decision: "reject",
+    expectedRevision: (await repository.proposal(lateProposal.id))!.updated_at,
+    note: "The packaging photo does not show this product.",
+    effect: "none",
+  });
+  await recoverCommunity(env.DB, env.MEDIA_BUCKET, Date.now() + LEASE + 1);
+  expect((await receipts.get(late.receiptId))!.state).toBe("rejected");
 });

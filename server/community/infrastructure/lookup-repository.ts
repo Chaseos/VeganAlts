@@ -143,42 +143,52 @@ export class CommunityLookupRepository {
       .bind(context.identity)
       .first<Omit<Candidate, "exact">>();
     if (exact) return [{ ...exact, exact: true }];
+    const tokens = input.name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+    const significant = [...new Set(tokens.filter((t) => t.length > 2))];
+    const like = (value: string) => `%${value.replace(/[\\%_]/g, "\\$&")}%`;
+    const nameLike = like(input.name.slice(0, 40));
+    // The database ranks the brand's catalog by shared name tokens, so a large
+    // brand never prevents a check and the closest entries survive the limit.
+    const hits =
+      significant
+        .slice(0, 8)
+        .map(() => "(names LIKE ? ESCAPE '\\')")
+        .join("+") || "0";
     const rows = await this.db
       .prepare(
-        `SELECT p.id,p.slug,p.name,b.name AS brand,p.country_id AS countryId,
-      COALESCE((SELECT json_group_array(alias) FROM product_aliases WHERE product_id=p.id),'[]') AS aliases
+        `WITH scoped AS (
+      SELECT p.id,p.slug,p.name,b.name AS brand,p.country_id AS countryId,p.name LIKE ? ESCAPE '\\' AS containsName,
+      COALESCE((SELECT json_group_array(alias) FROM product_aliases WHERE product_id=p.id),'[]') AS aliases,
+      p.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM product_aliases WHERE product_id=p.id),'') AS names
       FROM products p LEFT JOIN brands b ON b.id=p.brand_id WHERE p.country_id=? AND p.lifecycle_status<>'hidden'
-      AND (b.id=? OR b.normalized_name=? OR p.name LIKE ? ESCAPE '\\') ORDER BY p.id LIMIT 201`,
+      AND (p.brand_id=? OR p.name LIKE ? ESCAPE '\\')
+    ), scored AS (SELECT *,${hits} AS hits FROM scoped)
+    SELECT id,slug,name,brand,countryId,aliases FROM scored WHERE containsName OR hits>0
+    ORDER BY containsName DESC,hits DESC,name,id LIMIT 100`,
       )
       .bind(
+        nameLike,
         context.countryId,
         context.brandId,
-        normalizeName(context.brandName),
-        `%${input.name.slice(0, 40).replace(/[\\%_]/g, "\\$&")}%`,
+        nameLike,
+        ...significant.slice(0, 8).map(like),
       )
       .all<Omit<Candidate, "exact"> & { aliases: string }>();
-    if (rows.results.length > 200)
-      throw new ApplicationError(
-        "CATALOG_REVIEW_REQUIRED",
-        "Narrow the product name so we can check existing entries.",
-        409,
+    const candidates = rows.results.flatMap((row, order) => {
+      const names = [row.name, ...(JSON.parse(row.aliases) as string[])];
+      const same =
+        normalizeName(row.brand ?? "") === normalizeName(context.brandName) &&
+        names.some((name) => productName(name) === productName(input.name));
+      const similar = names.some(
+        (name) =>
+          significant.filter((token) => name.toLowerCase().includes(token))
+            .length >= Math.min(2, Math.max(1, tokens.length)),
       );
-    const tokens = input.name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-    return rows.results
-      .flatMap((row) => {
-        const names = [row.name, ...(JSON.parse(row.aliases) as string[])];
-        const same =
-          normalizeName(row.brand ?? "") === normalizeName(context.brandName) &&
-          names.some((name) => productName(name) === productName(input.name));
-        const similar = names.some(
-          (name) =>
-            tokens.filter(
-              (token) => token.length > 2 && name.toLowerCase().includes(token),
-            ).length >= Math.min(2, Math.max(1, tokens.length)),
-        );
-        return same || similar
-          ? [
-              {
+      return same || similar
+        ? [
+            {
+              order,
+              candidate: {
                 id: row.id,
                 slug: row.slug,
                 name: row.name,
@@ -186,9 +196,18 @@ export class CommunityLookupRepository {
                 countryId: row.countryId,
                 exact: same,
               },
-            ]
-          : [];
-      })
-      .slice(0, 12);
+            },
+          ]
+        : [];
+    });
+    // Exact matches decide publication, so they are never cut by the limit.
+    return candidates
+      .sort(
+        (a, b) =>
+          Number(b.candidate.exact) - Number(a.candidate.exact) ||
+          a.order - b.order,
+      )
+      .slice(0, 12)
+      .map((c) => c.candidate);
   }
 }

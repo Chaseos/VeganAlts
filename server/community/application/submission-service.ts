@@ -1,8 +1,10 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import type {
   Actor,
+  SubmissionIdentity,
   SubmissionInput,
   SubmissionReceipt,
+  VeganStatus,
 } from "../domain/contracts";
 import { submissionInput } from "../domain/contracts";
 import {
@@ -10,6 +12,7 @@ import {
   administrator,
   decideSubmission,
   fingerprint,
+  provisionalStatus,
 } from "../domain/policy";
 import { CommunityLookupRepository } from "../infrastructure/lookup-repository";
 import { SubmissionRepository } from "../infrastructure/submission-repository";
@@ -39,16 +42,7 @@ export class SubmissionService {
           "This request key belongs to different details.",
           409,
         );
-      return {
-        decision:
-          prior.state === "review"
-            ? ("NEEDS_REVIEW" as const)
-            : ("READY" as const),
-        reasons: [],
-        candidates: [],
-        receiptId: prior.id,
-        state: prior.state,
-      };
+      return this.replayPreflight(prior, input);
     }
     if (input.followUp) await this.checkFollowUp(actor, input.followUp);
     const context = await this.lookup.context(input);
@@ -70,6 +64,50 @@ export class SubmissionService {
       this.clock(),
     );
     return { ...decision, receiptId: receipt.id, state: receipt.state };
+  }
+  // A retried key reports the receipt's real outcome, never a blanket READY.
+  private async replayPreflight(
+    prior: SubmissionReceipt,
+    input: SubmissionInput,
+  ) {
+    const publication = await this.repository.publication(prior);
+    if (publication)
+      return {
+        ...publication,
+        reasons: [],
+        candidates: [],
+        state: prior.state,
+      };
+    if (prior.state === "review")
+      return {
+        decision: "NEEDS_REVIEW" as const,
+        reasons: await this.repository.reviewReasons(prior.id),
+        candidates: [],
+        receiptId: prior.id,
+        state: prior.state,
+      };
+    if (prior.state !== "staging" || prior.expires_at <= this.clock())
+      throw new ApplicationError(
+        "SUBMISSION_CLOSED",
+        prior.state === "publishing"
+          ? "This submission is already being finalized. Refresh its status shortly."
+          : "This submission has closed. Start a new submission.",
+        409,
+      );
+    const context = await this.lookup.context(input);
+    const decision = decideSubmission(
+      input,
+      await this.lookup.candidates(input, context),
+    );
+    return {
+      ...decision,
+      receiptId: decision.decision === "NEEDS_CHANGES" ? null : prior.id,
+      state: prior.state,
+    };
+  }
+  async checkIdentity(actor: Actor, input: SubmissionIdentity) {
+    active(actor);
+    return this.lookup.candidates(input, await this.lookup.context(input));
   }
   async evidenceReceipt(actor: Actor, key: string, productId: string) {
     active(actor);
@@ -161,7 +199,11 @@ export class SubmissionService {
       );
       return { ...decision, receiptId };
     }
-    return this.publish(actor, receipt, input);
+    // READY implies the contributor evidence supports a provisional status.
+    return this.publish(actor, receipt, input, {
+      veganStatus: provisionalStatus(input)!,
+      reviewedBy: null,
+    });
   }
   async approve(
     actor: Actor,
@@ -170,6 +212,7 @@ export class SubmissionService {
     expectedRevision: number,
     note: string,
     operation?: ReceiptWrite,
+    veganStatus?: VeganStatus,
   ) {
     administrator(actor);
     const receipt = await this.repository.get(receiptId);
@@ -182,11 +225,20 @@ export class SubmissionService {
         409,
       );
     const input = submissionInput.parse(rawInput);
+    // Approval is the operator review of an unconfirmed classification; it
+    // must never fall back to a provisional status the evidence did not support.
+    const status = veganStatus ?? provisionalStatus(input);
+    if (!status)
+      throw new ApplicationError(
+        "CLASSIFICATION_REQUIRED",
+        "Choose the reviewed ingredient classification before publishing this submission.",
+      );
     await this.validateImages(receipt, input);
     return this.publish(
       actor,
       receipt,
       input,
+      { veganStatus: status, reviewedBy: veganStatus ? actor.id : null },
       expectedRevision,
       note,
       operation,
@@ -196,6 +248,7 @@ export class SubmissionService {
     actor: Actor,
     receipt: SubmissionReceipt,
     input: SubmissionInput,
+    classification: { veganStatus: VeganStatus; reviewedBy: string | null },
     revision?: number,
     note?: string,
     operation?: ReceiptWrite,
@@ -227,6 +280,7 @@ export class SubmissionService {
         receipt,
         input,
         context,
+        classification,
         images,
         token,
         this.newId(),

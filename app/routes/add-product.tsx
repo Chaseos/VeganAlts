@@ -30,7 +30,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   const query = new URL(request.url).searchParams;
   const followUpId = query.get("followUp");
   return {
-    options: (await services.lookup.options()) as unknown as CommunityOptions,
+    options: (await services.contributions.options(
+      actor,
+    )) as unknown as CommunityOptions,
     siteKey: env.TURNSTILE_SITE_KEY,
     category: query.get("category"),
     followUp: followUpId
@@ -158,8 +160,13 @@ export default function AddProduct({
       let receiptId = receipt;
       if (!receiptId) {
         const checked = await action.request<
-          SubmissionDecision & { receiptId: string | null }
+          SubmissionDecision & { receiptId: string | null; slug?: string }
         >("submissions/preflight", details, key.current);
+        // A retried key may already have been published.
+        if (checked.slug) {
+          await navigate(`/us/products/${checked.slug}`);
+          return;
+        }
         if (checked.decision === "NEEDS_CHANGES" || !checked.receiptId) {
           setCandidates(checked.candidates);
           go(2);

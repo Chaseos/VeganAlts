@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { getPlatformProxy } from "wrangler";
 import { parse } from "jsonc-parser";
 import { prepareLegacyReports } from "../db/upgrades/legacy-reports";
+import { normalizeCatalogIdentity } from "../db/upgrades/catalog-identity";
 
 const environment = process.argv[2];
 if (!["local", "staging", "production"].includes(environment ?? ""))
@@ -12,39 +13,43 @@ if (!["local", "staging", "production"].includes(environment ?? ""))
 const source = parse(await readFile("wrangler.jsonc", "utf8"));
 const target = environment === "local" ? source : source.env[environment!];
 const remote = environment !== "local";
-const directory = await mkdtemp(join(tmpdir(), "veganalts-migrate-"));
-try {
-  const configPath = join(directory, "wrangler.json");
-  await writeFile(
-    configPath,
-    JSON.stringify({
-      name: `veganalts-migrate-${environment}`,
-      account_id: source.account_id,
-      compatibility_date: source.compatibility_date,
-      d1_databases: target.d1_databases.map(
-        (binding: Record<string, unknown>) => ({ ...binding, remote }),
-      ),
-    }),
-  );
-  const proxy = await getPlatformProxy<{ DB: D1Database }>({
-    configPath,
-    remoteBindings: remote,
-    persist: { path: resolve(".wrangler/state/v3") },
-  });
+// Each phase opens its own short-lived connection; Wrangler needs the
+// migration lock while no preflight or repair connection is open.
+async function withDatabase<T>(work: (db: D1Database) => Promise<T>) {
+  const directory = await mkdtemp(join(tmpdir(), "veganalts-migrate-"));
   try {
-    console.log(
+    const configPath = join(directory, "wrangler.json");
+    await writeFile(
+      configPath,
       JSON.stringify({
-        environment,
-        legacyReports: await prepareLegacyReports(proxy.env.DB),
+        name: `veganalts-migrate-${environment}`,
+        account_id: source.account_id,
+        compatibility_date: source.compatibility_date,
+        d1_databases: target.d1_databases.map(
+          (binding: Record<string, unknown>) => ({ ...binding, remote }),
+        ),
       }),
     );
+    const proxy = await getPlatformProxy<{ DB: D1Database }>({
+      configPath,
+      remoteBindings: remote,
+      persist: { path: resolve(".wrangler/state/v3") },
+    });
+    try {
+      return await work(proxy.env.DB);
+    } finally {
+      await proxy.dispose();
+    }
   } finally {
-    await proxy.dispose();
+    await rm(directory, { recursive: true, force: true });
   }
-} finally {
-  await rm(directory, { recursive: true, force: true });
 }
-// Close the preflight connection before Wrangler obtains its migration lock.
+console.log(
+  JSON.stringify({
+    environment,
+    legacyReports: await withDatabase((db) => prepareLegacyReports(db)),
+  }),
+);
 const result = spawnSync(
   process.execPath,
   [
@@ -61,3 +66,10 @@ const result = spawnSync(
 );
 if (result.error) throw result.error;
 process.exitCode = result.status ?? 1;
+if (result.status === 0)
+  console.log(
+    JSON.stringify({
+      environment,
+      catalogIdentity: await withDatabase((db) => normalizeCatalogIdentity(db)),
+    }),
+  );

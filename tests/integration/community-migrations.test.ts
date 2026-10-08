@@ -3,6 +3,12 @@ import { applyD1Migrations } from "cloudflare:test";
 import { expect, it } from "vitest";
 import { catalogFixture } from "./fixtures";
 import { prepareLegacyReports } from "../../db/upgrades/legacy-reports";
+import { normalizeCatalogIdentity } from "../../db/upgrades/catalog-identity";
+import {
+  identityKey,
+  normalizeName,
+} from "../../server/community/domain/policy";
+import { CommunityLookupRepository } from "../../server/community/infrastructure/lookup-repository";
 
 it("upgrades milestone 2 with durable history and backfills only current formula classifications", async () => {
   const old = env.TEST_MIGRATIONS.filter((m) => Number(m.name.slice(0, 4)) < 6),
@@ -180,4 +186,123 @@ it("upgrades milestone 2 with durable history and backfills only current formula
   expect(
     (await env.DB.prepare("PRAGMA foreign_key_check").all()).results,
   ).toEqual([]);
+});
+
+it("recomputes legacy names and identity keys with the application normalization", async () => {
+  const db = env.DB,
+    f = await catalogFixture(db, 1),
+    t = crypto.randomUUID().slice(0, 8);
+  const brand = `Élan ${t}`,
+    product = `élan-${t}`,
+    sqlLower = (value: string) =>
+      value.replace(/[A-Z]/g, (c) => c.toLowerCase());
+  // Values exactly as migration 0006's ASCII-only SQL backfill stored them.
+  await db.batch([
+    db
+      .prepare(
+        "INSERT INTO brands(id,name,normalized_name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+      )
+      .bind(
+        `brand-${t}`,
+        brand,
+        sqlLower(brand).replaceAll(" ", ""),
+        `brand-${t}`,
+      ),
+    db
+      .prepare(
+        "INSERT INTO brands(id,name,normalized_name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+      )
+      .bind(`brand-a-${t}`, `Ñu ${t}`, `Ñu${t}`, `brand-a-${t}`),
+    db
+      .prepare(
+        "INSERT INTO brands(id,name,normalized_name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+      )
+      .bind(
+        `brand-b-${t}`,
+        `ñu ${t}`,
+        normalizeName(`ñu ${t}`),
+        `brand-b-${t}`,
+      ),
+    db
+      .prepare(
+        "INSERT INTO retailers(id,canonical_name,normalized_name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+      )
+      .bind(`retailer-${t}`, `Ünion ${t}`, `Ünion${t}`, `retailer-${t}`),
+    db
+      .prepare(
+        "INSERT INTO products(id,country_id,brand_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
+      )
+      .bind(
+        product,
+        f.countryId,
+        `brand-${t}`,
+        "Original Oatmilk 64 fl oz",
+        product,
+      ),
+    db
+      .prepare(
+        "INSERT INTO product_identity_keys(identity_key,product_id) VALUES(?,?)",
+      )
+      .bind(
+        `${f.countryId}:${sqlLower(brand).replaceAll(" ", "")}:originaloatmilk64floz`,
+        product,
+      ),
+  ]);
+  const first = await normalizeCatalogIdentity(db);
+  expect(first.conflicts).toBe(1);
+  expect(
+    await db
+      .prepare("SELECT normalized_name FROM brands WHERE id=?")
+      .bind(`brand-${t}`)
+      .first("normalized_name"),
+  ).toBe(normalizeName(brand));
+  expect(
+    await db
+      .prepare("SELECT normalized_name FROM retailers WHERE id=?")
+      .bind(`retailer-${t}`)
+      .first("normalized_name"),
+  ).toBe(normalizeName(`Ünion ${t}`));
+  // The colliding legacy brand keeps its key for manual consolidation.
+  expect(
+    await db
+      .prepare("SELECT normalized_name FROM brands WHERE id=?")
+      .bind(`brand-a-${t}`)
+      .first("normalized_name"),
+  ).toBe(`Ñu${t}`);
+  expect(
+    (
+      await db
+        .prepare(
+          "SELECT identity_key FROM product_identity_keys WHERE product_id=?",
+        )
+        .bind(product)
+        .all()
+    ).results,
+  ).toEqual([
+    { identity_key: identityKey(f.countryId, brand, "Original Oatmilk") },
+  ]);
+  expect(await normalizeCatalogIdentity(db)).toEqual({
+    names: 0,
+    keys: 0,
+    conflicts: 1,
+  });
+  // A new submission now resolves the legacy brand and its exact product.
+  await db.prepare("UPDATE countries SET iso2=id WHERE iso2='US'").run();
+  await db
+    .prepare("UPDATE countries SET iso2='US' WHERE id=?")
+    .bind(f.countryId)
+    .run();
+  const lookup = new CommunityLookupRepository(db),
+    identity = {
+      name: "Original Oatmilk",
+      brand: brand.toLowerCase(),
+      country: "US" as const,
+      categoryIds: [f.categories[0]!],
+    };
+  const context = await lookup.context(identity);
+  expect(context.brandId).toBe(`brand-${t}`);
+  expect((await lookup.candidates(identity, context))[0]).toMatchObject({
+    id: product,
+    exact: true,
+  });
 });

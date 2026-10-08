@@ -173,6 +173,15 @@ it("invalidates all affected material representations without a rating invalidat
   expect(() =>
     invalidationTags({ kind: "product", slug: "bad,tag" }),
   ).toThrow();
+  // Retailer evidence changes only the product page; listings stay cached.
+  expect(
+    invalidationTags({
+      kind: "product",
+      slug: "example",
+      categorySlugs: ["milk"],
+      pageOnly: true,
+    }),
+  ).toEqual(["product:example"]);
 });
 
 it("shares validated image variants while allowing moderation revocation", () => {

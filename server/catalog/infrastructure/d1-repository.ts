@@ -14,7 +14,11 @@ import {
   rankedSampleSql,
   rankingOrderSql,
 } from "../../ranking/infrastructure/read-policy";
-import { readCommunityProduct } from "../../community/infrastructure/public-read";
+import {
+  communityProductDetails,
+  communityProductStatements,
+  readCanonicalRedirect,
+} from "../../community/infrastructure/public-read";
 
 const identity = `p.id,p.slug,p.name,b.name AS brand,v.id AS versionId,p.development_only AS developmentOnly,p.published_at AS publishedAt,
   (SELECT i.id FROM product_images i WHERE i.product_version_id=v.id AND i.slot='front' AND i.state='accepted' LIMIT 1) AS imageId`;
@@ -90,7 +94,8 @@ export class D1CatalogRepository implements CatalogRepository {
         Omit<ProductDetails, "formula" | "categories" | "history" | "images">
       >();
     if (!row) return null;
-    const [history, categories, images] = await this.db.batch([
+    const now = Date.now();
+    const [history, categories, images, ...community] = await this.db.batch([
       this.db
         .prepare(
           `SELECT id,version_label AS versionLabel,is_current AS isCurrent,change_summary AS changeSummary,effective_from AS effectiveFrom,effective_date AS effectiveDate,effective_date_precision AS effectiveDatePrecision FROM product_versions WHERE product_id=? ORDER BY is_current DESC,created_at DESC,id LIMIT 100`,
@@ -107,6 +112,7 @@ export class D1CatalogRepository implements CatalogRepository {
           `SELECT id,slot,CASE WHEN evidence_r2_key IS NOT NULL THEN 1 ELSE 0 END AS hasEvidence FROM product_images WHERE product_version_id=? AND state='accepted' ORDER BY slot LIMIT 5`,
         )
         .bind(row.versionId),
+      ...communityProductStatements(this.db, row.id, row.versionId, now),
     ]);
     const formulas = history!.results as unknown as FormulaSummary[];
     // A requested older version need not be among the newest 100 history links.
@@ -119,19 +125,18 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(row.versionId)
         .first<FormulaSummary>());
     if (!formula) return null;
-    const community = await readCommunityProduct(
-      this.db,
-      row.id,
-      row.versionId,
+    const details = communityProductDetails(
+      community as D1Result<Record<string, unknown>>[],
+      now,
     );
     return {
       ...row,
-      ...community,
+      ...details,
       veganStatus:
-        community.classification?.veganStatus ??
+        details.classification?.veganStatus ??
         (formula.isCurrent ? row.veganStatus : "not_recorded"),
       manufacturerLabel:
-        community.classification?.manufacturerLabel ??
+        details.classification?.manufacturerLabel ??
         (formula.isCurrent ? row.manufacturerLabel : "unknown"),
       formula,
       history: formulas,
@@ -157,6 +162,10 @@ export class D1CatalogRepository implements CatalogRepository {
       categories: categories!.results as unknown as CategorySummary[],
       products: products!.results as unknown as ProductSummary[],
     };
+  }
+
+  canonicalRedirect(slug: string) {
+    return readCanonicalRedirect(this.db, slug);
   }
 
   profile(handle: string) {

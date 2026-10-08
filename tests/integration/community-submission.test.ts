@@ -8,7 +8,10 @@ import { StagedMediaRepository } from "../../server/community/infrastructure/sta
 import { CommunityLookupRepository } from "../../server/community/infrastructure/lookup-repository";
 import { R2EvidenceStorage } from "../../server/community/infrastructure/evidence-storage";
 import { CloudflareImageTransformer } from "../../server/media/infrastructure/cloudflare-images";
-import { DEFAULT_LIMITS } from "../../server/community/domain/policy";
+import {
+  DEFAULT_LIMITS,
+  normalizeName,
+} from "../../server/community/domain/policy";
 import { submissionInput } from "../../server/community/domain/contracts";
 import { communityServices } from "../../server/community/infrastructure/composition";
 
@@ -394,4 +397,157 @@ it("fences a follow-up against an operator decision made during finalization", a
       .bind(originalId)
       .first(),
   ).toBeNull();
+});
+
+const photo = () =>
+  Uint8Array.from(atob(env.TEST_IMAGES.jpeg), (c) => c.charCodeAt(0));
+const tag = () => crypto.randomUUID().replaceAll("-", "").slice(0, 10);
+
+it("replays a preflight key with the receipt's actual outcome", async () => {
+  const { media, service, input, actor } = await setup();
+  const held = {
+    ...input,
+    name: `Replay held ${tag()}`,
+    specialtyFlavor: true,
+  };
+  const key = id(),
+    first = await service.preflight(actor, key, held);
+  expect(first.decision).toBe("NEEDS_REVIEW");
+  expect(await service.preflight(actor, key, held)).toMatchObject({
+    decision: "NEEDS_REVIEW",
+    receiptId: first.receiptId,
+    reasons: first.reasons,
+  });
+  await media.upload(actor, {
+    receiptId: first.receiptId!,
+    slot: "front",
+    idempotencyKey: id(),
+    bytes: photo(),
+  });
+  await service.finalize(actor, first.receiptId!, held);
+  expect(await service.preflight(actor, key, held)).toMatchObject({
+    decision: "NEEDS_REVIEW",
+    state: "review",
+    reasons: first.reasons,
+  });
+  const expiring = { ...input, name: `Replay expiring ${tag()}` },
+    expiringKey = id(),
+    staged = await service.preflight(actor, expiringKey, expiring);
+  await env.DB.prepare("UPDATE submission_receipts SET expires_at=1 WHERE id=?")
+    .bind(staged.receiptId)
+    .run();
+  await expect(
+    service.preflight(actor, expiringKey, expiring),
+  ).rejects.toMatchObject({ code: "SUBMISSION_CLOSED" });
+  const ready = { ...input, name: `Replay published ${tag()}` },
+    readyKey = id(),
+    checked = await service.preflight(actor, readyKey, ready);
+  await media.upload(actor, {
+    receiptId: checked.receiptId!,
+    slot: "front",
+    idempotencyKey: id(),
+    bytes: photo(),
+  });
+  const published = await service.finalize(actor, checked.receiptId!, ready);
+  expect(await service.preflight(actor, readyKey, ready)).toMatchObject({
+    decision: "READY",
+    slug: "slug" in published ? published.slug : "missing",
+  });
+});
+
+it("requires an operator classification before publishing unconfirmed ingredients", async () => {
+  const { f, repo, media, service, input, actor } = await setup();
+  const admin = { ...f.users[1]!, administrator: true };
+  const unconfirmed = {
+    ...input,
+    name: `Unconfirmed ${tag()}`,
+    noKnownAnimalIngredients: false,
+    manufacturerLabel: "neither" as const,
+  };
+  const checked = await service.preflight(actor, id(), unconfirmed);
+  expect(checked.decision).toBe("NEEDS_REVIEW");
+  await media.upload(actor, {
+    receiptId: checked.receiptId!,
+    slot: "front",
+    idempotencyKey: id(),
+    bytes: photo(),
+  });
+  await service.finalize(actor, checked.receiptId!, unconfirmed);
+  await expect(
+    service.approve(admin, checked.receiptId!, unconfirmed, 0, "Reviewed."),
+  ).rejects.toMatchObject({ code: "CLASSIFICATION_REQUIRED" });
+  await service.approve(
+    admin,
+    checked.receiptId!,
+    unconfirmed,
+    0,
+    "The operator verified the ingredient panel.",
+    undefined,
+    "appears_vegan",
+  );
+  const receipt = (await repo.get(checked.receiptId!))!;
+  expect(
+    await env.DB.prepare(
+      "SELECT vegan_status,reviewed_by FROM formula_classifications WHERE product_version_id=?",
+    )
+      .bind(receipt.planned_version_id)
+      .first(),
+  ).toEqual({ vegan_status: "appears_vegan", reviewed_by: admin.id });
+});
+
+it("checks large brands without a hard limit, ranks alias matches first and keeps the matched brand", async () => {
+  const { f, media, service, input, actor } = await setup();
+  const t = tag(),
+    brandId = id(),
+    brand = `Legacy ${t}`,
+    aliased = `aliased-${t}`;
+  // A legacy brand whose stored key predates application normalization.
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO brands(id,name,normalized_name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+    ).bind(brandId, `${brand} Foods`, `stale-${t}`, `legacy-${t}`),
+    env.DB.prepare(
+      "INSERT INTO brand_aliases(normalized_name,alias,brand_id) VALUES(?,?,?)",
+    ).bind(normalizeName(brand), brand, brandId),
+    ...Array.from({ length: 230 }, (_, i) =>
+      env.DB.prepare(
+        "INSERT INTO products(id,country_id,brand_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
+      ).bind(
+        `bulk-${t}-${i}`,
+        f.countryId,
+        brandId,
+        `Style Shreds ${i}`,
+        `bulk-${t}-${i}`,
+      ),
+    ),
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,brand_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
+    ).bind(aliased, f.countryId, brandId, "Classic Mozz", aliased),
+    env.DB.prepare(
+      "INSERT INTO product_aliases(id,product_id,alias,created_at) VALUES(?,?,?,1)",
+    ).bind(id(), aliased, "Mozzarella Style Shreds"),
+  ]);
+  const duplicate = await service.preflight(actor, id(), {
+    ...input,
+    brand,
+    name: "Mozzarella Style Shreds",
+  });
+  expect(duplicate.decision).toBe("NEEDS_CHANGES");
+  expect(duplicate.candidates[0]).toMatchObject({ id: aliased, exact: true });
+  expect(duplicate.candidates.length).toBeLessThanOrEqual(12);
+  const fresh = { ...input, brand, name: "Smoked Gouda Wheel" },
+    checked = await service.preflight(actor, id(), fresh);
+  expect(checked.decision).toBe("READY");
+  await media.upload(actor, {
+    receiptId: checked.receiptId!,
+    slot: "front",
+    idempotencyKey: id(),
+    bytes: photo(),
+  });
+  const published = await service.finalize(actor, checked.receiptId!, fresh);
+  expect(
+    await env.DB.prepare("SELECT brand_id FROM products WHERE id=?")
+      .bind("productId" in published ? published.productId : null)
+      .first("brand_id"),
+  ).toBe(brandId);
 });

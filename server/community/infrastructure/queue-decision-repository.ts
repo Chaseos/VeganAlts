@@ -1,9 +1,11 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import type { Actor, SubmissionReceipt } from "../domain/contracts";
-import type {
-  CatalogPatch,
-  ProductSnapshot,
-  ProposalRecord,
+import {
+  contributorProduct,
+  type CatalogPatch,
+  type ContributorProduct,
+  type ProductSnapshot,
+  type ProposalRecord,
 } from "../domain/moderation";
 import {
   ModerationRepository,
@@ -91,7 +93,10 @@ export class QueueDecisionRepository {
           : null;
       const product =
         row.target_type === "product"
-          ? await this.repository.snapshot(row.target_id)
+          ? this.visibleProduct(
+              await this.repository.snapshot(row.target_id),
+              actor,
+            )
           : null;
       return {
         kind,
@@ -117,7 +122,7 @@ export class QueueDecisionRepository {
       throw new ApplicationError("NOT_FOUND", "Report not found.", 404);
     const productId = await this.reportProduct(row);
     const product = productId
-      ? await this.repository.snapshot(productId)
+      ? this.visibleProduct(await this.repository.snapshot(productId), actor)
       : null;
     return {
       kind,
@@ -136,9 +141,18 @@ export class QueueDecisionRepository {
       referenceLabels: await this.referenceLabels(null, product),
     };
   }
+  private visibleProduct(
+    snapshot: ProductSnapshot,
+    actor: Actor,
+  ): ProductSnapshot | ContributorProduct {
+    return actor.administrator ? snapshot : contributorProduct(snapshot);
+  }
   private async referenceLabels(
     proposed: unknown,
-    product: ProductSnapshot | null,
+    product: Pick<
+      ProductSnapshot,
+      "familyId" | "categories" | "relationships"
+    > | null,
   ) {
     const input =
       proposed && typeof proposed === "object"

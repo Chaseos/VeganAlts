@@ -1,5 +1,5 @@
 import { ApplicationError } from "../../shared/domain/errors";
-import type { CatalogRepository } from "../domain/contracts";
+import type { CatalogRepository, ProductSummary } from "../domain/contracts";
 
 export const FEATURED_CATEGORIES = [
   "ground-beef",
@@ -28,8 +28,31 @@ export function catalogPage(input: string | null) {
   return Number(input);
 }
 
+export const NEW_PRODUCT_DAYS = 30;
+export function isNewProduct(
+  publishedAt: number | null | undefined,
+  now: number,
+) {
+  return (
+    typeof publishedAt === "number" &&
+    publishedAt <= now &&
+    now - publishedAt < NEW_PRODUCT_DAYS * 86_400_000
+  );
+}
+
 export class CatalogService {
-  constructor(private readonly repository: CatalogRepository) {}
+  constructor(
+    private readonly repository: CatalogRepository,
+    private readonly clock = Date.now,
+  ) {}
+
+  private labelNew<T extends ProductSummary>(products: T[]) {
+    const now = this.clock();
+    return products.map((product) => ({
+      ...product,
+      isNew: isNewProduct(product.publishedAt, now),
+    }));
+  }
 
   async home() {
     const categories = await this.repository.categories();
@@ -61,8 +84,8 @@ export class CatalogService {
     return {
       category,
       children,
-      ranked: ranked.slice(0, CATALOG_PAGE_SIZE),
-      unranked: unranked.slice(0, CATALOG_PAGE_SIZE),
+      ranked: this.labelNew(ranked.slice(0, CATALOG_PAGE_SIZE)),
+      unranked: this.labelNew(unranked.slice(0, CATALOG_PAGE_SIZE)),
       page,
       unrankedPage,
       hasNext: ranked.length > CATALOG_PAGE_SIZE,
@@ -83,16 +106,24 @@ export class CatalogService {
         "Product or formula not found.",
         404,
       );
-    return product;
+    return this.labelNew([product])[0]!;
+  }
+
+  // An archived duplicate's slug resolves to its survivor. Callers must
+  // return the redirect uncached; consolidation is reversible.
+  canonicalRedirect(slug: string) {
+    return this.repository.canonicalRedirect(slug);
   }
 
   async search(input: string) {
     const { query, expression } = searchExpression(input);
+    const results = expression
+      ? await this.repository.search(expression)
+      : { categories: [], products: [] };
     return {
       query,
-      ...(expression
-        ? await this.repository.search(expression)
-        : { categories: [], products: [] }),
+      categories: results.categories,
+      products: this.labelNew(results.products),
     };
   }
 

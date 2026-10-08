@@ -141,7 +141,8 @@ export class StagedMediaRepository {
           `INSERT INTO staged_attempts(id,blob_id,user_id,state,input_bytes,lease_expires_at,created_at)
         SELECT ?,id,?,'processing',input_bytes,?,? FROM staged_blobs WHERE id=? AND state IN ('pending','failed','expired')
         AND (SELECT COUNT(*) FROM staged_attempts WHERE created_at>=?)+(SELECT COUNT(*) FROM media_attempts WHERE created_at>=?) < ?
-        AND (SELECT COUNT(*) FROM staged_attempts WHERE blob_id=?) < ?
+        AND (SELECT COUNT(*) FROM staged_attempts WHERE user_id=? AND created_at>=?) < ?
+        AND (SELECT COUNT(*) FROM staged_attempts WHERE blob_id=? AND state<>'committed' AND created_at>=?) < ?
         AND (SELECT COUNT(*) FROM staged_attempts WHERE user_id=? AND state='processing' AND lease_expires_at>?) < ?
         AND (SELECT COALESCE(SUM(input_bytes),0) FROM staged_attempts WHERE user_id=? AND created_at>=?)+input_bytes <= ?`,
         )
@@ -154,7 +155,13 @@ export class StagedMediaRepository {
           day,
           day,
           this.limits.processingPerDay,
+          userId,
+          day,
+          this.limits.accountProcessingPerDay,
+          // A successful attempt never counts: expired staging may be
+          // reprocessed. Repeated failures pause the key until the next day.
           blob.id,
+          day,
           this.limits.retries,
           userId,
           now,

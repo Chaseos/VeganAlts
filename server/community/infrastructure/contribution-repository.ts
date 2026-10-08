@@ -5,7 +5,7 @@ import type {
   RetailerInput,
   Actor,
 } from "../domain/contracts";
-import { DAY, normalizeName, type CommunityLimits } from "../domain/policy";
+import { normalizeName, type CommunityLimits } from "../domain/policy";
 import { replay, type ReceiptWrite } from "./receipts";
 
 export class ContributionRepository {
@@ -74,10 +74,15 @@ export class ContributionRepository {
             input.targetId,
             actor.id,
           ),
+        // A repeat report adds its note to the active one instead of replacing
+        // the earlier explanation; audit_log keeps each original submission.
         this.db
           .prepare(
             `INSERT INTO reports(id,reporter_user_id,target_type,target_id,reason_code,note,created_at,updated_at) SELECT ?,?,?,?,?,?,?,? WHERE ${guard}
-          ON CONFLICT(reporter_user_id,target_type,target_id,reason_code) WHERE status IN ('open','reviewing') DO UPDATE SET note=excluded.note,updated_at=excluded.updated_at`,
+          ON CONFLICT(reporter_user_id,target_type,target_id,reason_code) WHERE status IN ('open','reviewing') DO UPDATE SET note=CASE
+            WHEN excluded.note='' OR instr(COALESCE(reports.note,''),excluded.note)>0 THEN reports.note
+            WHEN COALESCE(reports.note,'')='' THEN excluded.note
+            ELSE substr(reports.note||char(10)||char(10)||excluded.note,1,8000) END,updated_at=excluded.updated_at`,
           )
           .bind(id, ...values, input.note, receipt.now, receipt.now, id),
         this.db
@@ -111,7 +116,9 @@ export class ContributionRepository {
     }
     return (await replay<{ id: string }>(this.db, receipt))!;
   }
+  /** Returns the photo slots attached to the evidence receipt. */
   async validateEvidence(actor: Actor, input: ProductChange, now: number) {
+    let slots: string[] = [];
     if (input.evidenceReceiptId) {
       const row = await this.db
         .prepare(
@@ -127,6 +134,12 @@ export class ContributionRepository {
           "Finish the evidence uploads for this product before submitting.",
           409,
         );
+      slots = (
+        await this.db
+          .prepare("SELECT slot FROM submission_uploads WHERE submission_id=?")
+          .bind(input.evidenceReceiptId)
+          .all<{ slot: string }>()
+      ).results.map((r) => r.slot);
     }
     for (const imageId of input.evidence.imageIds) {
       const row = await this.db
@@ -152,25 +165,41 @@ export class ContributionRepository {
         "EVIDENCE_REQUIRED",
         "Attach the updated packaging photos.",
       );
+    return slots;
   }
   async propose(
     actor: Actor,
     input: ProductChange | RetailerInput,
     id: string,
     receipt: ReceiptWrite,
+    baseline: unknown = null,
   ) {
     const product = "kind" in input;
-    const guard = product
+    let guard = product
       ? "EXISTS(SELECT 1 FROM catalog_revisions r JOIN products p ON p.id=r.product_id WHERE r.product_id=? AND r.revision=? AND p.lifecycle_status<>'hidden')"
       : "1";
-    const fence = product ? [input.productId, input.expectedRevision] : [];
+    const fence: (string | number)[] = product
+      ? [input.productId, input.expectedRevision]
+      : [];
+    // Recheck evidence ownership inside the batch: concurrent proposals must
+    // not both attach the same staged receipt.
+    if (product && input.evidenceReceiptId) {
+      guard +=
+        " AND EXISTS(SELECT 1 FROM submission_receipts WHERE id=? AND user_id=? AND purpose='evidence' AND planned_product_id=? AND state='staging' AND expires_at>?)";
+      fence.push(
+        input.evidenceReceiptId,
+        actor.id,
+        input.productId,
+        receipt.now,
+      );
+    }
     const accepted = "EXISTS(SELECT 1 FROM edit_proposals WHERE id=?)";
     const result = { id };
     const statements = [
       this.db
         .prepare(
-          `INSERT INTO edit_proposals(id,submitted_by,target_type,target_id,change_type,risk_tier,proposed_data,note,created_at,updated_at)
-      SELECT ?,?,?,?,?,?,?,?,?,? WHERE ${guard}`,
+          `INSERT INTO edit_proposals(id,submitted_by,target_type,target_id,change_type,risk_tier,proposed_data,baseline_data,note,created_at,updated_at)
+      SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE ${guard}`,
         )
         .bind(
           id,
@@ -180,6 +209,7 @@ export class ContributionRepository {
           product ? input.kind : "retailer",
           product && input.kind === "classification" ? 3 : 2,
           JSON.stringify(input),
+          baseline === null ? null : JSON.stringify(baseline),
           product ? input.evidence.note : input.note,
           receipt.now,
           receipt.now,
@@ -190,7 +220,7 @@ export class ContributionRepository {
       statements.push(
         this.db
           .prepare(
-            `UPDATE submission_receipts SET state='review',expires_at=?,updated_at=? WHERE id=? AND ${accepted}`,
+            `UPDATE submission_receipts SET state='review',expires_at=?,updated_at=? WHERE id=? AND state='staging' AND ${accepted}`,
           )
           .bind(
             receipt.now + this.limits.reviewRetention,
@@ -216,12 +246,28 @@ export class ContributionRepository {
     );
     try {
       const results = await this.db.batch(statements);
-      if (!results[0]!.meta.changes)
+      if (!results[0]!.meta.changes) {
+        if (
+          product &&
+          input.evidenceReceiptId &&
+          !(await this.db
+            .prepare(
+              "SELECT 1 FROM submission_receipts WHERE id=? AND state='staging'",
+            )
+            .bind(input.evidenceReceiptId)
+            .first())
+        )
+          throw new ApplicationError(
+            "EVIDENCE_CHANGED",
+            "These photos are already attached to another proposal or expired. Upload them again for this proposal.",
+            409,
+          );
         throw new ApplicationError(
           "STALE_PRODUCT",
           "The product changed. Review its current details before proposing this change.",
           409,
         );
+      }
     } catch (error) {
       const prior = await replay<{ id: string }>(this.db, receipt);
       if (prior) return prior;
@@ -256,15 +302,13 @@ export class ContributionRepository {
         "INVALID_RETAILER",
         "Choose an active retailer in this product's country.",
       );
-    if (
-      stance === "not_current" &&
-      !(await this.db
-        .prepare(
-          "SELECT product_id FROM product_retailers WHERE product_id=? AND retailer_id=?",
-        )
-        .bind(productId, retailerId)
-        .first())
-    )
+    const relationship = await this.db
+      .prepare(
+        "SELECT status FROM product_retailers WHERE product_id=? AND retailer_id=?",
+      )
+      .bind(productId, retailerId)
+      .first<{ status: string }>();
+    if (stance === "not_current" && !relationship)
       throw new ApplicationError(
         "INVALID_RETAILER",
         "This product has no relationship with that retailer.",
@@ -342,7 +386,7 @@ export class ContributionRepository {
           ? [
               this.db
                 .prepare(
-                  `INSERT INTO edit_proposals(id,submitted_by,target_type,target_id,change_type,risk_tier,proposed_data,note,created_at,updated_at) SELECT ?,?,'product',?,'retailer_status',2,?,?,?,? WHERE ${guard}`,
+                  `INSERT INTO edit_proposals(id,submitted_by,target_type,target_id,change_type,risk_tier,proposed_data,baseline_data,note,created_at,updated_at) SELECT ?,?,'product',?,'retailer_status',2,?,?,?,?,? WHERE ${guard}`,
                 )
                 .bind(
                   crypto.randomUUID(),
@@ -360,6 +404,10 @@ export class ContributionRepository {
                       note: "A contributor reports that this retailer relationship is no longer current. Assess the current confirmations before deciding.",
                     },
                   }),
+                  // Matches proposalBaseline: only this relationship's
+                  // operator-owned status can make the concern stale. The
+                  // revision fence above keeps the read consistent.
+                  JSON.stringify({ retailer: relationship?.status ?? null }),
                   "Availability concern from a current contributor stance.",
                   receipt.now,
                   receipt.now,
@@ -387,28 +435,5 @@ export class ContributionRepository {
       throw error;
     }
     return result;
-  }
-  async retailerSummaries(productId: string, now: number) {
-    const rows = await this.db
-      .prepare(
-        `SELECT r.id,r.canonical_name AS name,r.website_url AS websiteUrl,pr.status,pr.confirmation_count AS contributorCount,pr.disagreement_count AS disagreementCount,pr.last_confirmed_at AS lastConfirmedAt,
-      (SELECT COUNT(*) FROM retailer_confirmations rc WHERE rc.product_id=pr.product_id AND rc.retailer_id=pr.retailer_id AND rc.stance='confirm' AND rc.updated_at>=?) AS recentContributorCount
-      FROM product_retailers pr JOIN retailers r ON r.id=pr.retailer_id WHERE pr.product_id=? ORDER BY pr.status,r.canonical_name`,
-      )
-      .bind(now - 180 * DAY, productId)
-      .all<{
-        id: string;
-        name: string;
-        websiteUrl: string | null;
-        status: string;
-        contributorCount: number;
-        disagreementCount: number;
-        lastConfirmedAt: number | null;
-        recentContributorCount: number;
-      }>();
-    return rows.results.map((row) => ({
-      ...row,
-      stale: !row.lastConfirmedAt || row.lastConfirmedAt < now - 180 * DAY,
-    }));
   }
 }

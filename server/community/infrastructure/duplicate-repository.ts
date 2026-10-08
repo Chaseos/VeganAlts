@@ -133,12 +133,4 @@ export class DuplicateRepository {
       receipt,
     );
   }
-  async redirect(slug: string) {
-    return this.db
-      .prepare(
-        `SELECT survivor.id,survivor.slug FROM products donor JOIN duplicate_consolidations d ON d.donor_id=donor.id AND d.active=1 JOIN products survivor ON survivor.id=d.survivor_id JOIN countries c ON c.id=donor.country_id WHERE donor.slug=? AND c.iso2='US' AND survivor.lifecycle_status<>'hidden'`,
-      )
-      .bind(slug)
-      .first<{ id: string; slug: string }>();
-  }
 }
