@@ -32,6 +32,10 @@ export interface TaxonomyEffects {
   invalidate(categorySlugs: string[], productIds: string[]): Promise<void>;
 }
 const PROPOSALS_PER_DAY = 3;
+// Every featured category is still active (bound: IDs as JSON, their count).
+// The insert skips inactive ones, so this keeps the audit equal to the rows.
+const FEATURABLE =
+  "(SELECT COUNT(*) FROM categories WHERE id IN (SELECT value FROM json_each(?)) AND is_active=1)=?";
 // Unreversed edits to either category made after a merge (donor, survivor,
 // merge time).
 const LATER_EDITS =
@@ -570,6 +574,15 @@ export class TaxonomyService {
         "INVALID_FEATURES",
         "Choose each category once.",
       );
+    if (
+      (await this.repository.activeCount(input.categoryIds)) !==
+      input.categoryIds.length
+    )
+      throw new ApplicationError(
+        "INVALID_FEATURES",
+        "A chosen category is no longer active. Refresh and choose again.",
+        409,
+      );
     const before = await this.repository.features();
     const result = await this.repository.commit(
       this.action(
@@ -580,7 +593,10 @@ export class TaxonomyService {
         { features: before },
         { features: input.categoryIds },
       ),
-      { sql: "1", values: [] },
+      {
+        sql: FEATURABLE,
+        values: [JSON.stringify(input.categoryIds), input.categoryIds.length],
+      },
       (fence) =>
         this.repository.featureStatements(input.categoryIds, now, fence),
       receipt,
@@ -642,9 +658,23 @@ export class TaxonomyService {
           "Homepage features changed since this action.",
           409,
         );
+      const restored = before.features ?? [];
+      if ((await this.repository.activeCount(restored)) !== restored.length)
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "A previously featured category was retired. Choose new features instead.",
+          409,
+        );
       const result = await this.repository.commit(
         action,
-        reversed,
+        {
+          sql: `${reversed.sql} AND ${FEATURABLE}`,
+          values: [
+            ...reversed.values,
+            JSON.stringify(restored),
+            restored.length,
+          ],
+        },
         (fence) => [
           ...this.repository.featureStatements(
             before.features ?? [],
@@ -672,13 +702,41 @@ export class TaxonomyService {
           "This category changed after the action. Review the newer change first.",
           409,
         );
+    // Last in, first out: a later merge involving the category goes first.
+    if (
+      (await this.repository.busyMerges([current.id], original.created_at))
+        .length
+    )
+      throw new ApplicationError(
+        "REVERSAL_CONFLICT",
+        "Reverse the later merge involving this category first.",
+        409,
+      );
     if (before.slug) await this.assertSlugAvailable(before.slug, current.id);
+    // Restored names must not collide with a category that claimed them since.
+    const held = new Set(
+      [current.name, ...current.aliases.map((a) => a.alias)].map(categoryKey),
+    );
+    const restoredNames = [
+      ...(before.name !== undefined ? [before.name] : []),
+      ...(before.aliases ?? []).map((a) => a.alias),
+    ].filter((name) => !held.has(categoryKey(name)));
+    if (restoredNames.length)
+      await this.assertNameAvailable(restoredNames, current.id);
+    const guard = {
+      sql: `${reversed.sql} AND EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?) AND NOT EXISTS(SELECT 1 FROM category_merges WHERE active=1 AND created_at>? AND ? IN (donor_id,survivor_id))`,
+      values: [
+        actionId,
+        current.id,
+        current.revision,
+        original.created_at,
+        current.id,
+      ] as (string | number | null)[],
+    };
+    fenceNames(guard, restoredNames, current.id);
     const result = await this.repository.commit(
       action,
-      {
-        sql: `${reversed.sql} AND EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)`,
-        values: [actionId, current.id, current.revision],
-      },
+      guard,
       (fence) => [
         ...this.repository.categoryStatements(
           current.id,

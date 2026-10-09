@@ -205,6 +205,15 @@ export class D1CommentRepository {
         .all<{ body: string }>()
     ).results.map((r) => r.body.slice(0, 500));
   }
+  /** Comments an account has written since a time, for the daily quota. */
+  async countSince(userId: string, since: number) {
+    return (await this.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM comments WHERE user_id=? AND created_at>=?",
+      )
+      .bind(userId, since)
+      .first<number>("n"))!;
+  }
   async duplicate(userId: string, productId: string, body: string) {
     return Boolean(
       await this.db

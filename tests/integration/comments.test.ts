@@ -232,6 +232,41 @@ it("returns private state for displayed comments beyond an author's latest 50", 
   );
 });
 
+it("refuses comments over the daily allowance before any automated check", async () => {
+  const { f, actors } = await setup(1);
+  const comments = commentServices({ ...env, APP_ENV: "local" }, id);
+  const now = Date.now();
+  await env.DB.batch(
+    Array.from({ length: DEFAULT_COMMENT_POLICY.perDay }, (_, i) =>
+      env.DB.prepare(
+        "INSERT INTO comments(id,user_id,product_id,product_version_id,body,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
+      ).bind(
+        id(),
+        actors[0]!.id,
+        f.productId,
+        f.versionId,
+        `Earlier today ${i}`,
+        now,
+        now,
+      ),
+    ),
+  );
+  const decisions = async () =>
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM moderation_decisions WHERE user_id=?",
+    )
+      .bind(actors[0]!.id)
+      .first<number>("n");
+  const before = await decisions();
+  await expect(
+    comments.create(actors[0]!, id(), {
+      productId: f.productId,
+      body: "One more comment past the daily allowance.",
+    }),
+  ).rejects.toMatchObject({ code: "COMMENT_LIMIT" });
+  expect(await decisions()).toBe(before);
+});
+
 it("holds uncertain or unevaluated comments, blocks near-certain spam and releases held comments when the provider recovers", async () => {
   const { f, actors } = await setup(3);
   const fake = new FakeDecisionProvider();

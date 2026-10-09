@@ -6,6 +6,7 @@ import type { ModerationDecisionService } from "../../moderation/application/dec
 import {
   applyVote,
   bestRank,
+  commentDay,
   commentEdit,
   commentInput,
   type CommentFormula,
@@ -132,6 +133,17 @@ export class CommentService {
         "DUPLICATE_COMMENT",
         "You already posted this comment on this product.",
         409,
+      );
+    // The quota is checked before any model call; the insert enforces it
+    // again for concurrent requests.
+    if (
+      (await this.repository.countSince(actor.id, commentDay(now))) >=
+      this.policy.perDay
+    )
+      throw new ApplicationError(
+        "COMMENT_LIMIT",
+        "Today's comment allowance is exhausted. Please try again tomorrow.",
+        429,
       );
     const id = this.newId();
     const evaluation = await this.evaluate(

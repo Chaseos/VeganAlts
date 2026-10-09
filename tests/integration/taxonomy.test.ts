@@ -560,6 +560,63 @@ it("enforces the daily category proposal allowance before any automated check", 
   expect(await decisions()).toBe(before);
 });
 
+it("keeps feature sets, edit reversals and later merges consistent", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  const service = taxonomy();
+  const revisionOf = async (cid: string) =>
+    (await service.tree(operator)).categories.find((c) => c.id === cid)!
+      .revision;
+  // A retired category cannot be featured.
+  await env.DB.prepare("UPDATE categories SET is_active=0 WHERE id=?")
+    .bind(w.C)
+    .run();
+  await expect(
+    service.setFeatures(operator, id(), { categoryIds: [w.S, w.C], note }),
+  ).rejects.toMatchObject({ code: "INVALID_FEATURES" });
+  // Reversing a rename cannot restore a name another category claimed since.
+  const renamed = (await service.update(operator, id(), w.S, {
+    expectedRevision: await revisionOf(w.S),
+    name: `Plant mince ${w.s}`,
+    note,
+  })) as { actionId: string };
+  await service.create(operator, id(), {
+    name: `Ground ${w.s}`,
+    isRankable: true,
+    note,
+  });
+  await expect(
+    service.reverseUpdate(operator, id(), renamed.actionId, note),
+  ).rejects.toMatchObject({ code: "CATEGORY_EXISTS" });
+  // An edit made before a merge waits until that merge is reversed.
+  const donorEdit = (await service.update(operator, id(), w.D, {
+    expectedRevision: await revisionOf(w.D),
+    aliases: [{ alias: `mince ${w.s}` }, { alias: `minced meat ${w.s}` }],
+    note,
+  })) as { actionId: string };
+  const merged = await service.merge(operator, id(), {
+    donorId: w.D,
+    survivorId: w.S,
+    donorRevision: await revisionOf(w.D),
+    survivorRevision: await revisionOf(w.S),
+    note,
+  });
+  await expect(
+    service.reverseUpdate(operator, id(), donorEdit.actionId, note),
+  ).rejects.toMatchObject({ code: "REVERSAL_CONFLICT" });
+  await service.reverseMerge(operator, id(), merged.mergeId, note);
+  await service.reverseUpdate(operator, id(), donorEdit.actionId, note);
+  expect(
+    (await service.tree(operator)).categories
+      .find((c) => c.id === w.D)!
+      .aliases.map((a) => a.alias),
+  ).toEqual([`mince ${w.s}`]);
+});
+
 it("seeds the production-safe taxonomy idempotently without catalog data", async () => {
   const products = async () =>
     (await env.DB.prepare("SELECT COUNT(*) AS n FROM products").first<number>(

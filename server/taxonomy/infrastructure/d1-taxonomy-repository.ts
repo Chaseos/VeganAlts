@@ -273,6 +273,15 @@ export class D1TaxonomyRepository {
       ),
     ];
   }
+  /** How many of these categories are active. */
+  async activeCount(categoryIds: string[]) {
+    return (await this.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM categories WHERE id IN (SELECT value FROM json_each(?)) AND is_active=1",
+      )
+      .bind(JSON.stringify(categoryIds))
+      .first<number>("n"))!;
+  }
   featureStatements(categoryIds: string[], now: number, fence: DecisionGuard) {
     return [
       this.db
