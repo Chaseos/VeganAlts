@@ -1,4 +1,5 @@
 import { moderationDecisions } from "../moderation/infrastructure/composition";
+import { trendingService } from "../ranking/infrastructure/trending-composition";
 import { commentServices } from "../comments/infrastructure/composition";
 import { communityServices } from "../community/infrastructure/composition";
 import { taxonomyServices } from "../taxonomy/infrastructure/composition";
@@ -17,6 +18,10 @@ export async function runAutomation(env: Cloudflare.Env) {
       failed.push(name);
     }
   };
+  await step(
+    "trendingCategories",
+    async () => (await trendingService(env).refresh()).categories,
+  );
   const decisions = moderationDecisions(env);
   await step("expiredDecisionLeases", () => decisions.expireLeases());
   await step("releasedComments", () => commentServices(env).reevaluateHeld());

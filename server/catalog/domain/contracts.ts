@@ -26,6 +26,12 @@ export interface RankingRow extends ProductSummary {
   bayesianScore: number;
   ratingCount: number;
 }
+// Discovery rows show the Top score as context; it never orders them.
+export interface DiscoveryRow extends ProductSummary {
+  bayesianScore: number | null;
+  ratingCount: number;
+}
+export type CategoryView = "top" | "trending" | "new";
 
 export interface FormulaSummary {
   id: string;
@@ -69,6 +75,17 @@ export interface PublicProfile {
 
 export interface CatalogRepository {
   categories(parentId?: string): Promise<CategorySummary[]>;
+  trending(
+    categoryId: string | null,
+    offset: number,
+    limit: number,
+  ): Promise<DiscoveryRow[]>;
+  newest(
+    categoryId: string | null,
+    since: number,
+    offset: number,
+    limit: number,
+  ): Promise<DiscoveryRow[]>;
   featuredCategories(): Promise<CategorySummary[]>;
   categoryRedirect(slug: string): Promise<string | null>;
   category(slug: string): Promise<CategorySummary | null>;

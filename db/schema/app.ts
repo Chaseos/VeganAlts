@@ -210,6 +210,12 @@ export const products = sqliteTable(
     updatedAt: integer("updated_at").notNull(),
   },
   (table) => [
+    // New discovery: recently published products in a market.
+    index("ix_products_country_published").on(
+      table.countryId,
+      desc(table.publishedAt),
+      desc(table.id),
+    ),
     index("ix_products_brand_country").on(table.brandId, table.countryId),
     index("ix_products_country_status").on(
       table.countryId,
@@ -387,6 +393,7 @@ export const productTrials = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.productVersionId] }),
+    index("ix_product_trials_created").on(table.createdAt),
     index("ix_product_trials_version").on(table.productVersionId),
   ],
 );
@@ -418,6 +425,8 @@ export const ratings = sqliteTable(
     updatedAt: integer("updated_at").notNull(),
   },
   (table) => [
+    // Bounded daily rollups read recent ratings by creation time.
+    index("ix_ratings_created").on(table.createdAt),
     index("ix_ratings_user_updated").on(table.userId, desc(table.updatedAt)),
     index("ix_ratings_user_updated_id").on(
       table.userId,
@@ -550,6 +559,39 @@ export const productCategoryDailyStats = sqliteTable(
     check("ck_product_category_daily_stats_2", sql.raw("rating_sum >= 0")),
     check("ck_product_category_daily_stats_3", sql.raw("new_trial_count >= 0")),
     check("ck_product_category_daily_stats_4", sql.raw("comment_count >= 0")),
+  ],
+);
+
+// Rebuildable Trending read model, refreshed hourly from daily statistics.
+// Separate from product_category_stats so rating writes never erase it.
+export const productCategoryTrends = sqliteTable(
+  "product_category_trends",
+  {
+    categoryId: text("category_id")
+      .notNull()
+      .references((): AnySQLiteColumn => categories.id, {
+        onDelete: "cascade",
+      }),
+    productVersionId: text("product_version_id")
+      .notNull()
+      .references((): AnySQLiteColumn => productVersions.id, {
+        onDelete: "cascade",
+      }),
+    productId: text("product_id")
+      .notNull()
+      .references((): AnySQLiteColumn => products.id, { onDelete: "cascade" }),
+    trendingScore: real("trending_score").notNull(),
+    inputs: text("inputs").notNull(),
+    computedAt: integer("computed_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.categoryId, table.productVersionId] }),
+    index("ix_trends_category_score").on(
+      table.categoryId,
+      desc(table.trendingScore),
+      table.productId,
+    ),
+    check("ck_trends_inputs", sql.raw("json_valid(inputs)")),
   ],
 );
 

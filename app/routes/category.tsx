@@ -3,6 +3,7 @@ import { Link, redirect } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   catalogPage,
+  categoryView,
   CATALOG_PAGE_SIZE,
 } from "@server/catalog/application/service";
 import {
@@ -36,11 +37,18 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         params.categorySlug,
         catalogPage(url.searchParams.get("page")),
         catalogPage(url.searchParams.get("unrankedPage")),
+        categoryView(url.searchParams.get("view")),
       )),
       origin: env.APP_URL,
       staging: env.APP_ENV !== "production",
     };
   });
+}
+function viewQuery(view: string, page: number) {
+  const params = new URLSearchParams();
+  if (view !== "top") params.set("view", view);
+  if (page > 1) params.set("page", String(page));
+  return params.size ? `?${params}` : "";
 }
 export function meta({ loaderData: data }: Route.MetaArgs) {
   return publicMetadata(
@@ -48,7 +56,7 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
       ? `Best vegan alternatives to ${data.category.name.toLowerCase()}`
       : "Category",
     `Compare vegan ${data?.category.name.toLowerCase() ?? "food"} alternatives, ranked by similarity with rating counts and formula details.`,
-    `/us/${data?.category.slug ?? ""}${data && data.page > 1 ? `?page=${data.page}` : ""}`,
+    `/us/${data?.category.slug ?? ""}${data ? viewQuery(data.view, data.page) : ""}`,
     data?.origin ?? "https://veganalts.com",
     data?.staging ?? true,
   );
@@ -81,6 +89,63 @@ export default function Category({ loaderData: data }: Route.ComponentProps) {
         </section>
       )}
       {!!data.category.isRankable && (
+        <nav className="view-tabs" aria-label="Ranking view">
+          {(
+            [
+              ["top", "Top"],
+              ["trending", "Trending"],
+              ["new", "New"],
+            ] as const
+          ).map(([view, label]) => (
+            <Link
+              key={view}
+              to={`/us/${data.category.slug}${viewQuery(view, 1)}`}
+              aria-current={data.view === view ? "page" : undefined}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+      )}
+      {!!data.category.isRankable && data.view !== "top" && (
+        <>
+          <div className="ranking-heading">
+            <h2>
+              {data.view === "trending"
+                ? "Trending alternatives"
+                : "New alternatives"}
+            </h2>
+            <span>
+              {data.view === "trending"
+                ? "Unusual recent activity"
+                : "Added in the last 90 days"}
+            </span>
+          </div>
+          <p className="small muted">
+            {data.view === "trending"
+              ? "Trending reflects recent ratings, tries and discussion compared with the week before. It never changes the Top ranking."
+              : "Newly added products appear here before they have enough ratings to rank. Being new never raises a Top score."}
+          </p>
+          {data.discovery.length ? (
+            <ProductRows
+              products={data.discovery}
+              categoryId={data.category.id}
+            />
+          ) : (
+            <EmptyState
+              title={
+                data.view === "trending"
+                  ? "Nothing is trending right now."
+                  : "No new alternatives recently."
+              }
+            >
+              Check Top for the community’s long-term ranking.
+            </EmptyState>
+          )}
+          <Pagination page={data.page} hasNext={data.hasNext} />
+        </>
+      )}
+      {!!data.category.isRankable && data.view === "top" && (
         <>
           <div className="ranking-heading">
             <h2>

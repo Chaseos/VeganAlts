@@ -1871,3 +1871,31 @@ blockquote.comment-body {
 .photo-slots a.small {
   min-height: 24px;
 }
+/* Top / Trending / New */
+.view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 32px 0 0;
+}
+.view-tabs a {
+  border: 1px solid var(--line);
+  border-radius: 30px;
+  padding: 10px 18px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: #264b34;
+}
+.view-tabs a[aria-current="page"] {
+  background: #264b34;
+  border-color: #264b34;
+  color: #fff;
+}
+.discovery-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 32px;
+  margin-top: 48px;
+}

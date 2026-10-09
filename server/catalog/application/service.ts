@@ -1,5 +1,10 @@
 import { ApplicationError } from "../../shared/domain/errors";
-import type { CatalogRepository, ProductSummary } from "../domain/contracts";
+import type {
+  CatalogRepository,
+  CategoryView,
+  ProductSummary,
+} from "../domain/contracts";
+import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
 
 export const CATALOG_PAGE_SIZE = 20;
 
@@ -13,6 +18,11 @@ export function searchExpression(input: string) {
   };
 }
 
+export function categoryView(input: string | null): CategoryView {
+  if (input === null || input === "top") return "top";
+  if (input === "trending" || input === "new") return input;
+  throw new ApplicationError("INVALID_VIEW", "Choose Top, Trending or New.");
+}
 export function catalogPage(input: string | null) {
   if (input === null) return 1;
   if (!/^[1-9]\d{0,2}$/.test(input) || Number(input) > 100)
@@ -46,15 +56,22 @@ export class CatalogService {
     }));
   }
 
+  private newSince() {
+    return this.clock() - DEFAULT_TRENDING.newDays * 86_400_000;
+  }
   async home() {
-    const [categories, featured] = await Promise.all([
+    const [categories, featured, trending, newest] = await Promise.all([
       this.repository.categories(),
       this.repository.featuredCategories(),
+      this.repository.trending(null, 0, 6),
+      this.repository.newest(null, this.newSince(), 0, 6),
     ]);
     // Merchandising is configured data, independent of taxonomy depth.
     return {
       categories,
       featured: featured.length ? featured : categories.slice(0, 6),
+      trending: this.labelNew(trending),
+      newest: this.labelNew(newest),
     };
   }
   // A renamed or merged category's former slug. Callers redirect uncached.
@@ -62,10 +79,45 @@ export class CatalogService {
     return this.repository.categoryRedirect(slug);
   }
 
-  async category(slug: string, page = 1, unrankedPage = 1) {
+  async category(
+    slug: string,
+    page = 1,
+    unrankedPage = 1,
+    view: CategoryView = "top",
+  ) {
     const category = await this.repository.category(slug);
     if (!category)
       throw new ApplicationError("NOT_FOUND", "Category not found.", 404);
+    if (view !== "top") {
+      // Trending and New are separate discovery views; they never reorder Top.
+      const [rows, children] = await Promise.all([
+        view === "trending"
+          ? this.repository.trending(
+              category.id,
+              (page - 1) * CATALOG_PAGE_SIZE,
+              CATALOG_PAGE_SIZE + 1,
+            )
+          : this.repository.newest(
+              category.id,
+              this.newSince(),
+              (page - 1) * CATALOG_PAGE_SIZE,
+              CATALOG_PAGE_SIZE + 1,
+            ),
+        this.repository.categories(category.id),
+      ]);
+      return {
+        view,
+        category,
+        children,
+        ranked: [],
+        unranked: [],
+        discovery: this.labelNew(rows.slice(0, CATALOG_PAGE_SIZE)),
+        page,
+        unrankedPage: 1,
+        hasNext: rows.length > CATALOG_PAGE_SIZE,
+        hasNextUnranked: false,
+      };
+    }
     const [ranked, unranked, children] = await Promise.all([
       this.repository.rankings(
         category.id,
@@ -80,8 +132,10 @@ export class CatalogService {
       this.repository.categories(category.id),
     ]);
     return {
+      view,
       category,
       children,
+      discovery: [],
       ranked: this.labelNew(ranked.slice(0, CATALOG_PAGE_SIZE)),
       unranked: this.labelNew(unranked.slice(0, CATALOG_PAGE_SIZE)),
       page,

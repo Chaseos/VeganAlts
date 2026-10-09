@@ -3,7 +3,12 @@ import { Link } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader } from "@server/catalog/http/loader";
 import { ComingSoon } from "../components/coming-soon";
-import { CategoryCards, SearchForm, SiteShell } from "../components/catalog";
+import {
+  CategoryCards,
+  ProductRows,
+  SearchForm,
+  SiteShell,
+} from "../components/catalog";
 import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/home";
 
@@ -86,6 +91,25 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </div>
         <CategoryCards categories={loaderData.catalog.featured} />
       </section>
+      {(loaderData.catalog.trending.length > 0 ||
+        loaderData.catalog.newest.length > 0) && (
+        <div className="discovery-columns">
+          {loaderData.catalog.trending.length > 0 && (
+            <section aria-labelledby="trending-title">
+              <p className="eyebrow">Recent community activity</p>
+              <h2 id="trending-title">Trending now</h2>
+              <ProductRows products={loaderData.catalog.trending} />
+            </section>
+          )}
+          {loaderData.catalog.newest.length > 0 && (
+            <section aria-labelledby="new-title">
+              <p className="eyebrow">Added in the last 90 days</p>
+              <h2 id="new-title">New alternatives</h2>
+              <ProductRows products={loaderData.catalog.newest} />
+            </section>
+          )}
+        </div>
+      )}
       <section className="how-it-works" aria-label="How VeganAlts works">
         <div>
           <span>01 / DISCOVER</span>

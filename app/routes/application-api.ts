@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { catalogService } from "@server/catalog/infrastructure/composition";
-import { catalogPage } from "@server/catalog/application/service";
+import { catalogPage, categoryView } from "@server/catalog/application/service";
 import {
   ratingState,
   myRatings,
@@ -60,6 +60,7 @@ async function handle(request: Request, path: string) {
               slug,
               catalogPage(url.searchParams.get("page")),
               catalogPage(url.searchParams.get("unrankedPage")),
+              categoryView(url.searchParams.get("view")),
             ),
           );
         }

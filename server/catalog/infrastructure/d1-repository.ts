@@ -2,6 +2,7 @@ import { resolveCategoryRedirect } from "../../taxonomy/infrastructure/redirects
 import type {
   CatalogRepository,
   CategorySummary,
+  DiscoveryRow,
   FormulaSummary,
   ProductCategory,
   ProductDetails,
@@ -78,6 +79,47 @@ export class D1CatalogRepository implements CatalogRepository {
         )
         .bind(categoryId, limit, offset)
         .all<RankingRow>()
+    ).results;
+  }
+
+  // Trending reads the precomputed trends read model, never raw ratings.
+  async trending(categoryId: string | null, offset: number, limit: number) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount
+      FROM product_category_trends t JOIN product_versions v ON v.id=t.product_version_id AND v.is_current=1 ${productJoins}
+      JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=t.category_id AND pc.ranking_eligible=1
+      JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1
+      LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=t.category_id
+      WHERE ${categoryId ? "t.category_id=? AND" : ""} t.trending_score>0 AND ${eligible}
+      ${categoryId ? "" : "GROUP BY p.id"}
+      ORDER BY ${categoryId ? "t.trending_score" : "MAX(t.trending_score)"} DESC,p.id LIMIT ? OFFSET ?`,
+        )
+        .bind(...(categoryId ? [categoryId] : []), limit, offset)
+        .all<DiscoveryRow>()
+    ).results;
+  }
+
+  // New is chronological discovery of recently published, eligible products.
+  async newest(
+    categoryId: string | null,
+    since: number,
+    offset: number,
+    limit: number,
+  ) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount
+      FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
+      JOIN countries country ON country.id=p.country_id AND country.iso2='US' AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id
+      ${categoryId ? "JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=? AND pc.ranking_eligible=1 LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id" : ""}
+      WHERE p.published_at>=? AND ${eligible}
+      ORDER BY p.published_at DESC,p.id DESC LIMIT ? OFFSET ?`,
+        )
+        .bind(...(categoryId ? [categoryId] : []), since, limit, offset)
+        .all<DiscoveryRow>()
     ).results;
   }
 
