@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Form, data, redirect } from "react-router";
+import { Form, Link, data, redirect } from "react-router";
 import { useState } from "react";
 import { configuredProviders, getAuth } from "@server/auth/infrastructure/auth";
 import { requireSameOrigin } from "@server/shared/http/security";
@@ -152,6 +152,12 @@ export default function SignIn({
         >
           Continue browsing →
         </a>
+        <p className="small">
+          By continuing you agree to the{" "}
+          <Link to="/about/terms">terms and community guidelines</Link>. See how
+          we handle your data in the{" "}
+          <Link to="/about/privacy">privacy notice</Link>.
+        </p>
       </div>
     </SiteShell>
   );

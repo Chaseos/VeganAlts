@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { createBrowserSession } from "./session-fixture";
 
 test("submission renews consumed and rejected challenges across preflight, upload and finalization", async ({

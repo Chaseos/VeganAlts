@@ -13,6 +13,7 @@ import { SiteShell } from "../components/catalog";
 import {
   CommunityFeedback,
   CommunityControls,
+  GuidelinesNote,
   PhotoPicker,
   ManufacturerField,
 } from "../components/community-form";
@@ -196,9 +197,18 @@ export default function AddProduct({
         await navigate(`/us/products/${saved.slug}`);
         return;
       }
+      if (saved.decision === "BLOCKED") {
+        // A blocked receipt is closed; any revision starts a fresh submission.
+        setReceipt(null);
+        key.current = null;
+        uploaded.current.clear();
+        throw new Error(
+          saved.reasons?.join(" ") || "This submission cannot be accepted.",
+        );
+      }
       if (saved.decision === "NEEDS_CHANGES")
         throw new Error(
-          saved.reasons?.join(" ") ?? "Review the product details.",
+          `${saved.reasons?.join(" ") ?? "Review the product details."} Choose “Revise submission” to replace the photos.`,
         );
       setResult(receiptId);
       go(5);
@@ -213,6 +223,7 @@ export default function AddProduct({
             A clear package photo and ingredient evidence help everyone find a
             reliable alternative.
           </p>
+          <GuidelinesNote />
         </header>
         {followUp && (
           <aside className="community-panel" aria-label="Requested follow-up">
@@ -297,7 +308,8 @@ export default function AddProduct({
               <fieldset>
                 <legend>What does it replace?</legend>
                 <p className="small muted">
-                  Choose up to five appropriate categories.
+                  Choose up to five appropriate categories. Missing one?{" "}
+                  <Link to="/propose-category">Propose a category</Link>.
                 </p>
                 <div className="checkbox-grid">
                   {options.categories.map((c) => (

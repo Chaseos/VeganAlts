@@ -23,6 +23,11 @@
     "RANKING_PRIOR_STRENGTH": "10",
     "TURNSTILE_SITE_KEY": "",
     "COMMUNITY_LIMITS": "{}",
+    "MODERATION_PROVIDER": "fake",
+    "MODERATION_POLICY": "{}",
+    "PROPOSAL_AUTO_APPLY": "{}",
+    "PUBLIC_LAUNCH": "false",
+    "SUPPORT_CONTACT": "chaseosapps@gmail.com",
     "WEB_ANALYTICS_TOKEN": "",
   },
   "d1_databases": [
@@ -96,6 +101,22 @@
         "period": 60,
       },
     },
+    {
+      "name": "COMMENT_RATE_LIMIT",
+      "namespace_id": "1791141071",
+      "simple": {
+        "limit": 10,
+        "period": 60,
+      },
+    },
+    {
+      "name": "VOTE_RATE_LIMIT",
+      "namespace_id": "1791141081",
+      "simple": {
+        "limit": 60,
+        "period": 60,
+      },
+    },
   ],
   "env": {
     "staging": {
@@ -163,6 +184,22 @@
             "period": 60,
           },
         },
+        {
+          "name": "COMMENT_RATE_LIMIT",
+          "namespace_id": "1791141072",
+          "simple": {
+            "limit": 10,
+            "period": 60,
+          },
+        },
+        {
+          "name": "VOTE_RATE_LIMIT",
+          "namespace_id": "1791141082",
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
       ],
       "vars": {
         "APP_ENV": "staging",
@@ -172,6 +209,11 @@
         "RANKING_PRIOR_STRENGTH": "10",
         "TURNSTILE_SITE_KEY": "0x4AAAAAAFOv4TTVy40p3IOo",
         "COMMUNITY_LIMITS": "{}",
+        "MODERATION_PROVIDER": "clef",
+        "MODERATION_POLICY": "{}",
+        "PROPOSAL_AUTO_APPLY": "{\"minAgeHours\":1}",
+        "PUBLIC_LAUNCH": "false",
+        "SUPPORT_CONTACT": "chaseosapps@gmail.com",
         "WEB_ANALYTICS_TOKEN": "e7dbbaef8ad448a6bc2cb6e9ff38f8b3",
       },
       "d1_databases": [
@@ -188,6 +230,9 @@
           "bucket_name": "veganalts-media-staging",
         },
       ],
+      "ai": {
+        "binding": "AI",
+      },
       "images": {
         "binding": "IMAGES",
       },
@@ -294,6 +339,22 @@
             "period": 60,
           },
         },
+        {
+          "name": "COMMENT_RATE_LIMIT",
+          "namespace_id": "1791141073",
+          "simple": {
+            "limit": 10,
+            "period": 60,
+          },
+        },
+        {
+          "name": "VOTE_RATE_LIMIT",
+          "namespace_id": "1791141083",
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
       ],
       "vars": {
         "APP_ENV": "production",
@@ -303,6 +364,11 @@
         "RANKING_PRIOR_STRENGTH": "10",
         "TURNSTILE_SITE_KEY": "",
         "COMMUNITY_LIMITS": "{}",
+        "MODERATION_PROVIDER": "disabled",
+        "MODERATION_POLICY": "{}",
+        "PROPOSAL_AUTO_APPLY": "{}",
+        "PUBLIC_LAUNCH": "false",
+        "SUPPORT_CONTACT": "chaseosapps@gmail.com",
         "WEB_ANALYTICS_TOKEN": "",
       },
       "d1_databases": [
@@ -319,6 +385,9 @@
           "bucket_name": "veganalts-media-production",
         },
       ],
+      "ai": {
+        "binding": "AI",
+      },
       "images": {
         "binding": "IMAGES",
       },

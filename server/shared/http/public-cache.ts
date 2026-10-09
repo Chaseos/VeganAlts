@@ -1,7 +1,16 @@
 import { ApplicationError } from "../domain/errors";
 
 export interface PublicRoute {
-  kind: "home" | "search" | "category" | "product" | "profile" | "media";
+  kind:
+    | "home"
+    | "search"
+    | "category"
+    | "product"
+    | "comments"
+    | "profile"
+    | "policy"
+    | "sitemap"
+    | "media";
   representation: "document" | "data" | "api" | "image";
   pathname: string;
   ttl: number;
@@ -48,11 +57,20 @@ export function publicRoute(url: URL): PublicRoute | null {
   };
   if (path === "/" || path === "/api/v1/categories")
     return { ...canonical, kind: "home", ttl: 1800 };
+  if (path === "/sitemap.xml")
+    return { ...canonical, kind: "sitemap", ttl: 3600 };
+  const policy = path.match(/^\/about\/([a-z-]+)$/);
+  // Policies change rarely and are long-lived.
+  if (policy)
+    return { ...canonical, kind: "policy", ttl: 86400, slug: policy[1] };
   if (path === "/us/search" || path === "/api/v1/search")
     return { ...canonical, kind: "search", ttl: 600 };
-  let match = path.match(
-    /^\/(?:us\/products|api\/v1\/products)\/([a-z0-9-]+)$/,
-  );
+  let match = data
+    ? null
+    : path.match(/^\/api\/v1\/products\/([a-z0-9-]+)\/comments$/);
+  // Comment pages share the product's purge tag and refresh within a minute.
+  if (match) return { ...canonical, kind: "comments", ttl: 60, slug: match[1] };
+  match = path.match(/^\/(?:us\/products|api\/v1\/products)\/([a-z0-9-]+)$/);
   if (match) return { ...canonical, kind: "product", ttl: 900, slug: match[1] };
   match = path.match(/^\/(?:users|api\/v1\/profiles)\/([a-z0-9_]+)$/);
   if (match) return { ...canonical, kind: "profile", ttl: 600, slug: match[1] };
@@ -87,10 +105,12 @@ export function normalizedPublicRequest(
     route.kind === "search"
       ? ["q"]
       : route.kind === "category"
-        ? ["page", "unrankedPage"]
+        ? ["page", "unrankedPage", "view"]
         : route.kind === "product"
           ? ["version"]
-          : [];
+          : route.kind === "comments"
+            ? ["sort", "formula", "cursor"]
+            : [];
   if (route.representation === "data") keys.push("_routes");
   for (const key of keys) {
     const values = incoming.searchParams.getAll(key);
@@ -101,7 +121,16 @@ export function normalizedPublicRequest(
       );
     let value = values[0];
     if (!value) continue;
-    if (value.length > (key === "_routes" ? 1000 : key === "q" ? 80 : 100))
+    if (
+      value.length >
+      (key === "_routes"
+        ? 1000
+        : key === "q"
+          ? 80
+          : key === "cursor"
+            ? 300
+            : 100)
+    )
       throw new ApplicationError("INVALID_QUERY", "The query is too long.");
     if (key === "q") value = value.normalize("NFKC").trim();
     if (key === "_routes")
@@ -130,10 +159,11 @@ export function normalizedPublicRequest(
 export const edgeCacheControl = (ttl: number) =>
   `public, max-age=${ttl}, stale-while-revalidate=60, stale-if-error=86400`;
 export function publicCacheTags(route: PublicRoute) {
+  const owner = route.kind === "comments" ? "product" : route.kind;
   return [
     "catalog:US",
     `surface:${route.kind}`,
-    ...(route.slug ? [`${route.kind}:${route.slug}`] : []),
+    ...(route.slug ? [`${owner}:${route.slug}`] : []),
   ];
 }
 

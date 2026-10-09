@@ -1,5 +1,5 @@
 import { ApplicationError } from "../../shared/domain/errors";
-import type { Actor, SubmissionReceipt } from "../domain/contracts";
+import type { Actor, ReviewKind, SubmissionReceipt } from "../domain/contracts";
 import {
   contributorProduct,
   type CatalogPatch,
@@ -26,11 +26,81 @@ export class QueueDecisionRepository {
   private get db() {
     return this.repository.db;
   }
-  async detail(
-    kind: "submission" | "report" | "proposal",
+  /** Operator-only view of the latest automated decision for a subject. */
+  async automated(
+    subjectType:
+      "submission" | "edit_proposal" | "comment" | "category_proposal",
     id: string,
     actor: Actor,
   ) {
+    if (!actor.administrator) return null;
+    const row = await this.db
+      .prepare(
+        "SELECT status,outcome,provider,model,result_data,error_code,created_at FROM moderation_decisions WHERE subject_type=? AND subject_id=? AND status<>'reserved' ORDER BY created_at DESC, id DESC LIMIT 1",
+      )
+      .bind(subjectType, id)
+      .first<{
+        status: string;
+        outcome: string | null;
+        provider: string;
+        model: string;
+        result_data: string | null;
+        error_code: string | null;
+        created_at: number;
+      }>();
+    if (!row) return null;
+    const result = row.result_data
+      ? (JSON.parse(row.result_data) as {
+          answers: Record<
+            string,
+            { option: string; probabilities: Record<string, number> }
+          >;
+          flags: string[];
+        })
+      : null;
+    return {
+      status: row.status,
+      outcome: row.outcome,
+      model: row.model,
+      errorCode: row.error_code,
+      createdAt: row.created_at,
+      flags: result?.flags ?? [],
+      answers: Object.entries(result?.answers ?? {}).map(([question, a]) => ({
+        question,
+        option: a.option,
+        // Clef's separate confidence score is a margin, not a likelihood, so
+        // reviewers see the chosen option's probability instead.
+        probability: a.probabilities[a.option] ?? 0,
+      })),
+    };
+  }
+  async detail(kind: ReviewKind, id: string, actor: Actor) {
+    // Category proposals belong to the taxonomy module's review.
+    if (kind === "category")
+      throw new ApplicationError("NOT_FOUND", "Contribution not found.", 404);
+    if (kind === "comment") {
+      const row = actor.administrator
+        ? await this.repository.comment(id)
+        : null;
+      if (!row)
+        throw new ApplicationError("NOT_FOUND", "Comment not found.", 404);
+      return {
+        kind,
+        id,
+        status: row.deleted_at ? "deleted" : row.moderation_state,
+        revision: row.updated_at,
+        proposed: { body: row.body, author: row.handle },
+        referenceLabels: {} as Record<string, string>,
+        resolutionNote: null,
+        evidenceReceiptId: null,
+        images: [],
+        automated: await this.automated("comment", id, actor),
+        product: this.visibleProduct(
+          await this.repository.snapshot(row.product_id),
+          actor,
+        ),
+      };
+    }
     if (kind === "submission") {
       const row = await this.db
         .prepare(
@@ -73,6 +143,7 @@ export class QueueDecisionRepository {
         resolutionNote: row.resolution_note,
         evidenceReceiptId: row.id,
         images: await this.privateImages(row.id),
+        automated: await this.automated("submission", id, actor),
         productId: row.product_id,
         publishedProduct: row.product_id
           ? await this.db
@@ -110,6 +181,7 @@ export class QueueDecisionRepository {
         images: evidenceReceiptId
           ? await this.privateImages(evidenceReceiptId)
           : [],
+        automated: await this.automated("edit_proposal", id, actor),
         product,
       };
     }
@@ -139,6 +211,19 @@ export class QueueDecisionRepository {
       resolutionNote: row.resolution_note,
       product,
       referenceLabels: await this.referenceLabels(null, product),
+      // Operators see the reported comment's text to judge it.
+      reportedComment:
+        actor.administrator && row.target_type === "comment"
+          ? await this.repository.comment(row.target_id).then((c) =>
+              c
+                ? {
+                    body: c.body,
+                    author: c.handle,
+                    state: c.moderation_state,
+                  }
+                : null,
+            )
+          : null,
     };
   }
   private visibleProduct(

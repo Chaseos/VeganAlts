@@ -1,3 +1,4 @@
+import { catalogIsPublic } from "../../shared/domain/launch";
 import { ApplicationError } from "../../shared/domain/errors";
 
 export async function publicLoader<T>(work: () => Promise<T>) {
@@ -10,7 +11,9 @@ export async function publicLoader<T>(work: () => Promise<T>) {
   }
 }
 
-export function requireCatalogPreview(environment: string) {
-  if (environment === "production")
-    throw new Response("Not found", { status: 404 });
+export function requireCatalogPreview(env: {
+  APP_ENV: string;
+  PUBLIC_LAUNCH?: string;
+}) {
+  if (!catalogIsPublic(env)) throw new Response("Not found", { status: 404 });
 }

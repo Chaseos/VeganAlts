@@ -1,3 +1,4 @@
+import { catalogIsPublic, robotsTxt } from "../server/shared/domain/launch";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { createRequestHandler } from "react-router";
 import {
@@ -101,11 +102,16 @@ export default {
           { status: "ok" },
           { headers: { "Cache-Control": "no-store" } },
         );
+      else if (url.pathname === "/robots.txt")
+        response = new Response(robotsTxt(env), {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
       else if (
         url.pathname.startsWith("/assets/") ||
-        ["/favicon.svg", "/social.png", "/social.svg", "/robots.txt"].includes(
-          url.pathname,
-        ) ||
+        ["/favicon.svg", "/social.png", "/social.svg"].includes(url.pathname) ||
         (import.meta.env.DEV &&
           /^\/(?:@vite\/|@react-router\/|@react-refresh|@id\/|@fs\/|node_modules\/|app\/|server\/)/.test(
             url.pathname,
@@ -117,7 +123,7 @@ export default {
           await enforceLimit(env.AUTH_RATE_LIMIT, `ip:${clientKey(request)}`);
         if (route && ["GET", "HEAD"].includes(request.method)) {
           if (
-            env.APP_ENV === "production" &&
+            !catalogIsPublic(env) &&
             route.kind !== "media" &&
             !["/", "/_root.data"].includes(url.pathname)
           )
@@ -224,6 +230,15 @@ export default {
     } catch {
       console.error(JSON.stringify({ event: "community_recovery_failed" }));
       failed.push("community");
+    }
+    try {
+      const { runAutomation } = await import("../server/automation/hourly");
+      const result = await runAutomation(env);
+      console.log(JSON.stringify({ event: "automation", ...result }));
+      if (result.failed.length) failed.push("automation");
+    } catch {
+      console.error(JSON.stringify({ event: "automation_failed" }));
+      failed.push("automation");
     }
     if (failed.length)
       throw new Error(`Scheduled recovery failed: ${failed.join(", ")}.`);

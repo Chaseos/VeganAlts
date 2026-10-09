@@ -26,6 +26,12 @@ Use Node 24 LTS and the committed npm lockfile. Wrangler authentication is requi
 8. `0007_staged_byte_accounting.sql` — per-upload staged byte accounting.
 9. `0008_submission_followups.sql` — durable links between an original submission and its revised receipt.
 10. `0009_proposal_baselines.sql` — the catalog facts each proposal was drafted against.
+11. `0010_moderation_decisions.sql` — automated decision records, budgets and leases.
+12. `0011_comment_votes.sql` — comment rebuild with usefulness votes. It refuses to run unless the old comment tables are empty; the `db:migrate:*` preflight checks this first.
+13. `0012_system_actor.sql` — the `veganalts-system` account used for audited automatic decisions. It has no sign-in method.
+14. `0013_proposal_confidence.sql` — proposal response counts and confidence.
+15. `0014_category_taxonomy.sql` — category proposals, slug history, transfer-merge ledgers and homepage features.
+16. `0015_trending_reads.sql` — the Trending read model and New/Trending indexes.
 
 Check exact filenames in the directory before operating. Applied migrations are append-only. Generate future schema changes with `npm run db:generate`, inspect generated SQL, and add reviewed custom SQL for unsupported constructs. Better Auth schema generation uses `npm run auth:schema`; diff its output before creating any migration. Never run the reference baseline in addition to the migration history.
 
@@ -43,6 +49,8 @@ npx wrangler d1 execute DB --remote --config wrangler.jsonc --env staging --comm
 ```
 
 The approved milestone 2 seed uses deterministic IDs for 31 products, ten categories, 28 explicitly labeled demo tasters and sample contributions. Re-running it inserts missing fixtures and updates only approved development classification/notice fields and the old development formula label. It preserves real accounts/contributions, formula transitions and historical verification records, and rebuilds aggregates and FTS after seeding. Demo images use stable upload keys through the normal processing pipeline, so completed retries do not transform again. Every catalog record is development-only; images/formula history/sample ratings are illustrative, not verified manufacturer claims or organic community feedback. Never seed production. Product names/source references are in `db/seed/catalog.ts`; verify labels and market/formula data before promoting records into a public catalog.
+
+Milestone 4 adds a taxonomy-only seed that is safe outside development: `npm run taxonomy:seed:<env>` inserts the reviewed categories, aliases and homepage features from `db/seed/taxonomy.ts` and leaves existing rows alone. Production additionally requires `-- --confirm-taxonomy-only`. After any seed or repair, `npm run rankings:rebuild:<env>` rebuilds aggregates, daily statistics and Trending.
 
 Production migrations precede deployment of code requiring them:
 
@@ -153,3 +161,11 @@ Review account usage before enabling public contributions or increasing these li
 Current provider documentation: [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/), [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [R2 pricing](https://developers.cloudflare.com/r2/pricing/), [Images pricing](https://developers.cloudflare.com/images/pricing/), [DNS migration](https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/), and [Apple authentication](https://better-auth.com/docs/authentication/apple).
 
 Milestone 3 contribution limits, private staging, review decisions, reversals and bounded cleanup are documented in [community catalog operations](community-catalog.md).
+
+## Milestone 4 operations
+
+- **Automated moderation.** `MODERATION_PROVIDER` is `clef` on staging and `disabled` in production until launch. `MODERATION_POLICY` holds the daily, per-account and concurrency budgets and the decision thresholds. Failures, timeouts, rate limits and an exhausted budget all route items to operator review. `npm run moderation:calibrate` re-runs the labeled calibration set against real Clef (it consumes Workers AI tokens).
+- **Hourly automation.** The scheduled handler expires decision leases, re-evaluates held comments, auto-accepts eligible proposals, continues unfinished category merges and recomputes Trending. Each step logs `automation` with counts and fails independently.
+- **Launch gate.** `PUBLIC_LAUNCH` controls whether production serves the catalog. `robots.txt` is generated per environment: staging disallows everything, production lists the sitemap once launched.
+- **Checks.** `npx tsx scripts/verify-staging-public.ts` (add `--load` for a two-minute anonymous load test), `npx tsx scripts/verify-backup-staging.ts --staging` and `npx tsx scripts/audit-launch-dataset.ts <env>` are read-only and write evidence under `test-results/milestone-4/`.
+- [Backup and recovery](backup-recovery.md) and the [launch checklist](launch-checklist.md) cover restores and the production cutover.

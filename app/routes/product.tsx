@@ -13,12 +13,16 @@ import {
   NewProductBadge,
 } from "../components/catalog";
 import { RatingControl } from "../components/rating-control";
-import { publicMetadata } from "../lib/metadata";
+import { CommentSection } from "../components/comments/comment-section";
+import { ProposalResponses } from "../components/proposal-responses";
+import { PhotoSlots } from "../components/photo-slots";
+import { commentServices } from "@server/comments/infrastructure/composition";
+import { breadcrumbs, publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/product";
 import { dateLabel, friendly } from "../lib/community";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  requireCatalogPreview(env.APP_ENV);
+  requireCatalogPreview(env);
   const canonical = await catalogService(env).canonicalRedirect(
     params.productSlug,
   );
@@ -32,24 +36,46 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       params.productSlug,
       new URL(request.url).searchParams.get("version"),
     ),
+    // The first Best page is crawler-visible and shares the product cache.
+    comments: await commentServices(env).page(
+      params.productSlug,
+      "best",
+      "current",
+      null,
+    ),
     origin: env.APP_URL,
     staging: env.APP_ENV !== "production",
   }));
 }
 export function meta({ loaderData: data }: Route.MetaArgs) {
   const p = data?.product;
-  return publicMetadata(
-    p
-      ? `${p.name}${p.formula.isCurrent ? "" : " · Formula history"}`
-      : "Product",
-    `Explore ${p?.name ?? "this vegan alternative"}, its category scores, formula history and community experience.`,
-    `/us/products/${p?.slug ?? ""}${p && !p.formula.isCurrent ? `?version=${p.versionId}` : ""}`,
-    data?.origin ?? "https://veganalts.com",
-    data?.staging ?? true,
-  );
+  const origin = data?.origin ?? "https://veganalts.com";
+  const category = p?.categories.find((c) => c.isActive);
+  return [
+    ...publicMetadata(
+      p
+        ? `${p.name}${p.formula.isCurrent ? "" : " · Formula history"}`
+        : "Product",
+      `Explore ${p?.name ?? "this vegan alternative"}, its category scores, formula history and community experience.`,
+      `/us/products/${p?.slug ?? ""}${p && !p.formula.isCurrent ? `?version=${p.versionId}` : ""}`,
+      origin,
+      data?.staging ?? true,
+    ),
+    ...(p
+      ? [
+          breadcrumbs(origin, [
+            { name: "Home", path: "/" },
+            ...(category
+              ? [{ name: category.name, path: `/us/${category.slug}` }]
+              : []),
+            { name: p.name, path: `/us/products/${p.slug}` },
+          ]),
+        ]
+      : []),
+  ];
 }
 export default function Product({
-  loaderData: { product: p },
+  loaderData: { product: p, comments },
 }: Route.ComponentProps) {
   return (
     <SiteShell>
@@ -160,6 +186,14 @@ export default function Product({
             </article>
           ))}
           <RankingExplanation />
+          <CommentSection
+            key={p.id}
+            productSlug={p.slug}
+            categories={p.categories
+              .filter((c) => c.isActive)
+              .map((c) => ({ id: c.id, name: c.name }))}
+            initial={comments}
+          />
         </section>
         <aside className="product-facts">
           <h2>About this product</h2>
@@ -209,6 +243,7 @@ export default function Product({
               )}
             </section>
           )}
+          {p.formula.isCurrent ? <ProposalResponses productId={p.id} /> : null}
           <section id="retailers">
             <h2>Commonly found at</h2>
             <p className="small muted">
@@ -302,38 +337,14 @@ export default function Product({
             </ul>
             <p className="small muted">{p.formula.changeSummary}</p>
           </section>
-          {p.images.filter((i) => i.slot !== "front").length > 0 && (
-            <section>
-              <h2>Product images</h2>
-              <div className="evidence-images">
-                {p.images
-                  .filter((i) => i.slot !== "front")
-                  .map((i) => (
-                    <div key={i.id}>
-                      <a
-                        href={`/media/${i.id}/${i.hasEvidence ? "evidence" : "full"}`}
-                        key={i.id}
-                      >
-                        <img
-                          src={`/media/${i.id}/thumbnail`}
-                          alt={`${p.name}: ${i.slot}`}
-                          width="100"
-                          height="100"
-                          loading="lazy"
-                        />
-                        {i.slot}
-                      </a>
-                      <Link
-                        className="small"
-                        to={`/contribute/${p.id}?action=report&image=${i.id}`}
-                      >
-                        Report photo
-                      </Link>
-                    </div>
-                  ))}
-              </div>
-            </section>
-          )}
+          <PhotoSlots
+            productId={p.id}
+            productName={p.name}
+            images={p.images}
+            canPropose={
+              Boolean(p.formula.isCurrent) && p.lifecycleStatus !== "hidden"
+            }
+          />
         </aside>
       </div>
     </SiteShell>

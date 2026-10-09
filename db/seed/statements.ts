@@ -13,6 +13,7 @@ import {
   seedProducts,
   SOURCE_CHECKED_AT,
 } from "./catalog";
+import { TAXONOMY_PARENTS } from "./taxonomy";
 
 export interface SeedStatement {
   sql: string;
@@ -57,12 +58,7 @@ export function developmentSeedStatements(
       })
       .onConflictDoNothing(),
   );
-  for (const [key, name, parent] of [
-    ["food", "Food", null],
-    ["meat", "Meat", "food"],
-    ["dairy", "Dairy", "food"],
-    ["cheese", "Cheese", "dairy"],
-  ] as const) {
+  for (const { slug: key, name, parent } of TAXONOMY_PARENTS) {
     add(
       db
         .insert(schema.categories)

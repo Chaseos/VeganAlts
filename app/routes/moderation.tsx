@@ -5,6 +5,9 @@ import { z } from "zod";
 import { communityPageActor } from "@server/community/http/page";
 import { parse } from "@server/community/http/handlers";
 import { communityServices } from "@server/community/infrastructure/composition";
+import { inboxFilter, reviewKind } from "@server/community/domain/contracts";
+import { taxonomyServices } from "@server/taxonomy/infrastructure/composition";
+import { CategoryReview } from "../components/category-review";
 import type { ProductSnapshot } from "@server/community/domain/moderation";
 import { hasCatalogChanges } from "@server/community/domain/change-policy";
 import { SiteShell, EmptyState } from "../components/catalog";
@@ -58,20 +61,37 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       donor: url.searchParams.get("donor") ?? "",
     };
   }
+  if (kind === "category" && id) {
+    const taxonomy = taxonomyServices(env);
+    return {
+      ...common,
+      view: "category" as const,
+      category: await taxonomy.proposalDetail(actor, id),
+      checks: await services.moderation.categoryChecks(actor, id),
+      categories: (await taxonomy.tree(actor)).categories.filter(
+        (c) => c.isActive,
+      ),
+    };
+  }
   if (kind && id)
     return {
       ...common,
       view: "detail" as const,
       detail: await services.moderation.detail(
         actor,
-        parse(z.enum(["submission", "proposal", "report"]), kind),
+        parse(reviewKind, kind),
         id,
       ),
     };
   return {
     ...common,
     view: "inbox" as const,
-    ...(await services.moderation.inbox(actor, url.searchParams.get("cursor"))),
+    filter: parse(inboxFilter, url.searchParams.get("filter") ?? "all"),
+    ...(await services.moderation.inbox(
+      actor,
+      url.searchParams.get("cursor"),
+      parse(inboxFilter, url.searchParams.get("filter") ?? "all"),
+    )),
   };
 }
 export function meta() {
@@ -163,6 +183,10 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
       await revalidator.revalidate();
     });
   }
+  const reversing =
+    data.view === "product"
+      ? data.actions.find((a) => a.id === reverseId)
+      : undefined;
   const reported =
     data.view === "detail" && data.detail.kind === "report"
       ? (data.detail.proposed as {
@@ -177,6 +201,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         <nav className="breadcrumbs" aria-label="Moderation navigation">
           <Link to="/admin/moderation">Review inbox</Link>
           <Link to="/admin/moderation/consolidate">Consolidate duplicates</Link>
+          <Link to="/admin/taxonomy">Taxonomy</Link>
           <Link to="/my-contributions">My contributions</Link>
         </nav>
         <header className="page-heading">
@@ -197,6 +222,29 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         </header>
         {data.view === "inbox" && (
           <>
+            <nav className="contribution-tabs" aria-label="Inbox filter">
+              {(
+                [
+                  ["all", "Everything"],
+                  ["confirmation", "Awaiting confirmation"],
+                  ["high_risk", "High risk"],
+                  ["comments", "Held comments"],
+                  ["flagged", "Automated signals"],
+                ] as const
+              ).map(([value, label]) => (
+                <Link
+                  key={value}
+                  to={
+                    value === "all"
+                      ? "/admin/moderation"
+                      : `/admin/moderation?filter=${value}`
+                  }
+                  aria-current={data.filter === value ? "page" : undefined}
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
             {data.items.length ? (
               <ul className="contribution-list">
                 {data.items.map((item) => (
@@ -212,6 +260,16 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                         ? "Ingredient priority"
                         : friendly(item.status)}
                     </span>
+                    {item.tier !== null && (
+                      <span className="small muted">
+                        Tier {item.tier} · {item.confirms} confirm
+                        {item.confirms === 1 ? "" : "s"} · {item.disagrees}{" "}
+                        disagree
+                      </span>
+                    )}
+                    {item.flagged === 1 && (
+                      <span className="small">Automated signal</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -222,11 +280,22 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
             )}
             {data.nextCursor && (
               <Link
-                to={`/admin/moderation?cursor=${encodeURIComponent(data.nextCursor)}`}
+                to={`/admin/moderation?${new URLSearchParams({ ...(data.filter === "all" ? {} : { filter: data.filter }), cursor: data.nextCursor })}`}
               >
                 Next reviews →
               </Link>
             )}
+          </>
+        )}
+        {data.view === "category" && (
+          <>
+            <CategoryReview
+              detail={data.category}
+              checks={data.checks}
+              categories={data.categories}
+              action={action}
+            />
+            <CommunityFeedback action={action} siteKey={data.siteKey} />
           </>
         )}
         {data.view === "detail" && (
@@ -258,7 +327,12 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                 <form className="community-form" onSubmit={decide}>
                   <label htmlFor="decision">Decision</label>
                   <select id="decision" name="decision">
-                    {data.detail.kind === "report" ? (
+                    {data.detail.kind === "comment" ? (
+                      <>
+                        <option value="accept">Publish comment</option>
+                        <option value="reject">Hide comment</option>
+                      </>
+                    ) : data.detail.kind === "report" ? (
                       <>
                         <option value="resolve">Resolve concern</option>
                         <option value="dismiss">Dismiss report</option>
@@ -269,9 +343,11 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                         <option value="reject">Reject contribution</option>
                       </>
                     )}
-                    <option value="follow_up">
-                      Request follow-up evidence
-                    </option>
+                    {data.detail.kind !== "comment" && (
+                      <option value="follow_up">
+                        Request follow-up evidence
+                      </option>
+                    )}
                   </select>
                   {data.detail.kind === "submission" && (
                     <>
@@ -320,11 +396,22 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                             Remove photo from public view
                           </option>
                         )}
+                        {reported.targetType === "comment" && (
+                          <option value="hide_comment">
+                            Hide comment from public view
+                          </option>
+                        )}
                       </select>
                       {effect === "under_review" && (
                         <p className="notice">
                           This removes active ranking eligibility and prevents
                           new ratings until the concern is resolved.
+                        </p>
+                      )}
+                      {effect === "hide_comment" && (
+                        <p className="notice">
+                          The comment is collapsed from public view. Its text,
+                          votes and audit history remain recoverable.
                         </p>
                       )}
                       {effect === "remove_image" && (
@@ -498,6 +585,12 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
             {reverseId && (
               <form className="community-form" onSubmit={reverse}>
                 <h3>Reverse the selected catalog decision</h3>
+                {reversing && (
+                  <p>
+                    <strong>{friendly(reversing.kind)}</strong> ·{" "}
+                    {dateLabel(reversing.created_at)}: {reversing.note}
+                  </p>
+                )}
                 <label htmlFor="reverse-note">Reason for reversal</label>
                 <textarea
                   id="reverse-note"

@@ -7,6 +7,7 @@ import { v7 as uuid } from "uuid";
 import { RatingsService } from "../server/ratings/application/service";
 import { D1RatingsRepository } from "../server/ratings/infrastructure/d1-repository";
 import { validateRankingParameters } from "../server/ranking/domain/policy";
+import { trendingService } from "../server/ranking/infrastructure/trending-composition";
 
 const environment = process.argv[2];
 if (!["local", "staging", "production"].includes(environment ?? ""))
@@ -51,7 +52,14 @@ try {
       rebuilt += page.rebuilt;
       cursor = page.next;
     } while (cursor);
-    console.log(JSON.stringify({ environment, rebuilt }));
+    // Daily statistics and Trending are derived too; rebuild them afterwards.
+    const trending = await trendingService({
+      DB: proxy.env.DB,
+      RANKING_PRIOR_MEAN: target.vars.RANKING_PRIOR_MEAN,
+      RANKING_PRIOR_STRENGTH: target.vars.RANKING_PRIOR_STRENGTH,
+      RANKING_TRENDING: target.vars.RANKING_TRENDING,
+    } as Parameters<typeof trendingService>[0]).rebuild();
+    console.log(JSON.stringify({ environment, rebuilt, trending }));
   } finally {
     await proxy.dispose();
   }

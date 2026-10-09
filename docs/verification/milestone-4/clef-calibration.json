@@ -1,0 +1,863 @@
+{
+  "at": "2026-10-08T23:29:06.084Z",
+  "tokens": 24342,
+  "results": [
+    {
+      "case": "detailed opinion",
+      "kind": "comment",
+      "model": "@cf/cloudflare/clef-flash",
+      "expected": [
+        "READY"
+      ],
+      "outcome": "READY",
+      "match": true,
+      "flags": [],
+      "latencyMs": 575,
+      "inputTokens": 640,
+      "answers": {
+        "relevance": {
+          "RELEVANT": 0.914,
+          "PARTIALLY_RELEVANT": 0.053,
+          "IRRELEVANT": 0.033
+        },
+        "commercial_intent": {
+          "NONE": 0.972,
+          "POSSIBLE": 0.025,
+          "LIKELY": 0.003
+        },
+        "duplicate_content": {
+          "YES": 0.734,
+          "NO": 0.155,
+          "UNCLEAR": 0.111
+        },
+        "safety": {
+          "SAFE": 0.998,
+          "UNSAFE": 0.002
+        },
+        "recommended_action": {
+          "ALLOW": 0.935,
+          "HOLD": 0.023,
+          "REJECT_SPAM": 0.042
+        }
+      }
+    },
+    {
+      "case": "short opinion",
+      "kind": "comment",
+      "model": "@cf/cloudflare/clef-flash",
+      "expected": [
+        "READY"
+      ],
+      "outcome": "READY",
+      "match": true,
+      "flags": [],
+      "latencyMs": 360,
+      "inputTokens": 621,
+      "answers": {
+        "relevance": {
+          "RELEVANT": 0.492,
+          "PARTIALLY_RELEVANT": 0.24,
+          "IRRELEVANT": 0.268
+        },
+        "commercial_intent": {
+          "NONE": 0.78,
+          "POSSIBLE": 0.18,
+          "LIKELY": 0.041
+        },
+        "duplicate_content": {
+          "YES": 0.177,
+          "NO": 0.549,
+          "UNCLEAR": 0.274
+        },
+        "safety": {
+          "SAFE": 0.997,
+          "UNSAFE": 0.003
+        },
+        "recommended_action": {
+          "ALLOW": 0.763,
+          "HOLD": 0.048,
+          "REJECT_SPAM": 0.189
+        }
+      }
+    },
+    {
+      "case": "negative opinion",
+      "kind": "comment",
+      "model": "@cf/cloudflare/clef-flash",
+      "expected": [
+        "READY"
+      ],
+      "outcome": "READY",
+      "match": true,
+      "flags": [],
+      "latencyMs": 214,
+      "inputTokens": 632,
+      "answers": {
+        "relevance": {
+          "RELEVANT": 0.873,
+          "PARTIALLY_RELEVANT": 0.06,
+          "IRRELEVANT": 0.068
+        },
+        "commercial_intent": {
+          "NONE": 0.991,
+          "POSSIBLE": 0.007,
+          "LIKELY": 0.002
+        },
+        "duplicate_content": {
+          "YES": 0.042,
+          "NO": 0.773,
+          "UNCLEAR": 0.185
+        },
+        "safety": {
+          "SAFE": 0.997,
+          "UNSAFE": 0.003
+        },
+        "recommended_action": {
+          "ALLOW": 0.902,
+          "HOLD": 0.035,
+          "REJECT_SPAM": 0.063
+        }
+      }
+    },
+    {
+      "case": "discount spam",
+      "kind": "comment",
+      "model": "@cf/cloudflare/clef-flash",
+      "expected": [
+        "NEEDS_REVIEW",
+        "BLOCKED"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "match": true,
+      "flags": [
+        "commercial",
+        "off_topic",
+        "held"
+      ],
+      "latencyMs": 300,
+      "inputTokens": 643,
+      "answers": {
+        "relevance": {
+          "RELEVANT": 0.045,
+          "PARTIALLY_RELEVANT": 0.12,
+          "IRRELEVANT": 0.835
+        },
+        "commercial_intent": {
+          "NONE": 0.024,
+          "POSSIBLE": 0.064,
+          "LIKELY": 0.912
+        },
+        "duplicate_content": {
+          "YES": 0.008,
+          "NO": 0.923,
+          "UNCLEAR": 0.069
+        },
+        "safety": {
+          "SAFE": 0.998,
+          "UNSAFE": 0.003
+        },
+        "recommended_action": {
+          "ALLOW": 0.029,
+          "HOLD": 0.069,
+          "REJECT_SPAM": 0.902
+        }
+      }
+    },
+    {
+      "case": "crypto spam",
+      "kind": "comment",
+      "model": "@cf/cloudflare/clef-flash",
+      "expected": [
+        "NEEDS_REVIEW",
+        "BLOCKED"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "match": true,
+      "flags": [
+        "commercial",
+        "off_topic",
+        "held"
+      ],
+      "latencyMs": 193,
+      "inputTokens": 634,
+      "answers": {
+        "relevance": {
+          "RELEVANT": 0.007,
+          "PARTIALLY_RELEVANT": 0.009,
+          "IRRELEVANT": 0.984
+        },
+        "commercial_intent": {
+          "NONE": 0.049,
+          "POSSIBLE": 0.069,
+          "LIKELY": 0.882
+        },
+        "duplicate_content": {
+          "YES": 0.005,
+          "NO": 0.933,
+          "UNCLEAR": 0.063
+        },
+        "safety": {
+          "SAFE": 0.996,
+          "UNSAFE": 0.004
+        },
+        "recommended_action": {
+          "ALLOW": 0.01,
+          "HOLD": 0.043,
+          "REJECT_SPAM": 0.947
+        }
+      }
+    },
+    {
+      "case": "off topic",
+      "kind": "comment",
+      "model": "@cf/cloudflare/clef-flash",
+      "expected": [
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "match": true,
+      "flags": [
+        "off_topic",
+        "held"
+      ],
+      "latencyMs": 181,
+      "inputTokens": 629,
+      "answers": {
+        "relevance": {
+          "RELEVANT": 0.018,
+          "PARTIALLY_RELEVANT": 0.015,
+          "IRRELEVANT": 0.967
+        },
+        "commercial_intent": {
+          "NONE": 0.98,
+          "POSSIBLE": 0.014,
+          "LIKELY": 0.006
+        },
+        "duplicate_content": {
+          "YES": 0.007,
+          "NO": 0.866,
+          "UNCLEAR": 0.127
+        },
+        "safety": {
+          "SAFE": 0.996,
+          "UNSAFE": 0.004
+        },
+        "recommended_action": {
+          "ALLOW": 0.114,
+          "HOLD": 0.12,
+          "REJECT_SPAM": 0.766
+        }
+      }
+    },
+    {
+      "case": "harassment",
+      "kind": "comment",
+      "model": "@cf/cloudflare/clef-flash",
+      "expected": [
+        "NEEDS_REVIEW",
+        "BLOCKED"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "match": true,
+      "flags": [
+        "unsafe"
+      ],
+      "latencyMs": 289,
+      "inputTokens": 631,
+      "answers": {
+        "relevance": {
+          "RELEVANT": 0.122,
+          "PARTIALLY_RELEVANT": 0.11,
+          "IRRELEVANT": 0.769
+        },
+        "commercial_intent": {
+          "NONE": 0.976,
+          "POSSIBLE": 0.017,
+          "LIKELY": 0.007
+        },
+        "duplicate_content": {
+          "YES": 0.008,
+          "NO": 0.926,
+          "UNCLEAR": 0.066
+        },
+        "safety": {
+          "SAFE": 0.027,
+          "UNSAFE": 0.973
+        },
+        "recommended_action": {
+          "ALLOW": 0.065,
+          "HOLD": 0.582,
+          "REJECT_SPAM": 0.353
+        }
+      }
+    },
+    {
+      "case": "duplicate",
+      "kind": "comment",
+      "model": "@cf/cloudflare/clef-flash",
+      "expected": [
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "match": true,
+      "flags": [
+        "duplicate"
+      ],
+      "latencyMs": 376,
+      "inputTokens": 629,
+      "answers": {
+        "relevance": {
+          "RELEVANT": 0.915,
+          "PARTIALLY_RELEVANT": 0.047,
+          "IRRELEVANT": 0.038
+        },
+        "commercial_intent": {
+          "NONE": 0.95,
+          "POSSIBLE": 0.043,
+          "LIKELY": 0.007
+        },
+        "duplicate_content": {
+          "YES": 0.864,
+          "NO": 0.093,
+          "UNCLEAR": 0.043
+        },
+        "safety": {
+          "SAFE": 0.998,
+          "UNSAFE": 0.002
+        },
+        "recommended_action": {
+          "ALLOW": 0.879,
+          "HOLD": 0.033,
+          "REJECT_SPAM": 0.088
+        }
+      }
+    },
+    {
+      "case": "matching submission",
+      "kind": "submission",
+      "model": "@cf/cloudflare/clef",
+      "expected": [
+        "READY"
+      ],
+      "outcome": "READY",
+      "match": true,
+      "flags": [],
+      "latencyMs": 733,
+      "inputTokens": 2572,
+      "answers": {
+        "matches_claimed_product": {
+          "YES": 0.957,
+          "NO": 0.025,
+          "UNCLEAR": 0.018
+        },
+        "commercial_product": {
+          "YES": 0.874,
+          "NO": 0.045,
+          "UNCLEAR": 0.081
+        },
+        "evidence_quality": {
+          "STRONG": 0.968,
+          "PARTIAL": 0.013,
+          "NONE": 0.019
+        },
+        "category_fit": {
+          "YES": 0.862,
+          "NO": 0.074,
+          "UNCLEAR": 0.064
+        },
+        "safety": {
+          "SAFE": 0.925,
+          "UNRELATED": 0.055,
+          "UNSAFE": 0.02
+        },
+        "image_1_type": {
+          "FRONT": 0.939,
+          "BACK": 0.024,
+          "INGREDIENTS": 0.014,
+          "NUTRITION": 0.008,
+          "PREPARED": 0.01,
+          "OTHER": 0.006
+        },
+        "image_2_type": {
+          "FRONT": 0.005,
+          "BACK": 0.01,
+          "INGREDIENTS": 0.956,
+          "NUTRITION": 0.014,
+          "PREPARED": 0.005,
+          "OTHER": 0.009
+        }
+      }
+    },
+    {
+      "case": "different product front",
+      "kind": "submission",
+      "model": "@cf/cloudflare/clef",
+      "expected": [
+        "NEEDS_CHANGES",
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "NEEDS_CHANGES",
+      "match": true,
+      "flags": [],
+      "latencyMs": 667,
+      "inputTokens": 2572,
+      "answers": {
+        "matches_claimed_product": {
+          "YES": 0.009,
+          "NO": 0.974,
+          "UNCLEAR": 0.017
+        },
+        "commercial_product": {
+          "YES": 0.84,
+          "NO": 0.075,
+          "UNCLEAR": 0.086
+        },
+        "evidence_quality": {
+          "STRONG": 0.965,
+          "PARTIAL": 0.015,
+          "NONE": 0.021
+        },
+        "category_fit": {
+          "YES": 0.286,
+          "NO": 0.532,
+          "UNCLEAR": 0.182
+        },
+        "safety": {
+          "SAFE": 0.847,
+          "UNRELATED": 0.129,
+          "UNSAFE": 0.024
+        },
+        "image_1_type": {
+          "FRONT": 0.908,
+          "BACK": 0.043,
+          "INGREDIENTS": 0.011,
+          "NUTRITION": 0.012,
+          "PREPARED": 0.013,
+          "OTHER": 0.014
+        },
+        "image_2_type": {
+          "FRONT": 0.009,
+          "BACK": 0.012,
+          "INGREDIENTS": 0.94,
+          "NUTRITION": 0.018,
+          "PREPARED": 0.008,
+          "OTHER": 0.014
+        }
+      }
+    },
+    {
+      "case": "front uploaded as ingredients",
+      "kind": "submission",
+      "model": "@cf/cloudflare/clef",
+      "expected": [
+        "NEEDS_CHANGES",
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "NEEDS_CHANGES",
+      "match": true,
+      "flags": [],
+      "latencyMs": 672,
+      "inputTokens": 2572,
+      "answers": {
+        "matches_claimed_product": {
+          "YES": 0.947,
+          "NO": 0.026,
+          "UNCLEAR": 0.027
+        },
+        "commercial_product": {
+          "YES": 0.803,
+          "NO": 0.061,
+          "UNCLEAR": 0.136
+        },
+        "evidence_quality": {
+          "STRONG": 0.008,
+          "PARTIAL": 0.018,
+          "NONE": 0.974
+        },
+        "category_fit": {
+          "YES": 0.769,
+          "NO": 0.106,
+          "UNCLEAR": 0.125
+        },
+        "safety": {
+          "SAFE": 0.949,
+          "UNRELATED": 0.04,
+          "UNSAFE": 0.011
+        },
+        "image_1_type": {
+          "FRONT": 0.918,
+          "BACK": 0.04,
+          "INGREDIENTS": 0.018,
+          "NUTRITION": 0.005,
+          "PREPARED": 0.008,
+          "OTHER": 0.011
+        },
+        "image_2_type": {
+          "FRONT": 0.889,
+          "BACK": 0.048,
+          "INGREDIENTS": 0.026,
+          "NUTRITION": 0.007,
+          "PREPARED": 0.012,
+          "OTHER": 0.018
+        }
+      }
+    },
+    {
+      "case": "unrelated photo",
+      "kind": "submission",
+      "model": "@cf/cloudflare/clef",
+      "expected": [
+        "NEEDS_CHANGES",
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "NEEDS_CHANGES",
+      "match": true,
+      "flags": [],
+      "latencyMs": 501,
+      "inputTokens": 1584,
+      "answers": {
+        "matches_claimed_product": {
+          "YES": 0.01,
+          "NO": 0.411,
+          "UNCLEAR": 0.579
+        },
+        "commercial_product": {
+          "YES": 0.035,
+          "NO": 0.503,
+          "UNCLEAR": 0.463
+        },
+        "evidence_quality": {
+          "STRONG": 0.008,
+          "PARTIAL": 0.008,
+          "NONE": 0.984
+        },
+        "category_fit": {
+          "YES": 0.269,
+          "NO": 0.172,
+          "UNCLEAR": 0.56
+        },
+        "safety": {
+          "SAFE": 0.023,
+          "UNRELATED": 0.967,
+          "UNSAFE": 0.01
+        },
+        "image_1_type": {
+          "FRONT": 0.011,
+          "BACK": 0.004,
+          "INGREDIENTS": 0.003,
+          "NUTRITION": 0.003,
+          "PREPARED": 0.012,
+          "OTHER": 0.967
+        }
+      }
+    },
+    {
+      "case": "nutrition slot proposal",
+      "kind": "image",
+      "model": "@cf/cloudflare/clef",
+      "expected": [
+        "READY",
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "match": true,
+      "flags": [
+        "identity"
+      ],
+      "latencyMs": 651,
+      "inputTokens": 2271,
+      "answers": {
+        "image_1_type": {
+          "FRONT": 0.007,
+          "BACK": 0.012,
+          "INGREDIENTS": 0.002,
+          "NUTRITION": 0.973,
+          "PREPARED": 0.003,
+          "OTHER": 0.003
+        },
+        "matches_product": {
+          "YES": 0.043,
+          "NO": 0.233,
+          "UNCLEAR": 0.724
+        },
+        "matches_reference": {
+          "YES": 0.602,
+          "NO": 0.09,
+          "UNCLEAR": 0.308
+        },
+        "quality": {
+          "CLEAR": 0.627,
+          "ACCEPTABLE": 0.36,
+          "POOR": 0.013
+        },
+        "safety": {
+          "SAFE": 0.952,
+          "UNRELATED": 0.033,
+          "UNSAFE": 0.015
+        }
+      }
+    },
+    {
+      "case": "wrong product front proposal",
+      "kind": "image",
+      "model": "@cf/cloudflare/clef",
+      "expected": [
+        "NEEDS_CHANGES",
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "NEEDS_CHANGES",
+      "match": true,
+      "flags": [],
+      "latencyMs": 789,
+      "inputTokens": 2271,
+      "answers": {
+        "image_1_type": {
+          "FRONT": 0.983,
+          "BACK": 0.006,
+          "INGREDIENTS": 0.002,
+          "NUTRITION": 0.002,
+          "PREPARED": 0.004,
+          "OTHER": 0.003
+        },
+        "matches_product": {
+          "YES": 0.971,
+          "NO": 0.015,
+          "UNCLEAR": 0.014
+        },
+        "matches_reference": {
+          "YES": 0.035,
+          "NO": 0.932,
+          "UNCLEAR": 0.033
+        },
+        "quality": {
+          "CLEAR": 0.665,
+          "ACCEPTABLE": 0.323,
+          "POOR": 0.012
+        },
+        "safety": {
+          "SAFE": 0.963,
+          "UNRELATED": 0.027,
+          "UNSAFE": 0.01
+        }
+      }
+    },
+    {
+      "case": "animal ingredient evidence",
+      "kind": "formula_evidence",
+      "model": "@cf/cloudflare/clef",
+      "expected": [
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "match": true,
+      "flags": [
+        "animal_ingredient"
+      ],
+      "latencyMs": 435,
+      "inputTokens": 1380,
+      "answers": {
+        "ingredient_list_visible": {
+          "YES": 0.984,
+          "NO": 0.007,
+          "UNCLEAR": 0.009
+        },
+        "animal_ingredient_present": {
+          "YES": 0.975,
+          "NO": 0.014,
+          "UNCLEAR": 0.012
+        },
+        "claim_support": {
+          "SUPPORTS": 0.261,
+          "CONTRADICTS": 0.576,
+          "INCONCLUSIVE": 0.163
+        },
+        "image_1_type": {
+          "FRONT": 0.005,
+          "BACK": 0.008,
+          "INGREDIENTS": 0.935,
+          "NUTRITION": 0.037,
+          "PREPARED": 0.004,
+          "OTHER": 0.012
+        }
+      }
+    },
+    {
+      "case": "supported rename",
+      "kind": "edit_proposal",
+      "model": "@cf/cloudflare/clef",
+      "expected": [
+        "READY",
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "READY",
+      "match": true,
+      "flags": [],
+      "latencyMs": 664,
+      "inputTokens": 1479,
+      "answers": {
+        "evidence_relevance": {
+          "STRONG": 0.65,
+          "PARTIAL": 0.257,
+          "NONE": 0.093
+        },
+        "claim_support": {
+          "SUPPORTS": 0.743,
+          "CONTRADICTS": 0.089,
+          "INCONCLUSIVE": 0.169
+        },
+        "risk": {
+          "LOW": 0.822,
+          "MEDIUM": 0.162,
+          "HIGH": 0.016
+        },
+        "recommended_action": {
+          "AUTO_ACCEPT_CANDIDATE": 0.809,
+          "SEEK_CONFIRMATION": 0.073,
+          "MODERATOR_REVIEW": 0.118
+        },
+        "image_1_type": {
+          "FRONT": 0.977,
+          "BACK": 0.009,
+          "INGREDIENTS": 0.003,
+          "NUTRITION": 0.002,
+          "PREPARED": 0.005,
+          "OTHER": 0.004
+        }
+      }
+    },
+    {
+      "case": "contradicted rename",
+      "kind": "edit_proposal",
+      "model": "@cf/cloudflare/clef",
+      "expected": [
+        "NEEDS_CHANGES",
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "match": true,
+      "flags": [
+        "evidence"
+      ],
+      "latencyMs": 560,
+      "inputTokens": 1480,
+      "answers": {
+        "evidence_relevance": {
+          "STRONG": 0.298,
+          "PARTIAL": 0.432,
+          "NONE": 0.27
+        },
+        "claim_support": {
+          "SUPPORTS": 0.141,
+          "CONTRADICTS": 0.494,
+          "INCONCLUSIVE": 0.366
+        },
+        "risk": {
+          "LOW": 0.363,
+          "MEDIUM": 0.474,
+          "HIGH": 0.163
+        },
+        "recommended_action": {
+          "AUTO_ACCEPT_CANDIDATE": 0.132,
+          "SEEK_CONFIRMATION": 0.466,
+          "MODERATOR_REVIEW": 0.402
+        },
+        "image_1_type": {
+          "FRONT": 0.958,
+          "BACK": 0.018,
+          "INGREDIENTS": 0.005,
+          "NUTRITION": 0.004,
+          "PREPARED": 0.008,
+          "OTHER": 0.008
+        }
+      }
+    },
+    {
+      "case": "low-risk alias",
+      "kind": "edit_proposal",
+      "model": "@cf/cloudflare/clef",
+      "expected": [
+        "READY"
+      ],
+      "outcome": "READY",
+      "match": true,
+      "flags": [],
+      "latencyMs": 272,
+      "inputTokens": 503,
+      "answers": {
+        "evidence_relevance": {
+          "STRONG": 0.381,
+          "PARTIAL": 0.534,
+          "NONE": 0.085
+        },
+        "claim_support": {
+          "SUPPORTS": 0.896,
+          "CONTRADICTS": 0.014,
+          "INCONCLUSIVE": 0.09
+        },
+        "risk": {
+          "LOW": 0.868,
+          "MEDIUM": 0.121,
+          "HIGH": 0.01
+        },
+        "recommended_action": {
+          "AUTO_ACCEPT_CANDIDATE": 0.568,
+          "SEEK_CONFIRMATION": 0.183,
+          "MODERATOR_REVIEW": 0.248
+        }
+      }
+    },
+    {
+      "case": "food category",
+      "kind": "category_proposal",
+      "model": "@cf/cloudflare/clef-flash",
+      "expected": [
+        "NEEDS_REVIEW"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "match": true,
+      "flags": [],
+      "latencyMs": 270,
+      "inputTokens": 305,
+      "answers": {
+        "food_reference": {
+          "YES": 0.725,
+          "NO": 0.098,
+          "UNCLEAR": 0.177
+        },
+        "recommended_action": {
+          "ALLOW": 0.894,
+          "HOLD": 0.074,
+          "REJECT_SPAM": 0.032
+        }
+      }
+    },
+    {
+      "case": "non-food category",
+      "kind": "category_proposal",
+      "model": "@cf/cloudflare/clef-flash",
+      "expected": [
+        "NEEDS_CHANGES",
+        "BLOCKED"
+      ],
+      "outcome": "NEEDS_CHANGES",
+      "match": true,
+      "flags": [
+        "not_food"
+      ],
+      "latencyMs": 291,
+      "inputTokens": 294,
+      "answers": {
+        "food_reference": {
+          "YES": 0.002,
+          "NO": 0.992,
+          "UNCLEAR": 0.006
+        },
+        "recommended_action": {
+          "ALLOW": 0.669,
+          "HOLD": 0.104,
+          "REJECT_SPAM": 0.226
+        }
+      }
+    }
+  ]
+}

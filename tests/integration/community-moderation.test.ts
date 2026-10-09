@@ -326,9 +326,9 @@ it("accepts valid comment targets while rejecting missing and hidden comments", 
   const { f, contributions, actor } = await fixture();
   const comment = id();
   await env.DB.prepare(
-    "INSERT INTO comments(id,user_id,product_version_id,body,created_at,updated_at) VALUES(?,?,?,'Test comment',1,1)",
+    "INSERT INTO comments(id,user_id,product_id,product_version_id,body,created_at,updated_at) VALUES(?,?,?,?,'Test comment',1,1)",
   )
-    .bind(comment, actor.id, f.versionId)
+    .bind(comment, actor.id, f.productId, f.versionId)
     .run();
   expect(
     await contributions.report(

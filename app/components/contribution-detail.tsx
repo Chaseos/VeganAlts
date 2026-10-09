@@ -151,18 +151,85 @@ export function ProposalSummary({
     </>
   );
 }
+export function AutomatedChecks({
+  checks,
+}: {
+  checks: NonNullable<
+    Extract<ContributionDetail, { automated: unknown }>["automated"]
+  >;
+}) {
+  return (
+    <section aria-labelledby="automated-checks">
+      <h2 id="automated-checks">Automated checks</h2>
+      <p className="small muted">
+        Advisory {checks.model} answers ({friendly(checks.status)}
+        {checks.errorCode ? `: ${friendly(checks.errorCode)}` : ""}). They are
+        evidence, not a decision.
+      </p>
+      {checks.outcome && (
+        <p>
+          <strong>Suggested outcome:</strong>{" "}
+          {friendly(checks.outcome.toLowerCase())}
+        </p>
+      )}
+      {checks.flags.length > 0 && (
+        <p>
+          <strong>Signals:</strong> {checks.flags.map(friendly).join(", ")}
+        </p>
+      )}
+      {checks.answers.length > 0 && (
+        <dl className="review-facts">
+          {checks.answers.map((a) => (
+            <div key={a.question}>
+              <dt>{friendly(a.question)}</dt>
+              <dd>
+                {friendly(a.option.toLowerCase())} (
+                {Math.round(a.probability * 100)}% likely)
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  );
+}
 export function ContributionContent({
   detail,
 }: {
   detail: ContributionDetail;
 }) {
   const product = "product" in detail ? detail.product : null;
+  const automated = "automated" in detail ? detail.automated : null;
   return (
     <>
       <div className="notice">
         <strong>Status: {friendly(detail.status)}</strong>
         {detail.resolutionNote && <p>{detail.resolutionNote}</p>}
       </div>
+      {detail.kind === "comment" && (
+        <section aria-labelledby="held-comment">
+          <h2 id="held-comment">Held comment</h2>
+          <p className="small muted">
+            By @{String((detail.proposed as { author: string }).author)}
+          </p>
+          <blockquote className="comment-body">
+            {String((detail.proposed as { body: string }).body)}
+          </blockquote>
+        </section>
+      )}
+      {"reportedComment" in detail && detail.reportedComment && (
+        <section aria-labelledby="reported-comment">
+          <h2 id="reported-comment">Reported comment</h2>
+          <p className="small muted">
+            By @{detail.reportedComment.author} ·{" "}
+            {friendly(detail.reportedComment.state)}
+          </p>
+          <blockquote className="comment-body">
+            {detail.reportedComment.body}
+          </blockquote>
+        </section>
+      )}
+      {automated && <AutomatedChecks checks={automated} />}
       {detail.kind === "submission" && detail.followUpOf && (
         <p>
           Follow-up to the{" "}

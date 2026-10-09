@@ -18,6 +18,7 @@
 | Image processing | Cloudflare Images | One-time normalization/transcoding on upload. |
 | Search | D1 FTS5 | Initial product/category/alias search. |
 | Bot protection | Cloudflare Turnstile | Selective protection for abusive/high-risk actions. |
+| Automated moderation | Workers AI Clef / Clef-flash | Advisory structured decisions for contributions (Milestone 4 ADR). |
 | Rate limiting | Workers Rate Limiting API | Per-user/IP/route protection. |
 | Async jobs | Cloudflare Queues | Deferred recalculation/cleanup/notifications when needed. |
 | Scheduled jobs | Cron Triggers | Periodic trending, cleanup and integrity jobs. |
@@ -214,3 +215,15 @@ The documentation specifies product-level technology choices, not exact npm vers
 - https://better-auth.com/docs/adapters/drizzle
 - https://better-auth.com/docs/authentication/apple
 - https://better-auth.com/docs/concepts/oauth
+
+## ADR: Workers AI Clef for automated moderation (2026-10-08)
+
+**Decision.** Use Cloudflare Workers AI `@cf/cloudflare/clef` and `@cf/cloudflare/clef-flash` as the single initial automated decision provider for Milestone 4.
+
+**Why.** They are decision models: a request supplies state, up to four images and up to 64 typed finite questions, and receives a probability for every allowed answer rather than prose. That fits VeganAlts' requirement for narrow, auditable, schema-validated questions. They run inside the existing Cloudflare account through a Worker binding, so no new vendor, credential or network boundary is introduced.
+
+**Cost.** At launch pricing, Clef is $0.24 and Clef-flash $0.09 per million input tokens; output is not billed. A configurable daily evaluation budget per environment and per account, hash-based decision reuse and deterministic checks before every call keep usage within the project's $10/month early-cost target.
+
+**Privacy.** Contribution text and staged image derivatives are sent to Workers AI for evaluation. Only structured answers, probabilities and usage metadata are stored. The privacy policy discloses this processing.
+
+**Fallback.** A per-environment kill switch disables the provider, restoring deterministic/manual moderation. Errors, timeouts, rate limits and exhausted budgets route to review. The provider-neutral interface allows later benchmarking (#28) without redesigning workflows.

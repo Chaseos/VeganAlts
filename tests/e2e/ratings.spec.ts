@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { createBrowserSession } from "./session-fixture";
 
 test("anonymous selection resumes once after sign-in, then appears in My Ratings and can be edited", async ({

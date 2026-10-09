@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { catalogService } from "@server/catalog/infrastructure/composition";
-import { catalogPage } from "@server/catalog/application/service";
+import { catalogPage, categoryView } from "@server/catalog/application/service";
 import {
   ratingState,
   myRatings,
@@ -14,9 +14,15 @@ import { clientEvents, recordEvent } from "@server/observability/events";
 import { clientKey, enforceLimit } from "@server/abuse/service";
 import type { Route } from "./+types/application-api";
 import { communityApi } from "@server/community/http/handlers";
+import { commentsApi, publicComments } from "@server/comments/http/handlers";
+import { taxonomyApi } from "@server/taxonomy/http/handlers";
 
 async function handle(request: Request, path: string) {
   try {
+    const comments = await commentsApi(request, path, env);
+    if (comments) return comments;
+    const taxonomy = await taxonomyApi(request, path, env);
+    if (taxonomy) return taxonomy;
     const community = await communityApi(request, path, env);
     if (community) return community;
     const url = new URL(request.url);
@@ -36,15 +42,28 @@ async function handle(request: Request, path: string) {
         return success(await catalog.search(url.searchParams.get("q") ?? ""));
       if (path === "categories") return success(await catalog.home());
       const [family, slug, extra] = path.split("/");
+      if (family === "products" && slug && extra === "comments")
+        return await publicComments(request, slug, env);
       if (slug && !extra) {
-        if (family === "categories")
+        if (family === "categories") {
+          const moved = await catalog.categoryRedirect(slug);
+          if (moved)
+            return new Response(null, {
+              status: 302,
+              headers: {
+                Location: `/api/v1/categories/${moved}${url.search}`,
+                "Cache-Control": "private, no-store",
+              },
+            });
           return success(
             await catalog.category(
               slug,
               catalogPage(url.searchParams.get("page")),
               catalogPage(url.searchParams.get("unrankedPage")),
+              categoryView(url.searchParams.get("view")),
             ),
           );
+        }
         if (family === "products") {
           const canonical = await catalog.canonicalRedirect(slug);
           if (canonical)

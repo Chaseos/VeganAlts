@@ -6,6 +6,7 @@ import {
 import { BetterAuthSessionReader } from "../../auth/infrastructure/session-reader";
 import { protectContribution, enforceLimit } from "../../abuse/service";
 import { ApplicationError } from "../../shared/domain/errors";
+import { catalogIsPublic } from "../../shared/domain/launch";
 import { requireSameOrigin } from "../../shared/http/security";
 import { limitedJson, success } from "../../shared/http/json";
 import { limitedFormData } from "../../shared/http/limited-form";
@@ -23,6 +24,8 @@ import {
   changeInput,
   retailerInput,
   reviewDecision,
+  reviewKind,
+  inboxFilter,
   consolidationInput,
   note,
   type Actor,
@@ -33,7 +36,7 @@ export async function communityActor(
   env: Cloudflare.Env,
   admin = false,
 ): Promise<Actor> {
-  if (env.APP_ENV === "production")
+  if (!catalogIsPublic(env))
     throw new ApplicationError("NOT_FOUND", "This page is not available.", 404);
   const sessions = new BetterAuthSessionReader(env);
   const user = admin
@@ -115,6 +118,16 @@ export async function communityApi(
       root === "community" &&
       second === "products" &&
       third &&
+      parts[3] === "proposals" &&
+      parts.length === 4
+    )
+      return respond(
+        await services.contributions.openProposals(actor, parse(id, third)),
+      );
+    if (
+      root === "community" &&
+      second === "products" &&
+      third &&
       parts.length === 3
     )
       return respond(
@@ -137,7 +150,7 @@ export async function communityApi(
       return respond(
         await services.moderation.detail(
           actor,
-          parse(z.enum(["submission", "proposal", "report"]), third),
+          parse(reviewKind, third),
           parse(id, fourth),
         ),
       );
@@ -166,7 +179,11 @@ export async function communityApi(
       );
     if (path === "admin/moderation/inbox")
       return respond(
-        await services.moderation.inbox(actor, url.searchParams.get("cursor")),
+        await services.moderation.inbox(
+          actor,
+          url.searchParams.get("cursor"),
+          parse(inboxFilter, url.searchParams.get("filter") ?? "all"),
+        ),
       );
     if (path === "admin/moderation/duplicate-preview")
       return respond(
@@ -184,7 +201,7 @@ export async function communityApi(
       return respond(
         await services.moderation.detail(
           actor,
-          parse(z.enum(["submission", "proposal", "report"]), third),
+          parse(reviewKind, third),
           parse(id, fourth),
         ),
       );
@@ -263,6 +280,18 @@ export async function communityApi(
         requestKey,
         parse(changeInput, body),
       );
+    else if (
+      root === "proposals" &&
+      second &&
+      third === "responses" &&
+      parts.length === 3
+    )
+      result = await services.contributions.respond(
+        actor,
+        requestKey,
+        parse(id, second),
+        body,
+      );
     else if (path === "retailers/proposals")
       result = await services.contributions.proposeRetailer(
         actor,
@@ -318,7 +347,7 @@ export async function communityApi(
       result = await services.moderation.decide(
         actor,
         requestKey,
-        parse(z.enum(["submission", "proposal", "report"]), third),
+        parse(reviewKind, third),
         parse(id, fourth),
         parse(reviewDecision, body),
       );

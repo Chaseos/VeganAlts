@@ -14,6 +14,7 @@ import {
 } from "../../server/community/domain/policy";
 import { submissionInput } from "../../server/community/domain/contracts";
 import { communityServices } from "../../server/community/infrastructure/composition";
+import { moderationDecisions } from "../../server/moderation/infrastructure/composition";
 
 const id = () => crypto.randomUUID();
 async function setup() {
@@ -36,6 +37,7 @@ async function setup() {
     new CommunityLookupRepository(env.DB),
     staged,
     media,
+    moderationDecisions({ DB: env.DB, APP_ENV: "local" }),
     id,
   );
   const input = submissionInput.parse({

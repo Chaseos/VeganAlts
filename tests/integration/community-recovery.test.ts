@@ -19,6 +19,7 @@ import {
   recoverCommunity,
 } from "../../server/community/infrastructure/recovery";
 import { readMedia } from "../../server/media/infrastructure/media-reader";
+import { moderationDecisions } from "../../server/moderation/infrastructure/composition";
 
 const id = () => crypto.randomUUID(),
   bytes = () =>
@@ -47,6 +48,7 @@ async function setup(overrides: Partial<typeof DEFAULT_LIMITS> = {}) {
       new CommunityLookupRepository(env.DB),
       staged,
       media,
+      moderationDecisions({ DB: env.DB, APP_ENV: "local" }),
       id,
       () => clock.now,
     );

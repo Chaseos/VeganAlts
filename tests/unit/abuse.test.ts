@@ -59,6 +59,19 @@ it("lets normal contributions pass without a challenge and applies separate hard
     [{ key: "ip:192.0.2.1" }],
     [{ key: "user:user" }],
   ]);
+  // A separate write family consumes its own namespace, not the rating one.
+  const comments = { limit: vi.fn(async () => ({ success: true })) };
+  hard.limit.mockClear();
+  await protectContribution(
+    request,
+    env,
+    "community",
+    "user",
+    undefined,
+    comments,
+  );
+  expect(hard.limit).not.toHaveBeenCalled();
+  expect(comments.limit).toHaveBeenCalledTimes(2);
   risk.limit.mockResolvedValue({ success: false });
   await expect(
     protectContribution(request, env, "rating", "user"),

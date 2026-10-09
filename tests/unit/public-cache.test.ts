@@ -220,3 +220,18 @@ it("shares validated image variants while allowing moderation revocation", () =>
   expect(publicRoute(new URL(`${origin}/media/image_1/original`))).toBeNull();
   expect(publicRoute(new URL(`${origin}/media/image_1/full.data`))).toBeNull();
 });
+
+it("keeps Top, Trending and New category views as separate cache identities", () => {
+  const origin = "https://staging.veganalts.com";
+  const key = (query: string) =>
+    normalizedPublicRequest(
+      new Request(`${origin}/us/ground-beef${query}`),
+      origin,
+      "v1",
+    ).url;
+  expect(key("?view=trending")).not.toBe(key(""));
+  expect(key("?view=trending")).not.toBe(key("?view=new"));
+  expect(new URL(key("?view=new&utm_source=x")).searchParams.get("view")).toBe(
+    "new",
+  );
+});

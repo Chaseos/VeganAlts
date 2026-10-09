@@ -6,9 +6,9 @@ VeganAlts helps people find vegan products that come closest to the foods they a
 
 ## Status and scope
 
-[Milestone 2: Core Ranking Experience](https://github.com/Chaseos/VeganAlts/milestone/2) is implemented on [staging](https://staging.veganalts.com): discover a category, compare alternatives, explore a product, sign in, save a rating and revisit My Ratings. The public production website retains its coming-soon page at [veganalts.com](https://veganalts.com).
+[Milestones 1–3](https://github.com/Chaseos/VeganAlts/milestones?state=closed) are implemented on [staging](https://staging.veganalts.com): discovery and ranking, sign-in and ratings, community submissions, retailers, reporting, formula history and manual moderation. [Milestone 4: Trust, Lifecycle & Discovery](https://github.com/Chaseos/VeganAlts/milestone/4) is in progress: comments, canonical photo slots, Clef-assisted moderation and community confirmation, category proposals, Top / Trending / New and launch hardening. The public production website retains its coming-soon page at [veganalts.com](https://veganalts.com).
 
-The staging catalog contains explicitly labeled fictional development products, illustrations and sample ratings. See the [milestone specification](docs/MILESTONE_2_PLAN.md), [verification record](docs/verification/milestone-2.md) and [core ranking runbook](docs/operations/core-ranking.md). The [milestone 1 verification record](docs/operations/milestone-one-evidence.md) remains the historical foundation evidence.
+The staging catalog contains explicitly labeled fictional development products, illustrations and sample ratings. See the [milestone 4 specification](docs/MILESTONE_4_PLAN.md), the [milestone 3 verification record](docs/verification/milestone-3.md) and the [community catalog runbook](docs/operations/community-catalog.md). Earlier specifications and verification records remain under `docs/`.
 
 ## Development
 
@@ -76,8 +76,12 @@ Public pages render useful SSR content with system fonts, a shared stylesheet an
 | [API](docs/API.md)                                                    | API conventions and future client compatibility                     |
 | [Milestone 1](docs/MILESTONE_1_PLAN.md)                               | Historical foundation scope                                         |
 | [Milestone 2](docs/MILESTONE_2_PLAN.md)                               | Core ranking scope and acceptance checklist                         |
+| [Milestone 3](docs/MILESTONE_3_PLAN.md)                               | Community catalog and moderation scope                              |
+| [Milestone 4](docs/MILESTONE_4_PLAN.md)                               | Trust, lifecycle and discovery scope                                |
 | [Operations](docs/operations/deployment.md)                           | Environments, migrations, secrets, deployment, rollback, and costs  |
 | [Core ranking operations](docs/operations/core-ranking.md)            | Caching, analytics, abuse controls, diagnostics and resource checks |
+| [Backup and recovery](docs/operations/backup-recovery.md)             | Time Travel, exports, restore drill and recovery choices            |
+| [Launch checklist](docs/operations/launch-checklist.md)               | Production cutover steps, prepared but not executed                 |
 | [Milestone 2 verification](docs/verification/milestone-2.md)          | Staging evidence against issues #7–#12                              |
 | [Milestone 1 verification](docs/operations/milestone-one-evidence.md) | Historical foundation evidence                                      |
 | [Reference SQL](db/0001_app_baseline.sql)                             | Original design reference, not an executable migration              |

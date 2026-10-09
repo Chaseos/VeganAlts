@@ -1,3 +1,4 @@
+import type { InboxFilter } from "../domain/contracts";
 import { ApplicationError } from "../../shared/domain/errors";
 import type { Actor, ContributionItem, QueueItem } from "../domain/contracts";
 import type {
@@ -36,6 +37,17 @@ export interface ReportRecord {
   evidence_data: string;
   resolution_note: string | null;
 }
+/**
+ * Responses of one stance from active accounts on a proposal: bound as a
+ * parameter by default, or correlated with a column such as
+ * `edit_proposals.id`.
+ */
+export const ACTIVE_RESPONSES = (
+  stance: "confirm" | "disagree",
+  proposal = "?",
+) =>
+  `(SELECT COUNT(*) FROM edit_proposal_responses r JOIN profiles p ON p.user_id=r.user_id AND p.account_state='active' WHERE r.proposal_id=${proposal} AND r.stance='${stance}')`;
+
 export class ModerationRepository {
   constructor(readonly db: D1Database) {}
   replay<T>(receipt: ReceiptWrite) {
@@ -45,7 +57,8 @@ export class ModerationRepository {
     const rows = await this.db.batch<Record<string, unknown>>([
       this.db
         .prepare(
-          `SELECT p.id,p.name,p.slug,p.country_id AS countryId,p.brand_id AS brandId,p.product_family_id AS familyId,p.lifecycle_status AS lifecycleStatus,p.vegan_status AS veganStatus,p.manufacturer_label AS manufacturerLabel,r.revision,v.id AS versionId,v.version_label AS versionLabel FROM products p JOIN catalog_revisions r ON r.product_id=p.id JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.id=?`,
+          `SELECT p.id,p.name,p.slug,p.country_id AS countryId,p.brand_id AS brandId,p.product_family_id AS familyId,p.lifecycle_status AS lifecycleStatus,p.vegan_status AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.manufacturer_url AS manufacturerUrl,r.revision,v.id AS versionId,v.version_label AS versionLabel,
+          (SELECT COUNT(*) FROM ratings x WHERE x.product_version_id=v.id AND x.is_counted=1) AS countedRatings FROM products p JOIN catalog_revisions r ON r.product_id=p.id JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.id=?`,
         )
         .bind(productId),
       this.db
@@ -66,6 +79,11 @@ export class ModerationRepository {
       this.db
         .prepare(
           "SELECT to_product_id AS productId,relation_type AS type FROM product_relationships WHERE from_product_id=? ORDER BY to_product_id,relation_type",
+        )
+        .bind(productId),
+      this.db
+        .prepare(
+          "SELECT alias FROM product_aliases WHERE product_id=? ORDER BY alias",
         )
         .bind(productId),
       this.db
@@ -102,7 +120,8 @@ export class ModerationRepository {
       })),
       images: rows[3]!.results,
       relationships: rows[4]!.results,
-      retailers: rows[5]!.results,
+      aliases: rows[5]!.results.map((r) => String(r.alias)),
+      retailers: rows[6]!.results,
     } as unknown as ProductSnapshot;
   }
   proposal(id: string) {
@@ -212,7 +231,102 @@ export class ModerationRepository {
     }
     return result;
   }
-  async inbox(cursor: string | null) {
+  async brandName(brandId: string | null) {
+    if (!brandId) return null;
+    return this.db
+      .prepare("SELECT name FROM brands WHERE id=?")
+      .bind(brandId)
+      .first<string>("name");
+  }
+  identityOwner(key: string) {
+    return this.db
+      .prepare(
+        "SELECT product_id FROM product_identity_keys WHERE identity_key=?",
+      )
+      .bind(key)
+      .first<string>("product_id");
+  }
+  /** Confirmations and disagreements from accounts that are still active. */
+  async activeResponses(proposalId: string) {
+    return (await this.db
+      .prepare(
+        `SELECT ${ACTIVE_RESPONSES("confirm")} AS confirms,${ACTIVE_RESPONSES("disagree")} AS disagrees`,
+      )
+      .bind(proposalId, proposalId)
+      .first<{ confirms: number; disagrees: number }>())!;
+  }
+  /**
+   * Pending product proposals automation may evaluate, oldest first. A stored
+   * cursor rotates through them, so proposals that stay ineligible cannot
+   * keep newer ones from ever being examined.
+   */
+  async automationCandidates(limit: number) {
+    const page = async (at: number, after: string, count: number) =>
+      (
+        await this.db
+          .prepare(
+            // Active-account counts, not the stored ones: suspending a
+            // disagreeing account must not exclude a proposal forever.
+            `SELECT id,created_at FROM edit_proposals WHERE target_type='product' AND status='pending' AND risk_tier<=2
+            AND ${ACTIVE_RESPONSES("disagree", "edit_proposals.id")}=0
+            AND (risk_tier=1 OR ${ACTIVE_RESPONSES("confirm", "edit_proposals.id")}>0) AND (created_at>? OR (created_at=? AND id>?)) ORDER BY created_at,id LIMIT ?`,
+          )
+          .bind(at, at, after, count)
+          .all<{ id: string; created_at: number }>()
+      ).results;
+    const cursor =
+      (await this.db
+        .prepare(
+          "SELECT cursor FROM community_recovery WHERE prefix='proposal-automation'",
+        )
+        .first<string>("cursor")) ?? "";
+    const [at, after] = cursor ? cursor.split(":") : ["-1", ""];
+    let rows = await page(Number(at), after ?? "", limit);
+    if (rows.length < limit && cursor) {
+      const wrapped = await page(-1, "", limit - rows.length);
+      rows = [
+        ...rows,
+        ...wrapped.filter((w) => !rows.some((r) => r.id === w.id)),
+      ];
+    }
+    const last = rows.at(-1);
+    await this.db
+      .prepare(
+        "INSERT INTO community_recovery(prefix,cursor) VALUES('proposal-automation',?) ON CONFLICT(prefix) DO UPDATE SET cursor=excluded.cursor",
+      )
+      .bind(rows.length < limit || !last ? "" : `${last.created_at}:${last.id}`)
+      .run();
+    return rows.map((r) => r.id);
+  }
+  async comment(id: string) {
+    return this.db
+      .prepare(
+        "SELECT c.id,c.product_id,c.product_version_id,c.body,c.moderation_state,c.updated_at,c.created_at,c.deleted_at,pr.handle FROM comments c JOIN profiles pr ON pr.user_id=c.user_id WHERE c.id=?",
+      )
+      .bind(id)
+      .first<{
+        id: string;
+        product_id: string;
+        product_version_id: string;
+        body: string;
+        moderation_state: string;
+        updated_at: number;
+        created_at: number;
+        deleted_at: number | null;
+        handle: string;
+      }>();
+  }
+  async commentStates(ids: string[]) {
+    if (!ids.length) return new Map<string, string>();
+    const rows = await this.db
+      .prepare(
+        "SELECT c.id,c.moderation_state FROM comments c JOIN json_each(?) j ON j.value=c.id",
+      )
+      .bind(JSON.stringify(ids))
+      .all<{ id: string; moderation_state: string }>();
+    return new Map(rows.results.map((r) => [r.id, r.moderation_state]));
+  }
+  async inbox(cursor: string | null, filter: InboxFilter = "all") {
     let point: [number, number, string] | null = null;
     if (cursor)
       try {
@@ -237,16 +351,33 @@ export class ModerationRepository {
     const rows = await this.db
       .prepare(
         `WITH inbox AS (
-      SELECT s.id,'submission' AS kind,COALESCE(json_extract(p.proposed_data,'$.name'),'Submission') AS title,s.state AS status,2 AS priority,s.created_at AS createdAt,p.revision FROM submission_receipts s JOIN pending_submissions p ON p.submission_id=s.id WHERE s.state='review' AND p.resolved_at IS NULL
-      UNION ALL SELECT r.id,'report',replace(r.reason_code,'_',' '),r.status,CASE WHEN r.reason_code='ingredient_concern' THEN 1 ELSE 3 END,r.created_at,COALESCE(e.revision,0) FROM reports r LEFT JOIN report_evidence e ON e.report_id=r.id WHERE r.status IN ('open','reviewing')
-      UNION ALL SELECT id,'proposal',replace(change_type,'_',' '),status,CASE WHEN change_type='classification' THEN 1 ELSE 2 END,created_at,updated_at FROM edit_proposals WHERE status='pending'
-    ) SELECT * FROM inbox WHERE ? IS NULL OR (priority,createdAt,kind||'_'||id)>(?,?,?) ORDER BY priority,createdAt,kind||'_'||id LIMIT 31`,
+      SELECT s.id,'submission' AS kind,COALESCE(json_extract(p.proposed_data,'$.name'),'Submission') AS title,s.state AS status,2 AS priority,s.created_at AS createdAt,p.revision,NULL AS tier,0 AS confirms,0 AS disagrees,
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='submission' AND d.subject_id=s.id AND d.outcome<>'READY') AS flagged
+        FROM submission_receipts s JOIN pending_submissions p ON p.submission_id=s.id WHERE s.state='review' AND p.resolved_at IS NULL
+      UNION ALL SELECT r.id,'report',replace(r.reason_code,'_',' '),r.status,CASE WHEN r.reason_code='ingredient_concern' THEN 1 ELSE 3 END,r.created_at,COALESCE(e.revision,0),NULL,0,0,0 FROM reports r LEFT JOIN report_evidence e ON e.report_id=r.id WHERE r.status IN ('open','reviewing')
+      UNION ALL SELECT id,'proposal',replace(change_type,'_',' '),status,CASE WHEN change_type='classification' THEN 1 ELSE 2 END,created_at,updated_at,risk_tier,confirm_count,disagree_count,
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='edit_proposal' AND d.subject_id=edit_proposals.id AND d.outcome<>'READY')
+        FROM edit_proposals WHERE status='pending'
+      UNION ALL SELECT id,'category',name,status,2,created_at,updated_at,3,0,0,
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='category_proposal' AND d.subject_id=category_proposals.id AND d.outcome<>'READY')
+        FROM category_proposals WHERE status='pending'
+      UNION ALL SELECT id,'comment','held comment',moderation_state,2,created_at,updated_at,NULL,0,0,
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='comment' AND d.subject_id=comments.id AND d.outcome<>'READY')
+        FROM comments WHERE moderation_state='pending' AND deleted_at IS NULL
+    ) SELECT * FROM inbox WHERE (? IS NULL OR (priority,createdAt,kind||'_'||id)>(?,?,?))
+      AND CASE ? WHEN 'confirmation' THEN kind='proposal' AND tier<=2
+        WHEN 'high_risk' THEN (kind IN ('proposal','category') AND tier=3) OR priority=1
+        WHEN 'comments' THEN kind='comment'
+        WHEN 'flagged' THEN flagged=1
+        ELSE 1 END
+      ORDER BY priority,createdAt,kind||'_'||id LIMIT 31`,
       )
       .bind(
         point?.[0] ?? null,
         point?.[0] ?? 0,
         point?.[1] ?? 0,
         point?.[2] ?? "",
+        filter,
       )
       .all<QueueItem>();
     const items = rows.results.slice(0, 30),
@@ -273,9 +404,11 @@ export class ModerationRepository {
       SELECT s.id,'submission' AS kind,COALESCE(p.name,json_extract(ps.proposed_data,'$.name'),'Product submission') AS title,CASE WHEN ps.superseded_by IS NOT NULL THEN 'superseded' ELSE s.state END AS status,s.created_at AS createdAt,ps.resolution_note AS resolutionNote,p.slug AS productSlug FROM submission_receipts s LEFT JOIN pending_submissions ps ON ps.submission_id=s.id LEFT JOIN products p ON p.id=s.product_id WHERE s.user_id=? AND s.purpose='submission'
       UNION ALL SELECT ep.id,'proposal',replace(ep.change_type,'_',' '),ep.status,ep.created_at,ep.resolution_note,p.slug FROM edit_proposals ep LEFT JOIN products p ON p.id=ep.target_id WHERE ep.submitted_by=?
       UNION ALL SELECT id,'report',replace(reason_code,'_',' '),status,created_at,resolution_note,NULL FROM reports WHERE reporter_user_id=?
+      UNION ALL SELECT id,'category',name,status,created_at,resolution_note,NULL FROM category_proposals WHERE submitted_by=?
     ) SELECT * FROM items WHERE ? IS NULL OR (createdAt,id)<(?,?) ORDER BY createdAt DESC,id DESC LIMIT 31`,
       )
       .bind(
+        userId,
         userId,
         userId,
         userId,

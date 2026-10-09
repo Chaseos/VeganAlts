@@ -1,6 +1,7 @@
 import { v7 as uuid } from "uuid";
 import { CloudflareImageTransformer } from "../../media/infrastructure/cloudflare-images";
 import { communityLimits } from "../domain/policy";
+import { autoApplyPolicy } from "../domain/confidence";
 import { R2EvidenceStorage } from "./evidence-storage";
 import { StagedMediaRepository } from "./staged-media-repository";
 import { SubmissionRepository } from "./submission-repository";
@@ -14,11 +15,17 @@ import { SubmissionService } from "../application/submission-service";
 import { StagedMediaService } from "../application/staged-media-service";
 import { ContributionService } from "../application/contribution-service";
 import { ModerationService } from "../application/moderation-service";
+import {
+  moderationDecisions,
+  type ModerationEnv,
+} from "../../moderation/infrastructure/composition";
 
 export function communityServices(
-  env: Pick<Cloudflare.Env, "DB" | "MEDIA_BUCKET" | "IMAGES"> & {
-    COMMUNITY_LIMITS?: string;
-  },
+  env: Pick<Cloudflare.Env, "DB" | "MEDIA_BUCKET" | "IMAGES"> &
+    Partial<Omit<ModerationEnv, "DB">> & {
+      COMMUNITY_LIMITS?: string;
+      PROPOSAL_AUTO_APPLY?: string;
+    },
   newId: () => string = uuid,
   clock = Date.now,
 ) {
@@ -33,11 +40,17 @@ export function communityServices(
     newId,
     clock,
   );
+  const decisions = moderationDecisions(
+    { ...env, APP_ENV: env.APP_ENV ?? "local" },
+    newId,
+    clock,
+  );
   const submissions = new SubmissionService(
     receipts,
     lookup,
     staged,
     media,
+    decisions,
     newId,
     clock,
   );
@@ -45,7 +58,21 @@ export function communityServices(
   const repository = new ModerationRepository(env.DB),
     catalog = new CatalogDecisionRepository(repository),
     queue = new QueueDecisionRepository(repository, catalog, staged),
-    duplicates = new DuplicateRepository(repository, catalog);
+    duplicates = new DuplicateRepository(repository, catalog),
+    autoApply = autoApplyPolicy(env.PROPOSAL_AUTO_APPLY);
+  const moderation = new ModerationService(
+    repository,
+    catalog,
+    queue,
+    duplicates,
+    receipts,
+    submissions,
+    media,
+    decisions,
+    autoApply,
+    newId,
+    clock,
+  );
   return {
     lookup,
     media,
@@ -54,21 +81,16 @@ export function communityServices(
       contributionRepository,
       lookup,
       repository,
-      newId,
-      clock,
-    ),
-    moderation: new ModerationService(
-      repository,
-      catalog,
-      queue,
-      duplicates,
-      receipts,
-      submissions,
+      decisions,
       media,
+      autoApply,
+      (proposalId) => moderation.autoAccept(proposalId),
       newId,
       clock,
     ),
+    moderation,
     repository,
     contributionRepository,
+    decisions,
   };
 }

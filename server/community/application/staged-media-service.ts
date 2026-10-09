@@ -129,9 +129,15 @@ export class StagedMediaService {
   async read(actor: Actor, receiptId: string, imageId: string, kind: string) {
     active(actor);
     const receipt = await this.repository.receipt(receiptId);
+    // Evidence on a proposal open for community confirmation is visible to
+    // signed-in contributors; held submissions stay owner/operator only.
+    const shared =
+      receipt?.purpose === "evidence" &&
+      receipt.state === "review" &&
+      (await this.repository.openProposalEvidence(receiptId));
     if (
       !receipt ||
-      (receipt.user_id !== actor.id && !actor.administrator) ||
+      (receipt.user_id !== actor.id && !actor.administrator && !shared) ||
       (receipt.state !== "published" && receipt.expires_at <= this.clock()) ||
       ["expired", "rejected"].includes(receipt.state)
     )
@@ -146,6 +152,38 @@ export class StagedMediaService {
     if (!object)
       throw new ApplicationError("NOT_FOUND", "Evidence not found.", 404);
     return object;
+  }
+  /** The product's current front photo, as a reference for identity checks. */
+  async referenceImage(productId: string) {
+    const front = await this.repository.canonicalFront(productId);
+    const object = front && (await this.bucket.get(front.key));
+    if (!front || !object) return null;
+    return {
+      contentHash: `canonical:${front.id}`,
+      contentType: "image/webp" as const,
+      bytes: new Uint8Array(await new Response(object).arrayBuffer()),
+    };
+  }
+  /** Normalized full-size derivatives for automated evidence checks. */
+  async decisionImages(receiptId: string) {
+    const images = [];
+    for (const image of await this.repository.attachments(receiptId)) {
+      const full = image.derivatives.find((d) => d.kind === "full");
+      const object = full && (await this.bucket.get(full.key));
+      if (image.state !== "complete" || !object)
+        throw new ApplicationError(
+          "EVIDENCE_EXPIRED",
+          "The staged evidence is unavailable. Please upload it again.",
+          409,
+        );
+      images.push({
+        slot: image.slot,
+        contentHash: image.contentHash,
+        contentType: "image/webp" as const,
+        bytes: new Uint8Array(await new Response(object).arrayBuffer()),
+      });
+    }
+    return images;
   }
   async promote(
     receiptId: string,

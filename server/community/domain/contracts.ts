@@ -123,7 +123,7 @@ export interface Candidate {
   exact: boolean;
 }
 export type SubmissionDecision = {
-  decision: "READY" | "NEEDS_CHANGES" | "NEEDS_REVIEW";
+  decision: "READY" | "NEEDS_CHANGES" | "NEEDS_REVIEW" | "BLOCKED";
   reasons: string[];
   candidates: Candidate[];
 };
@@ -187,6 +187,13 @@ export const reportInput = z
   );
 export type ReportInput = z.infer<typeof reportInput>;
 
+export const photoReason = z.enum([
+  "missing",
+  "outdated_packaging",
+  "blurry",
+  "wrong_market",
+  "incorrect",
+]);
 const changeBase = {
   productId: id,
   expectedRevision: z.number().int().nonnegative(),
@@ -252,7 +259,44 @@ export const changeInput = z.discriminatedUnion("kind", [
       status: z.enum(["active", "uncertain", "not_current"]),
     })
     .strict(),
+  // Established facts: the display name (identity and URL stay stable), a
+  // search alias, the manufacturer source and an additional category.
+  z
+    .object({ ...changeBase, kind: z.literal("rename"), name: shortText })
+    .strict(),
+  z
+    .object({ ...changeBase, kind: z.literal("alias"), alias: shortText })
+    .strict(),
+  z
+    .object({ ...changeBase, kind: z.literal("source_url"), url: evidenceUrl })
+    .strict(),
+  z
+    .object({ ...changeBase, kind: z.literal("category_add"), categoryId: id })
+    .strict(),
+  // One canonical photo per slot: an empty slot is filled, a filled slot gets
+  // a replacement proposal. Formula evidence uses the reformulation flow.
+  z
+    .object({
+      ...changeBase,
+      kind: z.literal("photo"),
+      slot: imageSlot,
+      reason: photoReason,
+      evidenceReceiptId: id,
+    })
+    .strict(),
 ]);
+export const responseInput = z
+  .object({
+    stance: z.enum(["confirm", "disagree", "evidence"]),
+    note: z.string().trim().max(2000).default(""),
+    urls: z.array(evidenceUrl).max(5).default([]),
+  })
+  .strict()
+  .refine(
+    (v) => v.stance === "confirm" || v.note.length >= 8 || v.urls.length > 0,
+    "Explain the disagreement or add an evidence source.",
+  );
+export type ResponseInput = z.infer<typeof responseInput>;
 export type ProductChange = z.infer<typeof changeInput>;
 export const retailerInput = z
   .object({
@@ -269,13 +313,23 @@ export const reviewDecision = z
     decision: z.enum(["accept", "reject", "resolve", "dismiss", "follow_up"]),
     expectedRevision: z.number().int().nonnegative(),
     note,
-    effect: z.enum(["none", "under_review", "remove_image"]).default("none"),
+    effect: z
+      .enum(["none", "under_review", "remove_image", "hide_comment"])
+      .default("none"),
     expectedProductRevision: z.number().int().nonnegative().optional(),
     // The operator-reviewed classification for an accepted submission.
     veganStatus: veganStatus.optional(),
   })
   .strict();
 export type ReviewDecision = z.infer<typeof reviewDecision>;
+export const reviewKind = z.enum([
+  "submission",
+  "proposal",
+  "report",
+  "comment",
+  "category",
+]);
+export type ReviewKind = z.infer<typeof reviewKind>;
 export const consolidationInput = z
   .object({
     donorId: id,
@@ -286,14 +340,27 @@ export const consolidationInput = z
   })
   .strict();
 export type ConsolidationInput = z.infer<typeof consolidationInput>;
+export const inboxFilter = z.enum([
+  "all",
+  "confirmation",
+  "high_risk",
+  "comments",
+  "flagged",
+]);
+export type InboxFilter = z.infer<typeof inboxFilter>;
 export interface QueueItem {
   id: string;
-  kind: "submission" | "report" | "proposal";
+  kind: ReviewKind;
   title: string;
   status: string;
   priority: number;
   createdAt: number;
   revision: number;
+  tier: number | null;
+  confirms: number;
+  disagrees: number;
+  // An automated check held, corrected or could not evaluate the item.
+  flagged: number;
 }
 export interface ContributionItem {
   id: string;

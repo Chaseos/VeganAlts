@@ -5,8 +5,23 @@ import {
   type Actor,
   type ConsolidationInput,
   type ReviewDecision,
+  type ReviewKind,
+  type InboxFilter,
 } from "../domain/contracts";
-import { administrator, active } from "../domain/policy";
+import {
+  administrator,
+  active,
+  identityKey,
+  SYSTEM_ACTOR,
+  SYSTEM_ACTOR_ID,
+} from "../domain/policy";
+import {
+  autoAcceptance,
+  established,
+  riskTier,
+  type AutoApplyPolicy,
+} from "../domain/confidence";
+import type { ModerationDecisionService } from "../../moderation/application/decision-service";
 import {
   assertCompensable,
   assertProposalCurrent,
@@ -14,7 +29,7 @@ import {
   hasCatalogChanges,
   type ProposalBaseline,
 } from "../domain/change-policy";
-import type { CatalogPatch } from "../domain/moderation";
+import type { CatalogPatch, ProposalRecord } from "../domain/moderation";
 import {
   ModerationRepository,
   type ActionWrite,
@@ -23,7 +38,7 @@ import { CatalogDecisionRepository } from "../infrastructure/catalog-decision-re
 import { QueueDecisionRepository } from "../infrastructure/queue-decision-repository";
 import { DuplicateRepository } from "../infrastructure/duplicate-repository";
 import { SubmissionRepository } from "../infrastructure/submission-repository";
-import { receiptWrite } from "../infrastructure/receipts";
+import { receiptWrite, type ReceiptWrite } from "../infrastructure/receipts";
 import type { StagedAttachment } from "../infrastructure/staged-media-repository";
 import type { StagedMediaService } from "./staged-media-service";
 import type { SubmissionService } from "./submission-service";
@@ -37,20 +52,31 @@ export class ModerationService {
     private readonly receipts: SubmissionRepository,
     private readonly submissions: SubmissionService,
     private readonly media: StagedMediaService,
+    private readonly decisions: ModerationDecisionService,
+    private readonly autoApply: AutoApplyPolicy,
     private readonly newId: () => string,
     private readonly clock = Date.now,
   ) {}
-  async inbox(actor: Actor, cursor: string | null) {
+  async inbox(
+    actor: Actor,
+    cursor: string | null,
+    filter: InboxFilter = "all",
+  ) {
     administrator(actor);
-    return this.repository.inbox(cursor);
+    return this.repository.inbox(cursor, filter);
   }
   contributions(actor: Actor, cursor: string | null) {
     active(actor);
     return this.repository.contributions(actor.id, cursor);
   }
-  detail(actor: Actor, kind: "submission" | "report" | "proposal", id: string) {
+  detail(actor: Actor, kind: ReviewKind, id: string) {
     active(actor);
     return this.queue.detail(kind, id, actor);
+  }
+  /** Advisory automated answers for a category proposal under review. */
+  categoryChecks(actor: Actor, id: string) {
+    administrator(actor);
+    return this.queue.automated("category_proposal", id, actor);
   }
   async product(actor: Actor, productId: string) {
     administrator(actor);
@@ -62,7 +88,7 @@ export class ModerationService {
   async decide(
     actor: Actor,
     key: string,
-    kind: "submission" | "report" | "proposal",
+    kind: ReviewKind,
     id: string,
     input: ReviewDecision,
   ) {
@@ -98,6 +124,13 @@ export class ModerationService {
       throw new ApplicationError(
         "INVALID_DECISION",
         "Only an accepted submission takes a reviewed classification.",
+      );
+    if (kind === "comment")
+      return this.decideComment(action, id, input, receipt);
+    if (kind === "category")
+      throw new ApplicationError(
+        "INVALID_DECISION",
+        "Decide category proposals in the taxonomy review.",
       );
     if (kind === "submission") {
       if (input.effect !== "none")
@@ -160,7 +193,19 @@ export class ModerationService {
             "Review the current product before applying this change.",
             409,
           );
-        if (input.effect === "under_review") {
+        if (input.effect === "hide_comment") {
+          const comment =
+            report.target_type === "comment"
+              ? await this.repository.comment(report.target_id)
+              : null;
+          if (!comment || comment.moderation_state !== "visible")
+            throw new ApplicationError(
+              "INVALID_DECISION",
+              "Select a visible reported comment to hide it.",
+            );
+          before.commentStates = [{ id: comment.id, state: "visible" }];
+          after.commentStates = [{ id: comment.id, state: "hidden" }];
+        } else if (input.effect === "under_review") {
           if (
             report.target_type !== "product" ||
             report.reason_code !== "ingredient_concern"
@@ -246,6 +291,22 @@ export class ModerationService {
         receipt,
       );
     }
+    return this.acceptChange(
+      action,
+      proposal,
+      input.expectedProductRevision,
+      receipt,
+    );
+  }
+  /** Accepts a pending proposal through the fenced, audited decision path. */
+  private async acceptChange(
+    action: ActionWrite,
+    proposal: ProposalRecord,
+    expectedProductRevision: number | undefined,
+    receipt: ReceiptWrite,
+    support?: { confirmations: number },
+  ) {
+    const actor = action.actor;
     if (proposal.status !== "pending")
       throw new ApplicationError(
         "STALE_DECISION",
@@ -264,8 +325,8 @@ export class ModerationService {
     // The operator's reviewed product state fences their decision; the
     // contributor's drafting baseline only covers facts the change depends on.
     if (
-      input.expectedProductRevision !== undefined &&
-      input.expectedProductRevision !== snapshot.revision
+      expectedProductRevision !== undefined &&
+      expectedProductRevision !== snapshot.revision
     )
       throw new ApplicationError(
         "STALE_PRODUCT",
@@ -280,7 +341,24 @@ export class ModerationService {
         : null,
     );
     await this.catalog.validateRelationships(snapshot, change);
+    await this.catalog.validateCategories(change);
     const plan = planProductChange(snapshot, change, actor.id, this.newId());
+    if (change.kind === "rename") {
+      // A new display name must not collide with another product's identity.
+      const key = identityKey(
+        snapshot.countryId,
+        (await this.repository.brandName(snapshot.brandId)) ?? "",
+        change.name,
+      );
+      const owner = await this.repository.identityOwner(key);
+      if (owner && owner !== snapshot.id)
+        throw new ApplicationError(
+          "DUPLICATE_PRODUCT",
+          "Another product already uses this brand and name.",
+          409,
+        );
+      plan.after.identityKey = key;
+    }
     let images: StagedAttachment[] = [],
       token: string | undefined;
     try {
@@ -336,6 +414,7 @@ export class ModerationService {
         change.evidenceReceiptId,
         token,
         receipt,
+        support,
       );
     } catch (error) {
       if (change.evidenceReceiptId && token)
@@ -346,6 +425,110 @@ export class ModerationService {
         );
       throw error;
     }
+  }
+  /**
+   * Applies an eligible community-confirmed or tier 1 proposal as the system
+   * actor. Eligibility is recomputed from fresh state; the shared fenced path
+   * rejects anything that changed since it was read.
+   */
+  async autoAccept(proposalId: string) {
+    const now = this.clock();
+    const proposal = await this.repository.proposal(proposalId);
+    if (
+      !proposal ||
+      proposal.status !== "pending" ||
+      proposal.target_type !== "product"
+    )
+      return { applied: false, reason: "closed" };
+    const change = changeInput.parse(JSON.parse(proposal.proposed_data)),
+      snapshot = await this.repository.snapshot(change.productId);
+    const baseline = proposal.baseline_data
+      ? (JSON.parse(proposal.baseline_data) as { images?: object })
+      : null;
+    const tier = riskTier(
+      change,
+      snapshot,
+      this.autoApply,
+      Object.keys(baseline?.images ?? {}),
+    );
+    const latest = await this.decisions.latest("edit_proposal", proposalId);
+    // Stored counts change only when someone responds; recount active
+    // accounts so a suspended confirmer no longer supports the change.
+    const responses = await this.repository.activeResponses(proposalId);
+    const mature = established(snapshot, this.autoApply);
+    const verdict = autoAcceptance(
+      {
+        tier,
+        change,
+        confirms: responses.confirms,
+        disagrees: responses.disagrees,
+        established: mature,
+        ageMs: now - proposal.created_at,
+        decision: latest?.outcome ?? null,
+      },
+      this.autoApply,
+    );
+    if (!verdict.eligible) return { applied: false, reason: verdict.reason };
+    const receipt = await receiptWrite(
+      SYSTEM_ACTOR_ID,
+      "proposal-auto-accept",
+      `auto-${proposalId}-${proposal.updated_at}`,
+      { proposalId, revision: proposal.updated_at },
+      now,
+    );
+    const prior = await this.repository.replay<{
+      actionId: string;
+      productId: string | null;
+    }>(receipt);
+    if (prior) return { applied: true, reason: verdict.reason, ...prior };
+    const result = await this.acceptChange(
+      {
+        id: this.newId(),
+        actor: SYSTEM_ACTOR,
+        kind: "proposal_accept",
+        targetId: proposalId,
+        productId: null,
+        before: { review: proposal },
+        after: {},
+        note:
+          verdict.reason === "tier_one"
+            ? "Automatically applied: a low-risk addition with a supporting automated check."
+            : `Automatically applied after ${responses.confirms} independent confirmation(s), no disagreement and a supporting automated evidence check.`,
+        now,
+      },
+      proposal,
+      snapshot.revision,
+      receipt,
+      verdict.reason === "tier_one"
+        ? undefined
+        : {
+            confirmations: mature
+              ? this.autoApply.establishedConfirmations
+              : this.autoApply.confirmations,
+          },
+    );
+    return { applied: true, reason: verdict.reason, ...result };
+  }
+  /**
+   * Hourly: bounded evaluation of proposals automation may apply. Returns the
+   * applied changes so the caller can purge public caches.
+   */
+  async sweepProposals() {
+    const applied: { actionId: string; productId: string | null }[] = [];
+    for (const id of await this.repository.automationCandidates(
+      this.autoApply.perPass,
+    ))
+      try {
+        const result = await this.autoAccept(id);
+        if (result.applied && "actionId" in result)
+          applied.push({
+            actionId: result.actionId,
+            productId: result.productId,
+          });
+      } catch {
+        // A stale or conflicting proposal stays pending for an operator.
+      }
+    return applied;
   }
   async previewConsolidation(
     actor: Actor,
@@ -395,6 +578,59 @@ export class ModerationService {
       receipt,
     );
   }
+  /** Publish or hide a comment held by automated review; reversible. */
+  private async decideComment(
+    action: ActionWrite,
+    id: string,
+    input: ReviewDecision,
+    receipt: ReceiptWrite,
+  ) {
+    const comment = await this.repository.comment(id);
+    if (!comment || comment.deleted_at)
+      throw new ApplicationError("NOT_FOUND", "Comment not found.", 404);
+    if (
+      comment.moderation_state !== "pending" ||
+      comment.updated_at !== input.expectedRevision
+    )
+      throw new ApplicationError(
+        "STALE_DECISION",
+        "This comment changed. Refresh before deciding.",
+        409,
+      );
+    if (
+      (input.decision !== "accept" && input.decision !== "reject") ||
+      input.effect !== "none"
+    )
+      throw new ApplicationError(
+        "INVALID_DECISION",
+        "Publish or hide the held comment.",
+      );
+    const snapshot = await this.repository.snapshot(comment.product_id);
+    const after: CatalogPatch = {
+      commentStates: [
+        { id, state: input.decision === "accept" ? "visible" : "hidden" },
+      ],
+    };
+    action.productId = comment.product_id;
+    action.before = { commentStates: [{ id, state: "pending" }] };
+    action.after = { ...after, decision: input.decision };
+    return this.repository.commit(
+      action,
+      {
+        sql: "EXISTS(SELECT 1 FROM comments WHERE id=? AND moderation_state='pending' AND updated_at=? AND deleted_at IS NULL)",
+        values: [id, comment.updated_at],
+      },
+      (fence) =>
+        this.catalog.patchStatements(
+          snapshot,
+          after,
+          action.actor,
+          action.now,
+          fence,
+        ),
+      receipt,
+    );
+  }
   async reverse(
     actor: Actor,
     key: string,
@@ -436,6 +672,17 @@ export class ModerationService {
         "This action did not change the catalog.",
       );
     assertCompensable(snapshot, after, before);
+    if (after.commentStates?.length) {
+      const states = await this.repository.commentStates(
+        after.commentStates.map((c) => c.id),
+      );
+      if (after.commentStates.some((c) => states.get(c.id) !== c.state))
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "This comment changed after the decision. Review it before reversing.",
+          409,
+        );
+    }
     return this.duplicates.reverse(
       {
         id: this.newId(),

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { communityPageActor } from "@server/community/http/page";
 import { parse } from "@server/community/http/handlers";
 import { communityServices } from "@server/community/infrastructure/composition";
+import { taxonomyServices } from "@server/taxonomy/infrastructure/composition";
 import { SiteShell, EmptyState } from "../components/catalog";
 import { ContributionContent } from "../components/contribution-detail";
 import { dateLabel, friendly } from "../lib/community";
@@ -12,6 +13,12 @@ import type { Route } from "./+types/my-contributions";
 export async function loader({ request, params }: Route.LoaderArgs) {
   const actor = await communityPageActor(request, env),
     service = communityServices(env).moderation;
+  if (params.kind === "category" && params.id)
+    return {
+      detail: null,
+      category: await taxonomyServices(env).proposalDetail(actor, params.id),
+      list: null,
+    };
   if (params.kind && params.id)
     return {
       detail: await service.detail(
@@ -19,10 +26,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         parse(z.enum(["submission", "proposal", "report"]), params.kind),
         params.id,
       ),
+      category: null,
       list: null,
     };
   return {
     detail: null,
+    category: null,
     list: await service.contributions(
       actor,
       new URL(request.url).searchParams.get("cursor"),
@@ -36,7 +45,7 @@ export function meta() {
   ];
 }
 export default function Contributions({
-  loaderData: { detail, list },
+  loaderData: { detail, category, list },
 }: Route.ComponentProps) {
   return (
     <SiteShell compact>
@@ -47,7 +56,20 @@ export default function Contributions({
           Check publication, review outcomes, and requests for more evidence.
         </p>
       </header>
-      {detail ? (
+      {category && (
+        <div className="community-panel">
+          <div className="notice">
+            <strong>Status: {friendly(category.status)}</strong>
+            {category.resolutionNote && <p>{category.resolutionNote}</p>}
+          </div>
+          <h2>Category proposal: {String(category.proposed.name)}</h2>
+          <p>{String(category.proposed.explanation)}</p>
+          <p>
+            <Link to="/my-contributions">← All contributions</Link>
+          </p>
+        </div>
+      )}
+      {category ? null : detail ? (
         <div className="community-panel">
           <ContributionContent detail={detail} />
           <p>

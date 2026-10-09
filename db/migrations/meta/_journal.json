@@ -71,6 +71,48 @@
       "when": 1791492250705,
       "tag": "0009_proposal_baselines",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791499377706,
+      "tag": "0010_moderation_decisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1791500591298,
+      "tag": "0011_comment_votes",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1791501692522,
+      "tag": "0012_system_actor",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1791501696373,
+      "tag": "0013_proposal_confidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1791503279417,
+      "tag": "0014_category_taxonomy",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1791504250218,
+      "tag": "0015_trending_reads",
+      "breakpoints": true
     }
   ]
 }

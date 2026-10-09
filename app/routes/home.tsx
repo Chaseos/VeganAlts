@@ -2,8 +2,14 @@ import { env } from "cloudflare:workers";
 import { Link } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader } from "@server/catalog/http/loader";
+import { catalogIsPublic } from "@server/shared/domain/launch";
 import { ComingSoon } from "../components/coming-soon";
-import { CategoryCards, SearchForm, SiteShell } from "../components/catalog";
+import {
+  CategoryCards,
+  ProductRows,
+  SearchForm,
+  SiteShell,
+} from "../components/catalog";
 import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/home";
 
@@ -11,10 +17,9 @@ export async function loader() {
   return {
     staging: env.APP_ENV !== "production",
     origin: env.APP_URL,
-    catalog:
-      env.APP_ENV === "production"
-        ? null
-        : await publicLoader(() => catalogService(env).home()),
+    catalog: catalogIsPublic(env)
+      ? await publicLoader(() => catalogService(env).home())
+      : null,
   };
 }
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -45,9 +50,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <SearchForm large />
         <div className="popular-searches">
           <span>Start with</span>
-          <Link to="/us/beef-burgers">Burgers ↗</Link>
-          <Link to="/us/cheese">Cheese ↗</Link>
-          <Link to="/us/milk">Milk ↗</Link>
+          {loaderData.catalog.featured.slice(0, 3).map((category) => (
+            <Link key={category.id} to={`/us/${category.slug}`}>
+              {category.name} ↗
+            </Link>
+          ))}
         </div>
         <span className="hero-sprout" aria-hidden="true">
           <svg viewBox="0 0 160 180" fill="none">
@@ -84,6 +91,27 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </div>
         <CategoryCards categories={loaderData.catalog.featured} />
       </section>
+      {(loaderData.catalog.trending.length > 0 ||
+        loaderData.catalog.newest.length > 0) && (
+        <div className="discovery-columns">
+          {loaderData.catalog.trending.length > 0 && (
+            <section aria-labelledby="trending-title">
+              <p className="eyebrow">Recent community activity</p>
+              <h2 id="trending-title">Trending now</h2>
+              <ProductRows products={loaderData.catalog.trending} />
+            </section>
+          )}
+          {loaderData.catalog.newest.length > 0 && (
+            <section aria-labelledby="new-title">
+              <p className="eyebrow">
+                Added in the last {loaderData.catalog.newDays} days
+              </p>
+              <h2 id="new-title">New alternatives</h2>
+              <ProductRows products={loaderData.catalog.newest} />
+            </section>
+          )}
+        </div>
+      )}
       <section className="how-it-works" aria-label="How VeganAlts works">
         <div>
           <span>01 / DISCOVER</span>

@@ -1,4 +1,5 @@
 import { ApplicationError } from "../../shared/domain/errors";
+import { ACTIVE_RESPONSES } from "./moderation-repository";
 import { productSearchStatements } from "../../catalog/infrastructure/search-index";
 import type { Actor, ProductChange, RetailerInput } from "../domain/contracts";
 import type {
@@ -21,6 +22,22 @@ export class CatalogDecisionRepository {
   constructor(private readonly repository: ModerationRepository) {}
   private get db() {
     return this.repository.db;
+  }
+  /** A category retired after a proposal was made can no longer gain members. */
+  async validateCategories(input: ProductChange) {
+    if (input.kind !== "category_add") return;
+    const eligible = await this.db
+      .prepare(
+        "SELECT 1 FROM categories WHERE id=? AND is_active=1 AND is_rankable=1",
+      )
+      .bind(input.categoryId)
+      .first();
+    if (!eligible)
+      throw new ApplicationError(
+        "CATEGORY_UNAVAILABLE",
+        "That category is retired or no longer ranked. Reject this proposal instead.",
+        409,
+      );
   }
   async validateRelationships(snapshot: ProductSnapshot, input: ProductChange) {
     if (input.kind !== "relationships") return;
@@ -60,6 +77,7 @@ export class CatalogDecisionRepository {
     evidenceReceiptId: string | undefined,
     evidenceToken: string | undefined,
     receipt: ReceiptWrite,
+    support?: { confirmations: number },
   ) {
     const guard: DecisionGuard = {
       sql: "EXISTS(SELECT 1 FROM edit_proposals WHERE id=? AND status='pending' AND updated_at=?) AND EXISTS(SELECT 1 FROM catalog_revisions WHERE product_id=? AND revision=?)",
@@ -86,6 +104,25 @@ export class CatalogDecisionRepository {
           ),
       ),
     ];
+    // Automatic acceptance relies on active confirmations at commit time, so
+    // a confirmer suspended meanwhile no longer counts.
+    if (support) {
+      guard.sql += ` AND ${ACTIVE_RESPONSES("confirm")}>=? AND ${ACTIVE_RESPONSES("disagree")}=0`;
+      guard.values.push(proposal.id, support.confirmations, proposal.id);
+    }
+    // A renamed product must own its new identity key, not lose a race for it.
+    if (plan.after.identityKey) {
+      guard.sql +=
+        " AND NOT EXISTS(SELECT 1 FROM product_identity_keys WHERE identity_key=? AND product_id<>?)";
+      guard.values.push(plan.after.identityKey, snapshot.id);
+    }
+    // Fences a retirement that lands between validation and this batch.
+    const categories = [...new Set(plan.after.addedCategories ?? [])];
+    if (categories.length) {
+      guard.sql +=
+        " AND (SELECT COUNT(*) FROM categories WHERE id IN(SELECT value FROM json_each(?)) AND is_active=1 AND is_rankable=1)=?";
+      guard.values.push(JSON.stringify(categories), categories.length);
+    }
     if (added.length) {
       guard.sql +=
         " AND (SELECT COUNT(*) FROM products WHERE id IN(SELECT value FROM json_each(?)) AND country_id=? AND lifecycle_status<>'hidden')=?";
@@ -305,6 +342,14 @@ export class CatalogDecisionRepository {
             )
             .bind(now, image.id, ...values),
         );
+    for (const comment of patch.commentStates ?? [])
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE comments SET moderation_state=?,updated_at=max(updated_at+1,?) WHERE id=? AND product_id=? AND ${sql}`,
+          )
+          .bind(comment.state, now, comment.id, snapshot.id, ...values),
+      );
     if (images.length)
       statements.push(
         ...imageInsertStatements(
@@ -339,6 +384,85 @@ export class CatalogDecisionRepository {
           .bind(snapshot.id, ...values),
       );
     }
+    if (patch.name !== undefined)
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE products SET name=?,updated_at=? WHERE id=? AND ${sql}`,
+          )
+          .bind(patch.name, now, snapshot.id, ...values),
+      );
+    // The new name also identifies the product for duplicate checks; earlier
+    // keys stay so the former name still resolves to the same product.
+    if (patch.identityKey)
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO product_identity_keys(identity_key,product_id) SELECT ?,? WHERE ${sql} ON CONFLICT(identity_key) DO NOTHING`,
+          )
+          .bind(patch.identityKey, snapshot.id, ...values),
+      );
+    if (patch.manufacturerUrl !== undefined)
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE products SET manufacturer_url=?,updated_at=? WHERE id=? AND ${sql}`,
+          )
+          .bind(patch.manufacturerUrl, now, snapshot.id, ...values),
+      );
+    if (patch.aliases) {
+      const aliases = JSON.stringify(patch.aliases);
+      statements.push(
+        this.db
+          .prepare(
+            `DELETE FROM product_aliases WHERE product_id=? AND alias COLLATE NOCASE NOT IN (SELECT value FROM json_each(?)) AND ${sql}`,
+          )
+          .bind(snapshot.id, aliases, ...values),
+        this.db
+          .prepare(
+            `INSERT INTO product_aliases(id,product_id,alias,created_at) SELECT lower(hex(randomblob(16))),?,value,? FROM json_each(?) WHERE ${sql} ON CONFLICT DO NOTHING`,
+          )
+          .bind(snapshot.id, now, aliases, ...values),
+        this.db
+          .prepare(
+            `UPDATE catalog_revisions SET revision=revision+1 WHERE product_id=? AND ${sql}`,
+          )
+          .bind(snapshot.id, ...values),
+      );
+    }
+    if (patch.addedCategories?.length)
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO product_categories(product_id,category_id,ranking_eligible,created_by,created_at,updated_at)
+            SELECT ?,c.id,1,?,?,? FROM categories c JOIN json_each(?) j ON j.value=c.id WHERE c.is_active=1 AND c.is_rankable=1 AND ${sql}
+            ON CONFLICT(product_id,category_id) DO UPDATE SET ranking_eligible=1,updated_at=excluded.updated_at`,
+          )
+          .bind(
+            snapshot.id,
+            actor.id,
+            now,
+            now,
+            JSON.stringify(patch.addedCategories),
+            ...values,
+          ),
+      );
+    if (patch.removedCategories?.length) {
+      const removed = JSON.stringify(patch.removedCategories);
+      // Ratings keep their membership; only an unrated link is removed.
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE product_categories SET ranking_eligible=0,updated_at=? WHERE product_id=? AND category_id IN (SELECT value FROM json_each(?)) AND EXISTS(SELECT 1 FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=product_categories.product_id AND r.category_id=product_categories.category_id) AND ${sql}`,
+          )
+          .bind(now, snapshot.id, removed, ...values),
+        this.db
+          .prepare(
+            `DELETE FROM product_categories WHERE product_id=? AND category_id IN (SELECT value FROM json_each(?)) AND NOT EXISTS(SELECT 1 FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=product_categories.product_id AND r.category_id=product_categories.category_id) AND ${sql}`,
+          )
+          .bind(snapshot.id, removed, ...values),
+      );
+    }
     if (patch.consolidation && !patch.consolidation.active)
       statements.push(
         this.db
@@ -347,9 +471,14 @@ export class CatalogDecisionRepository {
           )
           .bind(snapshot.id, ...values),
       );
-    // The search document holds names, brand and categories; only visibility
-    // (hidden or restored) changes it among these catalog patches.
-    if (patch.lifecycleStatus !== undefined)
+    // The search document holds names, aliases, brand and categories.
+    if (
+      patch.lifecycleStatus !== undefined ||
+      patch.name !== undefined ||
+      patch.aliases ||
+      patch.addedCategories?.length ||
+      patch.removedCategories?.length
+    )
       statements.push(
         ...productSearchStatements(
           this.db,

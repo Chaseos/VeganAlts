@@ -28,7 +28,13 @@ export function hasCatalogChanges(value: unknown) {
       "classification",
       "familyId",
       "categories",
+      "name",
+      "manufacturerUrl",
+      "aliases",
+      "addedCategories",
+      "removedCategories",
       "imageStates",
+      "commentStates",
       "relationships",
       "retailer",
       "consolidation",
@@ -60,12 +66,13 @@ export function proposalBaseline(
       return input.sameFormula
         ? { ...formula, classification: snapshot.classification }
         : formula;
+    case "photo":
     case "packaging":
       // Only the slots this proposal replaces; sorted for a stable comparison.
       return {
         versionId: snapshot.versionId,
         images: Object.fromEntries(
-          [...new Set(slots)]
+          [...new Set(input.kind === "photo" ? [input.slot] : slots)]
             .sort()
             .map((slot) => [
               slot,
@@ -90,6 +97,14 @@ export function proposalBaseline(
           snapshot.retailers.find((r) => r.retailerId === input.retailerId)
             ?.status ?? null,
       };
+    case "rename":
+      return { name: snapshot.name };
+    case "alias":
+      return { aliases: snapshot.aliases };
+    case "source_url":
+      return { manufacturerUrl: snapshot.manufacturerUrl };
+    case "category_add":
+      return { categories: snapshot.categories.map((c) => c.categoryId) };
   }
 }
 export type ProposalBaseline = ReturnType<typeof proposalBaseline>;
@@ -216,7 +231,22 @@ export function planProductChange(
       before.lifecycleStatus = snapshot.lifecycleStatus;
       after.lifecycleStatus = "discontinued";
       break;
+    case "photo": {
+      const filled = snapshot.images.some(
+        (i) =>
+          i.versionId === snapshot.versionId &&
+          i.slot === input.slot &&
+          i.state === "accepted",
+      );
+      if (filled && input.reason === "missing")
+        throw new ApplicationError(
+          "PHOTO_REASON_REQUIRED",
+          "This slot already has a photo. Explain why the new photo is better.",
+        );
+      break;
+    }
     case "packaging":
+      // Images are promoted and the prior slot image archived on acceptance.
       break;
     case "retailer_status": {
       const current = snapshot.retailers.find(
@@ -231,6 +261,48 @@ export function planProductChange(
       after.retailer = { retailerId: input.retailerId, status: input.status };
       break;
     }
+    case "rename":
+      if (input.name === snapshot.name)
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "The product already has this name.",
+        );
+      before.name = snapshot.name;
+      after.name = input.name;
+      break;
+    case "alias": {
+      if (
+        snapshot.aliases.some(
+          (a) => a.toLowerCase() === input.alias.toLowerCase(),
+        ) ||
+        input.alias.toLowerCase() === snapshot.name.toLowerCase()
+      )
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "This name already finds the product.",
+        );
+      before.aliases = snapshot.aliases;
+      after.aliases = [...snapshot.aliases, input.alias].sort();
+      break;
+    }
+    case "source_url":
+      if (input.url === snapshot.manufacturerUrl)
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "This is already the manufacturer source.",
+        );
+      before.manufacturerUrl = snapshot.manufacturerUrl;
+      after.manufacturerUrl = input.url;
+      break;
+    case "category_add":
+      if (snapshot.categories.some((c) => c.categoryId === input.categoryId))
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "The product is already in this category.",
+        );
+      before.removedCategories = [input.categoryId];
+      after.addedCategories = [input.categoryId];
+      break;
     case "relationships":
       if (
         new Set(input.categoryEligibility.map((c) => c.categoryId)).size !==
@@ -326,6 +398,25 @@ export function assertCompensable(
     patch.retailer &&
     snapshot.retailers.find((r) => r.retailerId === patch.retailer!.retailerId)
       ?.status !== patch.retailer.status
+  )
+    conflict();
+  if (patch.name !== undefined && patch.name !== snapshot.name) conflict();
+  if (
+    patch.manufacturerUrl !== undefined &&
+    patch.manufacturerUrl !== snapshot.manufacturerUrl
+  )
+    conflict();
+  if (
+    patch.aliases &&
+    JSON.stringify([...patch.aliases].sort()) !==
+      JSON.stringify([...snapshot.aliases].sort())
+  )
+    conflict();
+  if (
+    patch.addedCategories?.some(
+      (id) =>
+        !snapshot.categories.some((c) => c.categoryId === id && c.eligible),
+    )
   )
     conflict();
   if (
