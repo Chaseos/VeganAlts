@@ -28,6 +28,7 @@ import type {
 export interface TaxonomyEffects {
   rebuildVersions(versionIds: string[]): Promise<void>;
   rebuildSearch(): Promise<void>;
+  refreshTrending(categoryIds: string[]): Promise<void>;
   invalidate(categorySlugs: string[], productIds: string[]): Promise<void>;
 }
 const PROPOSALS_PER_DAY = 3;
@@ -766,6 +767,7 @@ export class TaxonomyService {
             this.clock(),
           );
           const survivor = await this.existing(merge.survivor_id);
+          await this.effects.refreshTrending([donor.id, survivor.id]);
           await this.refreshed(
             [donor.slug, survivor.slug],
             affected.versions,
@@ -781,6 +783,7 @@ export class TaxonomyService {
           );
           const donor = await this.existing(merge.donor_id),
             survivor = await this.existing(merge.survivor_id);
+          await this.effects.refreshTrending([donor.id, survivor.id]);
           await this.refreshed(
             [donor.slug, survivor.slug],
             affected.versions,

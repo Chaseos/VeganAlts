@@ -58,6 +58,18 @@ export class TrendingService {
     );
     return { days, categories: categories.length };
   }
+  /**
+   * A category merge or reversal moves older activity between categories, so
+   * re-derive the whole window, then recompute only the categories involved.
+   */
+  async refreshCategories(categoryIds: string[]) {
+    const now = this.clock(),
+      today = Math.floor(now / DAY) * DAY;
+    for (let i = 0; i <= this.span; i++)
+      await this.repository.rollupDay(today - i * DAY);
+    for (const categoryId of new Set(categoryIds))
+      await this.category(categoryId, now);
+  }
   /** Rebuild every day in the window and every category. */
   async rebuild() {
     const now = this.clock(),

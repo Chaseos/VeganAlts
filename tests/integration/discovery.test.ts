@@ -6,6 +6,7 @@ import { CatalogService } from "../../server/catalog/application/service";
 import { D1CatalogRepository } from "../../server/catalog/infrastructure/d1-repository";
 import { RatingsService } from "../../server/ratings/application/service";
 import { D1RatingsRepository } from "../../server/ratings/infrastructure/d1-repository";
+import { trendingParameters } from "../../server/ranking/domain/trending";
 import { INITIAL_RANKING_PARAMETERS } from "../../server/ranking/domain/policy";
 
 const DAY = 86_400_000;
@@ -113,6 +114,17 @@ it("computes Trending and New from precomputed activity without changing Top", a
   const fresh = await catalog.category(slug, 1, 1, "new");
   expect(fresh.discovery.map((p) => p.id)).toEqual([w.fresh]);
   expect(fresh.discovery[0]).toMatchObject({ ratingCount: 0, isNew: true });
+  // The configured New window bounds the view: a one-day window excludes a
+  // product published two days ago.
+  expect(
+    (
+      await new CatalogService(
+        new D1CatalogRepository(env.DB),
+        () => NOW,
+        trendingParameters('{"newDays":1}').newDays,
+      ).category(slug, 1, 1, "new")
+    ).discovery.map((p) => p.id),
+  ).not.toContain(w.fresh);
   const home = await catalog.home();
   expect(home.trending.map((p) => p.id)).toContain(w.f.productId);
   expect(home.newest.map((p) => p.id)).toContain(w.fresh);

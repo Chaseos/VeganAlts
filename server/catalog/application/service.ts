@@ -46,6 +46,7 @@ export class CatalogService {
   constructor(
     private readonly repository: CatalogRepository,
     private readonly clock = Date.now,
+    private readonly newDays = DEFAULT_TRENDING.newDays,
   ) {}
 
   private labelNew<T extends ProductSummary>(products: T[]) {
@@ -57,7 +58,7 @@ export class CatalogService {
   }
 
   private newSince() {
-    return this.clock() - DEFAULT_TRENDING.newDays * 86_400_000;
+    return this.clock() - this.newDays * 86_400_000;
   }
   async home() {
     const [categories, featured, trending, newest] = await Promise.all([

@@ -247,6 +247,52 @@ it("transfers a merged category's ratings, links and metadata, then reverses exa
   ).toEqual([]);
 });
 
+it("re-derives Trending activity when a merge and its reversal move older ratings", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  // Outside the two days the hourly pass refreshes, inside the Trending window.
+  const day = 86_400_000,
+    at = Math.floor(Date.now() / day) * day - 5 * day + 3_600_000,
+    date = new Date(at).toISOString().slice(0, 10);
+  await env.DB.prepare(
+    "INSERT INTO ratings(id,user_id,product_version_id,category_id,overall_similarity,created_at,updated_at) VALUES(?,?,?,?,5,?,?)",
+  )
+    .bind(`older-${w.s}`, w.users[4], w.V3, w.D, at, at)
+    .run();
+  const daily = async (category: string) =>
+    await env.DB.prepare(
+      "SELECT COALESCE(SUM(new_rating_count),0) AS n FROM product_category_daily_stats WHERE category_id=? AND stat_date=? AND product_version_id=?",
+    )
+      .bind(category, date, w.V3)
+      .first<number>("n");
+  const service = taxonomy();
+  const tree = await service.tree(operator);
+  const revision = (cid: string) =>
+    tree.categories.find((c) => c.id === cid)!.revision;
+  const merged = await service.merge(operator, id(), {
+    donorId: w.D,
+    survivorId: w.S,
+    donorRevision: revision(w.D),
+    survivorRevision: revision(w.S),
+    note,
+  });
+  expect(merged).toMatchObject({ state: "complete" });
+  expect(await daily(w.S)).toBe(1);
+  expect(await daily(w.D)).toBe(0);
+  await service.reverseMerge(
+    operator,
+    id(),
+    merged.mergeId,
+    "Reversed: these are different products.",
+  );
+  expect(await daily(w.D)).toBe(1);
+  expect(await daily(w.S)).toBe(0);
+});
+
 it("validates slugs and names, redirects renamed slugs and reverses taxonomy edits", async () => {
   const w = await world();
   const operator = {
