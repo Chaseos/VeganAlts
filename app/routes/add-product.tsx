@@ -516,7 +516,10 @@ export default function AddProduct({
                   {brand} · {name}
                 </dd>
                 <dt>Country</dt>
-                <dd>United States</dd>
+                <dd>
+                  {markets.find((m) => m.iso2 === details.country)?.name ??
+                    details.country}
+                </dd>
                 <dt>Replaces</dt>
                 <dd>
                   {options.categories

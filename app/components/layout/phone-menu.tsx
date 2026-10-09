@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { Icon } from "../icons/icon";
 import { FoodIcon } from "../icons/food-icons";
 import { AppearanceControl } from "./appearance-menu";
-import { ACCOUNT_LINKS, OPERATOR_LINKS, useSignInHref } from "./account-menu";
+import { accountLinks, OPERATOR_LINKS, useSignInHref } from "./account-menu";
 import { CountryList } from "./country-menu";
 import { useOptionalPersonalState } from "../personal-state";
 import { foodPath, useSiteChrome } from "../../lib/site-chrome";
@@ -117,7 +117,7 @@ export function PhoneMenu() {
               <ul className="va-sheet__list">
                 {user ? (
                   [
-                    ...ACCOUNT_LINKS,
+                    ...accountLinks(country.code),
                     ...(user.administrator ? OPERATOR_LINKS : []),
                   ].map((link) => (
                     <li key={link.to}>

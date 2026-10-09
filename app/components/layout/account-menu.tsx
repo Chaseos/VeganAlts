@@ -3,11 +3,13 @@ import { Icon } from "../icons/icon";
 import { Popover } from "../ui/popover";
 import { useOptionalPersonalState } from "../personal-state";
 import { useHydrated } from "../../lib/use-hydrated";
+import { useCountryCode } from "../../lib/site-chrome";
 
-export const ACCOUNT_LINKS = [
+// Add a product starts in the country being browsed.
+export const accountLinks = (country: string) => [
   { to: "/my-ratings", label: "My ratings" },
   { to: "/my-contributions", label: "My contributions" },
-  { to: "/add-product", label: "Add a product" },
+  { to: `/add-product?country=${country}`, label: "Add a product" },
   { to: "/account", label: "Account settings" },
 ];
 
@@ -29,6 +31,7 @@ export function useSignInHref() {
 
 export function AccountMenu() {
   const user = useOptionalPersonalState()?.user;
+  const country = useCountryCode();
   const location = useLocation();
   const signIn = useSignInHref();
   if (!user)
@@ -60,7 +63,7 @@ export function AccountMenu() {
         <nav aria-label="Account">
           <p className="va-menu-heading">Signed in as {user.handle}</p>
           <ul className="va-menu-list">
-            {ACCOUNT_LINKS.map((link) => (
+            {accountLinks(country).map((link) => (
               <li key={link.to}>
                 <Link to={link.to}>{link.label}</Link>
               </li>

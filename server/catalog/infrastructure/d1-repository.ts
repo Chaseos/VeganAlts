@@ -365,7 +365,8 @@ export class D1CatalogRepository implements CatalogRepository {
 
   // Every ranked product of a food with its Top rank over the unfiltered set,
   // whether it passes each filter, its allergen declaration and its detail
-  // answer counts. Views, filters and badges are applied in the domain.
+  // answer counts. Views, filters and badges are applied in the domain, so
+  // the set is never truncated: counts, badges and later pages need all of it.
   async rankedSet(
     countryId: string,
     categoryId: string,
@@ -390,7 +391,7 @@ export class D1CatalogRepository implements CatalogRepository {
           FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
           ${rankedMembershipSql}
           WHERE s.category_id=? AND ${eligible} AND ${rankedSampleSql}
-          ORDER BY topRank LIMIT 1000`,
+          ORDER BY topRank`,
         )
         .bind(
           ...storeFilter.binds,

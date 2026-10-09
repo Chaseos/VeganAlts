@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures";
 import { accessible } from "./a11y";
-import { chooseCountry } from "./site";
+import { chooseCountry, openAccountLink } from "./site";
 import { createBrowserSession } from "./session-fixture";
 
 test("switching country keeps the food, remembers the choice and invites the first products", async ({
@@ -74,8 +74,11 @@ test("a product added from Ireland is published, rated and ranked in Ireland onl
     name = `Shamrock ${testInfo.project.name} ${Date.now()}`;
   try {
     await context.addCookies([contributor.cookie]);
-    // (Canada stays empty for the empty-country check above.)
-    await page.goto("/add-product?country=ie");
+    // (Canada stays empty for the empty-country check above.) The account
+    // menu's Add a product starts in the country being browsed.
+    await page.goto("/ie/beef-burgers");
+    await openAccountLink(page, "Add a product");
+    await expect(page).toHaveURL(/\/add-product\?country=ie$/);
     await expect(
       page.getByRole("main").getByRole("combobox", { name: "Country" }),
     ).toHaveValue("IE");
@@ -96,6 +99,9 @@ test("a product added from Ireland is published, rated and ranked in Ireland onl
       .getByLabel("What supports the ingredient classification?")
       .fill("The manufacturer ingredient list contains only plants.");
     await page.getByRole("button", { name: "Review submission" }).click();
+    await expect(
+      page.getByRole("definition").filter({ hasText: /^Ireland$/ }),
+    ).toBeVisible();
     await page
       .getByRole("button", { name: "Submit product", exact: true })
       .click();

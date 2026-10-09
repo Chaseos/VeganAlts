@@ -322,3 +322,34 @@ it("sorts by detail scores and rating counts and filters by label without changi
     catalog.category(w.us, w.category, { view: "detail-crunch" }),
   ).rejects.toMatchObject({ code: "UNKNOWN_VIEW" });
 });
+
+it("ranks, counts and pages every product of a food with more than 1,000", async () => {
+  const f = await catalogFixture(env.DB, 0);
+  const s = crypto.randomUUID().slice(0, 8);
+  const category = f.categories[0]!;
+  const total = 1001;
+  const series = `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<${total})`;
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO products(id,country_id,name,slug,created_at,updated_at) ${series} SELECT ?||i,?,?||i,?||i,1,1 FROM n`,
+    ).bind(`bulk-${s}-`, f.countryId, `Bulk ${s} `, `bulk-${s}-`),
+    env.DB.prepare(
+      `INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) ${series} SELECT ?||i,?||i,1,1,1 FROM n`,
+    ).bind(`bulk-v-${s}-`, `bulk-${s}-`),
+    env.DB.prepare(
+      `INSERT INTO product_categories(product_id,category_id,created_at,updated_at) ${series} SELECT ?||i,?,1,1 FROM n`,
+    ).bind(`bulk-${s}-`, category),
+    env.DB.prepare(
+      `INSERT INTO product_category_stats(product_version_id,category_id,rating_count,rating_sum,raw_average,bayesian_score,recomputed_at) ${series} SELECT ?||i,?,1,4,4,4.9-i*0.001,1 FROM n`,
+    ).bind(`bulk-v-${s}-`, category),
+  ]);
+  const page = (n: number) =>
+    catalog.category(testMarket(f.countryId), category, { page: n });
+  expect((await page(1)).summary.rankedCount).toBe(total);
+  const last = await page(51);
+  expect(last.ranked.map((row) => [row.id, row.topRank])).toEqual([
+    [`bulk-${s}-${total}`, total],
+  ]);
+  expect(last.hasNext).toBe(false);
+  expect((await page(50)).hasNext).toBe(true);
+});
