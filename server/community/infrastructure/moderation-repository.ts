@@ -235,17 +235,45 @@ export class ModerationRepository {
       .bind(key)
       .first<string>("product_id");
   }
-  /** Pending product proposals automation may evaluate, oldest first. */
+  /**
+   * Pending product proposals automation may evaluate, oldest first. A stored
+   * cursor rotates through them, so proposals that stay ineligible cannot
+   * keep newer ones from ever being examined.
+   */
   async automationCandidates(limit: number) {
-    return (
-      await this.db
+    const page = async (at: number, after: string, count: number) =>
+      (
+        await this.db
+          .prepare(
+            `SELECT id,created_at FROM edit_proposals WHERE target_type='product' AND status='pending' AND risk_tier<=2 AND disagree_count=0
+            AND (risk_tier=1 OR confirm_count>0) AND (created_at>? OR (created_at=? AND id>?)) ORDER BY created_at,id LIMIT ?`,
+          )
+          .bind(at, at, after, count)
+          .all<{ id: string; created_at: number }>()
+      ).results;
+    const cursor =
+      (await this.db
         .prepare(
-          `SELECT id FROM edit_proposals WHERE target_type='product' AND status='pending' AND risk_tier<=2 AND disagree_count=0
-          AND (risk_tier=1 OR confirm_count>0) ORDER BY created_at LIMIT ?`,
+          "SELECT cursor FROM community_recovery WHERE prefix='proposal-automation'",
         )
-        .bind(limit)
-        .all<{ id: string }>()
-    ).results.map((r) => r.id);
+        .first<string>("cursor")) ?? "";
+    const [at, after] = cursor ? cursor.split(":") : ["-1", ""];
+    let rows = await page(Number(at), after ?? "", limit);
+    if (rows.length < limit && cursor) {
+      const wrapped = await page(-1, "", limit - rows.length);
+      rows = [
+        ...rows,
+        ...wrapped.filter((w) => !rows.some((r) => r.id === w.id)),
+      ];
+    }
+    const last = rows.at(-1);
+    await this.db
+      .prepare(
+        "INSERT INTO community_recovery(prefix,cursor) VALUES('proposal-automation',?) ON CONFLICT(prefix) DO UPDATE SET cursor=excluded.cursor",
+      )
+      .bind(rows.length < limit || !last ? "" : `${last.created_at}:${last.id}`)
+      .run();
+    return rows.map((r) => r.id);
   }
   async comment(id: string) {
     return this.db

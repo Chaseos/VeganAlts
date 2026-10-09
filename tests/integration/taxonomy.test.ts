@@ -464,6 +464,71 @@ it("routes contributor category proposals through deterministic checks, automati
   ).toContain(`Hamburger meat ${w.s}`);
 });
 
+it("reverses a merge only after later edits, and rechecks proposed names when deciding", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  const service = taxonomy();
+  const tree = await service.tree(operator);
+  const revision = (cid: string) =>
+    tree.categories.find((c) => c.id === cid)!.revision;
+  const merged = await service.merge(operator, id(), {
+    donorId: w.D,
+    survivorId: w.S,
+    donorRevision: revision(w.D),
+    survivorRevision: revision(w.S),
+    note,
+  });
+  // A later edit rewrites the survivor's aliases, so it is undone first.
+  const edited = (await service.update(operator, id(), w.S, {
+    expectedRevision: (await service.tree(operator)).categories.find(
+      (c) => c.id === w.S,
+    )!.revision,
+    name: `Ground meat ${w.s}`,
+    note,
+  })) as { actionId: string };
+  await expect(
+    service.reverseMerge(operator, id(), merged.mergeId, note),
+  ).rejects.toMatchObject({ code: "REVERSAL_CONFLICT" });
+  await service.reverseUpdate(operator, id(), edited.actionId, note);
+  expect(
+    await service.reverseMerge(operator, id(), merged.mergeId, note),
+  ).toMatchObject({ state: "reversed" });
+  expect(
+    (await service.tree(operator)).categories
+      .find((c) => c.id === w.S)!
+      .aliases.map((a) => a.alias),
+  ).not.toContain(`mince ${w.s}`);
+  // A name claimed by another category after submission blocks acceptance.
+  const proposal = await service.propose(
+    { id: w.users[0]!, accountState: "active", administrator: false },
+    id(),
+    {
+      name: `Kielbasa ${w.s}`,
+      country: "US",
+      explanation: "Plant-based kielbasa is sold in many grocery stores.",
+      aliases: [`polska ${w.s}`],
+    },
+  );
+  await service.create(operator, id(), {
+    name: `Polish sausage ${w.s}`,
+    isRankable: true,
+    aliases: [`polska ${w.s}`],
+    note,
+  });
+  await expect(
+    service.decideProposal(operator, id(), proposal.id, {
+      decision: "accept",
+      expectedRevision: (await service.proposalDetail(operator, proposal.id))
+        .revision,
+      note: "Distinct reference food.",
+    }),
+  ).rejects.toMatchObject({ code: "CATEGORY_EXISTS" });
+});
+
 it("seeds the production-safe taxonomy idempotently without catalog data", async () => {
   const products = async () =>
     (await env.DB.prepare("SELECT COUNT(*) AS n FROM products").first<number>(

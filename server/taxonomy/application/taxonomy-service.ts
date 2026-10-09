@@ -32,6 +32,25 @@ export interface TaxonomyEffects {
   invalidate(categorySlugs: string[], productIds: string[]): Promise<void>;
 }
 const PROPOSALS_PER_DAY = 3;
+// Unreversed edits to either category made after a merge (donor, survivor,
+// merge time).
+const LATER_EDITS =
+  "EXISTS(SELECT 1 FROM moderation_actions WHERE kind='category_update' AND target_id IN (?,?) AND created_at>? AND reversed_by IS NULL)";
+/**
+ * Fences names checked before a commit: no other category may have claimed
+ * one of them meanwhile (an exact, case-insensitive match).
+ */
+function fenceNames(
+  guard: { sql: string; values: unknown[] },
+  names: string[],
+  except: string,
+) {
+  if (!names.length) return;
+  const list = JSON.stringify(names);
+  guard.sql +=
+    " AND NOT EXISTS(SELECT 1 FROM categories WHERE id<>? AND name COLLATE NOCASE IN (SELECT value FROM json_each(?))) AND NOT EXISTS(SELECT 1 FROM category_aliases WHERE category_id<>? AND alias COLLATE NOCASE IN (SELECT value FROM json_each(?)))";
+  guard.values.push(except, list, except, list);
+}
 // Bounded work per request; the hourly automation and "continue" finish the rest.
 const PAGES_PER_REQUEST = 4;
 
@@ -267,6 +286,15 @@ export class TaxonomyService {
           "Choose the category that receives this name.",
         );
       const target = await this.existing(input.aliasOf);
+      const held = new Set(
+        [target.name, ...target.aliases.map((a) => a.alias)].map(categoryKey),
+      );
+      const claimed = [data.name, ...data.aliases].filter(
+        (alias) => !held.has(categoryKey(alias)),
+      );
+      // Another category may have claimed a proposed name since submission.
+      await this.assertNameAvailable(claimed, target.id);
+      fenceNames(guard, claimed, target.id);
       const aliases = [
         ...target.aliases,
         { alias: data.name, countryId: null },
@@ -322,13 +350,14 @@ export class TaxonomyService {
       ? categorySlug(input.slug)
       : categorySlug(data.name);
     await this.assertSlugAvailable(slug);
-    await this.assertNameAvailable([data.name]);
+    const categoryId = this.newId();
+    await this.assertNameAvailable([data.name, ...data.aliases]);
+    fenceNames(guard, [data.name, ...data.aliases], categoryId);
     const parentId =
       input.parentId === undefined
         ? (proposal.parent_id ?? null)
         : input.parentId;
     await this.assertParent(null, parentId);
-    const categoryId = this.newId();
     const created = {
       name: data.name,
       slug,
@@ -846,6 +875,19 @@ export class TaxonomyService {
         "Reverse the later merge involving these categories first.",
         409,
       );
+    // Later edits rewrite rows the reversal restores (such as alias sets), so
+    // they are undone first to keep the reversal exact.
+    const later = [
+      merge.donor_id,
+      merge.survivor_id,
+      merge.created_at,
+    ] as const;
+    if (await this.repository.laterEdits(...later))
+      throw new ApplicationError(
+        "REVERSAL_CONFLICT",
+        "Reverse the later edits to these categories first.",
+        409,
+      );
     const action = this.action(
       actor,
       "reversal",
@@ -857,8 +899,8 @@ export class TaxonomyService {
     const result = await this.repository.commit(
       action,
       {
-        sql: "EXISTS(SELECT 1 FROM category_merges WHERE id=? AND state='complete' AND active=1)",
-        values: [mergeId],
+        sql: `EXISTS(SELECT 1 FROM category_merges WHERE id=? AND state='complete' AND active=1) AND NOT ${LATER_EDITS}`,
+        values: [mergeId, ...later],
       },
       (fence) => [
         ...this.repository.beginReversalStatements(

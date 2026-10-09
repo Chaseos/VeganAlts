@@ -359,3 +359,43 @@ it("does not accept an addition to a category retired after the proposal", async
       .first("status"),
   ).toBe("pending");
 });
+
+it("rotates automation past proposals that stay ineligible", async () => {
+  const { f, services, confirmer, propose } = await fixture({
+    PROPOSAL_AUTO_APPLY: '{"minAgeHours":0,"perPass":1}',
+  });
+  // The oldest candidate never becomes eligible: no automated check ran.
+  const manual = communityServices(
+    { ...env, APP_ENV: "local", PROPOSAL_AUTO_APPLY: '{"minAgeHours":0}' },
+    id,
+  );
+  const stuck = await manual.contributions.propose(
+    { ...f.users[0]!, administrator: false },
+    id(),
+    changeInput.parse({
+      productId: f.productId,
+      expectedRevision: (await manual.repository.snapshot(f.productId))
+        .revision,
+      evidence,
+      kind: "alias",
+      alias: "Unchecked alias",
+    }),
+  );
+  await env.DB.prepare("UPDATE edit_proposals SET created_at=1 WHERE id=?")
+    .bind(stuck.id)
+    .run();
+  const eligible = await propose({ kind: "rename", name: "Rotated name" });
+  await services.contributions.respond(confirmer, id(), eligible.id, {
+    stance: "confirm",
+  });
+  const candidates = (await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM edit_proposals WHERE target_type='product' AND status='pending' AND risk_tier<=2 AND disagree_count=0 AND (risk_tier=1 OR confirm_count>0)",
+  ).first<number>("n"))!;
+  for (let pass = 0; pass < candidates; pass++)
+    await services.moderation.sweepProposals();
+  expect(
+    await env.DB.prepare("SELECT status FROM edit_proposals WHERE id=?")
+      .bind(eligible.id)
+      .first("status"),
+  ).toBe("accepted");
+});

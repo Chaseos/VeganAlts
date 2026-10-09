@@ -421,6 +421,17 @@ export class D1TaxonomyRepository {
       .first<MergeRecord>();
   }
   /** Active merges a new merge or a reversal must not overlap. */
+  /** Whether either category has unreversed edits made after a time. */
+  async laterEdits(donorId: string, survivorId: string, after: number) {
+    return Boolean(
+      await this.db
+        .prepare(
+          "SELECT 1 FROM moderation_actions WHERE kind='category_update' AND target_id IN (?,?) AND created_at>? AND reversed_by IS NULL LIMIT 1",
+        )
+        .bind(donorId, survivorId, after)
+        .first(),
+    );
+  }
   async busyMerges(categoryIds: string[], after = 0) {
     return (
       await this.db
