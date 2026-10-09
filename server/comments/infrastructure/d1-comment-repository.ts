@@ -365,19 +365,29 @@ export class D1CommentRepository {
       .first<{ value: -1 | 1 }>();
     return row?.value ?? null;
   }
-  /** The viewer's votes and their own non-public comments for one product. */
-  async personal(productId: string, userId: string) {
+  /**
+   * The viewer's votes and own comments for one product: every listed
+   * (displayed) comment, plus their 500 latest votes and 50 latest comments
+   * so held and just-posted comments appear without being listed.
+   */
+  async personal(productId: string, userId: string, ids: string[] = []) {
+    const listed = JSON.stringify(ids);
     const [votes, own] = await this.db.batch([
       this.db
         .prepare(
-          "SELECT v.comment_id AS commentId,v.value FROM comment_votes v JOIN comments c ON c.id=v.comment_id WHERE c.product_id=? AND v.user_id=? LIMIT 500",
+          `SELECT v.comment_id AS commentId,v.value FROM comment_votes v JOIN comments c ON c.id=v.comment_id
+          WHERE c.product_id=? AND v.user_id=? AND (v.comment_id IN (SELECT value FROM json_each(?))
+            OR v.comment_id IN (SELECT x.comment_id FROM comment_votes x JOIN comments y ON y.id=x.comment_id WHERE y.product_id=? AND x.user_id=? ORDER BY x.updated_at DESC LIMIT 500))`,
         )
-        .bind(productId, userId),
+        .bind(productId, userId, listed, productId, userId),
       this.db
         .prepare(
-          "SELECT c.id,c.body,c.moderation_state AS state,c.updated_at AS updatedAt,c.created_at AS createdAt,c.edited_at AS editedAt FROM comments c WHERE c.product_id=? AND c.user_id=? AND c.deleted_at IS NULL ORDER BY c.created_at DESC LIMIT 50",
+          `SELECT c.id,c.body,c.moderation_state AS state,c.updated_at AS updatedAt,c.created_at AS createdAt,c.edited_at AS editedAt FROM comments c
+          WHERE c.product_id=? AND c.user_id=? AND c.deleted_at IS NULL AND (c.id IN (SELECT value FROM json_each(?))
+            OR c.id IN (SELECT id FROM comments WHERE product_id=? AND user_id=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50))
+          ORDER BY c.created_at DESC`,
         )
-        .bind(productId, userId),
+        .bind(productId, userId, listed, productId, userId),
     ]);
     return {
       votes: Object.fromEntries(

@@ -726,9 +726,11 @@ export class D1TaxonomyRepository {
       featured!.results as { categoryId: string; position: number }[]
     ).find((f) => f.categoryId === D);
     const survivorFeatured = featured!.results.length > (donorFeature ? 1 : 0);
+    // The donor's name and every alias, each keeping its market scope, so
+    // its search terms keep finding the survivor.
     const aliases = [
-      donor.name,
-      ...donor.aliases.filter((a) => !a.countryId).map((a) => a.alias),
+      { alias: donor.name, countryId: null as string | null },
+      ...donor.aliases,
     ];
     const aliasIds = aliases.map(() => this.newId());
     const data: FinalizeData = {
@@ -782,12 +784,12 @@ export class D1TaxonomyRepository {
           `UPDATE categories SET parent_id=?,revision=revision+1,updated_at=? WHERE parent_id=? AND id IN (SELECT value FROM json_each(?)) AND ${g.sql}`,
         )
         .bind(S, now, D, JSON.stringify(data.children), ...g.values),
-      ...aliases.map((alias, i) =>
+      ...aliases.map((a, i) =>
         this.db
           .prepare(
-            `INSERT INTO category_aliases(id,category_id,country_id,alias,created_at) SELECT ?,?,NULL,?,? WHERE ${g.sql} ON CONFLICT DO NOTHING`,
+            `INSERT INTO category_aliases(id,category_id,country_id,alias,created_at) SELECT ?,?,?,?,? WHERE ${g.sql} ON CONFLICT DO NOTHING`,
           )
-          .bind(aliasIds[i], S, alias, now, ...g.values),
+          .bind(aliasIds[i], S, a.countryId, a.alias, now, ...g.values),
       ),
       ...(donorFeature
         ? [

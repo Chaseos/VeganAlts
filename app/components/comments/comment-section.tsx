@@ -43,29 +43,37 @@ export function CommentSection({
     [status, setStatus] = useState(""),
     [loading, setLoading] = useState(false);
   const productId = initial.productId;
+  // The viewer's votes and own comments for the comments on screen, merged
+  // as further pages load so older comments keep their controls.
+  async function loadPersonal(ids: string[], signal?: AbortSignal) {
+    const params = new URLSearchParams({ productId });
+    if (ids.length) params.set("ids", ids.slice(0, 100).join(","));
+    const response = await fetch(`/api/v1/me/comment-state?${params}`, {
+      cache: "no-store",
+      signal,
+    });
+    if (!response.ok || signal?.aborted) return;
+    const { data } = (await response.json()) as {
+      data: { votes: Record<string, number>; own: OwnComment[] };
+    };
+    if (signal?.aborted) return;
+    setVotes((old) => ({ ...old, ...data.votes }));
+    setOwn((old) =>
+      [
+        ...old.filter((o) => !data.own.some((n) => n.id === o.id)),
+        ...data.own,
+      ].sort((a, b) => b.createdAt - a.createdAt),
+    );
+  }
   useEffect(() => {
-    if (!user) {
-      setVotes({});
-      setOwn([]);
-      return;
-    }
+    setVotes({});
+    setOwn([]);
+    if (!user) return;
     const controller = new AbortController();
-    void fetch(
-      `/api/v1/me/comment-state?productId=${encodeURIComponent(productId)}`,
-      { cache: "no-store", signal: controller.signal },
-    )
-      .then(
-        (r) =>
-          (r.ok ? r.json() : null) as Promise<{
-            data: { votes: Record<string, number>; own: OwnComment[] };
-          } | null>,
-      )
-      .then((value) => {
-        if (!value || controller.signal.aborted) return;
-        setVotes(value.data.votes);
-        setOwn(value.data.own);
-      })
-      .catch(() => {});
+    loadPersonal(
+      page.comments.map((c) => c.id),
+      controller.signal,
+    ).catch(() => {});
     return () => controller.abort();
   }, [user?.handle, productId]);
 
@@ -84,6 +92,8 @@ export function CommentSection({
       );
       if (!response.ok) throw new Error();
       const { data } = (await response.json()) as { data: CommentPage };
+      if (user)
+        void loadPersonal(data.comments.map((c) => c.id)).catch(() => {});
       setPage((old) =>
         cursor
           ? {

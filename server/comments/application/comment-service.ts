@@ -60,9 +60,9 @@ export class CommentService {
     ]);
     return { productId: product.id, sort, formula, ...page, counts };
   }
-  async personal(actor: Actor, productId: string) {
+  async personal(actor: Actor, productId: string, ids: string[] = []) {
     active(actor);
-    return this.repository.personal(productId, actor.id);
+    return this.repository.personal(productId, actor.id, ids);
   }
   private async evaluate(
     actor: Actor,

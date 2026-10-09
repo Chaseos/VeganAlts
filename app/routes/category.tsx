@@ -143,7 +143,7 @@ export default function Category({ loaderData: data }: Route.ComponentProps) {
             <span>
               {data.view === "trending"
                 ? "Unusual recent activity"
-                : "Added in the last 90 days"}
+                : `Added in the last ${data.newDays} days`}
             </span>
           </div>
           <p className="small muted">

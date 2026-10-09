@@ -203,6 +203,35 @@ it("paginates with stable cursors and separates earlier formulas", async () => {
   expect(earlier.comments[0]!.formula).toMatchObject({ isCurrent: false });
 });
 
+it("returns private state for displayed comments beyond an author's latest 50", async () => {
+  const { f, actors } = await setup(1);
+  const comments = commentServices({ ...env, APP_ENV: "local" }, id);
+  const ids = Array.from({ length: 52 }, (_, i) => `own-${i}-${id()}`);
+  await env.DB.batch(
+    ids.map((commentId, i) =>
+      env.DB.prepare(
+        "INSERT INTO comments(id,user_id,product_id,product_version_id,body,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
+      ).bind(
+        commentId,
+        actors[0]!.id,
+        f.productId,
+        f.versionId,
+        `Older comment ${i}`,
+        1000 + i,
+        1000 + i,
+      ),
+    ),
+  );
+  const latest = await comments.personal(actors[0]!, f.productId);
+  expect(latest.own).toHaveLength(50);
+  expect(latest.own.map((o) => o.id)).not.toContain(ids[0]);
+  // A paginated older comment keeps its edit fence when it is displayed.
+  const listed = await comments.personal(actors[0]!, f.productId, [ids[0]!]);
+  expect(listed.own).toContainEqual(
+    expect.objectContaining({ id: ids[0], updatedAt: 1000 }),
+  );
+});
+
 it("holds uncertain or unevaluated comments, blocks near-certain spam and releases held comments when the provider recovers", async () => {
   const { f, actors } = await setup(3);
   const fake = new FakeDecisionProvider();

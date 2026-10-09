@@ -331,3 +331,31 @@ it("applies tier 1 additions immediately, rejects contradicted evidence and reve
     (await env.DB.prepare("PRAGMA foreign_key_check").all()).results,
   ).toEqual([]);
 });
+
+it("does not accept an addition to a category retired after the proposal", async () => {
+  const { f, services, confirmer, propose } = await fixture();
+  const category = `retiring-${f.productId}`;
+  await env.DB.prepare(
+    "INSERT INTO categories(id,slug,name,is_rankable,created_at,updated_at) VALUES(?,?,?,1,1,1)",
+  )
+    .bind(category, category, "Retiring category")
+    .run();
+  const addition = await propose({
+    kind: "category_add",
+    categoryId: category,
+  });
+  await services.contributions.respond(confirmer, id(), addition.id, {
+    stance: "confirm",
+  });
+  await env.DB.prepare("UPDATE categories SET is_active=0 WHERE id=?")
+    .bind(category)
+    .run();
+  await expect(
+    services.moderation.autoAccept(addition.id),
+  ).rejects.toMatchObject({ code: "CATEGORY_UNAVAILABLE" });
+  expect(
+    await env.DB.prepare("SELECT status FROM edit_proposals WHERE id=?")
+      .bind(addition.id)
+      .first("status"),
+  ).toBe("pending");
+});

@@ -62,10 +62,16 @@ export async function commentsApi(
     services = commentServices(env);
   if (request.method === "GET" || request.method === "HEAD") {
     if (path !== "me/comment-state") return null;
+    const params = new URL(request.url).searchParams;
     return success(
       await services.personal(
         actor,
-        parse(id, new URL(request.url).searchParams.get("productId")),
+        parse(id, params.get("productId")),
+        // The comments currently displayed, so older pages keep their state.
+        parse(
+          z.array(id).max(100),
+          (params.get("ids") ?? "").split(",").filter(Boolean),
+        ),
       ),
       {},
       true,

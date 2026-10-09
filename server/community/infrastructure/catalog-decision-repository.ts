@@ -22,6 +22,22 @@ export class CatalogDecisionRepository {
   private get db() {
     return this.repository.db;
   }
+  /** A category retired after a proposal was made can no longer gain members. */
+  async validateCategories(input: ProductChange) {
+    if (input.kind !== "category_add") return;
+    const eligible = await this.db
+      .prepare(
+        "SELECT 1 FROM categories WHERE id=? AND is_active=1 AND is_rankable=1",
+      )
+      .bind(input.categoryId)
+      .first();
+    if (!eligible)
+      throw new ApplicationError(
+        "CATEGORY_UNAVAILABLE",
+        "That category is retired or no longer ranked. Reject this proposal instead.",
+        409,
+      );
+  }
   async validateRelationships(snapshot: ProductSnapshot, input: ProductChange) {
     if (input.kind !== "relationships") return;
     if (input.productFamilyId) {
@@ -86,6 +102,13 @@ export class CatalogDecisionRepository {
           ),
       ),
     ];
+    // Fences a retirement that lands between validation and this batch.
+    const categories = [...new Set(plan.after.addedCategories ?? [])];
+    if (categories.length) {
+      guard.sql +=
+        " AND (SELECT COUNT(*) FROM categories WHERE id IN(SELECT value FROM json_each(?)) AND is_active=1 AND is_rankable=1)=?";
+      guard.values.push(JSON.stringify(categories), categories.length);
+    }
     if (added.length) {
       guard.sql +=
         " AND (SELECT COUNT(*) FROM products WHERE id IN(SELECT value FROM json_each(?)) AND country_id=? AND lifecycle_status<>'hidden')=?";

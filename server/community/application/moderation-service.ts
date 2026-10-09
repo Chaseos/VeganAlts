@@ -340,6 +340,7 @@ export class ModerationService {
         : null,
     );
     await this.catalog.validateRelationships(snapshot, change);
+    await this.catalog.validateCategories(change);
     const plan = planProductChange(snapshot, change, actor.id, this.newId());
     if (change.kind === "rename") {
       // A new display name must not collide with another product's identity.

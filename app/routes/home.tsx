@@ -103,7 +103,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           )}
           {loaderData.catalog.newest.length > 0 && (
             <section aria-labelledby="new-title">
-              <p className="eyebrow">Added in the last 90 days</p>
+              <p className="eyebrow">
+                Added in the last {loaderData.catalog.newDays} days
+              </p>
               <h2 id="new-title">New alternatives</h2>
               <ProductRows products={loaderData.catalog.newest} />
             </section>

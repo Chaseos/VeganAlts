@@ -73,6 +73,7 @@ export class CatalogService {
       featured: featured.length ? featured : categories.slice(0, 6),
       trending: this.labelNew(trending),
       newest: this.labelNew(newest),
+      newDays: this.newDays,
     };
   }
   sitemap() {
@@ -116,6 +117,7 @@ export class CatalogService {
         ranked: [],
         unranked: [],
         discovery: this.labelNew(rows.slice(0, CATALOG_PAGE_SIZE)),
+        newDays: this.newDays,
         page,
         unrankedPage: 1,
         hasNext: rows.length > CATALOG_PAGE_SIZE,
@@ -140,6 +142,7 @@ export class CatalogService {
       category,
       children,
       discovery: [],
+      newDays: this.newDays,
       ranked: this.labelNew(ranked.slice(0, CATALOG_PAGE_SIZE)),
       unranked: this.labelNew(unranked.slice(0, CATALOG_PAGE_SIZE)),
       page,

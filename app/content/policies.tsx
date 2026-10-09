@@ -220,7 +220,7 @@ export const POLICIES: Record<string, Policy> = {
         </p>
         <h2>New</h2>
         <p>
-          New lists products added in the last 90 days so they can be found
+          New lists recently added products, newest first, so they can be found
           before they have enough ratings to rank. Being new never raises a Top
           score.
         </p>

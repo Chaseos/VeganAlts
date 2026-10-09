@@ -122,6 +122,12 @@ it("transfers a merged category's ratings, links and metadata, then reverses exa
       .all<{ id: string }>()
   ).results.map((r) => r.id);
   const before = await state(ratingIds);
+  // A market-scoped donor alias moves with its scope.
+  await env.DB.prepare(
+    "INSERT INTO category_aliases(id,category_id,country_id,alias,created_at) VALUES(?,?,?,?,1)",
+  )
+    .bind(id(), w.D, w.f.countryId, `beef mince ${w.s}`)
+    .run();
   const tree = await service.tree(operator);
   const revision = (cid: string) =>
     tree.categories.find((c) => c.id === cid)!.revision;
@@ -195,6 +201,10 @@ it("transfers a merged category's ratings, links and metadata, then reverses exa
   )!;
   expect(survivor.aliases.map((a) => a.alias)).toContain(`Minced ${w.s}`);
   expect(survivor.aliases.map((a) => a.alias)).toContain(`mince ${w.s}`);
+  expect(survivor.aliases).toContainEqual({
+    alias: `beef mince ${w.s}`,
+    country: "US",
+  });
   expect(await catalogService(env).categoryRedirect(w.D)).toBe(w.S);
   expect(
     await env.DB.prepare(
@@ -242,6 +252,11 @@ it("transfers a merged category's ratings, links and metadata, then reverses exa
       .first("parent_id"),
   ).toBe(w.D);
   expect(await catalogService(env).categoryRedirect(w.D)).toBeNull();
+  expect(
+    (await service.tree(operator)).categories
+      .find((c) => c.id === w.S)!
+      .aliases.map((a) => a.alias),
+  ).not.toContain(`beef mince ${w.s}`);
   expect(
     (await env.DB.prepare("PRAGMA foreign_key_check").all()).results,
   ).toEqual([]);
