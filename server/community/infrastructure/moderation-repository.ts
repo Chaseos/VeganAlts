@@ -98,7 +98,7 @@ export class ModerationRepository {
         .bind(productId),
       this.db
         .prepare(
-          `SELECT d.status,(SELECT json_group_array(json_object('key',a.allergen_key,'presence',a.presence)) FROM product_version_allergens a WHERE a.product_version_id=d.product_version_id) AS allergens
+          `SELECT d.status,d.evidence_data AS evidence,d.source_proposal_id AS proposalId,(SELECT json_group_array(json_object('key',a.allergen_key,'presence',a.presence)) FROM product_version_allergens a WHERE a.product_version_id=d.product_version_id) AS allergens
           FROM product_version_allergen_declarations d JOIN product_versions v ON v.id=d.product_version_id WHERE v.product_id=? AND v.is_current=1`,
         )
         .bind(productId),
@@ -139,6 +139,12 @@ export class ModerationRepository {
       aliases: rows[5]!.results.map((r) => String(r.alias)),
       retailers: rows[6]!.results,
       allergens: declarationRow(rows[7]!.results[0]),
+      allergenSource: rows[7]!.results[0]
+        ? {
+            evidence: JSON.parse(String(rows[7]!.results[0].evidence)),
+            proposalId: rows[7]!.results[0].proposalId ?? null,
+          }
+        : null,
       allergenList: rows[8]!.results,
     } as unknown as ProductSnapshot;
   }

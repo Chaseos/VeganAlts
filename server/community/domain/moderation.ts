@@ -38,6 +38,8 @@ export interface ProductSnapshot {
   // The current formula's declaration (null: not confirmed yet) and the
   // product country's allergen list, in its own wording.
   allergens: AllergenDeclaration | null;
+  // Where that declaration came from, so a reversal restores it whole.
+  allergenSource: { evidence: Evidence; proposalId: string | null } | null;
   allergenList: { key: string; label: string }[];
   relationships: { productId: string; type: string }[];
   retailers: {
@@ -112,18 +114,20 @@ export interface ModerationAction {
 }
 export type ContributorProduct = Omit<
   ProductSnapshot,
-  "classification" | "images"
+  "classification" | "images" | "allergenSource"
 > & {
   classification:
     (Omit<FormulaClassification, "reviewedBy"> & { reviewed: boolean }) | null;
   images: ProductSnapshot["images"];
 };
-// Contributors see the same facts as public readers: reviewer identities and
-// rejected or pending photos remain operator-only moderation data.
+// Contributors see the same facts as public readers: reviewer identities,
+// rejected or pending photos and declaration provenance remain operator-only
+// moderation data.
 export function contributorProduct(
   snapshot: ProductSnapshot,
 ): ContributorProduct {
-  const { classification, images, ...product } = snapshot;
+  // allergenSource is named only to leave it out.
+  const { classification, images, allergenSource, ...product } = snapshot;
   return {
     ...product,
     classification: classification && {

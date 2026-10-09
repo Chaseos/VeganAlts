@@ -336,7 +336,11 @@ export function planProductChange(
         );
       before.allergens = {
         versionId: snapshot.versionId,
-        value: snapshot.allergens,
+        value: snapshot.allergens && {
+          ...snapshot.allergens,
+          evidence: snapshot.allergenSource?.evidence,
+          proposalId: snapshot.allergenSource?.proposalId ?? undefined,
+        },
       };
       after.allergens = {
         versionId: snapshot.versionId,

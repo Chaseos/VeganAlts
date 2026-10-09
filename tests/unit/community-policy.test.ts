@@ -135,6 +135,7 @@ const snapshot: ProductSnapshot = {
     { id: "back", versionId: "formula", slot: "back", state: "pending" },
   ],
   allergens: null,
+  allergenSource: null,
   allergenList: [
     { key: "soy", label: "Soy" },
     { key: "wheat", label: "Wheat" },

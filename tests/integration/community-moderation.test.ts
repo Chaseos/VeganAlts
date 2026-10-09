@@ -329,7 +329,8 @@ it("accepts canonical retailer aliases and keeps one current contributor stance 
     ...decision((await repository.proposal(concern!))!.updated_at),
     expectedProductRevision: (await repository.snapshot(f.productId)).revision,
   });
-  expect((await publicRetailer())!.status).toBe("not_current");
+  // No longer carried: the public page stops listing it.
+  expect(await publicRetailer()).toBeUndefined();
 });
 
 it("accepts valid comment targets while rejecting missing and hidden comments", async () => {

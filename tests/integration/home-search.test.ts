@@ -129,4 +129,16 @@ it("describes a product for one of its foods with ranks and rating context", asy
   await expect(
     catalog.product(us, "beyond-beef", null, "cheddar"),
   ).rejects.toMatchObject({ status: 404 });
+
+  // An earlier formula keeps its own figures but never claims the live rank.
+  const earlier = crypto.randomUUID();
+  await env.DB.prepare(
+    "INSERT INTO product_versions(id,product_id,version_label,is_current,created_at,updated_at) VALUES(?,?,?,0,1,1)",
+  )
+    .bind(earlier, product.id, "Earlier recipe")
+    .run();
+  const old = await catalog.product(us, "beyond-beef", earlier);
+  expect(old.formula.id).toBe(earlier);
+  for (const food of old.categories)
+    expect(food).toMatchObject({ rank: null, rankedCount: 0, early: false });
 });

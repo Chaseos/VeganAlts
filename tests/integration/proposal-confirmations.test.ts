@@ -530,7 +530,16 @@ it("accepts a confirmed allergen declaration that cites the label photo, reversi
     mayContain: ["sesame"],
   });
 
-  // A later "none declared" correction replaces it; reversal restores it.
+  // A later "none declared" correction replaces it; reversal restores it,
+  // with its evidence and source proposal.
+  const provenance = () =>
+    env.DB.prepare(
+      "SELECT evidence_data,source_proposal_id FROM product_version_allergen_declarations WHERE product_version_id=?",
+    )
+      .bind(f.versionId)
+      .first();
+  const original = await provenance();
+  expect(original).toMatchObject({ source_proposal_id: proposal.id });
   const correction = await propose({
     kind: "allergens",
     declaration: { status: "none_declared" },
@@ -563,6 +572,7 @@ it("accepts a confirmed allergen declaration that cites the label photo, reversi
     status: "declared",
     rows: ["sesame:may_contain", "soy:contains", "wheat:contains"],
   });
+  expect(await provenance()).toEqual(original);
 });
 
 it("keeps a declaration that contradicts the classification with operators and opens a review", async () => {

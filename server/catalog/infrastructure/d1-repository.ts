@@ -665,15 +665,16 @@ export class D1CatalogRepository implements CatalogRepository {
     >([
       this.db
         .prepare(
-          `WITH ranked AS (SELECT s.category_id AS categoryId,p.id AS productId,
+          `WITH ranked AS (SELECT s.category_id AS categoryId,s.product_version_id AS versionId,
             ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${rankingOrderSql}) AS rank,
             COUNT(*) OVER (PARTITION BY s.category_id) AS rankedCount
             FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
             ${rankedMembershipSql}
             WHERE s.category_id IN (SELECT category_id FROM product_categories WHERE product_id=?) AND ${eligible} AND ${rankedSampleSql})
-          SELECT categoryId,rank,rankedCount FROM ranked WHERE productId=?`,
+          SELECT categoryId,rank,rankedCount FROM ranked WHERE versionId=?`,
         )
-        .bind(countryId, productId, productId),
+        // Top ranks current formulas, so an earlier formula gets no rank.
+        .bind(countryId, productId, versionId),
       this.db
         .prepare(
           `SELECT ds.category_id AS categoryId,d.key,ds.answer_count AS count,ds.answer_sum AS sum FROM product_category_dimension_stats ds

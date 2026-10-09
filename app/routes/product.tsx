@@ -500,8 +500,8 @@ export default function Product({
                   <li key={r.id} className="va-product__retailer">
                     <strong>{r.name}</strong>
                     <span className="va-small va-muted">
-                      {r.stale || r.status === "uncertain"
-                        ? "Uncertain or stale"
+                      {r.stale
+                        ? "Not confirmed recently"
                         : "Recently confirmed"}{" "}
                       · {plural(r.contributorCount, "contributor")} · last
                       confirmed {dateLabel(r.lastConfirmedAt)}
