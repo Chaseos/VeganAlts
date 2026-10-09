@@ -416,3 +416,30 @@ it("does not count a confirmation from an account suspended before the sweep", a
     reason: "confirmations",
   });
 });
+
+it("considers a proposal again once its only disagreeing account is suspended", async () => {
+  const { services, confirmer, second, propose } = await fixture();
+  const proposal = await propose({
+    kind: "rename",
+    name: "Disputed then cleared",
+  });
+  await services.contributions.respond(confirmer, id(), proposal.id, {
+    stance: "confirm",
+  });
+  await services.contributions.respond(second, id(), proposal.id, {
+    stance: "disagree",
+    note: "The package shows a different name.",
+  });
+  await env.DB.prepare(
+    "UPDATE profiles SET account_state='suspended' WHERE user_id=?",
+  )
+    .bind(second.id)
+    .run();
+  for (let pass = 0; pass < 5; pass++)
+    await services.moderation.sweepProposals();
+  expect(
+    await env.DB.prepare("SELECT status FROM edit_proposals WHERE id=?")
+      .bind(proposal.id)
+      .first("status"),
+  ).toBe("accepted");
+});

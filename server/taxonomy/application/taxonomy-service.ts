@@ -41,6 +41,20 @@ const FEATURABLE =
 const LATER_EDITS =
   "EXISTS(SELECT 1 FROM moderation_actions WHERE kind='category_update' AND target_id IN (?,?) AND created_at>? AND reversed_by IS NULL)";
 /**
+ * Fences a parent checked before a commit: it is still active and, for an
+ * existing category, does not descend from it (no concurrent cycle).
+ */
+function fenceParent(
+  guard: { sql: string; values: unknown[] },
+  categoryId: string | null,
+  parentId: string | null | undefined,
+) {
+  if (!parentId) return;
+  guard.sql +=
+    " AND EXISTS(SELECT 1 FROM categories WHERE id=? AND is_active=1) AND NOT EXISTS(WITH RECURSIVE up(id) AS (SELECT ? UNION SELECT c.parent_id FROM categories c JOIN up ON c.id=up.id WHERE c.parent_id IS NOT NULL) SELECT 1 FROM up WHERE id=?)";
+  guard.values.push(parentId, parentId, categoryId);
+}
+/**
  * Fences names checked before a commit: no other category may have claimed
  * one of them meanwhile (an exact, case-insensitive match).
  */
@@ -372,6 +386,7 @@ export class TaxonomyService {
         ? (proposal.parent_id ?? null)
         : input.parentId;
     await this.assertParent(null, parentId);
+    fenceParent(guard, null, parentId);
     const created = {
       name: data.name,
       slug,
@@ -436,6 +451,7 @@ export class TaxonomyService {
     };
     const guard = { sql: "1", values: [] as (string | number | null)[] };
     fenceNames(guard, [input.name, ...input.aliases], id);
+    fenceParent(guard, null, input.parentId);
     const result = await this.repository.commit(
       this.action(actor, "category_create", id, input.note, {}, created),
       guard,
@@ -528,6 +544,7 @@ export class TaxonomyService {
       values: [id, current.revision] as (string | number | null)[],
     };
     fenceNames(guard, added, id);
+    fenceParent(guard, id, next.parentId);
     const result = await this.repository.commit(
       this.action(
         actor,
@@ -872,34 +889,14 @@ export class TaxonomyService {
           await this.effects.rebuildVersions(result.versions);
         } else {
           const donor = await this.existing(merge.donor_id);
-          const affected = await this.repository.finalizeMerge(
-            merge,
-            donor,
-            this.clock(),
-          );
-          const survivor = await this.existing(merge.survivor_id);
-          await this.effects.refreshTrending([donor.id, survivor.id]);
-          await this.refreshed(
-            [donor.slug, survivor.slug],
-            affected.versions,
-            affected.products,
-          );
+          await this.repository.finalizeMerge(merge, donor, this.clock());
+          await this.rebuildDerived(merge);
         }
       } else if (merge.state === "reversing") {
         const result = await this.repository.reversePage(merge, this.clock());
         if (!result.restored) {
-          const affected = await this.repository.finishReversal(
-            merge,
-            this.clock(),
-          );
-          const donor = await this.existing(merge.donor_id),
-            survivor = await this.existing(merge.survivor_id);
-          await this.effects.refreshTrending([donor.id, survivor.id]);
-          await this.refreshed(
-            [donor.slug, survivor.slug],
-            affected.versions,
-            affected.products,
-          );
+          await this.repository.finishReversal(merge, this.clock());
+          await this.rebuildDerived(merge);
         }
       }
       merge = await this.loadMerge(mergeId);
@@ -994,6 +991,30 @@ export class TaxonomyService {
       await this.continueMerge(null, merge.id).catch(() => undefined);
       advanced++;
     }
+    // Finished merges whose derived rebuild failed are retried until it holds.
+    for (const id of await this.repository.pendingDerived()) {
+      await this.rebuildDerived(await this.loadMerge(id)).catch(
+        () => undefined,
+      );
+      advanced++;
+    }
     return advanced;
+  }
+  /**
+   * Rebuilds aggregates, search, Trending and caches for a finished merge or
+   * reversal. The pending marker committed with it is cleared only after
+   * this succeeds, so hourly automation retries a failed rebuild.
+   */
+  private async rebuildDerived(merge: MergeRecord) {
+    const donor = await this.existing(merge.donor_id),
+      survivor = await this.existing(merge.survivor_id);
+    const affected = await this.repository.affected(merge.id);
+    await this.effects.refreshTrending([donor.id, survivor.id]);
+    await this.refreshed(
+      [donor.slug, survivor.slug],
+      affected.versions,
+      affected.products,
+    );
+    await this.repository.clearDerived(merge.id);
   }
 }

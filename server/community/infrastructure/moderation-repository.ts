@@ -37,9 +37,16 @@ export interface ReportRecord {
   evidence_data: string;
   resolution_note: string | null;
 }
-/** Responses of one stance on a proposal (bound: the proposal ID). */
-export const ACTIVE_RESPONSES = (stance: "confirm" | "disagree") =>
-  `(SELECT COUNT(*) FROM edit_proposal_responses r JOIN profiles p ON p.user_id=r.user_id AND p.account_state='active' WHERE r.proposal_id=? AND r.stance='${stance}')`;
+/**
+ * Responses of one stance from active accounts on a proposal: bound as a
+ * parameter by default, or correlated with a column such as
+ * `edit_proposals.id`.
+ */
+export const ACTIVE_RESPONSES = (
+  stance: "confirm" | "disagree",
+  proposal = "?",
+) =>
+  `(SELECT COUNT(*) FROM edit_proposal_responses r JOIN profiles p ON p.user_id=r.user_id AND p.account_state='active' WHERE r.proposal_id=${proposal} AND r.stance='${stance}')`;
 
 export class ModerationRepository {
   constructor(readonly db: D1Database) {}
@@ -258,8 +265,11 @@ export class ModerationRepository {
       (
         await this.db
           .prepare(
-            `SELECT id,created_at FROM edit_proposals WHERE target_type='product' AND status='pending' AND risk_tier<=2 AND disagree_count=0
-            AND (risk_tier=1 OR confirm_count>0) AND (created_at>? OR (created_at=? AND id>?)) ORDER BY created_at,id LIMIT ?`,
+            // Active-account counts, not the stored ones: suspending a
+            // disagreeing account must not exclude a proposal forever.
+            `SELECT id,created_at FROM edit_proposals WHERE target_type='product' AND status='pending' AND risk_tier<=2
+            AND ${ACTIVE_RESPONSES("disagree", "edit_proposals.id")}=0
+            AND (risk_tier=1 OR ${ACTIVE_RESPONSES("confirm", "edit_proposals.id")}>0) AND (created_at>? OR (created_at=? AND id>?)) ORDER BY created_at,id LIMIT ?`,
           )
           .bind(at, at, after, count)
           .all<{ id: string; created_at: number }>()

@@ -4,6 +4,11 @@ import { catalogFixture } from "./fixtures";
 import { taxonomyServices } from "../../server/taxonomy/infrastructure/composition";
 import { catalogService } from "../../server/catalog/infrastructure/composition";
 import { communityServices } from "../../server/community/infrastructure/composition";
+import { TaxonomyService } from "../../server/taxonomy/application/taxonomy-service";
+import { D1TaxonomyRepository } from "../../server/taxonomy/infrastructure/d1-taxonomy-repository";
+import { ModerationRepository } from "../../server/community/infrastructure/moderation-repository";
+import { moderationDecisions } from "../../server/moderation/infrastructure/composition";
+import { ratingsService } from "../../server/ratings/infrastructure/composition";
 import {
   TAXONOMY_LEAVES,
   TAXONOMY_PARENTS,
@@ -615,6 +620,108 @@ it("keeps feature sets, edit reversals and later merges consistent", async () =>
       .find((c) => c.id === w.D)!
       .aliases.map((a) => a.alias),
   ).toEqual([`mince ${w.s}`]);
+});
+
+it("retries a merge's derived rebuild until it succeeds and bumps both revisions", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  const tree = await taxonomy().tree(operator);
+  const revision = (cid: string) =>
+    tree.categories.find((c) => c.id === cid)!.revision;
+  // The merge commits, then its derived rebuild fails.
+  const failing = new TaxonomyService(
+    new D1TaxonomyRepository(new ModerationRepository(env.DB), id),
+    moderationDecisions(testEnv, id),
+    {
+      rebuildVersions: (ids) => ratingsService(testEnv).rebuildVersions(ids),
+      rebuildSearch: async () => {},
+      refreshTrending: async () => {
+        throw new Error("Derived rebuild unavailable.");
+      },
+      invalidate: async () => {},
+    },
+    id,
+  );
+  await expect(
+    failing.merge(operator, id(), {
+      donorId: w.D,
+      survivorId: w.S,
+      donorRevision: revision(w.D),
+      survivorRevision: revision(w.S),
+      note,
+    }),
+  ).rejects.toThrow("Derived rebuild unavailable.");
+  const pending = async () =>
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM community_recovery WHERE prefix LIKE 'merge-derived:%'",
+    ).first<number>("n");
+  expect(await pending()).toBeGreaterThan(0);
+  const after = await taxonomy().tree(operator);
+  for (const cid of [w.D, w.S])
+    expect(
+      after.categories.find((c) => c.id === cid)!.revision,
+    ).toBeGreaterThan(revision(cid));
+  // Hourly automation retries and clears the marker.
+  await taxonomy().continueInterrupted();
+  expect(await pending()).toBe(0);
+  expect(
+    await env.DB.prepare(
+      "SELECT COALESCE(SUM(rating_count),0) AS n FROM product_category_stats WHERE category_id=?",
+    )
+      .bind(w.S)
+      .first<number>("n"),
+  ).toBe(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM ratings WHERE category_id=? AND is_counted=1",
+    )
+      .bind(w.S)
+      .first<number>("n"),
+  );
+});
+
+it("fences a parent change against a cycle created after the check", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  // A stale ancestry read stands in for a concurrent re-parenting.
+  class StaleAncestry extends D1TaxonomyRepository {
+    override async ancestors() {
+      return [] as string[];
+    }
+  }
+  const stale = new TaxonomyService(
+    new StaleAncestry(new ModerationRepository(env.DB), id),
+    moderationDecisions(testEnv, id),
+    {
+      rebuildVersions: async () => {},
+      rebuildSearch: async () => {},
+      refreshTrending: async () => {},
+      invalidate: async () => {},
+    },
+    id,
+  );
+  // C is D's child, so D beneath C would be a cycle.
+  await expect(
+    stale.update(operator, id(), w.D, {
+      expectedRevision: (await taxonomy().tree(operator)).categories.find(
+        (c) => c.id === w.D,
+      )!.revision,
+      parentId: w.C,
+      note,
+    }),
+  ).rejects.toMatchObject({ status: 409 });
+  expect(
+    await env.DB.prepare("SELECT parent_id FROM categories WHERE id=?")
+      .bind(w.D)
+      .first("parent_id"),
+  ).toBeNull();
 });
 
 it("seeds the production-safe taxonomy idempotently without catalog data", async () => {

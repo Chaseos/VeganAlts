@@ -320,6 +320,33 @@ export class D1TaxonomyRepository {
       )
       .bind(reversalId, originalId, ...fence.values);
   }
+  /**
+   * Marks a finished merge or reversal whose derived data (aggregates, search,
+   * Trending, caches) still has to be rebuilt; cleared once that succeeds.
+   */
+  private derivedPending(mergeId: string, now: number, g: DecisionGuard) {
+    return this.db
+      .prepare(
+        `INSERT INTO community_recovery(prefix,cursor) SELECT ?,? WHERE ${g.sql} ON CONFLICT(prefix) DO UPDATE SET cursor=excluded.cursor`,
+      )
+      .bind(`merge-derived:${mergeId}`, String(now), ...g.values);
+  }
+  async pendingDerived(limit = 5) {
+    return (
+      await this.db
+        .prepare(
+          "SELECT substr(prefix,15) AS id FROM community_recovery WHERE prefix LIKE 'merge-derived:%' LIMIT ?",
+        )
+        .bind(limit)
+        .all<{ id: string }>()
+    ).results.map((r) => r.id);
+  }
+  async clearDerived(mergeId: string) {
+    await this.db
+      .prepare("DELETE FROM community_recovery WHERE prefix=?")
+      .bind(`merge-derived:${mergeId}`)
+      .run();
+  }
   async unfinishedMerges() {
     return (
       await this.db
@@ -835,16 +862,19 @@ export class D1TaxonomyRepository {
                   .bind(S, now, D, ...g.values),
           ]
         : []),
-      this.db
-        .prepare(
-          `UPDATE category_merges SET state='complete',page_token=NULL,finalize_data=?,updated_at=? WHERE id=? AND ${g.sql}`,
-        )
-        .bind(JSON.stringify(data), now, merge.id, ...g.values),
+      // Statements fenced on the page token run before the state change
+      // below clears it.
       this.db
         .prepare(
           `UPDATE categories SET revision=revision+1,updated_at=? WHERE id IN (?,?) AND ${g.sql}`,
         )
         .bind(now, D, S, ...g.values),
+      this.derivedPending(merge.id, now, g),
+      this.db
+        .prepare(
+          `UPDATE category_merges SET state='complete',page_token=NULL,finalize_data=?,updated_at=? WHERE id=? AND ${g.sql}`,
+        )
+        .bind(JSON.stringify(data), now, merge.id, ...g.values),
     ];
     const results = await this.db.batch(statements);
     if (!results[0]!.meta.changes)
@@ -1052,6 +1082,7 @@ export class D1TaxonomyRepository {
           `UPDATE categories SET revision=revision+1,updated_at=? WHERE id=? AND ${g.sql}`,
         )
         .bind(now, S, ...g.values),
+      this.derivedPending(merge.id, now, g),
       this.db
         .prepare(
           `UPDATE category_merges SET state='reversed',active=0,page_token=NULL,updated_at=? WHERE id=? AND ${g.sql}`,

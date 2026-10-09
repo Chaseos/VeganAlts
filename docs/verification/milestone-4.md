@@ -35,7 +35,7 @@ Staging Clef usage during acceptance: **8 decisions, 5,145 input tokens**, 253â€
 
 ## Local verification
 
-The Milestone 3 baseline was 77 tests in 25 files and 24 browser tests. The final branch has **155 passing tests in 36 files** and **40 passing desktop and mobile browser tests**. `npm run check` covers type generation, strict TypeScript, unit and integration tests and the build. Logs: `test-results/milestone-4-review-check-7.log` and `test-results/milestone-4-final-e2e-2.log`.
+The Milestone 3 baseline was 77 tests in 25 files and 24 browser tests. The final branch has **158 passing tests in 36 files** and **40 passing desktop and mobile browser tests**. `npm run check` covers type generation, strict TypeScript, unit and integration tests and the build. Logs: `test-results/milestone-4-review-check-8.log` and `test-results/milestone-4-final-e2e-2.log`.
 
 Browser tests cover comments, votes, held comments and collapse; photo proposals; confirmations and automatic acceptance; automated outcomes through the fake provider; category proposals, merge and redirect; Top, Trending and New; policy pages, robots, sitemap and structured data. Each runs axe checks at 390 px and desktop widths.
 
@@ -61,7 +61,7 @@ Acceptance found and fixed these issues (commit `0c1ebc9`):
 - Zod's eval probe produced a CSP violation.
 - The photo note and the merge-reversal layout were wrong.
 
-Pull request review found twenty-two more issues, fixed in `481c3cb`, `5d84296`, `8dbfab6`, `a37cff5`, `204af1d`, `0ffbed9` and the final review commit, and covered by tests:
+Pull request review found twenty-five more issues, fixed in `481c3cb`, `5d84296`, `8dbfab6`, `a37cff5`, `204af1d`, `0ffbed9` and the final review commit, and covered by tests:
 
 - Category merges and reversals now re-derive the full Trending window for both categories, so moved activity is no longer missing until the nightly pass.
 - Catalog New views now honor a configured `newDays`.
@@ -85,6 +85,9 @@ Pull request review found twenty-two more issues, fixed in `481c3cb`, `5d84296`,
 - An edit made before a merge can only be reversed after that merge is reversed.
 - The hourly Trending pass re-derives older days whose comments were deleted, hidden, restored or released.
 - An identical comment posted after deleting the first is saved as a new comment, not replayed.
+- A failed rebuild after a merge or reversal is retried hourly until it succeeds, and finalizing a merge now bumps both category revisions.
+- Category parent changes are fenced against cycles and retired parents created concurrently.
+- Automation selects proposals by active-account responses, so a suspended disagreeing account no longer blocks one.
 
 ## Performance and caching
 
