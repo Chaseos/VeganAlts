@@ -133,6 +133,12 @@ const snapshot: ProductSnapshot = {
     { id: "front-new", versionId: "formula", slot: "front", state: "accepted" },
     { id: "back", versionId: "formula", slot: "back", state: "pending" },
   ],
+  allergens: null,
+  allergenList: [
+    { key: "soy", label: "Soy" },
+    { key: "wheat", label: "Wheat" },
+    { key: "milk", label: "Milk" },
+  ],
   relationships: [],
   retailers: [
     {

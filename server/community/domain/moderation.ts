@@ -4,6 +4,7 @@ import type {
   ManufacturerLabel,
   VeganStatus,
 } from "./contracts";
+import type { AllergenDeclaration } from "./allergens";
 
 export interface FormulaClassification {
   veganStatus: VeganStatus;
@@ -32,6 +33,10 @@ export interface ProductSnapshot {
   classification: FormulaClassification | null;
   categories: { categoryId: string; eligible: boolean }[];
   images: { id: string; versionId: string; slot: string; state: string }[];
+  // The current formula's declaration (null: not confirmed yet) and the
+  // product country's allergen list, in its own wording.
+  allergens: AllergenDeclaration | null;
+  allergenList: { key: string; label: string }[];
   relationships: { productId: string; type: string }[];
   retailers: {
     retailerId: string;
@@ -84,6 +89,13 @@ export interface CatalogPatch {
   relationships?: { productId: string; type: string }[];
   retailer?: { retailerId: string; status: string };
   consolidation?: { survivorId: string; active: boolean };
+  // A formula's declaration; null removes it.
+  allergens?: {
+    versionId: string;
+    value:
+      | (AllergenDeclaration & { evidence?: Evidence; proposalId?: string })
+      | null;
+  };
 }
 export interface ModerationAction {
   id: string;

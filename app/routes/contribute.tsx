@@ -18,6 +18,7 @@ import {
   isFactKind,
 } from "../components/fact-change-fields";
 import { CatalogSelect } from "../components/catalog-select";
+import { AllergenFields, allergenDetails } from "../components/allergen-fields";
 import {
   CommunityControls,
   GuidelinesNote,
@@ -70,6 +71,7 @@ const kinds = [
   "reintroduce",
   "relationships",
   "retailer_status",
+  "allergens",
 ] as const;
 const labels = {
   ...factLabels,
@@ -80,6 +82,7 @@ const labels = {
   reintroduce: "Reintroduced product",
   relationships: "Family, variants and category eligibility",
   retailer_status: "Retailer availability concern",
+  allergens: "Allergens on the label",
 };
 export default function Contribute({
   loaderData: {
@@ -251,6 +254,7 @@ export default function Contribute({
           retailerId: form.get("retailer"),
           status: form.get("status"),
         };
+      if (kind === "allergens") details = allergenDetails(form);
       if (isFactKind(kind)) details = factChangeDetails(kind, form);
       const saved = await action.request<{ id: string }>("proposals", {
         ...base,
@@ -624,6 +628,7 @@ export default function Contribute({
                   existing={product.categories.map((c) => c.categoryId)}
                 />
               )}
+              {kind === "allergens" && <AllergenFields product={product} />}
               {kind === "retailer_status" && (
                 <>
                   <label htmlFor="change-retailer">Relationship</label>

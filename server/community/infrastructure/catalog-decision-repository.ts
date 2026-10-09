@@ -463,6 +463,56 @@ export class CatalogDecisionRepository {
           .bind(snapshot.id, removed, ...values),
       );
     }
+    if (patch.allergens) {
+      const { versionId, value } = patch.allergens;
+      // Rows go first: a "none declared" declaration may not keep any.
+      statements.push(
+        this.db
+          .prepare(
+            `DELETE FROM product_version_allergens WHERE product_version_id=? AND ${sql}`,
+          )
+          .bind(versionId, ...values),
+      );
+      if (!value)
+        statements.push(
+          this.db
+            .prepare(
+              `DELETE FROM product_version_allergen_declarations WHERE product_version_id=? AND ${sql}`,
+            )
+            .bind(versionId, ...values),
+        );
+      else {
+        statements.push(
+          this.db
+            .prepare(
+              `INSERT INTO product_version_allergen_declarations(product_version_id,status,evidence_data,source_proposal_id,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${sql}
+            ON CONFLICT(product_version_id) DO UPDATE SET status=excluded.status,evidence_data=excluded.evidence_data,source_proposal_id=excluded.source_proposal_id,updated_at=excluded.updated_at`,
+            )
+            .bind(
+              versionId,
+              value.status,
+              JSON.stringify(value.evidence ?? {}),
+              value.proposalId ?? null,
+              now,
+              now,
+              ...values,
+            ),
+        );
+        if (value.status === "declared")
+          statements.push(
+            ...[
+              ...value.contains.map((key) => [key, "contains"] as const),
+              ...value.mayContain.map((key) => [key, "may_contain"] as const),
+            ].map(([key, presence]) =>
+              this.db
+                .prepare(
+                  `INSERT INTO product_version_allergens(product_version_id,allergen_key,presence) SELECT ?,?,? WHERE ${sql}`,
+                )
+                .bind(versionId, key, presence, ...values),
+            ),
+          );
+      }
+    }
     if (patch.consolidation && !patch.consolidation.active)
       statements.push(
         this.db

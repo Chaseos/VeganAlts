@@ -188,3 +188,83 @@ describe("automatic acceptance", () => {
     ).toBe("Also replaces Ground Beef");
   });
 });
+
+describe("allergen declarations", () => {
+  const labelled = {
+    versionId: "v1",
+    images: [
+      { id: "panel", versionId: "v1", slot: "ingredients", state: "accepted" },
+      { id: "old", versionId: "v0", slot: "ingredients", state: "accepted" },
+      { id: "front", versionId: "v1", slot: "front", state: "accepted" },
+    ],
+  } as unknown as ProductSnapshot;
+  const declared = (
+    contains: string[],
+    citedImageId?: string,
+    mayContain: string[] = [],
+  ) =>
+    change({
+      kind: "allergens",
+      declaration: { status: "declared", contains, mayContain },
+      ...(citedImageId ? { citedImageId } : {}),
+    });
+  it("are community-confirmable only against the formula's label photo", () => {
+    expect(riskTier(declared(["soy"], "panel"), labelled, policy)).toBe(2);
+    expect(
+      riskTier(
+        change({
+          kind: "allergens",
+          declaration: { status: "none_declared" },
+          citedImageId: "panel",
+        }),
+        labelled,
+        policy,
+      ),
+    ).toBe(2);
+    expect(riskTier(declared(["soy"]), labelled, policy)).toBe(3);
+    expect(riskTier(declared(["soy"], "old"), labelled, policy)).toBe(3);
+    expect(riskTier(declared(["soy"], "front"), labelled, policy)).toBe(3);
+  });
+  it("never accept a label that contradicts an animal-free classification", () => {
+    expect(riskTier(declared(["milk"], "panel"), labelled, policy)).toBe(3);
+    // Cross-contact statements do not contradict it.
+    expect(riskTier(declared([], "panel", ["egg"]), labelled, policy)).toBe(2);
+    const base = {
+      tier: 2 as const,
+      confirms: 3,
+      disagrees: 0,
+      established: false,
+      ageMs: 48 * 3_600_000,
+      decision: "READY",
+    };
+    expect(
+      autoAcceptance({ ...base, change: declared(["soy"], "panel") }, policy),
+    ).toEqual({ eligible: true, reason: "confirmed" });
+    expect(
+      autoAcceptance({ ...base, change: declared(["fish"], "panel") }, policy)
+        .reason,
+    ).toBe("protected");
+  });
+  it("validate their shape and read plainly", () => {
+    for (const declaration of [
+      { status: "declared", contains: [], mayContain: [] },
+      { status: "declared", contains: ["soy"], mayContain: ["soy"] },
+      { status: "declared", contains: ["Soy"], mayContain: [] },
+      { status: "none_declared", contains: ["soy"] },
+    ])
+      expect(
+        changeInput.safeParse({
+          productId: "p",
+          expectedRevision: 1,
+          evidence,
+          kind: "allergens",
+          declaration,
+        }).success,
+      ).toBe(false);
+    expect(
+      describeChange(declared(["soy", "wheat"], "panel", ["sesame"]), {
+        soy: "Soya",
+      }),
+    ).toBe("Allergens: Contains soya, wheat · may contain sesame");
+  });
+});

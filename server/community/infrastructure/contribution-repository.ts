@@ -7,6 +7,11 @@ import type {
 } from "../domain/contracts";
 import { normalizeName, type CommunityLimits } from "../domain/policy";
 import { replay, type ReceiptWrite } from "./receipts";
+import {
+  describeDeclaration,
+  needsClassificationReview,
+} from "../domain/allergens";
+import { SYSTEM_ACTOR_ID } from "../domain/policy";
 
 export class ContributionRepository {
   constructor(
@@ -361,6 +366,36 @@ export class ContributionRepository {
           id,
         ),
     );
+    // A label that contains milk, egg, fish or shellfish contradicts an
+    // animal-free classification: the system account opens an ingredient
+    // concern for operators, linked to this proposal.
+    if (
+      product &&
+      input.kind === "allergens" &&
+      needsClassificationReview(input.declaration)
+    ) {
+      const reportNote = `Allergen proposal ${id} says the label contains ${
+        describeDeclaration(input.declaration)
+          .replace(/^Contains /, "")
+          .split(" · ")[0]
+      }. Review the classification.`;
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO reports(id,reporter_user_id,target_type,target_id,reason_code,note,created_at,updated_at) SELECT ?,?,'product',?,'ingredient_concern',?,?,? WHERE ${accepted}
+          ON CONFLICT(reporter_user_id,target_type,target_id,reason_code) WHERE status IN ('open','reviewing') DO UPDATE SET note=substr(reports.note||char(10)||char(10)||excluded.note,1,8000),updated_at=excluded.updated_at`,
+          )
+          .bind(
+            `concern-${id}`,
+            SYSTEM_ACTOR_ID,
+            input.productId,
+            reportNote,
+            receipt.now,
+            receipt.now,
+            id,
+          ),
+      );
+    }
     try {
       const results = await this.db.batch(statements);
       if (!results[0]!.meta.changes) {

@@ -89,3 +89,48 @@ test("a fact proposal is confirmed once by an independent contributor and appear
     await operator.dispose();
   }
 });
+
+test("an allergen declaration is proposed from the country's list and shown for review", async ({
+  page,
+  context,
+}) => {
+  test.skip(
+    Boolean(process.env.TEST_BASE_URL),
+    "Real staging accounts are verified interactively.",
+  );
+  const proposer = await createBrowserSession();
+  try {
+    await context.addCookies([proposer.cookie]);
+    await page.goto("/us/products/beyond-burger");
+    await page.getByRole("link", { name: "Suggest a change" }).click();
+    await expect(page.getByLabel("What changed?")).toBeEnabled();
+    await page.getByLabel("What changed?").selectOption("allergens");
+    await expect(page.getByText("Always check the package.")).toBeVisible();
+    await page.getByRole("radio", { name: "It lists allergens" }).check();
+    const contains = page.getByRole("group", { name: "Contains" });
+    const may = page.getByRole("group", { name: "May contain" });
+    await may.getByRole("checkbox", { name: "Soy" }).check();
+    // Checking it as contained moves it out of "may contain".
+    await contains.getByRole("checkbox", { name: "Soy" }).check();
+    await expect(may.getByRole("checkbox", { name: "Soy" })).not.toBeChecked();
+    await may.getByRole("checkbox", { name: "Sesame" }).check();
+    await page
+      .getByLabel("What does the evidence show?")
+      .fill("The allergen statement under the ingredients lists these.");
+    await accessible(page);
+    await page
+      .getByRole("button", { name: "Submit proposal for review" })
+      .click();
+    await expect(
+      page.getByText("Status: pending", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        /Allergens on the label: Contains soy · may contain sesame/,
+      ),
+    ).toBeVisible();
+  } finally {
+    await page.close();
+    await proposer.dispose();
+  }
+});

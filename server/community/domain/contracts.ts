@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { allergenDeclaration } from "./allergens";
 
 export const id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 export const key = z.string().regex(/^[a-zA-Z0-9_-]{16,100}$/);
@@ -272,6 +273,16 @@ export const changeInput = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({ ...changeBase, kind: z.literal("category_add"), categoryId: id })
+    .strict(),
+  // What the package says about allergens, optionally citing the formula's
+  // accepted ingredients or nutrition photo (which lowers the risk tier).
+  z
+    .object({
+      ...changeBase,
+      kind: z.literal("allergens"),
+      declaration: allergenDeclaration,
+      citedImageId: id.optional(),
+    })
     .strict(),
   // One canonical photo per slot: an empty slot is filled, a filled slot gets
   // a replacement proposal. Formula evidence uses the reformulation flow.

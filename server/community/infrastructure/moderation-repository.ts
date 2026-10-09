@@ -1,3 +1,7 @@
+import {
+  normalizeDeclaration,
+  type AllergenDeclaration,
+} from "../domain/allergens";
 import type { InboxFilter } from "../domain/contracts";
 import { ApplicationError } from "../../shared/domain/errors";
 import type { Actor, ContributionItem, QueueItem } from "../domain/contracts";
@@ -91,6 +95,17 @@ export class ModerationRepository {
           "SELECT pr.retailer_id AS retailerId,r.canonical_name AS name,pr.status,pr.confirmation_count AS contributorCount,pr.disagreement_count AS disagreementCount,pr.last_confirmed_at AS lastConfirmedAt FROM product_retailers pr JOIN retailers r ON r.id=pr.retailer_id WHERE pr.product_id=? ORDER BY pr.retailer_id",
         )
         .bind(productId),
+      this.db
+        .prepare(
+          `SELECT d.status,(SELECT json_group_array(json_object('key',a.allergen_key,'presence',a.presence)) FROM product_version_allergens a WHERE a.product_version_id=d.product_version_id) AS allergens
+          FROM product_version_allergen_declarations d JOIN product_versions v ON v.id=d.product_version_id WHERE v.product_id=? AND v.is_current=1`,
+        )
+        .bind(productId),
+      this.db
+        .prepare(
+          "SELECT ca.allergen_key AS key,COALESCE(ca.label,a.label) AS label FROM country_allergens ca JOIN allergens a ON a.key=ca.allergen_key JOIN products p ON p.country_id=ca.country_id WHERE p.id=? ORDER BY ca.position",
+        )
+        .bind(productId),
     ]);
     const p = rows[0]!.results[0];
     if (!p) throw new ApplicationError("NOT_FOUND", "Product not found.", 404);
@@ -122,6 +137,8 @@ export class ModerationRepository {
       relationships: rows[4]!.results,
       aliases: rows[5]!.results.map((r) => String(r.alias)),
       retailers: rows[6]!.results,
+      allergens: declarationRow(rows[7]!.results[0]),
+      allergenList: rows[8]!.results,
     } as unknown as ProductSnapshot;
   }
   proposal(id: string) {
@@ -427,4 +444,22 @@ export class ModerationRepository {
           : null,
     };
   }
+}
+
+function declarationRow(
+  row: Record<string, unknown> | undefined,
+): AllergenDeclaration | null {
+  if (!row) return null;
+  if (row.status === "none_declared") return { status: "none_declared" };
+  const rows = JSON.parse(String(row.allergens)) as {
+    key: string;
+    presence: string;
+  }[];
+  return normalizeDeclaration({
+    status: "declared",
+    contains: rows.filter((r) => r.presence === "contains").map((r) => r.key),
+    mayContain: rows
+      .filter((r) => r.presence === "may_contain")
+      .map((r) => r.key),
+  });
 }
