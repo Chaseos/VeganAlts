@@ -4,9 +4,11 @@ import type {
   CategorySummary,
   DiscoveryRow,
   FormulaSummary,
+  HomeProduct,
   MarketRow,
   ProductCategory,
   ProductDetails,
+  ProductPlacement,
   ProductSummary,
   PublicProfile,
   RankingRow,
@@ -336,6 +338,112 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(countryId, JSON.stringify(categoryIds), perFood)
         .all<TopProduct>()
     ).results;
+  }
+
+  // The trending products of a country, each in the food it trends most in,
+  // with that food's Top score and this week's new ratings.
+  async homeTrending(countryId: string, limit: number) {
+    return (
+      await this.db
+        .prepare(
+          `WITH best AS (SELECT t.product_version_id AS versionId,t.category_id AS categoryId,t.trending_score AS trendingScore,
+            ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY t.trending_score DESC,t.category_id) AS n
+            FROM product_category_trends t JOIN product_versions v ON v.id=t.product_version_id AND v.is_current=1 ${productJoins}
+            JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=t.category_id AND pc.ranking_eligible=1
+            JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1
+            WHERE t.trending_score>0 AND ${eligible})
+          SELECT ${identity},c.slug AS foodSlug,${displayName("c", "p.country_id")} AS foodName,s.bayesian_score AS bayesianScore,
+            COALESCE(s.rating_count,0) AS ratingCount,COALESCE(s.recent_rating_count,0) AS recentRatingCount
+          FROM best JOIN product_versions v ON v.id=best.versionId ${productJoins} JOIN categories c ON c.id=best.categoryId
+          LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=c.id
+          WHERE best.n=1 ORDER BY best.trendingScore DESC,p.id LIMIT ?`,
+        )
+        .bind(countryId, countryId, limit)
+        .all<HomeProduct>()
+    ).results;
+  }
+
+  // Recently added products with the food most of their ratings are in.
+  async homeNewest(countryId: string, since: number, limit: number) {
+    const rows = (
+      await this.db
+        .prepare(
+          `SELECT ${identity},
+            (SELECT json_object('slug',c.slug,'name',${displayName("c", "p.country_id")},'score',s.bayesian_score,'ratings',COALESCE(s.rating_count,0))
+              FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 AND c.is_rankable=1
+              LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=c.id
+              WHERE pc.product_id=p.id AND pc.ranking_eligible=1 ORDER BY COALESCE(s.rating_count,0) DESC,c.name LIMIT 1) AS food
+          FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
+          JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id
+          WHERE p.country_id=? AND p.published_at>=? AND ${eligible}
+          ORDER BY p.published_at DESC,p.id DESC LIMIT ?`,
+        )
+        .bind(countryId, since, limit)
+        .all<ProductSummary & { food: string | null }>()
+    ).results;
+    return rows.flatMap((row) => {
+      if (!row.food) return [];
+      const food = JSON.parse(row.food) as {
+        slug: string;
+        name: string;
+        score: number | null;
+        ratings: number;
+      };
+      return [
+        {
+          ...row,
+          foodSlug: food.slug,
+          foodName: food.name,
+          bayesianScore: food.score,
+          ratingCount: food.ratings,
+          recentRatingCount: 0,
+        } satisfies HomeProduct,
+      ];
+    });
+  }
+
+  async productCount(countryId: string) {
+    return (
+      (await this.db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.country_id=? AND ${eligible}`,
+        )
+        .bind(countryId)
+        .first<number>("n")) ?? 0
+    );
+  }
+
+  // Where each product stands: its best Top rank and that food, or (when it
+  // is not ranked yet) the first food it belongs to.
+  async productPlacement(countryId: string, productIds: string[]) {
+    if (!productIds.length) return [];
+    const ids = JSON.stringify(productIds);
+    const [ranked, foods] = await this.db.batch<ProductPlacement>([
+      this.db
+        .prepare(
+          `WITH ranked AS (SELECT s.category_id AS categoryId,p.id AS productId,s.bayesian_score AS bayesianScore,s.rating_count AS ratingCount,
+            ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${rankingOrderSql}) AS rank
+            FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
+            ${rankedMembershipSql}
+            WHERE s.category_id IN (SELECT x.category_id FROM product_categories x WHERE x.product_id IN (SELECT value FROM json_each(?))) AND ${eligible} AND ${rankedSampleSql})
+          SELECT r.productId,r.rank,r.bayesianScore,r.ratingCount,c.slug AS foodSlug,${displayName("c")} AS foodName
+          FROM ranked r JOIN categories c ON c.id=r.categoryId WHERE r.productId IN (SELECT value FROM json_each(?)) ORDER BY r.productId,r.rank,c.slug`,
+        )
+        .bind(countryId, ids, countryId, ids),
+      this.db
+        .prepare(
+          `SELECT pc.product_id AS productId,NULL AS rank,NULL AS bayesianScore,0 AS ratingCount,c.slug AS foodSlug,${displayName("c")} AS foodName
+          FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 AND c.is_rankable=1
+          WHERE pc.product_id IN (SELECT value FROM json_each(?)) AND pc.ranking_eligible=1 ORDER BY pc.product_id,c.name`,
+        )
+        .bind(countryId, ids),
+    ]);
+    return productIds.flatMap((id) => {
+      const row =
+        ranked!.results.find((r) => r.productId === id) ??
+        foods!.results.find((r) => r.productId === id);
+      return row ? [row] : [];
+    });
   }
 
   // Each store in the country's active markets with its number of ranked

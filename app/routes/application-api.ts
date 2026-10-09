@@ -44,6 +44,10 @@ async function handle(request: Request, path: string) {
         return success(
           await catalog.search(market, url.searchParams.get("q") ?? ""),
         );
+      if (path === "suggest")
+        return success(
+          await catalog.suggest(market, url.searchParams.get("q") ?? ""),
+        );
       if (path === "categories") return success(await catalog.home(market));
       if (slug && !extra) {
         if (family === "categories") {

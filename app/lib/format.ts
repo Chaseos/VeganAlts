@@ -28,3 +28,13 @@ export function joinList(items: string[]) {
 export function lowerFirst(value: string) {
   return value.charAt(0).toLowerCase() + value.slice(1);
 }
+
+// "Oct 2": fixed locale and time zone so cached HTML and hydration agree.
+const SHORT_DATE = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
+export function shortDate(timestamp: number) {
+  return SHORT_DATE.format(new Date(timestamp));
+}

@@ -9,7 +9,7 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "Your favorites.",
+    "What do you want to swap?",
   );
   await page.keyboard.press("Tab");
   await expect(
@@ -22,16 +22,24 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
     path: testInfo.outputPath("home.png"),
     fullPage: true,
   });
-  await page.getByRole("searchbox").fill("mince");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  // Enter with nothing highlighted runs the full search.
+  await page
+    .getByRole("combobox", { name: "Search a food or brand" })
+    .fill("mince");
+  await page.keyboard.press("Enter");
   await expect(
     page.getByRole("heading", { name: "Results for “mince”" }),
   ).toBeVisible();
   await expect(
-    page.locator(".product-row").filter({ hasText: "Beyond Beef" }),
+    page
+      .getByRole("main")
+      .getByRole("link", { name: /Beyond Beef/ })
+      .first(),
   ).toBeVisible();
-  await expect(page.locator(".product-row .unrated-label")).toHaveCount(0);
-  await page.getByRole("link", { name: /Ground Beef 3 alternatives/ }).click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Ground Beef", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Ground Beef" }),
   ).toBeVisible();

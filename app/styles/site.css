@@ -19,5 +19,6 @@
 @import "./components/filters.css" layer(components);
 @import "./components/aisles.css" layer(components);
 @import "./components/rating.css" layer(components);
+@import "./components/search.css" layer(components);
 @import "./pages/utility.css" layer(pages);
 @import "./pages/home.css" layer(pages);

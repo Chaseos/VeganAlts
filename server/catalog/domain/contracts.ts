@@ -64,6 +64,24 @@ export interface TopProduct {
   rank: number;
 }
 
+// A product on the home page, in one of its foods.
+export interface HomeProduct extends ProductSummary {
+  foodSlug: string;
+  foodName: string;
+  bayesianScore: number | null;
+  ratingCount: number;
+  // Counted ratings added in the last seven days.
+  recentRatingCount: number;
+}
+export interface ProductPlacement {
+  productId: string;
+  rank: number | null;
+  bayesianScore: number | null;
+  ratingCount: number;
+  foodSlug: string;
+  foodName: string;
+}
+
 export interface StoreOption {
   slug: string;
   name: string;
@@ -167,6 +185,17 @@ export interface CatalogRepository {
     categoryIds: string[],
     perFood: number,
   ): Promise<TopProduct[]>;
+  homeTrending(countryId: string, limit: number): Promise<HomeProduct[]>;
+  homeNewest(
+    countryId: string,
+    since: number,
+    limit: number,
+  ): Promise<HomeProduct[]>;
+  productCount(countryId: string): Promise<number>;
+  productPlacement(
+    countryId: string,
+    productIds: string[],
+  ): Promise<ProductPlacement[]>;
   storeOptions(
     countryId: string,
     categoryId: string,

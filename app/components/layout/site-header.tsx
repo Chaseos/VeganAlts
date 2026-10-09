@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { Icon } from "../icons/icon";
 import { Wordmark } from "../icons/wordmark";
-import { SearchForm } from "../catalog/search-form";
+import { InstantSearch } from "../catalog/instant-search";
 import { AccountMenu } from "./account-menu";
 import { AppearanceMenu } from "./appearance-menu";
 import { CountryMenu } from "./country-menu";
@@ -58,7 +58,12 @@ export function SiteHeader({
         )}
         {search && (
           <div className="va-header__search va-desktop-only">
-            <SearchForm action={searchPath(country.code)} id="header-search" />
+            <InstantSearch
+              country={country.code}
+              variant="header"
+              id="header-search"
+              placeholder="Search a food or brand"
+            />
           </div>
         )}
         <div className="va-header__tools">

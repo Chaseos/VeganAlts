@@ -120,9 +120,12 @@ it("preserves inactive categories and their scores in read-only formula history"
     await expect(catalog.category(us, "ground-beef")).rejects.toMatchObject({
       status: 404,
     });
+    // A retired food leaves the home page's aisles.
     expect(
-      (await catalog.home(us)).categories.some(
-        (category) => category.id === categoryId,
+      (await catalog.home(us)).aisles.some((aisle) =>
+        aisle.shelves.some((shelf) =>
+          shelf.foods.some((food) => food.slug === "ground-beef"),
+        ),
       ),
     ).toBe(false);
   } finally {

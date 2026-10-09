@@ -19,7 +19,8 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
     await context.addCookies([contributor.cookie]);
     await page.goto(`/us/search?q=${encodeURIComponent(name)}`);
     await page
-      .getByRole("link", { name: "Propose a missing category" })
+      .getByRole("main")
+      .getByRole("link", { name: "Suggest a food" })
       .click();
     await expect(page.getByLabel("Conventional food")).toHaveValue(name);
     await expect(page.getByLabel("Conventional food")).toBeEnabled();

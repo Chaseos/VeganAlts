@@ -3,10 +3,17 @@ import type {
   CatalogRepository,
   CategoryView,
   ProductSummary,
+  TopProduct,
 } from "../domain/contracts";
+import { startWithThese, stillWaiting, type FoodLeader } from "../domain/home";
 import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
 import { aisleTree, taxonomyShape } from "../../taxonomy/domain/shape";
-import { AISLE_TOP, isEarly } from "../../ranking/domain/display";
+import {
+  AISLE_TOP,
+  HOME_LIST_SIZE,
+  SUGGEST_LIMIT,
+  isEarly,
+} from "../../ranking/domain/display";
 import {
   intersectFilters,
   NO_FILTERS,
@@ -251,26 +258,141 @@ export class CatalogService {
   }
 
   async home(market: Market) {
-    const [categories, featured, trending, newest] = await Promise.all([
-      this.repository.categories(market.id),
-      this.repository.featuredCategories(market.id),
-      this.repository.trending(market.id, null, NO_FILTERS, 0, 6),
-      this.repository.newest(
-        market.id,
-        null,
-        this.newSince(),
-        NO_FILTERS,
-        0,
-        6,
-      ),
-    ]);
-    // Merchandising is configured data, independent of taxonomy depth.
+    const [taxonomy, featured, trending, newest, productCount] =
+      await Promise.all([
+        this.repository.taxonomy(market.id),
+        this.repository.featuredCategories(market.id),
+        this.repository.homeTrending(market.id, HOME_LIST_SIZE),
+        this.repository.homeNewest(market.id, this.newSince(), 4),
+        this.repository.productCount(market.id),
+      ]);
+    const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
+    const aisles = aisleTree(taxonomy.categories, counts);
+    const foods = aisles.flatMap((aisle) =>
+      aisle.shelves.flatMap((shelf) => shelf.foods),
+    );
+    const leaders = await this.repository.topProducts(
+      market.id,
+      foods.map((food) => food.id),
+      1,
+    );
+    const foodLeaders: FoodLeader[] = foods.map((food) => ({
+      food: { id: food.id, slug: food.slug, name: food.name },
+      best: leaders.find((top) => top.categoryId === food.id) ?? null,
+    }));
+    const best = (id: string) =>
+      foodLeaders.find((leader) => leader.food.id === id)?.best ?? null;
+    const summary = (leader: FoodLeader) => ({
+      food: { slug: leader.food.slug, name: leader.food.name },
+      best: leader.best && leaderProduct(leader.best),
+    });
+    // Homepage features, in order, name the "Try" chips.
+    const tryFoods = featured
+      .filter((category) => category.isRankable)
+      .map((category) => ({ slug: category.slug, name: category.name }));
     return {
-      categories,
-      featured: featured.length ? featured : categories.slice(0, 6),
+      counts: { foods: foods.length, products: productCount },
+      tryFoods,
+      startWithThese: startWithThese(
+        foodLeaders,
+        featured.map((category) => category.id),
+      ).map(summary),
+      aisles: aisles.map((aisle) => ({
+        slug: aisle.slug,
+        name: aisle.name,
+        foodCount: aisle.shelves.reduce((n, s) => n + s.foods.length, 0),
+        shelves: aisle.shelves.map((shelf) => ({
+          slug: shelf.slug,
+          name: shelf.name,
+          foods: shelf.foods.map((food) => {
+            const top = best(food.id);
+            return {
+              slug: food.slug,
+              name: food.name,
+              best: top && leaderProduct(top),
+            };
+          }),
+        })),
+      })),
       trending: this.labelNew(trending),
       newest: this.labelNew(newest),
+      stillWaiting: stillWaiting(foodLeaders).map(summary),
       newDays: this.newDays,
+      featured,
+    };
+  }
+  /**
+   * Instant answers while typing: up to five foods with their top three and
+   * up to five products with where they rank. Short queries return nothing.
+   */
+  suggest(market: Market, input: string) {
+    return this.answers(market, input, SUGGEST_LIMIT, SUGGEST_LIMIT);
+  }
+  /** The full search page: the same answers with room for more. */
+  searchResults(market: Market, input: string) {
+    return this.answers(market, input, 12, 20);
+  }
+  private async answers(
+    market: Market,
+    input: string,
+    foodLimit: number,
+    productLimit: number,
+  ) {
+    const { query, expression } = searchExpression(input);
+    const letters = query.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
+    if (!expression || letters < 2) return { query, foods: [], products: [] };
+    const [results, taxonomy] = await Promise.all([
+      this.repository.search(market.id, market.iso2, expression),
+      this.repository.taxonomy(market.id),
+    ]);
+    const shape = taxonomyShape(taxonomy.categories);
+    const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
+    const foods = results.categories
+      .filter((category) => category.isRankable)
+      .slice(0, foodLimit);
+    const products = results.products.slice(0, productLimit);
+    const [top, placement] = await Promise.all([
+      this.repository.topProducts(
+        market.id,
+        foods.map((food) => food.id),
+        AISLE_TOP,
+      ),
+      this.repository.productPlacement(
+        market.id,
+        products.map((product) => product.id),
+      ),
+    ]);
+    return {
+      query,
+      foods: foods.map((food) => {
+        const node = shape.get(food.id);
+        const aisle = node?.aisleId ? shape.get(node.aisleId) : undefined;
+        const ranked = top.filter((product) => product.categoryId === food.id);
+        return {
+          slug: food.slug,
+          name: food.name,
+          aisle: aisle && aisle.id !== food.id ? aisle.name : null,
+          productCount: counts.get(food.id)?.productCount ?? 0,
+          rankedCount: counts.get(food.id)?.rankedCount ?? 0,
+          top: ranked.map(leaderProduct),
+        };
+      }),
+      products: products.flatMap((product) => {
+        const place = placement.find((row) => row.productId === product.id);
+        return place
+          ? [
+              {
+                slug: product.slug,
+                name: product.name,
+                brand: product.brand,
+                food: { slug: place.foodSlug, name: place.foodName },
+                rank: place.rank,
+                score: place.bayesianScore,
+                early: place.rank !== null && isEarly(place.ratingCount),
+              },
+            ]
+          : [];
+      }),
     };
   }
   sitemap() {
@@ -410,4 +532,16 @@ export class CatalogService {
       throw new ApplicationError("NOT_FOUND", "Profile not found.", 404);
     return profile;
   }
+}
+
+function leaderProduct(product: TopProduct) {
+  return {
+    slug: product.slug,
+    name: product.name,
+    brand: product.brand,
+    score: product.bayesianScore,
+    ratingCount: product.ratingCount,
+    rank: product.rank,
+    early: isEarly(product.ratingCount),
+  };
 }

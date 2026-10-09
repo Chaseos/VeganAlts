@@ -5,9 +5,12 @@ test("categories offer separate Top, Trending and New views and the homepage sur
   page,
 }) => {
   await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "What’s on your plate?" }),
-  ).toBeVisible();
+  for (const name of [
+    "Browse every food",
+    "Trending now",
+    "New and needs ratings",
+  ])
+    await expect(page.getByRole("heading", { name })).toBeVisible();
   await accessible(page);
   await page.goto("/us/ground-beef");
   // One sort menu holds Closest match (Top), Trending and Newest.

@@ -19,6 +19,7 @@ export function routeLabel(path: string) {
   if (/^\/[a-z]{2}$/.test(value)) return "home";
   if (/^\/[a-z]{2}\/search$/.test(value) || value === "/api/v1/search")
     return "search";
+  if (value === "/api/v1/suggest") return "suggest";
   if (/^\/[a-z]{2}\/products\//.test(value)) return "product";
   if (/^\/users\//.test(value)) return "profile";
   if (/^\/[a-z]{2}\/[a-z0-9-]+$/.test(value)) return "category";

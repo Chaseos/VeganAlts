@@ -140,6 +140,8 @@ export default {
             );
           if (route.kind === "search")
             await enforceLimit(env.SEARCH_RATE_LIMIT, clientKey(request));
+          if (route.kind === "suggest")
+            await enforceLimit(env.SUGGEST_RATE_LIMIT, clientKey(request));
           // URL-only redirects (/us, non-normalized filters) need no D1 read.
           const moved = publicRedirect(url, route);
           // Redirect lookup belongs to the public loaders on a cache miss.

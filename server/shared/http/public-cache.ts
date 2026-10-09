@@ -9,6 +9,7 @@ export interface PublicRoute {
   kind:
     | "home"
     | "search"
+    | "suggest"
     | "category"
     | "product"
     | "comments"
@@ -90,6 +91,9 @@ export function publicRoute(url: URL): PublicRoute | null {
     path === "/api/v1/search"
   )
     return { ...canonical, kind: "search", ttl: 600, country };
+  // Instant answers while typing; short-lived because they show live scores.
+  if (path === "/api/v1/suggest")
+    return { ...canonical, kind: "suggest", ttl: 300, country };
   match = data
     ? null
     : path.match(/^\/api\/v1\/products\/([a-z0-9-]+)\/comments$/);
@@ -148,7 +152,7 @@ export function normalizedPublicRequest(
     );
   const url = new URL(route.pathname, origin);
   const keys =
-    route.kind === "search"
+    route.kind === "search" || route.kind === "suggest"
       ? ["q"]
       : route.kind === "category"
         ? ["page", "unrankedPage", "view", "shelf"]
@@ -284,7 +288,7 @@ export function invalidationTags(change: MaterialCatalogChange) {
     // The aisle bar and menus on every country page name categories.
     return [
       `category:${change.slug}`,
-      ...["home", "search", "category", "product"].map(
+      ...["home", "search", "suggest", "category", "product"].map(
         (kind) => `surface:${kind}`,
       ),
     ];
@@ -299,7 +303,11 @@ export function invalidationTags(change: MaterialCatalogChange) {
             (slug) => `category:${country}:${slug}`,
           )),
       ...(scope === "all"
-        ? [`surface:home:${country}`, `surface:search:${country}`]
+        ? [
+            `surface:home:${country}`,
+            `surface:search:${country}`,
+            `surface:suggest:${country}`,
+          ]
         : []),
     ]),
   ];

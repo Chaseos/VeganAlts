@@ -48,8 +48,21 @@ it("validates scores, opaque private cursors, and same-origin application return
   expect(
     safeReturnDestination("/us/products/example?version=old#rate-cat", origin),
   ).toBe("/us/products/example?version=old#rate-cat");
+  // Client navigations name the page's data URL; contribution pages and
+  // every country's pages are valid destinations.
+  expect(
+    safeReturnDestination(
+      "/propose-category.data?country=ca&name=Brie&_routes=routes%2Fpropose-category",
+      origin,
+    ),
+  ).toBe("/propose-category?country=ca&name=Brie");
+  expect(safeReturnDestination("/ca/products/brie", origin)).toBe(
+    "/ca/products/brie",
+  );
+  expect(safeReturnDestination("/_root.data", origin)).toBe("/");
   for (const value of [
     "//evil.test",
+    "/admin/../api/auth/sign-out",
     "https://evil.test/us/milk",
     "/\\evil.test",
     "javascript:alert(1)",

@@ -20,6 +20,7 @@ it("classifies router-accepted public aliases and gives them one canonical cache
       ["/US/search.data", "/us/search/.data", "/us/se%61rch.data"],
     ],
     ["/api/v1/search", ["/API/V1/search", "/api/v1/search/"]],
+    ["/api/v1/suggest", ["/API/V1/Suggest", "/api/v1/suggest/"]],
     ["/us/ground-beef", ["/US/ground-beef/", "/us/GROUND-BEEF"]],
     [
       "/us/products/beyond-beef",
@@ -166,6 +167,7 @@ it("invalidates all affected material representations without a rating invalidat
     "category:us:butter",
     "surface:home:us",
     "surface:search:us",
+    "surface:suggest:us",
   ]);
   expect(invalidationTags({ kind: "profile", slug: "example" })).toEqual([
     "profile:example",
@@ -175,6 +177,7 @@ it("invalidates all affected material representations without a rating invalidat
     "category:milk",
     "surface:home",
     "surface:search",
+    "surface:suggest",
     "surface:category",
     "surface:product",
   ]);
@@ -339,4 +342,21 @@ it("keeps Top, Trending and New category views as separate cache identities", ()
   expect(new URL(key("?view=new&utm_source=x")).searchParams.get("view")).toBe(
     "new",
   );
+});
+
+it("caches instant answers by country and query only, for five minutes", () => {
+  const route = publicRoute(
+    new URL(`${origin}/api/v1/suggest?q=beef&country=CA`),
+  );
+  expect(route).toMatchObject({ kind: "suggest", ttl: 300, country: "ca" });
+  const key = new URL(
+    normalizedPublicRequest(
+      new Request(`${origin}/api/v1/suggest?country=ca&q=%20beef&utm=x`),
+      origin,
+      "v1",
+    ).url,
+  );
+  expect(key.searchParams.get("q")).toBe("beef");
+  expect(key.searchParams.get("utm")).toBeNull();
+  expect(key.searchParams.get("country")).toBe("ca");
 });
