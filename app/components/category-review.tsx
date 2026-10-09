@@ -2,16 +2,19 @@ import { useState, type FormEvent } from "react";
 import { useRevalidator } from "react-router";
 import type { TaxonomyService } from "@server/taxonomy/application/taxonomy-service";
 import { friendly, type CommunityAction } from "../lib/community";
+import { AutomatedChecks } from "./contribution-detail";
 
 type Detail = Awaited<ReturnType<TaxonomyService["proposalDetail"]>>;
 
 /** Accept as a new category, add as an alias of an existing one, or reject. */
 export function CategoryReview({
   detail,
+  checks,
   categories,
   action,
 }: {
   detail: Detail;
+  checks: Parameters<typeof AutomatedChecks>[0]["checks"] | null;
   categories: { id: string; name: string; isRankable: number }[];
   action: CommunityAction;
 }) {
@@ -69,6 +72,7 @@ export function CategoryReview({
           creates a category; aliasing keeps one category findable by both
           names.
         </p>
+        {checks && <AutomatedChecks checks={checks} />}
       </article>
       <aside className="community-panel">
         <h2>Record a decision</h2>

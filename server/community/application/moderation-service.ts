@@ -73,6 +73,11 @@ export class ModerationService {
     active(actor);
     return this.queue.detail(kind, id, actor);
   }
+  /** Advisory automated answers for a category proposal under review. */
+  categoryChecks(actor: Actor, id: string) {
+    administrator(actor);
+    return this.queue.automated("category_proposal", id, actor);
+  }
   async product(actor: Actor, productId: string) {
     administrator(actor);
     return {
@@ -490,14 +495,22 @@ export class ModerationService {
     );
     return { applied: true, reason: verdict.reason, ...result };
   }
-  /** Hourly: bounded evaluation of proposals automation may apply. */
+  /**
+   * Hourly: bounded evaluation of proposals automation may apply. Returns the
+   * applied changes so the caller can purge public caches.
+   */
   async sweepProposals() {
-    let applied = 0;
+    const applied: { actionId: string; productId: string | null }[] = [];
     for (const id of await this.repository.automationCandidates(
       this.autoApply.perPass,
     ))
       try {
-        if ((await this.autoAccept(id)).applied) applied++;
+        const result = await this.autoAccept(id);
+        if (result.applied && "actionId" in result)
+          applied.push({
+            actionId: result.actionId,
+            productId: result.productId,
+          });
       } catch {
         // A stale or conflicting proposal stays pending for an operator.
       }

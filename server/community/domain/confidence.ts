@@ -69,8 +69,9 @@ export function riskTier(
           i.slot === change.slot &&
           i.state === "accepted",
       );
-      // Ingredient and nutrition photos are classification evidence.
       if (!filled) return 1;
+      // Replacing ingredient or nutrition photos changes classification
+      // evidence, so only an operator may do it.
       return EVIDENCE_SLOTS.has(change.slot) ? 3 : 2;
     }
     case "alias":

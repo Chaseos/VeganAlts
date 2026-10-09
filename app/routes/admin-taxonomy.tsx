@@ -318,6 +318,7 @@ export default function AdminTaxonomy({
                   </span>
                   {m.state === "complete" ? (
                     <form
+                      className="community-form merge-reverse"
                       onSubmit={submit((form) =>
                         send(
                           `admin/taxonomy/merges/${m.id}/reverse`,

@@ -1618,6 +1618,14 @@ p {
   display: grid;
   gap: 8px;
 }
+.contribution-list .merge-reverse {
+  flex-basis: 100%;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+}
+.merge-reverse label {
+  grid-column: 1 / -1;
+}
 .contribution-list p {
   flex-basis: 100%;
   margin: 0;

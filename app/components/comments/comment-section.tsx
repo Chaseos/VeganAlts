@@ -19,6 +19,8 @@ export interface CommentPage {
   counts: { current: number; earlier: number };
 }
 
+const RECENT_OWN_MS = 20 * 60 * 1000;
+
 /**
  * The first Best page arrives with the shared product document. Sorting and
  * pagination read the cookie-free comments API; the viewer's own votes and
@@ -197,6 +199,14 @@ export function CommentSection({
   const held = own.filter(
     (o) => o.state === "pending" && !page.comments.some((c) => c.id === o.id),
   );
+  // Shared product HTML can lag a new comment by its 15-minute TTL plus
+  // revalidation, so authors see their just-published comments meanwhile.
+  const recent = own.filter(
+    (o) =>
+      o.state === "visible" &&
+      Date.now() - o.createdAt < RECENT_OWN_MS &&
+      !page.comments.some((c) => c.id === o.id),
+  );
   return (
     <section className="comments" aria-labelledby="comments-title">
       <div className="section-heading">
@@ -256,6 +266,18 @@ export function CommentSection({
             {held.map((o) => (
               <li className="comment" key={o.id} id={`held-${o.id}`}>
                 <p className="small muted">Awaiting moderator review</p>
+                <p className="comment-body">{o.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        {recent.length > 0 && (
+          <ul className="comment-list held" aria-label="Your recent comments">
+            {recent.map((o) => (
+              <li className="comment" key={o.id}>
+                <p className="small muted">
+                  Published. It can take a few minutes to appear for everyone.
+                </p>
                 <p className="comment-body">{o.body}</p>
               </li>
             ))}

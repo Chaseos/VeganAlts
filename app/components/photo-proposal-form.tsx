@@ -4,14 +4,8 @@ import type { ImageSlot } from "@server/media/domain/media";
 import type { ContributorProduct } from "@server/community/domain/moderation";
 import type { CommunityAction } from "../lib/community";
 import { PhotoPicker } from "./community-form";
+import { SLOT_LABELS } from "./photo-slots";
 
-const SLOTS: ImageSlot[] = [
-  "front",
-  "back",
-  "ingredients",
-  "nutrition",
-  "prepared",
-];
 const REASONS = {
   outdated_packaging: "The packaging has changed",
   blurry: "The current photo is blurry or unreadable",
@@ -106,9 +100,9 @@ export function PhotoProposalForm({
         disabled={Boolean(receiptId)}
         onChange={(e) => setSlot(e.target.value as ImageSlot)}
       >
-        {SLOTS.map((s) => (
-          <option key={s} value={s}>
-            {s === "nutrition" ? "Nutrition & allergens" : s}
+        {Object.entries(SLOT_LABELS).map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
           </option>
         ))}
       </select>
@@ -150,8 +144,8 @@ export function PhotoProposalForm({
       <p className="small muted">
         The current photo stays until the new one is accepted, and earlier
         photos remain with the formula they document.
-        {slot === "ingredients" || slot === "nutrition"
-          ? " Ingredient and nutrition photos are reviewed by a moderator."
+        {current && (slot === "ingredients" || slot === "nutrition")
+          ? " Replacing an ingredient or nutrition photo is reviewed by a moderator."
           : ""}
       </p>
       <button className="button" disabled={action.busy || !file}>

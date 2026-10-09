@@ -51,7 +51,10 @@ export class QueueDecisionRepository {
     if (!row) return null;
     const result = row.result_data
       ? (JSON.parse(row.result_data) as {
-          answers: Record<string, { option: string; confidence: number }>;
+          answers: Record<
+            string,
+            { option: string; probabilities: Record<string, number> }
+          >;
           flags: string[];
         })
       : null;
@@ -65,7 +68,9 @@ export class QueueDecisionRepository {
       answers: Object.entries(result?.answers ?? {}).map(([question, a]) => ({
         question,
         option: a.option,
-        confidence: a.confidence,
+        // Clef's separate confidence score is a margin, not a likelihood, so
+        // reviewers see the chosen option's probability instead.
+        probability: a.probabilities[a.option] ?? 0,
       })),
     };
   }

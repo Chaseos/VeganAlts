@@ -113,7 +113,9 @@ it("fills an empty slot immediately and keeps one accepted photo per slot when a
   expect(
     await services.repository.proposal(replacement.result.id),
   ).toMatchObject({ confirm_count: 1 });
-  expect(await services.moderation.sweepProposals()).toBeGreaterThanOrEqual(1);
+  expect(
+    (await services.moderation.sweepProposals()).length,
+  ).toBeGreaterThanOrEqual(1);
   expect((await accepted("front")).map((i) => i.id)).toEqual([
     replacement.photo.imageId,
   ]);

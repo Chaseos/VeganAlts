@@ -26,11 +26,19 @@ export async function invalidateCommunityProduct(
       slug: string;
       id: string;
     }>([
+      // Current memberships plus any this action linked or unlinked, so a
+      // category the product just left is purged too.
       db
         .prepare(
-          "SELECT c.slug FROM product_categories pc JOIN categories c ON c.id=pc.category_id WHERE pc.product_id=?",
+          `WITH action AS (SELECT before_data,after_data FROM moderation_actions WHERE id=?)
+          SELECT c.slug FROM categories c WHERE c.id IN (
+            SELECT category_id FROM product_categories WHERE product_id=?
+            UNION SELECT value FROM action,json_each(action.before_data,'$.addedCategories')
+            UNION SELECT value FROM action,json_each(action.before_data,'$.removedCategories')
+            UNION SELECT value FROM action,json_each(action.after_data,'$.addedCategories')
+            UNION SELECT value FROM action,json_each(action.after_data,'$.removedCategories'))`,
         )
-        .bind(productId),
+        .bind(actionId ?? null, productId),
       db
         .prepare(
           `WITH action AS (SELECT before_data,after_data FROM moderation_actions WHERE id=?)

@@ -67,6 +67,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       ...common,
       view: "category" as const,
       category: await taxonomy.proposalDetail(actor, id),
+      checks: await services.moderation.categoryChecks(actor, id),
       categories: (await taxonomy.tree(actor)).categories.filter(
         (c) => c.isActive,
       ),
@@ -182,6 +183,10 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
       await revalidator.revalidate();
     });
   }
+  const reversing =
+    data.view === "product"
+      ? data.actions.find((a) => a.id === reverseId)
+      : undefined;
   const reported =
     data.view === "detail" && data.detail.kind === "report"
       ? (data.detail.proposed as {
@@ -286,6 +291,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
           <>
             <CategoryReview
               detail={data.category}
+              checks={data.checks}
               categories={data.categories}
               action={action}
             />
@@ -579,6 +585,12 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
             {reverseId && (
               <form className="community-form" onSubmit={reverse}>
                 <h3>Reverse the selected catalog decision</h3>
+                {reversing && (
+                  <p>
+                    <strong>{friendly(reversing.kind)}</strong> ·{" "}
+                    {dateLabel(reversing.created_at)}: {reversing.note}
+                  </p>
+                )}
                 <label htmlFor="reverse-note">Reason for reversal</label>
                 <textarea
                   id="reverse-note"

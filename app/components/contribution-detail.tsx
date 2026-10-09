@@ -184,7 +184,7 @@ export function AutomatedChecks({
               <dt>{friendly(a.question)}</dt>
               <dd>
                 {friendly(a.option.toLowerCase())} (
-                {Math.round(a.confidence * 100)}%)
+                {Math.round(a.probability * 100)}% likely)
               </dd>
             </div>
           ))}

@@ -1,9 +1,17 @@
 import { env } from "cloudflare:workers";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { catalogFixture } from "./fixtures";
 import { communityServices } from "../../server/community/infrastructure/composition";
+import { invalidateCommunityProduct } from "../../server/community/infrastructure/invalidation";
+import type { MaterialCatalogChange } from "../../server/shared/http/public-cache";
 import { changeInput } from "../../server/community/domain/contracts";
 import { SYSTEM_ACTOR_ID } from "../../server/community/domain/policy";
+
+const purged = vi.hoisted(() => [] as MaterialCatalogChange[][]);
+vi.mock("../../server/catalog/infrastructure/invalidation", () => ({
+  scheduleCatalogInvalidation: (changes: MaterialCatalogChange[]) =>
+    purged.push(changes),
+}));
 
 const id = () => crypto.randomUUID();
 const evidence = {
@@ -128,7 +136,7 @@ it("automatically applies a confirmed tier 2 change as the audited system actor,
   await services.contributions.respond(confirmer, id(), proposal.id, {
     stance: "confirm",
   });
-  expect(await services.moderation.sweepProposals()).toBe(1);
+  expect(await services.moderation.sweepProposals()).toHaveLength(1);
   const snapshot = await services.repository.snapshot(f.productId);
   expect(snapshot.name).toBe("Garden Crumbles");
   expect(await services.repository.proposal(proposal.id)).toMatchObject({
@@ -294,16 +302,26 @@ it("applies tier 1 additions immediately, rejects contradicted evidence and reve
       (c) => c.categoryId,
     ),
   ).toContain(`extra-${f.productId}`);
-  await services.moderation.reverse(admin, id(), applied.actionId, {
-    expectedRevision: (await services.repository.snapshot(f.productId))
-      .revision,
-    note: "Reversed: the category does not fit this product.",
-  });
+  const reversal = await services.moderation.reverse(
+    admin,
+    id(),
+    applied.actionId,
+    {
+      expectedRevision: (await services.repository.snapshot(f.productId))
+        .revision,
+      note: "Reversed: the category does not fit this product.",
+    },
+  );
   expect(
     (await services.repository.snapshot(f.productId)).categories.map(
       (c) => c.categoryId,
     ),
   ).not.toContain(`extra-${f.productId}`);
+  // The category the product just left is purged along with its current ones.
+  await invalidateCommunityProduct(env.DB, f.productId, {
+    actionId: reversal.actionId,
+  });
+  expect(purged.at(-1)?.[0]?.categorySlugs).toContain(`extra-${f.productId}`);
   const open = await services.contributions.openProposals(
     confirmer,
     f.productId,

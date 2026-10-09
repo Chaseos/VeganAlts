@@ -615,6 +615,9 @@ export default function Contribute({
               )}
               {isFactKind(kind) && (
                 <FactChangeFields
+                  // Remount per kind so one kind's typed or prefilled value
+                  // never carries into another kind's field.
+                  key={kind}
                   kind={kind}
                   currentName={product.name}
                   categories={options.categories}
