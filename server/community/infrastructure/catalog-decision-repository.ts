@@ -1,4 +1,5 @@
 import { ApplicationError } from "../../shared/domain/errors";
+import { ACTIVE_RESPONSES } from "./moderation-repository";
 import { productSearchStatements } from "../../catalog/infrastructure/search-index";
 import type { Actor, ProductChange, RetailerInput } from "../domain/contracts";
 import type {
@@ -76,6 +77,7 @@ export class CatalogDecisionRepository {
     evidenceReceiptId: string | undefined,
     evidenceToken: string | undefined,
     receipt: ReceiptWrite,
+    support?: { confirmations: number },
   ) {
     const guard: DecisionGuard = {
       sql: "EXISTS(SELECT 1 FROM edit_proposals WHERE id=? AND status='pending' AND updated_at=?) AND EXISTS(SELECT 1 FROM catalog_revisions WHERE product_id=? AND revision=?)",
@@ -102,6 +104,18 @@ export class CatalogDecisionRepository {
           ),
       ),
     ];
+    // Automatic acceptance relies on active confirmations at commit time, so
+    // a confirmer suspended meanwhile no longer counts.
+    if (support) {
+      guard.sql += ` AND ${ACTIVE_RESPONSES("confirm")}>=? AND ${ACTIVE_RESPONSES("disagree")}=0`;
+      guard.values.push(proposal.id, support.confirmations, proposal.id);
+    }
+    // A renamed product must own its new identity key, not lose a race for it.
+    if (plan.after.identityKey) {
+      guard.sql +=
+        " AND NOT EXISTS(SELECT 1 FROM product_identity_keys WHERE identity_key=? AND product_id<>?)";
+      guard.values.push(plan.after.identityKey, snapshot.id);
+    }
     // Fences a retirement that lands between validation and this batch.
     const categories = [...new Set(plan.after.addedCategories ?? [])];
     if (categories.length) {

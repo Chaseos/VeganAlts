@@ -399,3 +399,20 @@ it("rotates automation past proposals that stay ineligible", async () => {
       .first("status"),
   ).toBe("accepted");
 });
+
+it("does not count a confirmation from an account suspended before the sweep", async () => {
+  const { services, confirmer, propose } = await fixture();
+  const proposal = await propose({ kind: "rename", name: "Suspended support" });
+  await services.contributions.respond(confirmer, id(), proposal.id, {
+    stance: "confirm",
+  });
+  await env.DB.prepare(
+    "UPDATE profiles SET account_state='suspended' WHERE user_id=?",
+  )
+    .bind(confirmer.id)
+    .run();
+  expect(await services.moderation.autoAccept(proposal.id)).toMatchObject({
+    applied: false,
+    reason: "confirmations",
+  });
+});

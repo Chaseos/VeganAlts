@@ -304,6 +304,7 @@ export class ModerationService {
     proposal: ProposalRecord,
     expectedProductRevision: number | undefined,
     receipt: ReceiptWrite,
+    support?: { confirmations: number },
   ) {
     const actor = action.actor;
     if (proposal.status !== "pending")
@@ -413,6 +414,7 @@ export class ModerationService {
         change.evidenceReceiptId,
         token,
         receipt,
+        support,
       );
     } catch (error) {
       if (change.evidenceReceiptId && token)
@@ -450,13 +452,17 @@ export class ModerationService {
       Object.keys(baseline?.images ?? {}),
     );
     const latest = await this.decisions.latest("edit_proposal", proposalId);
+    // Stored counts change only when someone responds; recount active
+    // accounts so a suspended confirmer no longer supports the change.
+    const responses = await this.repository.activeResponses(proposalId);
+    const mature = established(snapshot, this.autoApply);
     const verdict = autoAcceptance(
       {
         tier,
         change,
-        confirms: proposal.confirm_count,
-        disagrees: proposal.disagree_count,
-        established: established(snapshot, this.autoApply),
+        confirms: responses.confirms,
+        disagrees: responses.disagrees,
+        established: mature,
         ageMs: now - proposal.created_at,
         decision: latest?.outcome ?? null,
       },
@@ -487,12 +493,19 @@ export class ModerationService {
         note:
           verdict.reason === "tier_one"
             ? "Automatically applied: a low-risk addition with a supporting automated check."
-            : `Automatically applied after ${proposal.confirm_count} independent confirmation(s), no disagreement and a supporting automated evidence check.`,
+            : `Automatically applied after ${responses.confirms} independent confirmation(s), no disagreement and a supporting automated evidence check.`,
         now,
       },
       proposal,
       snapshot.revision,
       receipt,
+      verdict.reason === "tier_one"
+        ? undefined
+        : {
+            confirmations: mature
+              ? this.autoApply.establishedConfirmations
+              : this.autoApply.confirmations,
+          },
     );
     return { applied: true, reason: verdict.reason, ...result };
   }

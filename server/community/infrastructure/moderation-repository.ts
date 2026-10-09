@@ -37,6 +37,10 @@ export interface ReportRecord {
   evidence_data: string;
   resolution_note: string | null;
 }
+/** Responses of one stance on a proposal (bound: the proposal ID). */
+export const ACTIVE_RESPONSES = (stance: "confirm" | "disagree") =>
+  `(SELECT COUNT(*) FROM edit_proposal_responses r JOIN profiles p ON p.user_id=r.user_id AND p.account_state='active' WHERE r.proposal_id=? AND r.stance='${stance}')`;
+
 export class ModerationRepository {
   constructor(readonly db: D1Database) {}
   replay<T>(receipt: ReceiptWrite) {
@@ -234,6 +238,15 @@ export class ModerationRepository {
       )
       .bind(key)
       .first<string>("product_id");
+  }
+  /** Confirmations and disagreements from accounts that are still active. */
+  async activeResponses(proposalId: string) {
+    return (await this.db
+      .prepare(
+        `SELECT ${ACTIVE_RESPONSES("confirm")} AS confirms,${ACTIVE_RESPONSES("disagree")} AS disagrees`,
+      )
+      .bind(proposalId, proposalId)
+      .first<{ confirms: number; disagrees: number }>())!;
   }
   /**
    * Pending product proposals automation may evaluate, oldest first. A stored

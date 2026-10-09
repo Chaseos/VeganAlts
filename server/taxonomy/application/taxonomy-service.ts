@@ -160,7 +160,17 @@ export class TaxonomyService {
     if (prior) return prior;
     const slug = categorySlug(input.name);
     assertCategorySlug(slug);
-    // Deterministic duplicate checks before any model call.
+    // Deterministic quota and duplicate checks before any model call; the
+    // insert enforces the quota again.
+    const day = Math.floor(receipt.now / 86_400_000) * 86_400_000;
+    if (
+      (await this.repository.proposalsSince(actor.id, day)) >= PROPOSALS_PER_DAY
+    )
+      throw new ApplicationError(
+        "PROPOSAL_LIMIT",
+        "Today's category proposal allowance is exhausted. Please try again tomorrow.",
+        429,
+      );
     await this.assertNameAvailable([input.name, ...input.aliases]);
     if (input.parentId) await this.assertParent(null, input.parentId);
     const id = this.newId();
@@ -420,9 +430,11 @@ export class TaxonomyService {
       isRankable: input.isRankable,
       aliases: input.aliases,
     };
+    const guard = { sql: "1", values: [] as (string | number | null)[] };
+    fenceNames(guard, [input.name, ...input.aliases], id);
     const result = await this.repository.commit(
       this.action(actor, "category_create", id, input.note, {}, created),
-      { sql: "1", values: [] },
+      guard,
       (fence) => this.repository.createStatements(id, created, now, fence),
       receipt,
     );
@@ -507,6 +519,11 @@ export class TaxonomyService {
     if (next.parentId !== undefined) await this.assertParent(id, next.parentId);
     if (next.aliases) next.aliases = await this.countryIds(next.aliases);
     const plan = planCategoryUpdate(current, next);
+    const guard = {
+      sql: "EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)",
+      values: [id, current.revision] as (string | number | null)[],
+    };
+    fenceNames(guard, added, id);
     const result = await this.repository.commit(
       this.action(
         actor,
@@ -516,10 +533,7 @@ export class TaxonomyService {
         plan.before,
         plan.after,
       ),
-      {
-        sql: "EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)",
-        values: [id, current.revision],
-      },
+      guard,
       (fence) =>
         this.repository.categoryStatements(id, current, plan.after, now, fence),
       receipt,

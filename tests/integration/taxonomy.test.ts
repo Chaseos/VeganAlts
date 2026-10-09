@@ -529,6 +529,37 @@ it("reverses a merge only after later edits, and rechecks proposed names when de
   ).rejects.toMatchObject({ code: "CATEGORY_EXISTS" });
 });
 
+it("enforces the daily category proposal allowance before any automated check", async () => {
+  const w = await world();
+  const contributor = {
+    id: w.users[2]!,
+    accountState: "active",
+    administrator: false,
+  };
+  const service = taxonomy();
+  for (const name of ["Tempeh bacon", "Seitan ribs", "Jackfruit pulled pork"])
+    await service.propose(contributor, id(), {
+      name: `${name} ${w.s}`,
+      country: "US",
+      explanation: "A common conventional food with several alternatives.",
+    });
+  const decisions = async () =>
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM moderation_decisions WHERE user_id=?",
+    )
+      .bind(contributor.id)
+      .first<number>("n");
+  const before = await decisions();
+  await expect(
+    service.propose(contributor, id(), {
+      name: `Vegan schnitzel ${w.s}`,
+      country: "US",
+      explanation: "A common conventional food with several alternatives.",
+    }),
+  ).rejects.toMatchObject({ code: "PROPOSAL_LIMIT" });
+  expect(await decisions()).toBe(before);
+});
+
 it("seeds the production-safe taxonomy idempotently without catalog data", async () => {
   const products = async () =>
     (await env.DB.prepare("SELECT COUNT(*) AS n FROM products").first<number>(

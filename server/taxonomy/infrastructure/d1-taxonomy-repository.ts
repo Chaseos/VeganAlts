@@ -322,6 +322,15 @@ export class D1TaxonomyRepository {
   }
 
   // ---- Category proposals -------------------------------------------------
+  /** Category proposals an account has made since a time. */
+  async proposalsSince(userId: string, since: number) {
+    return (await this.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM category_proposals WHERE submitted_by=? AND created_at>=?",
+      )
+      .bind(userId, since)
+      .first<number>("n"))!;
+  }
   async createProposal(
     proposal: {
       id: string;
