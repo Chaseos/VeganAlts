@@ -30,7 +30,8 @@ async function world() {
     fresh = `fresh-${s}`,
     freshVersion = `fresh-v-${s}`,
     gone = `gone-${s}`,
-    goneVersion = `gone-v-${s}`;
+    goneVersion = `gone-v-${s}`,
+    loose = `loose-${s}`;
   await env.DB.batch([
     env.DB.prepare("UPDATE products SET published_at=? WHERE id=?").bind(
       NOW - 200 * DAY,
@@ -61,6 +62,16 @@ async function world() {
     env.DB.prepare(
       "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1),(?,?,1,1),(?,?,1,1)",
     ).bind(steady, category, fresh, category, gone, category),
+    // Recently published but ineligible everywhere: never in New.
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,name,slug,published_at,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,'active',1,1)",
+    ).bind(loose, f.countryId, `Loose ${s}`, loose, NOW - DAY),
+    env.DB.prepare(
+      "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
+    ).bind(`loose-v-${s}`, loose),
+    env.DB.prepare(
+      "INSERT INTO product_categories(product_id,category_id,ranking_eligible,created_at,updated_at) VALUES(?,?,0,1,1)",
+    ).bind(loose, category),
   ]);
   const ratings = new RatingsService(
     new D1RatingsRepository(env.DB),
@@ -80,7 +91,7 @@ async function world() {
     ...f.users.map((u) => rate(u.id, steadyVersion, 5, NOW - 40 * DAY)),
   ]);
   await ratings.rebuildVersions([f.versionId, steadyVersion]);
-  return { f, s, category, steady, fresh, gone };
+  return { f, s, category, steady, fresh, gone, loose };
 }
 const topHash = async (category: string) =>
   JSON.stringify(
@@ -129,6 +140,7 @@ it("computes Trending and New from precomputed activity without changing Top", a
   expect(home.trending.map((p) => p.id)).toContain(w.f.productId);
   expect(home.newest.map((p) => p.id)).toContain(w.fresh);
   expect(home.newest.map((p) => p.id)).not.toContain(w.gone);
+  expect(home.newest.map((p) => p.id)).not.toContain(w.loose);
   // Without new activity the burst fades out of Trending.
   await trendingService(rankingEnv, () => NOW + 9 * DAY).rebuild();
   expect(

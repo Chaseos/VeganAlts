@@ -134,6 +134,7 @@ export class D1CatalogRepository implements CatalogRepository {
       JOIN countries country ON country.id=p.country_id AND country.iso2='US' AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id
       ${categoryId ? "JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=? AND pc.ranking_eligible=1 LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id" : ""}
       WHERE p.published_at>=? AND ${eligible}
+      ${categoryId ? "" : "AND EXISTS(SELECT 1 FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 AND c.is_rankable=1 WHERE pc.product_id=p.id AND pc.ranking_eligible=1)"}
       ORDER BY p.published_at DESC,p.id DESC LIMIT ? OFFSET ?`,
         )
         .bind(...(categoryId ? [categoryId] : []), since, limit, offset)

@@ -193,8 +193,8 @@ it("transfers a merged category's ratings, links and metadata, then reverses exa
   const survivor = (await service.tree(operator)).categories.find(
     (c) => c.id === w.S,
   )!;
-  expect(survivor.aliases).toContain(`Minced ${w.s}`);
-  expect(survivor.aliases).toContain(`mince ${w.s}`);
+  expect(survivor.aliases.map((a) => a.alias)).toContain(`Minced ${w.s}`);
+  expect(survivor.aliases.map((a) => a.alias)).toContain(`mince ${w.s}`);
   expect(await catalogService(env).categoryRedirect(w.D)).toBe(w.S);
   expect(
     await env.DB.prepare(
@@ -334,8 +334,28 @@ it("validates slugs and names, redirects renamed slugs and reverses taxonomy edi
       note,
     }),
   ).rejects.toMatchObject({ code: "INVALID_PARENT" });
-  const renamed = (await service.update(operator, id(), created.categoryId, {
+  // Aliases added on edit get creation's duplicate check, and a held alias's
+  // market scope round-trips through the tree.
+  await expect(
+    service.update(operator, id(), created.categoryId, {
+      expectedRevision: current.revision,
+      aliases: [{ alias: `mince ${w.s}` }],
+      note,
+    }),
+  ).rejects.toMatchObject({ code: "CATEGORY_EXISTS" });
+  await service.update(operator, id(), created.categoryId, {
     expectedRevision: current.revision,
+    aliases: [{ alias: `spanish sausage ${w.s}`, country: "US" }],
+    note,
+  });
+  const scoped = (await service.tree(operator)).categories.find(
+    (c) => c.id === created.categoryId,
+  )!;
+  expect(scoped.aliases).toEqual([
+    { alias: `spanish sausage ${w.s}`, country: "US" },
+  ]);
+  const renamed = (await service.update(operator, id(), created.categoryId, {
+    expectedRevision: scoped.revision,
     name: `Soy chorizo ${w.s}`,
     slug: `soy-chorizo-${w.s}`,
     note,
@@ -423,8 +443,9 @@ it("routes contributor category proposals through deterministic checks, automati
     note: "Same reference food; added as a search alias.",
   });
   expect(
-    (await service.tree(operator)).categories.find((c) => c.id === w.S)!
-      .aliases,
+    (await service.tree(operator)).categories
+      .find((c) => c.id === w.S)!
+      .aliases.map((a) => a.alias),
   ).toContain(`Hamburger meat ${w.s}`);
 });
 

@@ -463,8 +463,18 @@ export class TaxonomyService {
     };
     if (next.slug !== undefined && next.slug !== current.slug)
       await this.assertSlugAvailable(next.slug, id);
-    if (next.name !== undefined && next.name !== current.name)
-      await this.assertNameAvailable([next.name], id);
+    // Like creation, new names and aliases may not collide with another
+    // category. Aliases already held (such as a merged donor's name) stay.
+    const held = new Set(current.aliases.map((a) => categoryKey(a.alias)));
+    const added = [
+      ...(next.name !== undefined && next.name !== current.name
+        ? [next.name]
+        : []),
+      ...(next.aliases ?? [])
+        .map((a) => a.alias)
+        .filter((alias) => !held.has(categoryKey(alias))),
+    ];
+    if (added.length) await this.assertNameAvailable(added, id);
     if (next.parentId !== undefined) await this.assertParent(id, next.parentId);
     if (next.aliases) next.aliases = await this.countryIds(next.aliases);
     const plan = planCategoryUpdate(current, next);

@@ -91,7 +91,16 @@ export default function AdminTaxonomy({
                     {c.isActive ? "active" : "retired"} · {c.productCount}{" "}
                     products
                   </span>
-                  {c.aliases && <p className="small">Also: {c.aliases}</p>}
+                  {c.aliases.length > 0 && (
+                    <p className="small">
+                      Also:{" "}
+                      {c.aliases
+                        .map((a) =>
+                          a.country ? `${a.alias} (${a.country})` : a.alias,
+                        )
+                        .join(", ")}
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -114,9 +123,16 @@ export default function AdminTaxonomy({
                           parentId: form.get("parent") || null,
                           isRankable: form.get("rankable") === "on",
                           isActive: form.get("active") === "on",
-                          aliases: list(form.get("aliases")).map((alias) => ({
-                            alias,
-                          })),
+                          // Unchanged aliases keep their market scope; new
+                          // ones apply everywhere.
+                          aliases: list(form.get("aliases")).map((alias) => {
+                            const country = c.aliases.find(
+                              (a) => a.alias === alias,
+                            )?.country;
+                            return country === "US"
+                              ? { alias, country }
+                              : { alias };
+                          }),
                           note: form.get("note"),
                         },
                         `${c.name} updated.`,
@@ -174,7 +190,7 @@ export default function AdminTaxonomy({
                     <input
                       id={`aliases-${c.id}`}
                       name="aliases"
-                      defaultValue={c.aliases}
+                      defaultValue={c.aliases.map((a) => a.alias).join(", ")}
                     />
                     <label htmlFor={`note-${c.id}`}>Reason</label>
                     <textarea

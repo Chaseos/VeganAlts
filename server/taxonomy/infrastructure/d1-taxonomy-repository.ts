@@ -96,7 +96,7 @@ export class D1TaxonomyRepository {
       this.db.prepare(
         `SELECT c.id,c.name,c.slug,c.parent_id AS parentId,c.is_rankable AS isRankable,c.is_active AS isActive,c.revision,
         (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id=c.id) AS productCount,
-        COALESCE((SELECT group_concat(a.alias,', ') FROM category_aliases a WHERE a.category_id=c.id),'') AS aliases
+        (SELECT json_group_array(json_object('alias',a.alias,'country',co.iso2)) FROM category_aliases a LEFT JOIN countries co ON co.id=a.country_id WHERE a.category_id=c.id) AS aliases
         FROM categories c ORDER BY c.is_active DESC,c.name LIMIT 500`,
       ),
       this.db.prepare(
@@ -110,17 +110,26 @@ export class D1TaxonomyRepository {
       ),
     ]);
     return {
-      categories: categories!.results as {
-        id: string;
-        name: string;
-        slug: string;
-        parentId: string | null;
-        isRankable: number;
-        isActive: number;
-        revision: number;
-        productCount: number;
-        aliases: string;
-      }[],
+      categories: (
+        categories!.results as {
+          id: string;
+          name: string;
+          slug: string;
+          parentId: string | null;
+          isRankable: number;
+          isActive: number;
+          revision: number;
+          productCount: number;
+          aliases: string;
+        }[]
+      ).map((c) => ({
+        ...c,
+        // Scope travels with each alias so an edit can preserve it.
+        aliases: JSON.parse(c.aliases) as {
+          alias: string;
+          country: string | null;
+        }[],
+      })),
       features: features!.results as { categoryId: string; position: number }[],
       merges: merges!.results as {
         id: string;
