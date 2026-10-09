@@ -5,7 +5,7 @@ Verified on 2026-10-09 against the approved [Milestone 4 specification](../MILES
 ## Delivery and scope
 
 - Branch: `feature/milestone-four-trust-lifecycle-discovery`, based on `develop` at `580498f`. One commit per checkpoint, published for review as [Chaseos/VeganAlts#30](https://github.com/Chaseos/VeganAlts/pull/30).
-- Staging: [staging.veganalts.com](https://staging.veganalts.com). Final Worker version: **`e3dc9b05-8afa-4a2c-9c4e-17903c75e36d`**, Worker `veganalts-staging`.
+- Staging: [staging.veganalts.com](https://staging.veganalts.com). Final Worker version: **`27de9525-e1c7-497a-8ecd-41117d51a261`**, Worker `veganalts-staging`.
 - Applied append-only migrations `0010`–`0015` to staging. None were applied to production, which still has migrations through `0004`.
 - Automated moderation uses Cloudflare Workers AI Clef on staging (`MODERATION_PROVIDER=clef`). Production is configured with the `AI` binding and `MODERATION_PROVIDER=disabled`.
 - Production still serves the coming-soon page. `PUBLIC_LAUNCH` is `"false"` everywhere; cutover steps are in the [launch checklist](../operations/launch-checklist.md).
@@ -35,7 +35,7 @@ Staging Clef usage during acceptance: **8 decisions, 5,145 input tokens**, 253�
 
 ## Local verification
 
-The Milestone 3 baseline was 77 tests in 25 files and 24 browser tests. The final branch has **152 passing tests in 36 files** and **38 passing desktop and mobile browser tests**. `npm run check` covers type generation, strict TypeScript, unit and integration tests and the build. Logs: `test-results/milestone-4-review-check-5.log` and `test-results/milestone-4-final-e2e.log`.
+The Milestone 3 baseline was 77 tests in 25 files and 24 browser tests. The final branch has **154 passing tests in 36 files** and **38 passing desktop and mobile browser tests**. `npm run check` covers type generation, strict TypeScript, unit and integration tests and the build. Logs: `test-results/milestone-4-review-check-6.log` and `test-results/milestone-4-final-e2e.log`.
 
 Browser tests cover comments, votes, held comments and collapse; photo proposals; confirmations and automatic acceptance; automated outcomes through the fake provider; category proposals, merge and redirect; Top, Trending and New; policy pages, robots, sitemap and structured data. Each runs axe checks at 390 px and desktop widths.
 
@@ -61,7 +61,7 @@ Acceptance found and fixed these issues (commit `0c1ebc9`):
 - Zod's eval probe produced a CSP violation.
 - The photo note and the merge-reversal layout were wrong.
 
-Pull request review found sixteen more issues, fixed in `481c3cb`, `5d84296`, `8dbfab6`, `a37cff5` and `204af1d` and covered by tests:
+Pull request review found twenty more issues, fixed in `481c3cb`, `5d84296`, `8dbfab6`, `a37cff5`, `204af1d` and `0ffbed9` and covered by tests:
 
 - Category merges and reversals now re-derive the full Trending window for both categories, so moved activity is no longer missing until the nightly pass.
 - Catalog New views now honor a configured `newDays`.
@@ -79,6 +79,10 @@ Pull request review found sixteen more issues, fixed in `481c3cb`, `5d84296`, `8
 - The category proposal allowance is checked before any Clef call.
 - Operator category creation and edits fence new names against concurrent claims.
 - An accepted rename must own its new identity key.
+- Comments check the daily allowance before any Clef call.
+- Homepage feature sets, and their reversals, require every category to be active.
+- Reversing a category edit rechecks the names it restores.
+- An edit made before a merge can only be reversed after that merge is reversed.
 
 ## Performance and caching
 
@@ -110,14 +114,14 @@ SEO scores 69 on staging only because staging deliberately blocks indexing. The 
 
 ## Recovery references and limits
 
-- Previous staging Worker version (Milestone 3): see `wrangler deployments list --env staging`. Milestone 4 versions: `44cebbae` (initial), `62185f75`, `11687dd7`, `9abdccd1`, `5a996db3`, `a1ff7d34`, `406a03ad` and `e3dc9b05` (final).
+- Previous staging Worker version (Milestone 3): see `wrangler deployments list --env staging`. Milestone 4 versions: `44cebbae` (initial), `62185f75`, `11687dd7`, `9abdccd1`, `5a996db3`, `a1ff7d34`, `406a03ad`, `e3dc9b05` and `27de9525` (final).
 - Prefer audited reversals for catalog and taxonomy corrections. A Time Travel restore discards later contributions and needs an explicit operator decision.
 - Clef thresholds are provisional, calibrated on 20 labeled cases. Trending weights are provisional (RANKING §14). Both need recalibration with real traffic.
 
-## Follow-ups (drafted, not created)
+## Follow-ups
 
-- Production cutover, following the [launch checklist](../operations/launch-checklist.md).
-- Launch catalog entry through the normal submission and review flow.
-- Production taxonomy seed (`--confirm-taxonomy-only`).
-- Trending and Clef threshold recalibration with real traffic.
-- Existing #26 (contributor trust) and #28 (alternative moderation benchmark).
+- [#31](https://github.com/Chaseos/VeganAlts/issues/31) Production cutover, following the [launch checklist](../operations/launch-checklist.md).
+- [#32](https://github.com/Chaseos/VeganAlts/issues/32) Launch catalog entry through the normal submission and review flow.
+- [#33](https://github.com/Chaseos/VeganAlts/issues/33) Production taxonomy seed (`--confirm-taxonomy-only`).
+- [#34](https://github.com/Chaseos/VeganAlts/issues/34) Trending and Clef threshold recalibration with real traffic.
+- Existing [#26](https://github.com/Chaseos/VeganAlts/issues/26) (contributor trust) and [#28](https://github.com/Chaseos/VeganAlts/issues/28) (alternative moderation benchmark).
