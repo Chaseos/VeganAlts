@@ -570,3 +570,28 @@ The approved [milestone 4 specification](MILESTONE_4_PLAN.md) adds the following
 - `0015_trending_reads.sql` adds `product_category_trends` and the indexes that keep Trending and New reads off raw ratings.
 
 `product_category_stats.trending_score` remains unused because rating writes replace those rows; trends are stored separately and rebuilt from daily statistics. Daily statistics and trends are derived and reproducible.
+
+## Milestone 5 persistence decisions
+
+The approved [milestone 5 specification](MILESTONE_5_PLAN.md) adds the following append-only migrations and rules.
+
+- `0016_markets_allergens.sql`
+  - Adds `ix_retailer_markets_country(country_id, is_active, retailer_id)` for the store filter.
+  - Adds `allergens(key, label)`, the shared allergen vocabulary, inserted by the migration: milk, egg, fish, crustacean, mollusc, tree_nuts, peanut, wheat, gluten, soy, sesame, mustard, celery, lupin, sulphites.
+  - Adds `country_allergens(country_id, allergen_key, position, label)`, each country's declared-allergen list with optional local wording, written by the taxonomy seed.
+  - Adds `product_version_allergen_declarations`: one row per formula version, status `declared` or `none_declared`, evidence and source proposal.
+  - Adds `product_version_allergens(product_version_id, allergen_key, presence)`, where presence is `contains` or `may_contain`.
+  - Triggers require allergen rows to belong to a `declared` declaration, with a key on the product country's list, and bump `catalog_revisions` on every change.
+  - Absence of a declaration means "not confirmed"; only accepted proposals write declarations.
+- `0017_taxonomy_shape.sql` adds `category_aliases.is_display_name`. A display name must be country-scoped, and each food has at most one display name per country. Food names render as that alias in its country; slugs never change.
+- `0018_detail_scores.sql`
+  - Adds `product_category_dimension_stats(product_version_id, category_id, dimension_id, answer_count, answer_sum)`.
+  - Adds `product_category_familiarity_stats(product_version_id, category_id, recency, overall_similarity, rating_count)`, where `recency` is one of the five `ratings.conventional_recency` buckets or `unanswered`.
+  - Both are derived from counted ratings, written in the rating batch and rebuilt by the integrity rebuild.
+  - Rebuilds the empty-dependency `category_merge_moves` ledger so merges can record dimension rows.
+  - Adds a trigger that moves a rating's detail answers to the same-key dimension when the rating changes category, and refuses the change if no such dimension exists.
+  - Adds a trigger that fixes a dimension's key and category once created.
+
+**Taxonomy shape.** Depth is computed from `parent_id`, not stored: aisles are children of the root, shelves are children of aisles, and rankable foods are children of shelves. Food names and all aliases remain unique across the taxonomy (case-, accent- and spacing-insensitive); group names are unique among siblings and groups have no aliases. Slugs remain globally unique. Every new rankable category starts with Taste and Texture dimensions.
+
+**Countries.** The taxonomy seed inserts the six launch countries as active rows with deterministic IDs (`country:US`, `country:CA`, `country:GB`, `country:AU`, `country:NZ`, `country:IE`), their allergen lists, homepage features and display names. It stays insert-only and idempotent. Existing local and staging data are re-parented to the three-level shape by `scripts/reshape-taxonomy.ts`, which uses the audited, reversible taxonomy update path. Product slugs are unique per country, so every product read is scoped by country.
