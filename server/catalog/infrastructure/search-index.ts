@@ -7,11 +7,15 @@ const ancestry = `WITH RECURSIVE ancestry(leaf,id,name,parent_id) AS (
 
 export const SEARCH_INDEX_STATEMENTS = [
   "DELETE FROM search_index",
+  // Foods only: aisles and shelves are navigation, reached through their
+  // foods' ancestry ("meat" finds every food in the Meat aisle). A food's
+  // title is its name in that country; its base name stays searchable.
   `${ancestry} INSERT INTO search_index(entity_type,entity_id,country_code,title,subtitle,aliases,body)
-    SELECT 'category',c.id,country.iso2,c.name,'Category',
-      COALESCE((SELECT group_concat(alias,' ') FROM category_aliases ca WHERE ca.category_id=c.id AND (ca.country_id IS NULL OR ca.country_id=country.id)),''),
+    SELECT 'category',c.id,country.iso2,
+      COALESCE((SELECT alias FROM category_aliases d WHERE d.category_id=c.id AND d.country_id=country.id AND d.is_display_name=1),c.name),'Category',
+      c.name || ' ' || COALESCE((SELECT group_concat(alias,' ') FROM category_aliases ca WHERE ca.category_id=c.id AND (ca.country_id IS NULL OR ca.country_id=country.id)),''),
       (SELECT group_concat(name,' ') FROM ancestry a WHERE a.leaf=c.id)
-    FROM categories c CROSS JOIN countries country WHERE c.is_active=1 AND country.is_active=1`,
+    FROM categories c CROSS JOIN countries country WHERE c.is_active=1 AND c.is_rankable=1 AND country.is_active=1`,
   `${ancestry} INSERT INTO search_index(entity_type,entity_id,country_code,title,subtitle,aliases,body)
     SELECT 'product',p.id,country.iso2,p.name,COALESCE(b.name,''),
       COALESCE((SELECT group_concat(alias,' ') FROM product_aliases pa WHERE pa.product_id=p.id),'') || ' ' ||

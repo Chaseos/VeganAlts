@@ -53,6 +53,17 @@ export interface TaxonomyCounts {
   rankedCount: number;
 }
 
+export interface TopProduct {
+  categoryId: string;
+  id: string;
+  slug: string;
+  name: string;
+  brand: string | null;
+  bayesianScore: number;
+  ratingCount: number;
+  rank: number;
+}
+
 export interface StoreOption {
   slug: string;
   name: string;
@@ -149,6 +160,11 @@ export interface CatalogRepository {
     offset: number,
     limit: number,
   ): Promise<ProductSummary[]>;
+  topProducts(
+    countryId: string,
+    categoryIds: string[],
+    perFood: number,
+  ): Promise<TopProduct[]>;
   storeOptions(
     countryId: string,
     categoryId: string,

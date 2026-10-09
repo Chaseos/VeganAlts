@@ -34,7 +34,9 @@
     "moderation:calibrate": "tsx scripts/calibrate-clef.ts",
     "taxonomy:seed:local": "tsx scripts/seed-taxonomy.ts local",
     "taxonomy:seed:staging": "tsx scripts/seed-taxonomy.ts staging",
-    "taxonomy:seed:production": "tsx scripts/seed-taxonomy.ts production"
+    "taxonomy:seed:production": "tsx scripts/seed-taxonomy.ts production",
+    "taxonomy:reshape:local": "tsx scripts/reshape-taxonomy.ts local",
+    "taxonomy:reshape:staging": "tsx scripts/reshape-taxonomy.ts staging"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.7",

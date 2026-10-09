@@ -5,7 +5,8 @@ import type {
   ProductSummary,
 } from "../domain/contracts";
 import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
-import { aisleTree } from "../../taxonomy/domain/shape";
+import { aisleTree, taxonomyShape } from "../../taxonomy/domain/shape";
+import { AISLE_TOP, isEarly } from "../../ranking/domain/display";
 import {
   intersectFilters,
   NO_FILTERS,
@@ -150,6 +151,102 @@ export class CatalogService {
         valid.stores.length !== filters.stores.length ||
         valid.freeFrom.length !== filters.freeFrom.length,
       options,
+    };
+  }
+
+  // Every aisle and its shelves, including shelves without foods yet, for
+  // choosing where a proposed food belongs.
+  async shelves(market: Market) {
+    const taxonomy = await this.repository.taxonomy(market.id);
+    const nodes = [...taxonomyShape(taxonomy.categories).values()];
+    const byName = <T extends { name: string }>(a: T, b: T) =>
+      a.name.localeCompare(b.name);
+    return nodes
+      .filter((node) => node.depth === 1 && !node.isRankable)
+      .sort(byName)
+      .map((aisle) => ({
+        id: aisle.id,
+        name: aisle.name,
+        shelves: nodes
+          .filter((node) => node.parentId === aisle.id && !node.isRankable)
+          .sort(byName)
+          .map((shelf) => ({
+            id: shelf.id,
+            slug: shelf.slug,
+            name: shelf.name,
+          })),
+      }))
+      .filter((aisle) => aisle.shelves.length > 0);
+  }
+
+  // A category's identity and whether it is a food, without its listings.
+  async summary(market: Market, slug: string) {
+    const category = await this.repository.category(market.id, slug);
+    if (!category)
+      throw new ApplicationError("NOT_FOUND", "Category not found.", 404);
+    return category;
+  }
+
+  // A group category's place: Food itself, an aisle (its own page), a shelf
+  // (its aisle with the shelf selected) or a deeper group (its aisle).
+  async aisle(market: Market, slug: string) {
+    const taxonomy = await this.repository.taxonomy(market.id);
+    const shape = taxonomyShape(taxonomy.categories);
+    const node = [...shape.values()].find((item) => item.slug === slug);
+    if (!node || node.isRankable)
+      throw new ApplicationError("NOT_FOUND", "Aisle not found.", 404);
+    if (node.depth === 0) return { kind: "root" as const };
+    const aisle = shape.get(node.aisleId!)!;
+    if (node.depth !== 1)
+      return {
+        kind: "shelf" as const,
+        aisleSlug: aisle.slug,
+        shelfSlug: node.depth === 2 ? node.slug : null,
+      };
+    const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
+    const byName = <T extends { name: string }>(a: T, b: T) =>
+      a.name.localeCompare(b.name);
+    const nodes = [...shape.values()];
+    const shelves = nodes
+      .filter((item) => item.parentId === aisle.id && !item.isRankable)
+      .sort(byName)
+      .map((shelf) => ({
+        slug: shelf.slug,
+        name: shelf.name,
+        foods: nodes
+          .filter((item) => item.parentId === shelf.id && !item.outsideDepth)
+          .sort(byName),
+      }));
+    const foodIds = shelves.flatMap((shelf) => shelf.foods.map((f) => f.id));
+    const top = await this.repository.topProducts(
+      market.id,
+      foodIds,
+      AISLE_TOP,
+    );
+    return {
+      kind: "aisle" as const,
+      aisle: { slug: aisle.slug, name: aisle.name },
+      shelves: shelves.map((shelf) => ({
+        slug: shelf.slug,
+        name: shelf.name,
+        foods: shelf.foods.map((food) => ({
+          slug: food.slug,
+          name: food.name,
+          productCount: counts.get(food.id)?.productCount ?? 0,
+          rankedCount: counts.get(food.id)?.rankedCount ?? 0,
+          top: top
+            .filter((product) => product.categoryId === food.id)
+            .map((product) => ({
+              slug: product.slug,
+              name: product.name,
+              brand: product.brand,
+              score: product.bayesianScore,
+              ratingCount: product.ratingCount,
+              rank: product.rank,
+              early: isEarly(product.ratingCount),
+            })),
+        })),
+      })),
     };
   }
 

@@ -12,6 +12,7 @@ import type {
   RankingRow,
   StoreOption,
   TaxonomyCounts,
+  TopProduct,
 } from "../domain/contracts";
 import type { RankingFilters } from "../domain/filters";
 import type { TaxonomyNode } from "../../taxonomy/domain/shape";
@@ -32,7 +33,11 @@ const identity = `p.id,p.slug,p.name,b.name AS brand,v.id AS versionId,p.develop
 // Every catalog read is scoped to one active country, bound as its ID.
 const productJoins = `JOIN products p ON p.id=v.product_id AND p.country_id=? JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id`;
 const visible = `p.lifecycle_status <> 'hidden'`;
-const categoryFields = `c.id,c.slug,c.name,c.parent_id AS parentId,c.is_rankable AS isRankable,
+// A food's name in a country: its display-name alias there, else its name.
+const displayName = (category: string, country = "?") =>
+  `COALESCE((SELECT d.alias FROM category_aliases d WHERE d.category_id=${category}.id AND d.country_id=${country} AND d.is_display_name=1),${category}.name)`;
+// Binds the country ID twice: display name, then product count.
+const categoryFields = `c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,
  (SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=c.id AND p.country_id=? AND ${visible}) AS productCount`;
 
 interface Fragment {
@@ -109,9 +114,11 @@ export class D1CatalogRepository implements CatalogRepository {
   // tree is shaped from these in the domain.
   async taxonomy(countryId: string) {
     const [categories, counts] = await this.db.batch([
-      this.db.prepare(
-        "SELECT id,slug,name,parent_id AS parentId,is_rankable AS isRankable FROM categories WHERE is_active=1 ORDER BY name LIMIT 2000",
-      ),
+      this.db
+        .prepare(
+          `SELECT c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable FROM categories c WHERE c.is_active=1 ORDER BY name LIMIT 2000`,
+        )
+        .bind(countryId),
       this.db
         .prepare(
           `SELECT pc.category_id AS categoryId,COUNT(DISTINCT p.id) AS productCount,
@@ -135,7 +142,7 @@ export class D1CatalogRepository implements CatalogRepository {
         .prepare(
           `SELECT ${categoryFields} FROM categories c WHERE c.is_active=1 AND ${parentId ? "c.parent_id=?" : "c.is_rankable=1"} ORDER BY c.name LIMIT 100`,
         )
-        .bind(countryId, ...(parentId ? [parentId] : []))
+        .bind(countryId, countryId, ...(parentId ? [parentId] : []))
         .all<CategorySummary>()
     ).results;
   }
@@ -166,7 +173,7 @@ export class D1CatalogRepository implements CatalogRepository {
           `SELECT ${categoryFields} FROM category_features f
           JOIN categories c ON c.id=f.category_id AND c.is_active=1 WHERE f.country_id=? ORDER BY f.position LIMIT 12`,
         )
-        .bind(countryId, countryId)
+        .bind(countryId, countryId, countryId)
         .all<CategorySummary>()
     ).results;
   }
@@ -180,7 +187,7 @@ export class D1CatalogRepository implements CatalogRepository {
       .prepare(
         `SELECT ${categoryFields} FROM categories c WHERE c.slug=? AND c.is_active=1`,
       )
-      .bind(countryId, slug)
+      .bind(countryId, countryId, slug)
       .first<CategorySummary>();
   }
 
@@ -312,6 +319,25 @@ export class D1CatalogRepository implements CatalogRepository {
     ).results;
   }
 
+  // The first products of several foods in Top order (aggregates only, never
+  // raw ratings), for aisle menus, search previews and the home page.
+  async topProducts(countryId: string, categoryIds: string[], perFood: number) {
+    if (!categoryIds.length) return [];
+    return (
+      await this.db
+        .prepare(
+          `WITH ranked AS (SELECT s.category_id AS categoryId,p.id,p.slug,p.name,b.name AS brand,s.bayesian_score AS bayesianScore,s.rating_count AS ratingCount,
+            ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${rankingOrderSql}) AS rank
+          FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
+          ${rankedMembershipSql}
+          WHERE s.category_id IN (SELECT value FROM json_each(?)) AND ${eligible} AND ${rankedSampleSql})
+          SELECT * FROM ranked WHERE rank<=? ORDER BY categoryId,rank`,
+        )
+        .bind(countryId, JSON.stringify(categoryIds), perFood)
+        .all<TopProduct>()
+    ).results;
+  }
+
   // Each store in the country's active markets with its number of ranked
   // swaps in this food under the current Free-from choice (but not the store
   // choice), so a count says what choosing that store adds.
@@ -381,7 +407,7 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(row.id),
       this.db
         .prepare(
-          `SELECT c.id,c.slug,c.name,c.is_active AS isActive,CASE WHEN pc.ranking_eligible=1 AND c.is_active=1 AND c.is_rankable=1 AND ${eligible} AND v.is_current=1 THEN 1 ELSE 0 END AS canRate,s.bayesian_score AS bayesianScore,COALESCE(s.rating_count,0) AS ratingCount
+          `SELECT c.id,c.slug,${displayName("c", "p.country_id")} AS name,c.is_active AS isActive,CASE WHEN pc.ranking_eligible=1 AND c.is_active=1 AND c.is_rankable=1 AND ${eligible} AND v.is_current=1 THEN 1 ELSE 0 END AS canRate,s.bayesian_score AS bayesianScore,COALESCE(s.rating_count,0) AS ratingCount
         FROM product_categories pc JOIN categories c ON c.id=pc.category_id JOIN products p ON p.id=pc.product_id JOIN product_versions v ON v.product_id=p.id AND v.id=? LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=c.id WHERE pc.product_id=? AND (c.is_active=1 OR v.is_current=0) ORDER BY c.name LIMIT 50`,
         )
         .bind(row.versionId, row.id),
@@ -429,7 +455,7 @@ export class D1CatalogRepository implements CatalogRepository {
         .prepare(
           `SELECT ${categoryFields} FROM search_index JOIN categories c ON c.id=search_index.entity_id AND c.is_active=1 WHERE search_index MATCH ? AND entity_type='category' AND country_code=? ORDER BY rank,c.name LIMIT 12`,
         )
-        .bind(countryId, expression, iso2),
+        .bind(countryId, countryId, expression, iso2),
       this.db
         .prepare(
           `SELECT ${identity} FROM search_index JOIN product_versions v ON v.product_id=search_index.entity_id AND v.is_current=1 ${productJoins} WHERE search_index MATCH ? AND entity_type='product' AND country_code=? AND p.lifecycle_status<>'discontinued' AND ${visible} ORDER BY rank,p.name,p.id LIMIT 20`,

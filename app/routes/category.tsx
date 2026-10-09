@@ -27,6 +27,8 @@ import {
   productPath,
 } from "@server/catalog/domain/markets";
 import { Breadcrumb } from "../components/ui/navigation";
+import { AislePanel } from "../components/catalog/aisle-panel";
+import { PageShell } from "../components/layout/page-shell";
 import {
   SortMenu,
   StoreChecklist,
@@ -52,6 +54,30 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   return publicLoader(async () => {
     const url = new URL(request.url);
     const market = await catalog.market(country);
+    // Aisles and shelves are groups: an aisle has its own page, a shelf opens
+    // its aisle with that shelf selected, and Food itself is the home page.
+    if (!(await catalog.summary(market, params.categorySlug)).isRankable) {
+      const place = await catalog.aisle(market, params.categorySlug);
+      if (place.kind === "root") throw redirect(homePath(country));
+      if (place.kind === "shelf")
+        throw redirect(
+          `${foodPath(country, place.aisleSlug)}${place.shelfSlug ? `?shelf=${place.shelfSlug}` : ""}`,
+          { status: 302, headers: { "Cache-Control": "private, no-store" } },
+        );
+      const shelf = url.searchParams.get("shelf");
+      if (shelf !== null && !place.shelves.some((s) => s.slug === shelf))
+        throw redirect(foodPath(country, place.aisle.slug), {
+          status: 302,
+          headers: { "Cache-Control": "private, no-store" },
+        });
+      return {
+        ...place,
+        market,
+        shelf,
+        origin: env.APP_URL,
+        staging: env.APP_ENV !== "production",
+      };
+    }
     // Stores and allergens the country does not offer never become cache
     // variants: drop them with an uncached redirect.
     const checked = await catalog.validateFilters(
@@ -64,6 +90,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         headers: { "Cache-Control": "private, no-store" },
       });
     return {
+      kind: "food" as const,
       ...(await catalog.category(market, params.categorySlug, {
         page: catalogPage(url.searchParams.get("page")),
         unrankedPage: catalogPage(url.searchParams.get("unrankedPage")),
@@ -81,8 +108,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 // Switching country keeps the food.
 export const handle = {
   countrySwitch: (data: unknown, code: string) => {
-    const slug = (data as { category?: { slug: string } } | undefined)?.category
-      ?.slug;
+    const value = data as
+      { category?: { slug: string }; aisle?: { slug: string } } | undefined;
+    const slug = value?.category?.slug ?? value?.aisle?.slug;
     return slug ? foodPath(code, slug) : null;
   },
 };
@@ -93,7 +121,16 @@ function viewQuery(view: string, page: number) {
   if (page > 1) params.set("page", String(page));
   return params.size ? `?${params}` : "";
 }
-export function meta({ loaderData: data }: Route.MetaArgs) {
+export function meta({ loaderData }: Route.MetaArgs) {
+  if (loaderData?.kind === "aisle")
+    return publicMetadata(
+      `${loaderData.aisle.name} aisle · Vegan swaps by food`,
+      `Every food in the ${loaderData.aisle.name.toLowerCase()} aisle with its closest vegan swaps, ranked by people who’ve tried them.`,
+      foodPath(loaderData.market.code, loaderData.aisle.slug),
+      loaderData.origin,
+      loaderData.staging,
+    );
+  const data = loaderData?.kind === "food" ? loaderData : undefined;
   const origin = data?.origin ?? "https://veganalts.com";
   const structured = data
     ? [
@@ -141,7 +178,37 @@ const SORTS = [
   { view: "new", label: "Newest", hint: "Recently added" },
 ];
 
-export default function Category({ loaderData: data }: Route.ComponentProps) {
+type FoodData = Extract<Route.ComponentProps["loaderData"], { kind: "food" }>;
+type AisleData = Extract<Route.ComponentProps["loaderData"], { kind: "aisle" }>;
+
+export default function Category({ loaderData }: Route.ComponentProps) {
+  return loaderData.kind === "aisle" ? (
+    <AislePage data={loaderData} />
+  ) : (
+    <FoodRanking data={loaderData} />
+  );
+}
+
+function AislePage({ data }: { data: AisleData }) {
+  return (
+    <PageShell width="wide" footer="compact">
+      <Breadcrumb
+        items={[
+          { label: "All foods", to: homePath(data.market.code) },
+          { label: data.aisle.name },
+        ]}
+      />
+      <AislePanel
+        country={data.market.code}
+        data={data}
+        shelf={data.shelf}
+        mode="page"
+      />
+    </PageShell>
+  );
+}
+
+function FoodRanking({ data }: { data: FoodData }) {
   const filtered = hasFilters(data.filters);
   useApplySavedFilters(data.market.code, {
     stores: data.storeOptions.map((store) => store.slug),

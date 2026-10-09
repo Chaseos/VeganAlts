@@ -94,10 +94,15 @@ export const categoryAliases = sqliteTable(
       { onDelete: "cascade" },
     ),
     alias: text("alias").notNull(),
+    // The food's name in this country ("Beef mince"); country-scoped only.
+    isDisplayName: integer("is_display_name").notNull().default(sql.raw("0")),
     createdAt: integer("created_at").notNull(),
   },
   (table) => [
     index("ix_category_aliases_alias").on(sql`${table.alias} COLLATE NOCASE`),
+    uniqueIndex("ux_category_aliases_display")
+      .on(table.categoryId, table.countryId)
+      .where(sql`${table.isDisplayName} = 1`),
     uniqueIndex("ux_category_aliases_category_id_country_id_alias").on(
       table.categoryId,
       table.countryId,

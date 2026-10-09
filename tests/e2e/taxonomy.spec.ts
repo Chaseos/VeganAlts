@@ -23,6 +23,10 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
       .click();
     await expect(page.getByLabel("Conventional food")).toHaveValue(name);
     await expect(page.getByLabel("Conventional food")).toBeEnabled();
+    // Category proposals choose the shelf the food belongs on.
+    await page
+      .getByLabel("Aisle and shelf")
+      .selectOption({ label: "Meat · Pork" });
     await page
       .getByLabel("Why is a separate category needed?")
       .fill("Plant-based bratwurst is sold widely and has no category yet.");

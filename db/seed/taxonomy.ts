@@ -1,65 +1,90 @@
+import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
+
 // Production-safe taxonomy: real conventional foods and search aliases only.
 // No products, ratings, people or images. Reviewed before any production use.
-export const TAXONOMY_PARENTS = [
+// Food → aisle → shelf → food (confirmed by the owner on 2026-10-09). Aisles
+// and shelves are non-rankable groups; a group whose natural slug belongs to
+// a food takes a suffix.
+export const TAXONOMY_GROUPS = [
   { slug: "food", name: "Food", parent: null },
   { slug: "meat", name: "Meat", parent: "food" },
+  { slug: "beef", name: "Beef", parent: "meat" },
+  { slug: "chicken", name: "Chicken", parent: "meat" },
+  { slug: "pork", name: "Pork", parent: "meat" },
   { slug: "dairy", name: "Dairy", parent: "food" },
-  { slug: "cheese", name: "Cheese", parent: "dairy" },
+  { slug: "milk-shelf", name: "Milk", parent: "dairy" },
+  { slug: "butter-shelf", name: "Butter", parent: "dairy" },
+  { slug: "cheese", name: "Cheese", parent: "food" },
+  { slug: "block-and-shredded", name: "Block and shredded", parent: "cheese" },
+  {
+    slug: "soft-and-spreadable",
+    name: "Soft and spreadable",
+    parent: "cheese",
+  },
+  { slug: "eggs-aisle", name: "Eggs", parent: "food" },
+  { slug: "eggs-shelf", name: "Eggs", parent: "eggs-aisle" },
 ] as const;
 export const TAXONOMY_LEAVES = [
   {
     slug: "ground-beef",
     name: "Ground Beef",
-    parent: "meat",
+    parent: "beef",
     aliases: ["mince", "ground meat"],
+    // Each country's own name for the food; the URL stays the same.
+    displayNames: {
+      GB: "Beef mince",
+      AU: "Beef mince",
+      NZ: "Beef mince",
+      IE: "Beef mince",
+    },
   },
   {
     slug: "beef-burgers",
     name: "Beef Burgers",
-    parent: "meat",
+    parent: "beef",
     aliases: ["hamburgers", "burger patties"],
   },
   {
     slug: "chicken-nuggets",
     name: "Chicken Nuggets",
-    parent: "meat",
+    parent: "chicken",
     aliases: ["nuggets", "chick'n nuggets"],
   },
-  { slug: "bacon", name: "Bacon", parent: "meat", aliases: ["bacon strips"] },
+  { slug: "bacon", name: "Bacon", parent: "pork", aliases: ["bacon strips"] },
   {
     slug: "milk",
     name: "Milk",
-    parent: "dairy",
+    parent: "milk-shelf",
     aliases: ["plant milk", "non-dairy milk"],
   },
   {
     slug: "butter",
     name: "Butter",
-    parent: "dairy",
+    parent: "butter-shelf",
     aliases: ["buttery spread"],
   },
   {
     slug: "cheddar",
     name: "Cheddar",
-    parent: "cheese",
+    parent: "block-and-shredded",
     aliases: ["cheddar cheese"],
   },
   {
     slug: "mozzarella",
     name: "Mozzarella",
-    parent: "cheese",
+    parent: "block-and-shredded",
     aliases: ["mozzarella cheese"],
   },
   {
     slug: "cream-cheese",
     name: "Cream Cheese",
-    parent: "cheese",
+    parent: "soft-and-spreadable",
     aliases: ["cream cheese spread"],
   },
   {
     slug: "eggs",
     name: "Eggs",
-    parent: "food",
+    parent: "eggs-shelf",
     aliases: ["egg alternatives", "egg replacer"],
   },
 ] as const;
@@ -215,7 +240,7 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
       ON CONFLICT DO NOTHING;`,
     );
   }
-  for (const category of [...TAXONOMY_PARENTS, ...TAXONOMY_LEAVES]) {
+  for (const category of [...TAXONOMY_GROUPS, ...TAXONOMY_LEAVES]) {
     const rankable = "aliases" in category ? 1 : 0;
     statements.push(
       `INSERT INTO categories(id,parent_id,slug,name,is_rankable,is_active,created_at,updated_at)
@@ -230,6 +255,16 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
           ON CONFLICT DO NOTHING;`,
         );
   }
+  for (const leaf of TAXONOMY_LEAVES)
+    if ("displayNames" in leaf)
+      for (const [iso2, name] of Object.entries(leaf.displayNames))
+        statements.push(
+          `INSERT INTO category_aliases(id,category_id,country_id,alias,is_display_name,created_at)
+          SELECT ${quote(newId())},c.id,co.id,${quote(name)},1,${now} FROM categories c CROSS JOIN countries co
+          WHERE c.slug=${quote(leaf.slug)} AND co.iso2=${quote(iso2)}
+          AND NOT EXISTS(SELECT 1 FROM category_aliases a WHERE a.category_id=c.id AND a.country_id=co.id AND a.is_display_name=1)
+          ON CONFLICT DO NOTHING;`,
+        );
   // Features are seeded per country, only where none are configured yet.
   statements.push(
     `INSERT INTO category_features(country_id,category_id,position,updated_at)
@@ -240,5 +275,10 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
   );
   return statements;
 }
+// The script also rebuilds the search index from canonical rows, so new foods
+// and display names are searchable at once.
 export const taxonomySeedSql = (newId: () => string, now: number) =>
-  taxonomySeedStatements(newId, now).join("\n");
+  [
+    ...taxonomySeedStatements(newId, now),
+    ...SEARCH_INDEX_STATEMENTS.map((sql) => `${sql};`),
+  ].join("\n");

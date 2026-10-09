@@ -1,9 +1,11 @@
 import { env } from "cloudflare:workers";
 import { useState, type FormEvent } from "react";
-import { Link, useRevalidator } from "react-router";
+import { useRevalidator } from "react-router";
 import { communityPageActor } from "@server/community/http/page";
 import { taxonomyServices } from "@server/taxonomy/infrastructure/composition";
-import { SiteShell } from "../components/catalog";
+import { PageShell } from "../components/layout/page-shell";
+import { Badge } from "../components/ui/badges";
+import { Breadcrumb } from "../components/ui/navigation";
 import {
   CommunityControls,
   CommunityFeedback,
@@ -30,6 +32,31 @@ const list = (value: FormDataEntryValue | null) =>
     .map((v) => v.trim())
     .filter(Boolean);
 
+type Category = Route.ComponentProps["loaderData"]["categories"][number];
+const LEVEL = ["Root", "Aisle", "Shelf", "Food"];
+
+// The tree in Food → aisle → shelf → food order, with retired categories last.
+function ordered(categories: Category[]) {
+  const children = (parentId: string | null) =>
+    categories
+      .filter((c) => c.parentId === parentId && c.isActive)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  const out: Category[] = [];
+  const visit = (parentId: string | null, seen: Set<string>) => {
+    for (const child of children(parentId)) {
+      if (seen.has(child.id)) continue;
+      out.push(child);
+      visit(child.id, new Set([...seen, child.id]));
+    }
+  };
+  visit(null, new Set());
+  return [
+    ...out,
+    ...categories.filter((c) => c.isActive && !out.includes(c)),
+    ...categories.filter((c) => !c.isActive),
+  ];
+}
+
 /**
  * Operator taxonomy management. Every change records a reason, is fenced on
  * the category revision and can be reversed from the action list.
@@ -40,10 +67,13 @@ export default function AdminTaxonomy({
   const action = useCommunityAction(),
     revalidator = useRevalidator();
   const [editing, setEditing] = useState<string | null>(null),
-    [status, setStatus] = useState("");
+    [status, setStatus] = useState(""),
+    [featureCountry, setFeatureCountry] = useState("US");
   const name = (id: string | null) =>
     data.categories.find((c) => c.id === id)?.name ?? "—";
   const active = data.categories.filter((c) => c.isActive);
+  const foods = active.filter((c) => c.isRankable);
+  const features = data.features.filter((f) => f.country === featureCountry);
   async function send(path: string, body: unknown, done: string) {
     const result = await action.run(() => action.request(path, body));
     if (result === undefined) return;
@@ -57,38 +87,67 @@ export default function AdminTaxonomy({
       event.preventDefault();
       void handler(new FormData(event.currentTarget));
     };
+  const outside = active.filter((c) => c.outsideDepth);
   return (
-    <SiteShell>
+    <PageShell width="wide" aisles={false}>
       <CommunityControls>
-        <nav className="breadcrumbs" aria-label="Moderation navigation">
-          <Link to="/admin/moderation">Review inbox</Link>
-          <span>Taxonomy</span>
-        </nav>
-        <header className="page-heading">
+        <Breadcrumb
+          items={[
+            { label: "Review inbox", to: "/admin/moderation" },
+            { label: "Taxonomy" },
+          ]}
+        />
+        <header className="page-heading section-space-sm">
           <p className="eyebrow">Operator workspace</p>
           <h1>Taxonomy</h1>
           <p>
-            Categories name conventional foods. Renamed slugs redirect; merges
-            move ratings to the surviving category and can be reversed.
+            Food → aisle → shelf → food. Aisles and shelves organize the aisle
+            bar; foods are ranked. Renamed slugs redirect; merges move ratings
+            to the surviving food and can be reversed.
           </p>
         </header>
         <p role="status">{status}</p>
         <CommunityFeedback action={action} siteKey={data.siteKey} />
+        {outside.length > 0 && (
+          <div className="notice warn">
+            <strong className="notice-title">
+              {outside.length === 1
+                ? "1 category is outside the three levels"
+                : `${outside.length} categories are outside the three levels`}
+            </strong>
+            <p>
+              They stay reachable by address and search but are missing from the
+              aisle bar: {outside.map((c) => c.name).join(", ")}.
+            </p>
+          </div>
+        )}
 
         <section
-          className="community-panel"
+          className="va-card section-space"
           aria-labelledby="categories-heading"
         >
-          <h2 id="categories-heading">Categories</h2>
-          <ul className="contribution-list">
-            {data.categories.map((c) => (
-              <li key={c.id}>
-                <div>
-                  <strong>{c.name}</strong>{" "}
+          <h2 id="categories-heading" className="va-heading-s">
+            Aisles, shelves and foods
+          </h2>
+          <ul className="va-divided va-taxonomy-tree">
+            {ordered(data.categories).map((c) => (
+              <li
+                key={c.id}
+                className={`va-taxonomy-tree__row va-taxonomy-tree__row--${Math.min(c.depth ?? 0, 3)}`}
+              >
+                <div className="va-taxonomy-tree__summary">
+                  <strong>{c.name}</strong>
+                  <span className="va-chip-row">
+                    <Badge tone={c.isRankable ? "good" : "neutral"}>
+                      {c.isRankable ? "Food" : (LEVEL[c.depth ?? 0] ?? "Group")}
+                    </Badge>
+                    {c.outsideDepth && (
+                      <Badge tone="warn">Outside depth three</Badge>
+                    )}
+                    {!c.isActive && <Badge>Retired</Badge>}
+                  </span>
                   <span className="small muted">
-                    /us/{c.slug} · parent {name(c.parentId)} ·{" "}
-                    {c.isRankable ? "rankable" : "browse only"} ·{" "}
-                    {c.isActive ? "active" : "retired"} · {c.productCount}{" "}
+                    /{c.slug} · in {name(c.parentId)} · {c.productCount}{" "}
                     products
                   </span>
                   {c.aliases.length > 0 && (
@@ -96,7 +155,9 @@ export default function AdminTaxonomy({
                       Also:{" "}
                       {c.aliases
                         .map((a) =>
-                          a.country ? `${a.alias} (${a.country})` : a.alias,
+                          a.country
+                            ? `${a.alias} (${a.country}${a.displayName ? ", display name" : ""})`
+                            : a.alias,
                         )
                         .join(", ")}
                     </p>
@@ -112,69 +173,95 @@ export default function AdminTaxonomy({
                 </button>
                 {editing === c.id && (
                   <form
-                    className="community-form"
-                    onSubmit={submit((form) =>
-                      send(
+                    className="community-form va-taxonomy-tree__form"
+                    onSubmit={submit((form) => {
+                      const rankable = form.get("rankable") === "on";
+                      // Plain aliases keep their market scope; country names
+                      // are each country's display name for the food.
+                      const plain = rankable
+                        ? list(form.get("aliases")).map((alias) => {
+                            const known = c.aliases.find(
+                              (a) => a.alias === alias && !a.displayName,
+                            );
+                            return known?.country
+                              ? { alias, country: known.country }
+                              : { alias };
+                          })
+                        : [];
+                      const display = rankable
+                        ? data.countries.flatMap((country) => {
+                            const value = String(
+                              form.get(`display-${country.iso2}`) ?? "",
+                            ).trim();
+                            return value
+                              ? [
+                                  {
+                                    alias: value,
+                                    country: country.iso2,
+                                    displayName: true,
+                                  },
+                                ]
+                              : [];
+                          })
+                        : [];
+                      return send(
                         `admin/taxonomy/categories/${c.id}`,
                         {
                           expectedRevision: c.revision,
                           name: form.get("name"),
                           slug: form.get("slug"),
                           parentId: form.get("parent") || null,
-                          isRankable: form.get("rankable") === "on",
+                          isRankable: rankable,
                           isActive: form.get("active") === "on",
-                          // Unchanged aliases keep their market scope; new
-                          // ones apply everywhere.
-                          aliases: list(form.get("aliases")).map((alias) => {
-                            const country = c.aliases.find(
-                              (a) => a.alias === alias,
-                            )?.country;
-                            return country === "US"
-                              ? { alias, country }
-                              : { alias };
-                          }),
+                          aliases: [...plain, ...display],
                           note: form.get("note"),
                         },
                         `${c.name} updated.`,
-                      ),
-                    )}
+                      );
+                    })}
                   >
-                    <label htmlFor={`name-${c.id}`}>Name</label>
-                    <input
-                      id={`name-${c.id}`}
-                      name="name"
-                      defaultValue={c.name}
-                      required
-                    />
-                    <label htmlFor={`slug-${c.id}`}>Slug</label>
-                    <input
-                      id={`slug-${c.id}`}
-                      name="slug"
-                      defaultValue={c.slug}
-                      required
-                    />
-                    <label htmlFor={`parent-${c.id}`}>Parent</label>
-                    <select
-                      id={`parent-${c.id}`}
-                      name="parent"
-                      defaultValue={c.parentId ?? ""}
-                    >
-                      <option value="">None</option>
-                      {active
-                        .filter((p) => p.id !== c.id)
-                        .map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                    </select>
+                    <div className="form-field">
+                      <label htmlFor={`name-${c.id}`}>Name</label>
+                      <input
+                        id={`name-${c.id}`}
+                        name="name"
+                        defaultValue={c.name}
+                        required
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor={`slug-${c.id}`}>Slug</label>
+                      <input
+                        id={`slug-${c.id}`}
+                        name="slug"
+                        defaultValue={c.slug}
+                        required
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor={`parent-${c.id}`}>Parent</label>
+                      <select
+                        id={`parent-${c.id}`}
+                        name="parent"
+                        defaultValue={c.parentId ?? ""}
+                      >
+                        <option value="">None</option>
+                        {active
+                          .filter((p) => p.id !== c.id && !p.isRankable)
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({LEVEL[p.depth ?? 0] ?? "Group"})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
                     <label className="checkbox-label">
                       <input
                         type="checkbox"
                         name="rankable"
                         defaultChecked={c.isRankable === 1}
                       />
-                      Rankable
+                      Ranked food (aisles and shelves are not ranked)
                     </label>
                     <label className="checkbox-label">
                       <input
@@ -184,22 +271,49 @@ export default function AdminTaxonomy({
                       />
                       Active
                     </label>
-                    <label htmlFor={`aliases-${c.id}`}>
-                      Aliases (comma separated)
-                    </label>
-                    <input
-                      id={`aliases-${c.id}`}
-                      name="aliases"
-                      defaultValue={c.aliases.map((a) => a.alias).join(", ")}
-                    />
-                    <label htmlFor={`note-${c.id}`}>Reason</label>
-                    <textarea
-                      id={`note-${c.id}`}
-                      name="note"
-                      required
-                      minLength={8}
-                      rows={2}
-                    />
+                    <div className="form-field">
+                      <label htmlFor={`aliases-${c.id}`}>
+                        Aliases (comma separated, foods only)
+                      </label>
+                      <input
+                        id={`aliases-${c.id}`}
+                        name="aliases"
+                        defaultValue={c.aliases
+                          .filter((a) => !a.displayName)
+                          .map((a) => a.alias)
+                          .join(", ")}
+                      />
+                    </div>
+                    <fieldset className="va-country-names">
+                      <legend>Name in each country (optional)</legend>
+                      {data.countries.map((country) => (
+                        <div className="form-field" key={country.iso2}>
+                          <label htmlFor={`display-${c.id}-${country.iso2}`}>
+                            {country.name}
+                          </label>
+                          <input
+                            id={`display-${c.id}-${country.iso2}`}
+                            name={`display-${country.iso2}`}
+                            defaultValue={
+                              c.aliases.find(
+                                (a) =>
+                                  a.displayName && a.country === country.iso2,
+                              )?.alias ?? ""
+                            }
+                          />
+                        </div>
+                      ))}
+                    </fieldset>
+                    <div className="form-field">
+                      <label htmlFor={`note-${c.id}`}>Reason</label>
+                      <textarea
+                        id={`note-${c.id}`}
+                        name="note"
+                        required
+                        minLength={8}
+                        rows={2}
+                      />
+                    </div>
                     <button className="button" disabled={action.busy}>
                       Save category
                     </button>
@@ -210,8 +324,13 @@ export default function AdminTaxonomy({
           </ul>
         </section>
 
-        <section className="community-panel" aria-labelledby="create-heading">
-          <h2 id="create-heading">Create a category</h2>
+        <section
+          className="va-card section-space"
+          aria-labelledby="create-heading"
+        >
+          <h2 id="create-heading" className="va-heading-s">
+            Create a food, shelf or aisle
+          </h2>
           <form
             className="community-form"
             onSubmit={submit((form) =>
@@ -229,45 +348,65 @@ export default function AdminTaxonomy({
               ),
             )}
           >
-            <label htmlFor="new-name">Conventional food</label>
-            <input id="new-name" name="name" required minLength={2} />
-            <label htmlFor="new-slug">Slug (optional)</label>
-            <input id="new-slug" name="slug" />
-            <label htmlFor="new-parent">Parent</label>
-            <select id="new-parent" name="parent" defaultValue="">
-              <option value="">None</option>
-              {active.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <div className="form-field">
+              <label htmlFor="new-name">Conventional food</label>
+              <input id="new-name" name="name" required minLength={2} />
+            </div>
+            <div className="form-field">
+              <label htmlFor="new-slug">Slug (optional)</label>
+              <input id="new-slug" name="slug" />
+            </div>
+            <div className="form-field">
+              <label htmlFor="new-parent">Parent</label>
+              <select id="new-parent" name="parent" defaultValue="">
+                <option value="">None</option>
+                {active
+                  .filter((p) => !p.isRankable)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({LEVEL[p.depth ?? 0] ?? "Group"})
+                    </option>
+                  ))}
+              </select>
+            </div>
             <label className="checkbox-label">
               <input type="checkbox" name="rankable" defaultChecked />
-              Rankable
+              Ranked food
             </label>
-            <label htmlFor="new-aliases">Aliases (comma separated)</label>
-            <input id="new-aliases" name="aliases" />
-            <label htmlFor="new-note">Reason</label>
-            <textarea
-              id="new-note"
-              name="note"
-              required
-              minLength={8}
-              rows={2}
-            />
+            <div className="form-field">
+              <label htmlFor="new-aliases">
+                Aliases (comma separated, foods only)
+              </label>
+              <input id="new-aliases" name="aliases" />
+            </div>
+            <div className="form-field">
+              <label htmlFor="new-note">Reason</label>
+              <textarea
+                id="new-note"
+                name="note"
+                required
+                minLength={8}
+                rows={2}
+              />
+            </div>
             <button className="button" disabled={action.busy}>
               Create category
             </button>
           </form>
         </section>
 
-        <section className="community-panel" aria-labelledby="merge-heading">
-          <h2 id="merge-heading">Merge duplicate categories</h2>
+        <section
+          className="va-card section-space"
+          aria-labelledby="merge-heading"
+        >
+          <h2 id="merge-heading" className="va-heading-s">
+            Merge duplicates
+          </h2>
           <p className="small muted">
-            Use only when both describe the same conventional food. Ratings move
-            to the survivor; if someone rated a product in both, their most
-            recent rating counts and the other is kept uncounted.
+            Use only when both describe the same conventional food (or the same
+            aisle or shelf). Ratings move to the survivor; if someone rated a
+            product in both, their most recent rating counts and the other is
+            kept uncounted.
           </p>
           <form
             className="community-form"
@@ -291,7 +430,7 @@ export default function AdminTaxonomy({
             })}
           >
             {(["donor", "survivor"] as const).map((role) => (
-              <div key={role}>
+              <div className="form-field" key={role}>
                 <label htmlFor={`merge-${role}`}>
                   {role === "donor"
                     ? "Duplicate to retire"
@@ -306,28 +445,32 @@ export default function AdminTaxonomy({
                   <option value="">Choose a category</option>
                   {active.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name}
+                      {c.isRankable
+                        ? c.name
+                        : `${c.name} (${LEVEL[c.depth ?? 0] ?? "Group"})`}
                     </option>
                   ))}
                 </select>
               </div>
             ))}
-            <label htmlFor="merge-note">Reason</label>
-            <textarea
-              id="merge-note"
-              name="note"
-              required
-              minLength={8}
-              rows={2}
-            />
+            <div className="form-field">
+              <label htmlFor="merge-note">Reason</label>
+              <textarea
+                id="merge-note"
+                name="note"
+                required
+                minLength={8}
+                rows={2}
+              />
+            </div>
             <button className="button" disabled={action.busy}>
               Merge categories
             </button>
           </form>
           {data.merges.length > 0 && (
-            <ul className="contribution-list">
+            <ul className="va-divided section-space-sm">
               {data.merges.map((m) => (
-                <li key={m.id}>
+                <li key={m.id} className="va-taxonomy-merge">
                   <span>
                     {name(m.donorId)} → {name(m.survivorId)} ·{" "}
                     {friendly(m.state)} · {dateLabel(m.createdAt)}
@@ -343,15 +486,17 @@ export default function AdminTaxonomy({
                         ),
                       )}
                     >
-                      <label htmlFor={`reverse-${m.id}`}>
-                        Reason to reverse
-                      </label>
-                      <input
-                        id={`reverse-${m.id}`}
-                        name="note"
-                        required
-                        minLength={8}
-                      />
+                      <div className="form-field">
+                        <label htmlFor={`reverse-${m.id}`}>
+                          Reason to reverse
+                        </label>
+                        <input
+                          id={`reverse-${m.id}`}
+                          name="note"
+                          required
+                          minLength={8}
+                        />
+                      </div>
                       <button
                         className="button secondary"
                         disabled={action.busy}
@@ -381,12 +526,33 @@ export default function AdminTaxonomy({
           )}
         </section>
 
-        <section className="community-panel" aria-labelledby="features-heading">
-          <h2 id="features-heading">Homepage features</h2>
+        <section
+          className="va-card section-space"
+          aria-labelledby="features-heading"
+        >
+          <h2 id="features-heading" className="va-heading-s">
+            Homepage features
+          </h2>
           <p className="small muted">
-            Merchandising order, independent of the hierarchy.
+            Each country’s fallback for “Start with these”, in order. Derived
+            lists replace them as foods earn established #1s.
           </p>
+          <div className="form-field">
+            <label htmlFor="features-country">Country</label>
+            <select
+              id="features-country"
+              value={featureCountry}
+              onChange={(event) => setFeatureCountry(event.target.value)}
+            >
+              {data.countries.map((country) => (
+                <option key={country.iso2} value={country.iso2}>
+                  {country.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <form
+            key={featureCountry}
             className="community-form"
             onSubmit={submit((form) =>
               send(
@@ -395,6 +561,7 @@ export default function AdminTaxonomy({
                   categoryIds: [0, 1, 2, 3, 4, 5]
                     .map((i) => String(form.get(`feature-${i}`) ?? ""))
                     .filter(Boolean),
+                  country: featureCountry,
                   note: form.get("note"),
                 },
                 "Homepage features saved.",
@@ -402,46 +569,54 @@ export default function AdminTaxonomy({
             )}
           >
             {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i}>
+              <div className="form-field" key={i}>
                 <label htmlFor={`feature-${i}`}>Position {i + 1}</label>
                 <select
                   id={`feature-${i}`}
                   name={`feature-${i}`}
-                  defaultValue={data.features[i]?.categoryId ?? ""}
+                  defaultValue={features[i]?.categoryId ?? ""}
                 >
                   <option value="">Empty</option>
-                  {active
-                    .filter((c) => c.isRankable)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
+                  {foods.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             ))}
-            <label htmlFor="features-note">Reason</label>
-            <textarea
-              id="features-note"
-              name="note"
-              required
-              minLength={8}
-              rows={2}
-            />
+            <div className="form-field">
+              <label htmlFor="features-note">Reason</label>
+              <textarea
+                id="features-note"
+                name="note"
+                required
+                minLength={8}
+                rows={2}
+              />
+            </div>
             <button className="button" disabled={action.busy}>
               Save features
             </button>
           </form>
         </section>
 
-        <section className="community-panel" aria-labelledby="actions-heading">
-          <h2 id="actions-heading">Recent taxonomy actions</h2>
-          <ul className="contribution-list">
+        <section
+          className="va-card section-space"
+          aria-labelledby="actions-heading"
+        >
+          <h2 id="actions-heading" className="va-heading-s">
+            Recent taxonomy actions
+          </h2>
+          <ul className="va-divided">
             {data.actions.map((a) => (
-              <li key={a.id}>
+              <li key={a.id} className="va-taxonomy-merge">
                 <span>
-                  {friendly(a.kind)} · {name(a.targetId)} ·{" "}
-                  {dateLabel(a.createdAt)}
+                  {friendly(a.kind)} ·{" "}
+                  {a.targetId.startsWith("features:") || a.targetId === "US"
+                    ? `features (${a.targetId.replace("features:", "")})`
+                    : name(a.targetId)}{" "}
+                  · {dateLabel(a.createdAt)}
                   {a.reversedBy ? " · reversed" : ""}
                 </span>
                 {!a.reversedBy &&
@@ -466,6 +641,6 @@ export default function AdminTaxonomy({
           </ul>
         </section>
       </CommunityControls>
-    </SiteShell>
+    </PageShell>
   );
 }

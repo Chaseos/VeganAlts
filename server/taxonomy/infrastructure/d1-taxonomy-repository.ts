@@ -29,7 +29,14 @@ export interface MergeRecord {
 export interface FinalizeData {
   children: string[];
   aliasIds: string[];
-  feature: { position: number; survivorFeatured: boolean } | null;
+  // Milestone 4 merges recorded one United States feature.
+  feature?: { position: number; survivorFeatured: boolean } | null;
+  // The donor's homepage feature in each country.
+  features?: {
+    countryId: string;
+    position: number;
+    survivorFeatured: boolean;
+  }[];
 }
 interface PageRating {
   id: string;
@@ -72,7 +79,7 @@ export class D1TaxonomyRepository {
         `SELECT c.id,c.name,c.slug,c.parent_id AS parentId,c.is_rankable AS isRankable,c.is_active AS isActive,c.revision,
         (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id=c.id) AS productCount,
         (SELECT COUNT(*) FROM category_rating_dimensions d WHERE d.category_id=c.id) AS ratingDimensions,
-        (SELECT json_group_array(json_object('alias',a.alias,'countryId',a.country_id)) FROM category_aliases a WHERE a.category_id=c.id) AS aliases
+        (SELECT json_group_array(json_object('alias',a.alias,'countryId',a.country_id,'displayName',json(CASE WHEN a.is_display_name=1 THEN 'true' ELSE 'false' END))) FROM category_aliases a WHERE a.category_id=c.id) AS aliases
         FROM categories c WHERE c.id=?`,
       )
       .bind(id)
@@ -92,23 +99,27 @@ export class D1TaxonomyRepository {
     };
   }
   async tree() {
-    const [categories, features, merges, actions] = await this.db.batch([
-      this.db.prepare(
-        `SELECT c.id,c.name,c.slug,c.parent_id AS parentId,c.is_rankable AS isRankable,c.is_active AS isActive,c.revision,
+    const [categories, features, merges, actions, countries] =
+      await this.db.batch([
+        this.db.prepare(
+          `SELECT c.id,c.name,c.slug,c.parent_id AS parentId,c.is_rankable AS isRankable,c.is_active AS isActive,c.revision,
         (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id=c.id) AS productCount,
-        (SELECT json_group_array(json_object('alias',a.alias,'country',co.iso2)) FROM category_aliases a LEFT JOIN countries co ON co.id=a.country_id WHERE a.category_id=c.id) AS aliases
-        FROM categories c ORDER BY c.is_active DESC,c.name LIMIT 500`,
-      ),
-      this.db.prepare(
-        "SELECT f.category_id AS categoryId,f.position FROM category_features f JOIN countries co ON co.id=f.country_id AND co.iso2='US' ORDER BY f.position",
-      ),
-      this.db.prepare(
-        "SELECT m.id,m.donor_id AS donorId,m.survivor_id AS survivorId,m.state,m.created_at AS createdAt FROM category_merges m WHERE m.active=1 ORDER BY m.created_at DESC LIMIT 50",
-      ),
-      this.db.prepare(
-        "SELECT a.id,a.kind,a.target_id AS targetId,a.note,a.reversed_by AS reversedBy,a.created_at AS createdAt FROM moderation_actions a WHERE a.kind IN ('category_create','category_update','category_features','category_merge','category_proposal_reject') ORDER BY a.created_at DESC LIMIT 20",
-      ),
-    ]);
+        (SELECT json_group_array(json_object('alias',a.alias,'country',co.iso2,'displayName',json(CASE WHEN a.is_display_name=1 THEN 'true' ELSE 'false' END))) FROM category_aliases a LEFT JOIN countries co ON co.id=a.country_id WHERE a.category_id=c.id) AS aliases
+        FROM categories c ORDER BY c.is_active DESC,c.name LIMIT 1000`,
+        ),
+        this.db.prepare(
+          "SELECT f.category_id AS categoryId,f.position,co.iso2 AS country FROM category_features f JOIN countries co ON co.id=f.country_id ORDER BY co.iso2,f.position",
+        ),
+        this.db.prepare(
+          "SELECT m.id,m.donor_id AS donorId,m.survivor_id AS survivorId,m.state,m.created_at AS createdAt FROM category_merges m WHERE m.active=1 ORDER BY m.created_at DESC LIMIT 50",
+        ),
+        this.db.prepare(
+          "SELECT a.id,a.kind,a.target_id AS targetId,a.note,a.reversed_by AS reversedBy,a.created_at AS createdAt FROM moderation_actions a WHERE a.kind IN ('category_create','category_update','category_features','category_merge','category_proposal_reject') ORDER BY a.created_at DESC LIMIT 20",
+        ),
+        this.db.prepare(
+          "SELECT iso2,name FROM countries WHERE is_active=1 ORDER BY CASE WHEN iso2='US' THEN 0 ELSE 1 END,name",
+        ),
+      ]);
     return {
       categories: (
         categories!.results as {
@@ -128,9 +139,14 @@ export class D1TaxonomyRepository {
         aliases: JSON.parse(c.aliases) as {
           alias: string;
           country: string | null;
+          displayName: boolean;
         }[],
       })),
-      features: features!.results as { categoryId: string; position: number }[],
+      features: features!.results as {
+        categoryId: string;
+        position: number;
+        country: string;
+      }[],
       merges: merges!.results as {
         id: string;
         donorId: string;
@@ -138,6 +154,7 @@ export class D1TaxonomyRepository {
         state: string;
         createdAt: number;
       }[],
+      countries: countries!.results as { iso2: string; name: string }[],
       actions: actions!.results as {
         id: string;
         kind: string;
@@ -153,9 +170,17 @@ export class D1TaxonomyRepository {
     return (
       await this.db
         .prepare(
-          "SELECT c.id,c.name AS value,c.is_active AS active FROM categories c UNION ALL SELECT a.category_id,a.alias,c.is_active FROM category_aliases a JOIN categories c ON c.id=a.category_id",
+          `SELECT c.id,c.name AS value,c.is_active AS active,c.is_rankable AS rankable,c.parent_id AS parentId,0 AS isAlias FROM categories c
+          UNION ALL SELECT a.category_id,a.alias,c.is_active,c.is_rankable,c.parent_id,1 FROM category_aliases a JOIN categories c ON c.id=a.category_id`,
         )
-        .all<{ id: string; value: string; active: number }>()
+        .all<{
+          id: string;
+          value: string;
+          active: number;
+          rankable: number;
+          parentId: string | null;
+          isAlias: number;
+        }>()
     ).results;
   }
   async slugOwner(slug: string) {
@@ -230,9 +255,17 @@ export class D1TaxonomyRepository {
         ...patch.aliases.map((a) =>
           this.db
             .prepare(
-              `INSERT INTO category_aliases(id,category_id,country_id,alias,created_at) SELECT ?,?,?,?,? WHERE ${sql}`,
+              `INSERT INTO category_aliases(id,category_id,country_id,alias,is_display_name,created_at) SELECT ?,?,?,?,?,? WHERE ${sql}`,
             )
-            .bind(this.newId(), id, a.countryId, a.alias, now, ...values),
+            .bind(
+              this.newId(),
+              id,
+              a.countryId,
+              a.alias,
+              a.displayName && a.countryId ? 1 : 0,
+              now,
+              ...values,
+            ),
         ),
       );
     return statements;
@@ -282,36 +315,48 @@ export class D1TaxonomyRepository {
       .bind(JSON.stringify(categoryIds))
       .first<number>("n"))!;
   }
-  featureStatements(categoryIds: string[], now: number, fence: DecisionGuard) {
+  featureStatements(
+    countryId: string,
+    categoryIds: string[],
+    now: number,
+    fence: DecisionGuard,
+  ) {
     return [
       this.db
         .prepare(
-          `DELETE FROM category_features WHERE country_id=(SELECT id FROM countries WHERE iso2='US') AND ${fence.sql}`,
+          `DELETE FROM category_features WHERE country_id=? AND ${fence.sql}`,
         )
-        .bind(...fence.values),
+        .bind(countryId, ...fence.values),
       ...categoryIds.map((categoryId, index) =>
         this.db
           .prepare(
-            `INSERT INTO category_features(country_id,category_id,position,updated_at) SELECT co.id,c.id,?,? FROM countries co JOIN categories c ON c.id=? AND c.is_active=1 WHERE co.iso2='US' AND ${fence.sql}`,
+            `INSERT INTO category_features(country_id,category_id,position,updated_at) SELECT ?,c.id,?,? FROM categories c WHERE c.id=? AND c.is_active=1 AND ${fence.sql}`,
           )
-          .bind(index + 1, now, categoryId, ...fence.values),
+          .bind(countryId, index + 1, now, categoryId, ...fence.values),
       ),
     ];
   }
-  async features() {
+  async features(countryId: string) {
     return (
       await this.db
         .prepare(
-          "SELECT f.category_id AS categoryId FROM category_features f JOIN countries co ON co.id=f.country_id AND co.iso2='US' ORDER BY f.position",
+          "SELECT category_id AS categoryId FROM category_features WHERE country_id=? ORDER BY position",
         )
+        .bind(countryId)
         .all<{ categoryId: string }>()
     ).results.map((r) => r.categoryId);
   }
-
-  async usCountryId() {
-    return this.db
-      .prepare("SELECT id FROM countries WHERE iso2='US'")
-      .first<string>("id");
+  /** Active countries' IDs by uppercase ISO code. */
+  async countryIdsByIso(codes: string[]) {
+    const rows = (
+      await this.db
+        .prepare(
+          "SELECT id,iso2 FROM countries WHERE is_active=1 AND iso2 IN (SELECT upper(value) FROM json_each(?))",
+        )
+        .bind(JSON.stringify(codes))
+        .all<{ id: string; iso2: string }>()
+    ).results;
+    return new Map(rows.map((row) => [row.iso2, row.id]));
   }
   markReversed(originalId: string, reversalId: string, fence: DecisionGuard) {
     return this.db
@@ -373,6 +418,7 @@ export class D1TaxonomyRepository {
       userId: string;
       name: string;
       parentId: string | null;
+      country: string;
       explanation: string;
       data: unknown;
       perDay: number;
@@ -385,7 +431,7 @@ export class D1TaxonomyRepository {
       this.db
         .prepare(
           `INSERT INTO category_proposals(id,submitted_by,name,parent_id,country_id,explanation,proposed_data,created_at,updated_at)
-          SELECT ?,?,?,?,(SELECT id FROM countries WHERE iso2='US'),?,?,?,? WHERE (SELECT COUNT(*) FROM category_proposals WHERE submitted_by=? AND created_at>=?) < ?
+          SELECT ?,?,?,?,(SELECT id FROM countries WHERE iso2=? AND is_active=1),?,?,?,? WHERE (SELECT COUNT(*) FROM category_proposals WHERE submitted_by=? AND created_at>=?) < ?
           AND EXISTS(SELECT 1 FROM profiles WHERE user_id=? AND account_state='active')`,
         )
         .bind(
@@ -393,6 +439,7 @@ export class D1TaxonomyRepository {
           proposal.userId,
           proposal.name,
           proposal.parentId,
+          proposal.country,
           proposal.explanation,
           JSON.stringify(proposal.data),
           receipt.now,
@@ -774,27 +821,39 @@ export class D1TaxonomyRepository {
       this.db.prepare("SELECT id FROM categories WHERE parent_id=?").bind(D),
       this.db
         .prepare(
-          "SELECT f.category_id AS categoryId,f.position FROM category_features f JOIN countries co ON co.id=f.country_id AND co.iso2='US' WHERE f.category_id IN (?,?)",
+          "SELECT f.category_id AS categoryId,f.country_id AS countryId,f.position FROM category_features f WHERE f.category_id IN (?,?)",
         )
         .bind(D, S),
     ]);
-    const donorFeature = (
-      featured!.results as { categoryId: string; position: number }[]
-    ).find((f) => f.categoryId === D);
-    const survivorFeatured = featured!.results.length > (donorFeature ? 1 : 0);
+    const rows = featured!.results as {
+      categoryId: string;
+      countryId: string;
+      position: number;
+    }[];
+    // Each country features the survivor in the donor's place, unless it
+    // already features the survivor.
+    const features = rows
+      .filter((f) => f.categoryId === D)
+      .map((f) => ({
+        countryId: f.countryId,
+        position: f.position,
+        survivorFeatured: rows.some(
+          (r) => r.categoryId === S && r.countryId === f.countryId,
+        ),
+      }));
     // The donor's name and every alias, each keeping its market scope, so
     // its search terms keep finding the survivor.
+    // A donor's display name joins as a plain alias: the survivor keeps its
+    // own name in every country.
     const aliases = [
       { alias: donor.name, countryId: null as string | null },
-      ...donor.aliases,
+      ...donor.aliases.map((a) => ({ alias: a.alias, countryId: a.countryId })),
     ];
     const aliasIds = aliases.map(() => this.newId());
     const data: FinalizeData = {
       children: (children!.results as { id: string }[]).map((c) => c.id),
       aliasIds,
-      feature: donorFeature
-        ? { position: donorFeature.position, survivorFeatured }
-        : null,
+      features,
     };
     const token = this.newId(),
       g = this.owned(merge.id, token);
@@ -847,21 +906,19 @@ export class D1TaxonomyRepository {
           )
           .bind(aliasIds[i], S, a.countryId, a.alias, now, ...g.values),
       ),
-      ...(donorFeature
-        ? [
-            survivorFeatured
-              ? this.db
-                  .prepare(
-                    `DELETE FROM category_features WHERE category_id=? AND ${g.sql}`,
-                  )
-                  .bind(D, ...g.values)
-              : this.db
-                  .prepare(
-                    `UPDATE category_features SET category_id=?,updated_at=? WHERE category_id=? AND ${g.sql}`,
-                  )
-                  .bind(S, now, D, ...g.values),
-          ]
-        : []),
+      ...features.map((f) =>
+        f.survivorFeatured
+          ? this.db
+              .prepare(
+                `DELETE FROM category_features WHERE category_id=? AND country_id=? AND ${g.sql}`,
+              )
+              .bind(D, f.countryId, ...g.values)
+          : this.db
+              .prepare(
+                `UPDATE category_features SET category_id=?,updated_at=? WHERE category_id=? AND country_id=? AND ${g.sql}`,
+              )
+              .bind(S, now, D, f.countryId, ...g.values),
+      ),
       // Statements fenced on the page token run before the state change
       // below clears it.
       this.db
@@ -1057,21 +1114,36 @@ export class D1TaxonomyRepository {
           `DELETE FROM category_aliases WHERE id IN (SELECT value FROM json_each(?)) AND ${g.sql}`,
         )
         .bind(JSON.stringify(data.aliasIds ?? []), ...g.values),
-      ...(data.feature
-        ? [
-            data.feature.survivorFeatured
-              ? this.db
-                  .prepare(
-                    `INSERT INTO category_features(country_id,category_id,position,updated_at) SELECT id,?,?,? FROM countries WHERE iso2='US' AND ${g.sql} ON CONFLICT DO NOTHING`,
-                  )
-                  .bind(D, data.feature.position, now, ...g.values)
-              : this.db
-                  .prepare(
-                    `UPDATE category_features SET category_id=?,updated_at=? WHERE category_id=? AND position=? AND ${g.sql}`,
-                  )
-                  .bind(D, now, S, data.feature.position, ...g.values),
-          ]
-        : []),
+      ...(
+        data.features ??
+        // A milestone 4 merge recorded the United States feature only.
+        (data.feature ? [{ countryId: null, ...data.feature }] : [])
+      ).map((f) =>
+        f.survivorFeatured
+          ? this.db
+              .prepare(
+                `INSERT INTO category_features(country_id,category_id,position,updated_at) SELECT id,?,?,? FROM countries WHERE ${f.countryId ? "id=?" : "iso2='US'"} AND ${g.sql} ON CONFLICT DO NOTHING`,
+              )
+              .bind(
+                D,
+                f.position,
+                now,
+                ...(f.countryId ? [f.countryId] : []),
+                ...g.values,
+              )
+          : this.db
+              .prepare(
+                `UPDATE category_features SET category_id=?,updated_at=? WHERE category_id=? AND position=? AND ${f.countryId ? "country_id=?" : "country_id=(SELECT id FROM countries WHERE iso2='US')"} AND ${g.sql}`,
+              )
+              .bind(
+                D,
+                now,
+                S,
+                f.position,
+                ...(f.countryId ? [f.countryId] : []),
+                ...g.values,
+              ),
+      ),
       this.db
         .prepare(
           `UPDATE categories SET is_active=1,revision=revision+1,updated_at=? WHERE id=? AND ${g.sql}`,

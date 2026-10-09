@@ -223,13 +223,13 @@
   display: none;
 }
 
-.va-aisle-bar li {
+.va-aisle-bar > ul > li {
   flex: none;
   scroll-snap-align: start;
 }
 
-.va-aisle-bar a,
-.va-aisle-bar button {
+.va-aisle-bar > ul > li > a,
+.va-aisle-bar > ul > li > button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -245,17 +245,17 @@
   white-space: nowrap;
 }
 
-.va-aisle-bar a[aria-current="page"],
-.va-aisle-bar a.active,
-.va-aisle-bar button[aria-expanded="true"] {
+.va-aisle-bar > ul > li > a[aria-current="page"],
+.va-aisle-bar > ul > li > a.active,
+.va-aisle-bar > ul > li > button[aria-expanded="true"] {
   background: var(--va-tag);
   border-color: var(--va-tag);
   color: var(--va-on-tag);
 }
 
-.va-aisle-bar a[aria-current="page"] .va-tag-icon,
-.va-aisle-bar a.active .va-tag-icon,
-.va-aisle-bar button[aria-expanded="true"] .va-tag-icon {
+.va-aisle-bar > ul > li > a[aria-current="page"] .va-tag-icon,
+.va-aisle-bar > ul > li > a.active .va-tag-icon,
+.va-aisle-bar > ul > li > button[aria-expanded="true"] .va-tag-icon {
   color: var(--va-on-tag);
 }
 
@@ -265,8 +265,8 @@
     gap: 0;
   }
 
-  .va-aisle-bar a,
-  .va-aisle-bar button {
+  .va-aisle-bar > ul > li > a,
+  .va-aisle-bar > ul > li > button {
     min-height: 52px;
     padding: 0 14px;
     border: 0;
@@ -276,22 +276,22 @@
     font-weight: 600;
   }
 
-  .va-aisle-bar a:hover,
-  .va-aisle-bar button:hover {
+  .va-aisle-bar > ul > li > a:hover,
+  .va-aisle-bar > ul > li > button:hover {
     background: var(--va-hover-on-kale);
   }
 
-  .va-aisle-bar a[aria-current="page"],
-  .va-aisle-bar a.active,
-  .va-aisle-bar button[aria-expanded="true"] {
+  .va-aisle-bar > ul > li > a[aria-current="page"],
+  .va-aisle-bar > ul > li > a.active,
+  .va-aisle-bar > ul > li > button[aria-expanded="true"] {
     background: var(--va-kale-2);
     color: var(--va-on-kale);
     border-bottom-color: var(--va-tag);
   }
 
-  .va-aisle-bar a[aria-current="page"] .va-tag-icon,
-  .va-aisle-bar a.active .va-tag-icon,
-  .va-aisle-bar button[aria-expanded="true"] .va-tag-icon {
+  .va-aisle-bar > ul > li > a[aria-current="page"] .va-tag-icon,
+  .va-aisle-bar > ul > li > a.active .va-tag-icon,
+  .va-aisle-bar > ul > li > button[aria-expanded="true"] .va-tag-icon {
     color: var(--va-tag);
   }
 }

@@ -13,7 +13,7 @@ import {
   seedProducts,
   SOURCE_CHECKED_AT,
 } from "./catalog";
-import { TAXONOMY_PARENTS, taxonomySeedStatements } from "./taxonomy";
+import { TAXONOMY_GROUPS, taxonomySeedStatements } from "./taxonomy";
 
 export interface SeedStatement {
   sql: string;
@@ -58,7 +58,7 @@ export function developmentSeedStatements(
       })
       .onConflictDoNothing(),
   );
-  for (const { slug: key, name, parent } of TAXONOMY_PARENTS) {
+  for (const { slug: key, name, parent } of TAXONOMY_GROUPS) {
     add(
       db
         .insert(schema.categories)

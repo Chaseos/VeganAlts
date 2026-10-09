@@ -51,16 +51,28 @@ export function categoryKey(value: string) {
 }
 
 const aliasList = z.array(shortText).max(10).default([]);
+// An ISO 3166-1 alpha-2 code; whether the country is active is checked
+// against the database.
+export const countryCode = z
+  .string()
+  .regex(/^[A-Za-z]{2}$/)
+  .transform((value) => value.toUpperCase());
 export const categoryProposalInput = z
   .object({
     name: shortText,
-    parentId: id.optional(),
-    country: z.literal("US"),
+    // Category proposals choose the shelf the new food belongs on.
+    shelfId: id,
+    country: countryCode,
     explanation: note,
     exampleProducts: z.array(shortText).max(5).default([]),
     aliases: aliasList,
   })
   .strict();
+// Proposals stored before milestone 5 named an optional parent instead.
+export const storedCategoryProposal = z.object({
+  name: shortText,
+  aliases: aliasList,
+});
 export type CategoryProposalInput = z.infer<typeof categoryProposalInput>;
 export const createCategoryInput = z
   .object({
@@ -84,7 +96,12 @@ export const updateCategoryInput = z
     aliases: z
       .array(
         z
-          .object({ alias: shortText, country: z.literal("US").optional() })
+          .object({
+            alias: shortText,
+            country: countryCode.optional(),
+            // Marks a country-scoped alias as that country's name for the food.
+            displayName: z.boolean().optional(),
+          })
           .strict(),
       )
       .max(20)
@@ -104,7 +121,11 @@ export const mergeInput = z
   .strict();
 export type MergeInput = z.infer<typeof mergeInput>;
 export const featuresInput = z
-  .object({ categoryIds: z.array(id).max(12), note })
+  .object({
+    categoryIds: z.array(id).max(12),
+    country: countryCode.default("US"),
+    note,
+  })
   .strict();
 export const categoryDecision = z
   .object({
@@ -127,16 +148,27 @@ export interface CategoryState {
   parentId: string | null;
   isRankable: boolean;
   isActive: boolean;
-  aliases: { alias: string; countryId: string | null }[];
+  aliases: {
+    alias: string;
+    countryId: string | null;
+    // Absent in actions recorded before milestone 5.
+    displayName?: boolean;
+  }[];
 }
 export type CategoryPatch = Partial<CategoryState>;
 
 export const sortAliases = (aliases: CategoryState["aliases"]) =>
-  [...aliases].sort(
-    (a, b) =>
-      a.alias.localeCompare(b.alias) ||
-      (a.countryId ?? "").localeCompare(b.countryId ?? ""),
-  );
+  aliases
+    .map((a) => ({
+      alias: a.alias,
+      countryId: a.countryId,
+      displayName: !!a.displayName,
+    }))
+    .sort(
+      (a, b) =>
+        a.alias.localeCompare(b.alias) ||
+        (a.countryId ?? "").localeCompare(b.countryId ?? ""),
+    );
 /** Only the fields an update changes, before and after. */
 export function planCategoryUpdate(
   current: CategoryState,

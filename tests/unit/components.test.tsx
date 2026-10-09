@@ -13,7 +13,7 @@ import {
   DistributionBars,
 } from "../../app/components/ui/bars";
 import { FOOD_ICONS, foodShape } from "../../app/components/icons/food-icons";
-import { TAXONOMY_LEAVES, TAXONOMY_PARENTS } from "../../db/seed/taxonomy";
+import { TAXONOMY_LEAVES, TAXONOMY_GROUPS } from "../../db/seed/taxonomy";
 
 const html = (node: React.ReactElement) => renderToStaticMarkup(node);
 
@@ -110,7 +110,7 @@ describe("shared presentation components", () => {
   });
 
   it("has a line icon for every seeded food, aisle and shelf", () => {
-    const missing = [...TAXONOMY_PARENTS, ...TAXONOMY_LEAVES]
+    const missing = [...TAXONOMY_GROUPS, ...TAXONOMY_LEAVES]
       .map((c) => c.slug)
       .filter((slug) => foodShape([slug]) === "plate" && slug !== "food");
     expect(missing).toEqual([]);
