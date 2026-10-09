@@ -439,6 +439,16 @@ it("routes contributor category proposals through deterministic checks, automati
       explanation: "Not food at all [fake:food_reference=NO]",
     }),
   ).rejects.toMatchObject({ code: "PROPOSAL_NEEDS_CHANGES" });
+  // A well-formed code for a country VeganAlts is not open in is refused
+  // before any automated check, so no proposal loses its country.
+  await expect(
+    service.propose(contributor, id(), {
+      name: `Bratwurst ${w.s}`,
+      shelfId: w.SH,
+      country: "ZZ",
+      explanation: "Plant-based bratwurst is now common in grocery stores.",
+    }),
+  ).rejects.toMatchObject({ code: "INVALID_COUNTRY" });
   const proposal = await service.propose(contributor, id(), {
     name: `Bratwurst ${w.s}`,
     shelfId: w.SH,

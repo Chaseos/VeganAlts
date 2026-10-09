@@ -64,8 +64,11 @@ export function InstantSearch({
       ]
     : [];
   const showing = open && state.status !== "idle";
+  // While the next answer loads, the previous one stays visible but cannot
+  // be chosen: Enter searches for what is typed now.
+  const stale = state.status === "loading";
   const foods = result?.foods ?? [];
-  const highlighted = options[active];
+  const highlighted = stale ? undefined : options[active];
   const previewFood =
     highlighted?.kind === "food" ? highlighted.food : (foods[0] ?? null);
   useEffect(() => {
@@ -136,6 +139,7 @@ export function InstantSearch({
             : {})}
           onChange={(event) => {
             input(event.target.value);
+            setActive(-1);
             setOpen(true);
           }}
           onFocus={(event) => {
@@ -146,7 +150,7 @@ export function InstantSearch({
           }}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-              if (!options.length) return;
+              if (!options.length || stale) return;
               event.preventDefault();
               setOpen(true);
               const step = event.key === "ArrowDown" ? 1 : -1;
@@ -195,6 +199,7 @@ export function InstantSearch({
               id={listId}
               role="listbox"
               aria-label={`Suggestions for ${state.query}`}
+              aria-busy={stale}
               className="va-instant__list"
             >
               {(["food", "product"] as const).map((kind) => {
@@ -217,10 +222,10 @@ export function InstantSearch({
                         role="option"
                         aria-selected={index === active}
                         className={`va-instant__option va-instant__option--${option.kind}`}
-                        onPointerMove={() => setActive(index)}
+                        onPointerMove={() => !stale && setActive(index)}
                         // Keep focus in the field; the click navigates.
                         onPointerDown={(event) => event.preventDefault()}
-                        onClick={() => go(option.href)}
+                        onClick={() => !stale && go(option.href)}
                       >
                         {option.kind === "food" ? (
                           <FoodOption food={option.food} />

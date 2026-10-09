@@ -10,6 +10,12 @@ import {
 export { countryCode };
 import { DIMENSION_KEY, MAX_DIMENSIONS } from "../../ratings/domain/details";
 
+export const invalidCountry = () =>
+  new ApplicationError(
+    "INVALID_COUNTRY",
+    "Choose one of the countries VeganAlts is open in.",
+  );
+
 // Route segments beneath /us/ and other words a category slug must never take.
 export const RESERVED_SLUGS = new Set([
   "search",

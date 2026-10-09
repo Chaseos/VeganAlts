@@ -49,6 +49,17 @@ test("instant answers work from the keyboard and announce their count", async ({
   await field.press("Escape");
   await expect(field).toHaveValue("");
 
+  // Typing again drops the highlight: Enter before the new answers arrive
+  // searches for what is typed now, never the previous suggestion.
+  await field.fill("beef");
+  await expect(list).toBeVisible();
+  await field.press("ArrowDown");
+  await expect(field).toHaveAttribute("aria-activedescendant", /.+/);
+  await field.fill("chedd");
+  await field.press("Enter");
+  await expect(page).toHaveURL(/\/us\/search\?q=chedd$/);
+  await page.goto("/");
+
   await field.fill("ground");
   await expect(
     page.getByRole("listbox", { name: "Suggestions for ground" }),

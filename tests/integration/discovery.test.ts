@@ -132,17 +132,19 @@ it("computes Trending and New from precomputed activity without changing Top", a
   });
   expect(fresh.ranked.map((p) => p.id)).toEqual([w.fresh]);
   expect(fresh.ranked[0]).toMatchObject({ ratingCount: 0, isNew: true });
+  // It is listed once: not again under "Not rated yet", as it is on Top.
+  expect(fresh.unranked.map((p) => p.id)).not.toContain(w.fresh);
+  expect(top.unranked.map((p) => p.id)).toContain(w.fresh);
   // The configured New window bounds the view: a one-day window excludes a
   // product published two days ago.
-  expect(
-    (
-      await new CatalogService(
-        new D1CatalogRepository(env.DB),
-        () => NOW,
-        trendingParameters('{"newDays":1}').newDays,
-      ).category(testMarket(w.f.countryId), slug, { view: "new" })
-    ).ranked.map((p) => p.id),
-  ).not.toContain(w.fresh);
+  const narrow = await new CatalogService(
+    new D1CatalogRepository(env.DB),
+    () => NOW,
+    trendingParameters('{"newDays":1}').newDays,
+  ).category(testMarket(w.f.countryId), slug, { view: "new" });
+  expect(narrow.ranked.map((p) => p.id)).not.toContain(w.fresh);
+  // Outside the window it is still found under "Not rated yet".
+  expect(narrow.unranked.map((p) => p.id)).toContain(w.fresh);
   const home = await catalog.home(testMarket(w.f.countryId));
   expect(home.trending.map((p) => p.id)).toContain(w.f.productId);
   expect(home.newest.map((p) => p.id)).toContain(w.fresh);

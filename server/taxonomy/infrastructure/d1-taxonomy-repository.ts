@@ -6,10 +6,11 @@ import type {
 } from "../../community/infrastructure/moderation-repository";
 import type { ReceiptWrite } from "../../community/infrastructure/receipts";
 import { SYSTEM_ACTOR_ID } from "../../community/domain/policy";
-import type {
-  CategoryPatch,
-  CategoryState,
-  DimensionState,
+import {
+  invalidCountry,
+  type CategoryPatch,
+  type CategoryState,
+  type DimensionState,
 } from "../domain/taxonomy";
 import { DEFAULT_DIMENSIONS } from "../../ratings/domain/details";
 import { resolveCategoryRedirect } from "./redirects";
@@ -570,7 +571,8 @@ export class D1TaxonomyRepository {
         .prepare(
           `INSERT INTO category_proposals(id,submitted_by,name,parent_id,country_id,explanation,proposed_data,created_at,updated_at)
           SELECT ?,?,?,?,(SELECT id FROM countries WHERE iso2=? AND is_active=1),?,?,?,? WHERE (SELECT COUNT(*) FROM category_proposals WHERE submitted_by=? AND created_at>=?) < ?
-          AND EXISTS(SELECT 1 FROM profiles WHERE user_id=? AND account_state='active')`,
+          AND EXISTS(SELECT 1 FROM profiles WHERE user_id=? AND account_state='active')
+          AND EXISTS(SELECT 1 FROM countries WHERE iso2=? AND is_active=1)`,
         )
         .bind(
           proposal.id,
@@ -586,6 +588,7 @@ export class D1TaxonomyRepository {
           day,
           proposal.perDay,
           proposal.userId,
+          proposal.country,
         ),
       this.db
         .prepare(
@@ -601,13 +604,23 @@ export class D1TaxonomyRepository {
           proposal.id,
         ),
     ]);
-    if (!results[0]!.meta.changes)
+    if (!results[0]!.meta.changes) {
+      if (!(await this.countryActive(proposal.country))) throw invalidCountry();
       throw new ApplicationError(
         "PROPOSAL_LIMIT",
         "Today's category proposal allowance is exhausted. Please try again tomorrow.",
         429,
       );
+    }
     return { id: proposal.id };
+  }
+  async countryActive(iso2: string) {
+    return Boolean(
+      await this.db
+        .prepare("SELECT 1 FROM countries WHERE iso2=? AND is_active=1")
+        .bind(iso2)
+        .first(),
+    );
   }
   proposal(id: string) {
     return this.db

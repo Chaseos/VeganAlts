@@ -326,18 +326,20 @@ export class D1CatalogRepository implements CatalogRepository {
     filters: RankingFilters,
     offset: number,
     limit: number,
+    publishedBefore?: number,
   ) {
     const filter = filterSql(filters);
+    const before = publishedBefore === undefined ? [] : [publishedBefore];
     return (
       await this.db
         .prepare(
           `SELECT ${identity},${allergensSql()} AS allergens FROM product_categories pc
       JOIN product_versions v ON v.product_id=pc.product_id AND v.is_current=1 ${productJoins}
       LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id
-      WHERE pc.category_id=? AND pc.ranking_eligible=1 AND ${eligible} AND COALESCE(s.rating_count,0)=0${filter.sql}
+      WHERE pc.category_id=? AND pc.ranking_eligible=1 AND ${eligible} AND COALESCE(s.rating_count,0)=0${filter.sql}${before.length ? " AND (p.published_at IS NULL OR p.published_at<?)" : ""}
       ORDER BY p.name,p.id LIMIT ? OFFSET ?`,
         )
-        .bind(countryId, categoryId, ...filter.binds, limit, offset)
+        .bind(countryId, categoryId, ...filter.binds, ...before, limit, offset)
         .all<ProductSummary & { allergens: unknown }>()
     ).results.map(parseAllergens);
   }

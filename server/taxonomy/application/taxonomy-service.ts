@@ -15,6 +15,7 @@ import {
   createCategoryInput,
   dimensionsInput,
   featuresInput,
+  invalidCountry,
   MAX_ACTIVE_DIMENSIONS,
   mergeInput,
   planCategoryUpdate,
@@ -262,6 +263,9 @@ export class TaxonomyService {
       rankable: true,
     });
     await this.assertShelf(input.shelfId);
+    // Every proposal belongs to a country people can browse.
+    if (!(await this.repository.countryActive(input.country)))
+      throw invalidCountry();
     const id = this.newId();
     const automated = await this.decisions.evaluate({
       kind: "category_proposal",

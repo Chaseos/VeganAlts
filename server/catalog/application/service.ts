@@ -452,6 +452,8 @@ export class CatalogService {
           filters,
           (unrankedPage - 1) * CATALOG_PAGE_SIZE,
           CATALOG_PAGE_SIZE + 1,
+          // Newest already lists unrated products from the New window.
+          view === "new" ? this.newSince() : undefined,
         ),
         this.repository.taxonomy(market.id),
       ]);

@@ -191,6 +191,8 @@ export interface CatalogRepository {
     filters: RankingFilters,
     offset: number,
     limit: number,
+    // Only products published before this time (or never), when set.
+    publishedBefore?: number,
   ): Promise<(ProductSummary & { allergens: AllergenDeclaration | null })[]>;
   rankedSet(
     countryId: string,
