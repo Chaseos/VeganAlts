@@ -1,65 +1,12 @@
+import { TAXONOMY_LEAVES } from "./taxonomy";
+
 // Approved fictional fixtures for local/staging demonstrations only.
 export const SOURCE_CHECKED_AT = Date.parse("2026-10-04T00:00:00Z");
 export const DEVELOPMENT_NOTICE =
   "Demo catalog: approved fictional development fixture. Images, formula details and sample ratings are illustrative, not verified manufacturer claims or organic community feedback.";
 
-export const seedCategories = [
-  {
-    slug: "ground-beef",
-    name: "Ground Beef",
-    parent: "meat",
-    aliases: ["mince", "ground meat"],
-  },
-  {
-    slug: "beef-burgers",
-    name: "Beef Burgers",
-    parent: "meat",
-    aliases: ["hamburgers", "burger patties"],
-  },
-  {
-    slug: "chicken-nuggets",
-    name: "Chicken Nuggets",
-    parent: "meat",
-    aliases: ["nuggets", "chick'n nuggets"],
-  },
-  { slug: "bacon", name: "Bacon", parent: "meat", aliases: ["bacon strips"] },
-  {
-    slug: "milk",
-    name: "Milk",
-    parent: "dairy",
-    aliases: ["plant milk", "non-dairy milk"],
-  },
-  {
-    slug: "butter",
-    name: "Butter",
-    parent: "dairy",
-    aliases: ["buttery spread"],
-  },
-  {
-    slug: "cheddar",
-    name: "Cheddar",
-    parent: "cheese",
-    aliases: ["cheddar cheese"],
-  },
-  {
-    slug: "mozzarella",
-    name: "Mozzarella",
-    parent: "cheese",
-    aliases: ["mozzarella cheese"],
-  },
-  {
-    slug: "cream-cheese",
-    name: "Cream Cheese",
-    parent: "cheese",
-    aliases: ["cream cheese spread"],
-  },
-  {
-    slug: "eggs",
-    name: "Eggs",
-    parent: "food",
-    aliases: ["egg alternatives", "egg replacer"],
-  },
-] as const;
+// Real conventional-food categories; fictional products below reference them.
+export const seedCategories = TAXONOMY_LEAVES;
 
 export interface SeedProduct {
   slug: string;

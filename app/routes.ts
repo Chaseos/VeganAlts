@@ -8,6 +8,8 @@ export default [
   route("users/:handle", "routes/profile.tsx"),
   route("my-ratings", "routes/my-ratings.tsx"),
   route("add-product", "routes/add-product.tsx"),
+  route("propose-category", "routes/propose-category.tsx"),
+  route("admin/taxonomy", "routes/admin-taxonomy.tsx"),
   route("contribute/:productId", "routes/contribute.tsx"),
   route("my-contributions/:kind?/:id?", "routes/my-contributions.tsx"),
   route("admin/moderation/*", "routes/moderation.tsx"),

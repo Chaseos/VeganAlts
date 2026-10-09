@@ -327,6 +327,7 @@ export const reviewKind = z.enum([
   "proposal",
   "report",
   "comment",
+  "category",
 ]);
 export type ReviewKind = z.infer<typeof reviewKind>;
 export const consolidationInput = z

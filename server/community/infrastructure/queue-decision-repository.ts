@@ -70,6 +70,9 @@ export class QueueDecisionRepository {
     };
   }
   async detail(kind: ReviewKind, id: string, actor: Actor) {
+    // Category proposals belong to the taxonomy module's review.
+    if (kind === "category")
+      throw new ApplicationError("NOT_FOUND", "Contribution not found.", 404);
     if (kind === "comment") {
       const row = actor.administrator
         ? await this.repository.comment(id)

@@ -133,6 +133,11 @@ export class RatingsService {
     });
   }
 
+  /** Recompute aggregates for formulas whose ratings moved between categories. */
+  async rebuildVersions(versionIds: string[]) {
+    for (const id of versionIds)
+      await this.change(id, () => ({ kind: "rebuild" }));
+  }
   async rebuildPage(after: string | null = null, limit = 50) {
     const pageSize = Number.isFinite(limit)
       ? Math.min(100, Math.max(1, Math.trunc(limit)))

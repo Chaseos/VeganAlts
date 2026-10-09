@@ -72,7 +72,12 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
           {!data.categories.length && !data.products.length && (
             <EmptyState title="No alternatives found yet.">
               Try a broader food name, such as beef, cheese or milk, or browse a
-              category. <Link to="/add-product">Add a missing product →</Link>
+              category. <Link to="/add-product">Add a missing product →</Link>{" "}
+              <Link
+                to={`/propose-category?name=${encodeURIComponent(data.query)}`}
+              >
+                Propose a missing category →
+              </Link>
             </EmptyState>
           )}
         </>

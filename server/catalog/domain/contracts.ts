@@ -69,6 +69,8 @@ export interface PublicProfile {
 
 export interface CatalogRepository {
   categories(parentId?: string): Promise<CategorySummary[]>;
+  featuredCategories(): Promise<CategorySummary[]>;
+  categoryRedirect(slug: string): Promise<string | null>;
   category(slug: string): Promise<CategorySummary | null>;
   rankings(
     categoryId: string,

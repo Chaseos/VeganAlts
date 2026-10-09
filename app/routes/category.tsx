@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Link } from "react-router";
+import { Link, redirect } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   catalogPage,
@@ -22,6 +22,13 @@ import type { Route } from "./+types/category";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env.APP_ENV);
+  // A renamed or merged category redirects (uncached) to its current slug.
+  const moved = await catalogService(env).categoryRedirect(params.categorySlug);
+  if (moved)
+    throw redirect(`/us/${moved}${new URL(request.url).search}`, {
+      status: 302,
+      headers: { "Cache-Control": "private, no-store" },
+    });
   return publicLoader(async () => {
     const url = new URL(request.url);
     return {

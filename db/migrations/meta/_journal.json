@@ -99,6 +99,13 @@
       "when": 1791501696373,
       "tag": "0013_proposal_confidence",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1791503279417,
+      "tag": "0014_category_taxonomy",
+      "breakpoints": true
     }
   ]
 }

@@ -1,14 +1,6 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import type { CatalogRepository, ProductSummary } from "../domain/contracts";
 
-export const FEATURED_CATEGORIES = [
-  "ground-beef",
-  "beef-burgers",
-  "milk",
-  "cheddar",
-  "butter",
-  "eggs",
-];
 export const CATALOG_PAGE_SIZE = 20;
 
 export function searchExpression(input: string) {
@@ -55,13 +47,19 @@ export class CatalogService {
   }
 
   async home() {
-    const categories = await this.repository.categories();
+    const [categories, featured] = await Promise.all([
+      this.repository.categories(),
+      this.repository.featuredCategories(),
+    ]);
+    // Merchandising is configured data, independent of taxonomy depth.
     return {
       categories,
-      featured: FEATURED_CATEGORIES.flatMap((slug) =>
-        categories.filter((category) => category.slug === slug),
-      ),
+      featured: featured.length ? featured : categories.slice(0, 6),
     };
+  }
+  // A renamed or merged category's former slug. Callers redirect uncached.
+  categoryRedirect(slug: string) {
+    return this.repository.categoryRedirect(slug);
   }
 
   async category(slug: string, page = 1, unrankedPage = 1) {

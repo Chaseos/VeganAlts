@@ -45,9 +45,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <SearchForm large />
         <div className="popular-searches">
           <span>Start with</span>
-          <Link to="/us/beef-burgers">Burgers ↗</Link>
-          <Link to="/us/cheese">Cheese ↗</Link>
-          <Link to="/us/milk">Milk ↗</Link>
+          {loaderData.catalog.featured.slice(0, 3).map((category) => (
+            <Link key={category.id} to={`/us/${category.slug}`}>
+              {category.name} ↗
+            </Link>
+          ))}
         </div>
         <span className="hero-sprout" aria-hidden="true">
           <svg viewBox="0 0 160 180" fill="none">

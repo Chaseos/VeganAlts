@@ -122,6 +122,11 @@ export class ModerationService {
       );
     if (kind === "comment")
       return this.decideComment(action, id, input, receipt);
+    if (kind === "category")
+      throw new ApplicationError(
+        "INVALID_DECISION",
+        "Decide category proposals in the taxonomy review.",
+      );
     if (kind === "submission") {
       if (input.effect !== "none")
         throw new ApplicationError(

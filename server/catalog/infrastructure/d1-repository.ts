@@ -1,3 +1,4 @@
+import { resolveCategoryRedirect } from "../../taxonomy/infrastructure/redirects";
 import type {
   CatalogRepository,
   CategorySummary,
@@ -39,6 +40,21 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(...(parentId ? [parentId] : []))
         .all<CategorySummary>()
     ).results;
+  }
+
+  async featuredCategories() {
+    return (
+      await this.db
+        .prepare(
+          `SELECT ${categoryFields} FROM category_features f JOIN countries co ON co.id=f.country_id AND co.iso2='US'
+          JOIN categories c ON c.id=f.category_id AND c.is_active=1 ORDER BY f.position LIMIT 12`,
+        )
+        .all<CategorySummary>()
+    ).results;
+  }
+
+  categoryRedirect(slug: string) {
+    return resolveCategoryRedirect(this.db, slug);
   }
 
   category(slug: string) {

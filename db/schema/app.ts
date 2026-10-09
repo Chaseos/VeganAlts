@@ -67,6 +67,8 @@ export const categories = sqliteTable(
     name: text("name").notNull(),
     isRankable: integer("is_rankable").notNull().default(sql.raw("0")),
     isActive: integer("is_active").notNull().default(sql.raw("1")),
+    // Fences taxonomy edits; every category write increments it.
+    revision: integer("revision").notNull().default(0),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },

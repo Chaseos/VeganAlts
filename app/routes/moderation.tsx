@@ -6,6 +6,8 @@ import { communityPageActor } from "@server/community/http/page";
 import { parse } from "@server/community/http/handlers";
 import { communityServices } from "@server/community/infrastructure/composition";
 import { inboxFilter, reviewKind } from "@server/community/domain/contracts";
+import { taxonomyServices } from "@server/taxonomy/infrastructure/composition";
+import { CategoryReview } from "../components/category-review";
 import type { ProductSnapshot } from "@server/community/domain/moderation";
 import { hasCatalogChanges } from "@server/community/domain/change-policy";
 import { SiteShell, EmptyState } from "../components/catalog";
@@ -57,6 +59,17 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       view: "consolidate" as const,
       options,
       donor: url.searchParams.get("donor") ?? "",
+    };
+  }
+  if (kind === "category" && id) {
+    const taxonomy = taxonomyServices(env);
+    return {
+      ...common,
+      view: "category" as const,
+      category: await taxonomy.proposalDetail(actor, id),
+      categories: (await taxonomy.tree(actor)).categories.filter(
+        (c) => c.isActive,
+      ),
     };
   }
   if (kind && id)
@@ -183,6 +196,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         <nav className="breadcrumbs" aria-label="Moderation navigation">
           <Link to="/admin/moderation">Review inbox</Link>
           <Link to="/admin/moderation/consolidate">Consolidate duplicates</Link>
+          <Link to="/admin/taxonomy">Taxonomy</Link>
           <Link to="/my-contributions">My contributions</Link>
         </nav>
         <header className="page-heading">
@@ -266,6 +280,16 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                 Next reviews →
               </Link>
             )}
+          </>
+        )}
+        {data.view === "category" && (
+          <>
+            <CategoryReview
+              detail={data.category}
+              categories={data.categories}
+              action={action}
+            />
+            <CommunityFeedback action={action} siteKey={data.siteKey} />
           </>
         )}
         {data.view === "detail" && (

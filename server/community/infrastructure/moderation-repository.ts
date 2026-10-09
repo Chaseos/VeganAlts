@@ -307,12 +307,15 @@ export class ModerationRepository {
       UNION ALL SELECT id,'proposal',replace(change_type,'_',' '),status,CASE WHEN change_type='classification' THEN 1 ELSE 2 END,created_at,updated_at,risk_tier,confirm_count,disagree_count,
         EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='edit_proposal' AND d.subject_id=edit_proposals.id AND d.outcome<>'READY')
         FROM edit_proposals WHERE status='pending'
+      UNION ALL SELECT id,'category',name,status,2,created_at,updated_at,3,0,0,
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='category_proposal' AND d.subject_id=category_proposals.id AND d.outcome<>'READY')
+        FROM category_proposals WHERE status='pending'
       UNION ALL SELECT id,'comment','held comment',moderation_state,2,created_at,updated_at,NULL,0,0,
         EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='comment' AND d.subject_id=comments.id AND d.outcome<>'READY')
         FROM comments WHERE moderation_state='pending' AND deleted_at IS NULL
     ) SELECT * FROM inbox WHERE (? IS NULL OR (priority,createdAt,kind||'_'||id)>(?,?,?))
       AND CASE ? WHEN 'confirmation' THEN kind='proposal' AND tier<=2
-        WHEN 'high_risk' THEN (kind='proposal' AND tier=3) OR priority=1
+        WHEN 'high_risk' THEN (kind IN ('proposal','category') AND tier=3) OR priority=1
         WHEN 'comments' THEN kind='comment'
         WHEN 'flagged' THEN flagged=1
         ELSE 1 END
@@ -350,9 +353,11 @@ export class ModerationRepository {
       SELECT s.id,'submission' AS kind,COALESCE(p.name,json_extract(ps.proposed_data,'$.name'),'Product submission') AS title,CASE WHEN ps.superseded_by IS NOT NULL THEN 'superseded' ELSE s.state END AS status,s.created_at AS createdAt,ps.resolution_note AS resolutionNote,p.slug AS productSlug FROM submission_receipts s LEFT JOIN pending_submissions ps ON ps.submission_id=s.id LEFT JOIN products p ON p.id=s.product_id WHERE s.user_id=? AND s.purpose='submission'
       UNION ALL SELECT ep.id,'proposal',replace(ep.change_type,'_',' '),ep.status,ep.created_at,ep.resolution_note,p.slug FROM edit_proposals ep LEFT JOIN products p ON p.id=ep.target_id WHERE ep.submitted_by=?
       UNION ALL SELECT id,'report',replace(reason_code,'_',' '),status,created_at,resolution_note,NULL FROM reports WHERE reporter_user_id=?
+      UNION ALL SELECT id,'category',name,status,created_at,resolution_note,NULL FROM category_proposals WHERE submitted_by=?
     ) SELECT * FROM items WHERE ? IS NULL OR (createdAt,id)<(?,?) ORDER BY createdAt DESC,id DESC LIMIT 31`,
       )
       .bind(
+        userId,
         userId,
         userId,
         userId,

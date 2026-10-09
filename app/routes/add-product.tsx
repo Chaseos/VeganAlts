@@ -306,7 +306,8 @@ export default function AddProduct({
               <fieldset>
                 <legend>What does it replace?</legend>
                 <p className="small muted">
-                  Choose up to five appropriate categories.
+                  Choose up to five appropriate categories. Missing one?{" "}
+                  <Link to="/propose-category">Propose a category</Link>.
                 </p>
                 <div className="checkbox-grid">
                   {options.categories.map((c) => (
