@@ -16,7 +16,13 @@
   [aria-pressed="true"],
   [aria-current="page"],
   [aria-current="true"],
-  [aria-selected="true"] {
+  [aria-selected="true"],
+  /* The gallery's selected photo is a checked radio, not an ARIA state. */
+  .va-gallery:has(#gallery-front:checked) .va-gallery__tab--front,
+  .va-gallery:has(#gallery-back:checked) .va-gallery__tab--back,
+  .va-gallery:has(#gallery-ingredients:checked) .va-gallery__tab--ingredients,
+  .va-gallery:has(#gallery-nutrition:checked) .va-gallery__tab--nutrition,
+  .va-gallery:has(#gallery-prepared:checked) .va-gallery__tab--prepared {
     outline: 3px solid Highlight;
     outline-offset: 1px;
   }
