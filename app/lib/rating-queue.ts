@@ -1,12 +1,18 @@
 import type {
+  PersonalRating,
   RatingInput,
   SavedRating,
 } from "@server/ratings/domain/contracts";
+import type { ConventionalRecency } from "@server/ratings/domain/details";
+import { plural } from "./format";
 
 export type SaveStatus =
   "idle" | "saving" | "saved" | "error" | "conflict" | "challenge";
 export interface RatingControlState {
   selected: number | null;
+  // The rater's answers to the food's detail questions, by key.
+  dimensions: Record<string, number>;
+  recency: ConventionalRecency | null;
   status: SaveStatus;
   message: string;
   tried: boolean;
@@ -21,13 +27,32 @@ export class SaveError extends Error {
   }
 }
 
+type StoredDetails = Partial<
+  Pick<PersonalRating, "dimensions" | "conventionalRecency">
+>;
+const answered = (dimensions: RatingInput["dimensions"]) =>
+  Object.fromEntries(
+    Object.entries(dimensions ?? {}).filter(
+      (entry): entry is [string, number] => typeof entry[1] === "number",
+    ),
+  );
+
+export function savedMessage(rating: PersonalRating) {
+  const details = Object.keys(rating.dimensions).length;
+  return `Saved ${rating.overallSimilarity}/5${details ? ` with ${plural(details, "detail")}` : ""}. You’ve tried this formula.`;
+}
+
 // One queue per user/formula/category. Network writes are serialized; while one
 // is in flight, rapid presses replace the desired value instead of racing it.
+// Each write carries the whole draft (score, details, last ate), so the
+// newest one always leaves the stored rating equal to what is on screen.
 export class RatingQueue {
   private desired: RatingInput | null = null;
   private running = false;
   state: RatingControlState = {
     selected: null,
+    dimensions: {},
+    recency: null,
     status: "idle",
     message: "",
     tried: false,
@@ -37,8 +62,18 @@ export class RatingQueue {
     private readonly changed: (state: RatingControlState) => void,
     private readonly completed: (saved: SavedRating) => void,
   ) {}
-  initialize(score: number | null, tried: boolean) {
-    if (this.state.status === "idle") this.set({ selected: score, tried });
+  initialize(
+    score: number | null,
+    tried: boolean,
+    details: StoredDetails = {},
+  ) {
+    if (this.state.status === "idle")
+      this.set({
+        selected: score,
+        tried,
+        dimensions: details.dimensions ?? {},
+        recency: details.conventionalRecency ?? null,
+      });
   }
   // Authentication may interrupt an older write after a newer score is queued.
   latestSelection(inFlight: RatingInput): RatingInput {
@@ -48,6 +83,10 @@ export class RatingQueue {
     this.desired = input;
     this.set({
       selected: input.overallSimilarity,
+      ...(input.dimensions ? { dimensions: answered(input.dimensions) } : {}),
+      ...(input.conventionalRecency !== undefined
+        ? { recency: input.conventionalRecency }
+        : {}),
       status: "saving",
       message: "Saving…",
     });
@@ -70,9 +109,11 @@ export class RatingQueue {
           if (!this.desired)
             this.set({
               selected: saved.rating.overallSimilarity,
+              dimensions: saved.rating.dimensions,
+              recency: saved.rating.conventionalRecency,
               tried: saved.tried,
               status: "saved",
-              message: `Saved ${saved.rating.overallSimilarity}/5. You’ve tried this formula.`,
+              message: savedMessage(saved.rating),
             });
         } catch (error) {
           // A newer selection remains queued after a transient failure. Never
@@ -90,7 +131,7 @@ export class RatingQueue {
             error instanceof SaveError ? error.code : "NETWORK_ERROR";
           this.set({
             status:
-              code === "NOT_RATEABLE"
+              code === "NOT_RATEABLE" || code === "STALE_DIMENSIONS"
                 ? "conflict"
                 : code === "CHALLENGE_REQUIRED"
                   ? "challenge"

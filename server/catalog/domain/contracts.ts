@@ -95,6 +95,8 @@ export interface ProductCategory {
   canRate: number;
   bayesianScore: number | null;
   ratingCount: number;
+  // The food's active detail questions, in order.
+  dimensions: { key: string; label: string }[];
 }
 
 export interface ProductDetails

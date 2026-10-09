@@ -407,7 +407,8 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(row.id),
       this.db
         .prepare(
-          `SELECT c.id,c.slug,${displayName("c", "p.country_id")} AS name,c.is_active AS isActive,CASE WHEN pc.ranking_eligible=1 AND c.is_active=1 AND c.is_rankable=1 AND ${eligible} AND v.is_current=1 THEN 1 ELSE 0 END AS canRate,s.bayesian_score AS bayesianScore,COALESCE(s.rating_count,0) AS ratingCount
+          `SELECT c.id,c.slug,${displayName("c", "p.country_id")} AS name,c.is_active AS isActive,CASE WHEN pc.ranking_eligible=1 AND c.is_active=1 AND c.is_rankable=1 AND ${eligible} AND v.is_current=1 THEN 1 ELSE 0 END AS canRate,s.bayesian_score AS bayesianScore,COALESCE(s.rating_count,0) AS ratingCount,
+        (SELECT json_group_array(json_object('key',d.key,'label',d.label)) FROM (SELECT key,label FROM category_rating_dimensions WHERE category_id=c.id AND is_active=1 ORDER BY sort_order,key) d) AS dimensions
         FROM product_categories pc JOIN categories c ON c.id=pc.category_id JOIN products p ON p.id=pc.product_id JOIN product_versions v ON v.product_id=p.id AND v.id=? LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=c.id WHERE pc.product_id=? AND (c.is_active=1 OR v.is_current=0) ORDER BY c.name LIMIT 50`,
         )
         .bind(row.versionId, row.id),
@@ -444,7 +445,17 @@ export class D1CatalogRepository implements CatalogRepository {
         (formula.isCurrent ? row.manufacturerLabel : "unknown"),
       formula,
       history: formulas,
-      categories: categories!.results as unknown as ProductCategory[],
+      categories: (
+        categories!.results as unknown as (Omit<
+          ProductCategory,
+          "dimensions"
+        > & { dimensions: string })[]
+      ).map((category) => ({
+        ...category,
+        dimensions: JSON.parse(
+          category.dimensions,
+        ) as ProductCategory["dimensions"],
+      })),
       images: images!.results as unknown as ProductDetails["images"],
     };
   }

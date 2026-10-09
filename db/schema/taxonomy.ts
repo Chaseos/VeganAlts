@@ -121,11 +121,11 @@ export const categoryMergeMoves = sqliteTable(
     index("ix_category_merge_moves_role").on(t.mergeId, t.role),
     check(
       "ck_category_merge_move_type",
-      sql`${t.entityType} IN ('rating','membership','comment')`,
+      sql`${t.entityType} IN ('rating','membership','comment','dimension')`,
     ),
     check(
       "ck_category_merge_move_role",
-      sql`${t.role} IN ('moved','donor_wins','donor_loses','survivor_loses','membership_added','membership_existing','membership_removed','comment_moved')`,
+      sql`${t.role} IN ('moved','donor_wins','donor_loses','survivor_loses','membership_added','membership_existing','membership_removed','comment_moved','dimension_added')`,
     ),
   ],
 );

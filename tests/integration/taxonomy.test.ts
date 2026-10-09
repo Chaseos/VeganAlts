@@ -954,3 +954,208 @@ it("lets aisles and shelves share a food's name but keeps foods and aliases uniq
       .run(),
   ).rejects.toThrow(/country-scoped/);
 });
+
+it("merges foods that ask different questions and reverses their answers exactly", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  const service = taxonomy();
+  const question = (category: string, key: string) => `${key}-${category}`;
+  const answer = (user: string, category: string, key: string, score: number) =>
+    env.DB.prepare(
+      "INSERT INTO rating_dimension_values(rating_id,dimension_id,score,created_at,updated_at) VALUES(?,?,?,1,1)",
+    ).bind(
+      `r-${user}-${w.f.versionId}-${category}`,
+      question(category, key),
+      score,
+    );
+  const [u0, u1, u2] = w.users as [string, string, string];
+  await env.DB.batch([
+    ...(
+      [
+        [w.D, "taste"],
+        [w.D, "smell"],
+        [w.S, "taste"],
+        [w.S, "texture"],
+      ] as const
+    ).map(([category, key], index) =>
+      env.DB.prepare(
+        "INSERT INTO category_rating_dimensions(id,category_id,key,label,sort_order,is_active,created_at,updated_at) VALUES(?,?,?,?,?,1,1,1)",
+      ).bind(question(category, key), category, key, key, index),
+    ),
+    // u0's donor rating loses; u1's donor rating wins (its survivor rating
+    // swaps into the donor); u2's donor rating simply moves.
+    answer(u0, w.D, "taste", 2),
+    answer(u0, w.D, "smell", 1),
+    answer(u0, w.S, "taste", 4),
+    answer(u0, w.S, "texture", 5),
+    answer(u1, w.D, "taste", 5),
+    answer(u1, w.D, "smell", 4),
+    answer(u1, w.S, "texture", 2),
+    answer(u2, w.D, "smell", 3),
+  ]);
+  const answers = async () =>
+    JSON.stringify(
+      (
+        await env.DB.prepare(
+          "SELECT v.rating_id,r.category_id,d.key,v.dimension_id,v.score FROM rating_dimension_values v JOIN ratings r ON r.id=v.rating_id JOIN category_rating_dimensions d ON d.id=v.dimension_id WHERE r.category_id IN (?,?) ORDER BY v.rating_id,d.key",
+        )
+          .bind(w.D, w.S)
+          .all()
+      ).results,
+    );
+  const questions = async (category: string) =>
+    (
+      await env.DB.prepare(
+        "SELECT key,is_active FROM category_rating_dimensions WHERE category_id=? ORDER BY key",
+      )
+        .bind(category)
+        .all<{ key: string; is_active: number }>()
+    ).results.map((q) => `${q.key}:${q.is_active}`);
+  const before = await answers();
+  const tree = await service.tree(operator);
+  const revision = (cid: string) =>
+    tree.categories.find((c) => c.id === cid)!.revision;
+  const merged = await service.merge(operator, id(), {
+    donorId: w.D,
+    survivorId: w.S,
+    donorRevision: revision(w.D),
+    survivorRevision: revision(w.S),
+    note,
+  });
+  expect(merged).toMatchObject({ state: "complete" });
+  // Each food gains a retired question for the other's keys, and every
+  // answer sits on its rating's current food under the same key.
+  expect(await questions(w.S)).toEqual(["smell:0", "taste:1", "texture:1"]);
+  expect(await questions(w.D)).toEqual(["smell:1", "taste:1", "texture:0"]);
+  const moved = JSON.parse(await answers()) as {
+    category_id: string;
+    dimension_id: string;
+    key: string;
+  }[];
+  expect(moved).toHaveLength(8);
+  for (const row of moved)
+    expect(row.dimension_id).toBe(
+      row.dimension_id.startsWith("dimension-")
+        ? `dimension-${row.category_id}-${row.key}`
+        : question(row.category_id, row.key),
+    );
+  // Survivor details count the winning ratings only.
+  await ratingsService(testEnv).rebuildVersions([w.f.versionId]);
+  expect(
+    (
+      await env.DB.prepare(
+        "SELECT d.key,s.answer_count,s.answer_sum FROM product_category_dimension_stats s JOIN category_rating_dimensions d ON d.id=s.dimension_id WHERE s.product_version_id=? AND s.category_id=? ORDER BY d.key",
+      )
+        .bind(w.f.versionId, w.S)
+        .all()
+    ).results,
+  ).toEqual([
+    { key: "smell", answer_count: 2, answer_sum: 7 },
+    { key: "taste", answer_count: 2, answer_sum: 9 },
+    { key: "texture", answer_count: 1, answer_sum: 5 },
+  ]);
+
+  const reversed = await service.reverseMerge(
+    operator,
+    id(),
+    merged.mergeId,
+    "Reversed: these are different foods.",
+  );
+  expect(reversed).toMatchObject({ state: "reversed" });
+  expect(await answers()).toBe(before);
+  expect(await questions(w.S)).toEqual(["taste:1", "texture:1"]);
+  expect(await questions(w.D)).toEqual(["smell:1", "taste:1"]);
+  expect(
+    (await env.DB.prepare("PRAGMA foreign_key_check").all()).results,
+  ).toEqual([]);
+});
+
+it("starts foods with Taste and Texture and edits their questions reversibly", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  const service = taxonomy();
+  const created = await service.create(operator, id(), {
+    name: `Halloumi ${w.s}`,
+    parentId: w.SH,
+    isRankable: true,
+    aliases: [],
+    note,
+  });
+  const food = async () =>
+    (await service.tree(operator)).categories.find(
+      (c) => c.id === created.categoryId,
+    )!;
+  expect((await food()).dimensions).toEqual([
+    { key: "taste", label: "Taste", description: null, active: true },
+    { key: "texture", label: "Texture", description: null, active: true },
+  ]);
+  // Groups ask nothing.
+  const shelf = await service.create(operator, id(), {
+    name: `Brined ${w.s}`,
+    parentId: w.A,
+    isRankable: false,
+    aliases: [],
+    note,
+  });
+  expect(
+    (await service.tree(operator)).categories.find(
+      (c) => c.id === shelf.categoryId,
+    )!.dimensions,
+  ).toEqual([]);
+
+  const edit = async (
+    dimensions: {
+      key: string;
+      label: string;
+      description?: string | null;
+      active: boolean;
+    }[],
+  ) =>
+    service.setDimensions(operator, id(), created.categoryId, {
+      expectedRevision: (await food()).revision,
+      dimensions,
+      note,
+    });
+  await expect(
+    edit([{ key: "taste", label: "Taste", active: true }]),
+  ).rejects.toMatchObject({ code: "INVALID_DIMENSIONS" });
+  await expect(
+    edit([
+      { key: "taste", label: "Taste", active: true },
+      { key: "texture", label: "taste", active: true },
+    ]),
+  ).rejects.toMatchObject({ code: "INVALID_DIMENSIONS" });
+  const saved = await edit([
+    { key: "squeak", label: "Squeak", active: true },
+    { key: "texture", label: "Bite", active: true },
+    { key: "taste", label: "Taste", active: false },
+  ]);
+  expect((await food()).dimensions).toEqual([
+    { key: "squeak", label: "Squeak", description: null, active: true },
+    { key: "texture", label: "Bite", description: null, active: true },
+    { key: "taste", label: "Taste", description: null, active: false },
+  ]);
+  await expect(
+    service.setDimensions(operator, id(), created.categoryId, {
+      expectedRevision: 0,
+      dimensions: [{ key: "taste", label: "Taste", active: true }],
+      note,
+    }),
+  ).rejects.toMatchObject({ code: "STALE_CATEGORY" });
+
+  await service.reverseUpdate(operator, id(), saved.actionId, note);
+  // The added key stays, retired; everything else is as before.
+  expect((await food()).dimensions).toEqual([
+    { key: "taste", label: "Taste", description: null, active: true },
+    { key: "texture", label: "Texture", description: null, active: true },
+    { key: "squeak", label: "Squeak", description: null, active: false },
+  ]);
+});

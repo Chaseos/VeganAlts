@@ -186,3 +186,76 @@ it("rejects invalid scores, foreign origins, spoofed ownership, unrelated catego
     actor.events.some((event) => event.blobs?.[0] === "rating_created"),
   ).toBe(false);
 });
+
+it("accepts optional details through the strict contract and reports them privately", async () => {
+  const catalog = await catalogFixture(env.DB);
+  const actor = await authenticatedFixture();
+  const category = catalog.categories[0]!;
+  await env.DB.batch(
+    ["taste", "texture"].map((key, index) =>
+      env.DB.prepare(
+        "INSERT INTO category_rating_dimensions(id,category_id,key,label,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
+      ).bind(`${key}-${category}`, category, key, key, index),
+    ),
+  );
+  const put = (body: Record<string, unknown>) =>
+    saveRating(
+      new Request(`${actor.authEnv.APP_URL}/api/v1/ratings`, {
+        method: "PUT",
+        headers: actor.headers,
+        body: JSON.stringify({
+          productVersionId: catalog.versionId,
+          categoryId: category,
+          overallSimilarity: 4,
+          ...body,
+        }),
+      }),
+      actor.authEnv,
+    );
+  expect(
+    await (
+      await put({
+        dimensions: { taste: 5, texture: null },
+        conventionalRecency: "within_year",
+      })
+    ).json(),
+  ).toMatchObject({
+    data: {
+      rating: { dimensions: { taste: 5 }, conventionalRecency: "within_year" },
+      outcome: "created",
+    },
+  });
+  for (const invalid of [
+    { dimensions: { Taste: 3 } },
+    { dimensions: { taste: 6 } },
+    { conventionalRecency: "yesterday" },
+    { dimensions: { taste: 3 }, extra: true },
+  ])
+    await expect(put(invalid)).rejects.toMatchObject({
+      code: "INVALID_RATING",
+    });
+  await expect(put({ dimensions: { smell: 3 } })).rejects.toMatchObject({
+    code: "INVALID_DIMENSION",
+    status: 422,
+  });
+  const state = await (
+    await ratingState(
+      new Request(
+        `${actor.authEnv.APP_URL}/api/v1/me/rating-state?versionIds=${catalog.versionId}`,
+        { headers: actor.headers },
+      ),
+      actor.authEnv,
+    )
+  ).json();
+  expect(state).toMatchObject({
+    data: {
+      ratings: [
+        {
+          overallSimilarity: 4,
+          dimensions: { taste: 5 },
+          conventionalRecency: "within_year",
+        },
+      ],
+    },
+  });
+});

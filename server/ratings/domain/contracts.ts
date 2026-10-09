@@ -1,22 +1,42 @@
 import { z } from "zod";
 import { isRecordId, isSimilarityScore } from "./selection";
+import {
+  CONVENTIONAL_RECENCY,
+  DIMENSION_KEY,
+  MAX_DIMENSIONS,
+  type ConventionalRecency,
+} from "./details";
 
 export const recordId = z.custom<string>(isRecordId);
+const similarity = z.custom<number>(isSimilarityScore);
 export const ratingInput = z
   .object({
     productVersionId: recordId,
     categoryId: recordId,
-    overallSimilarity: z.custom<number>(isSimilarityScore),
+    overallSimilarity: similarity,
+    // Absent fields leave stored details unchanged; null clears one.
+    dimensions: z
+      .record(z.string().regex(DIMENSION_KEY), similarity.nullable())
+      .refine((value) => Object.keys(value).length <= MAX_DIMENSIONS)
+      .optional(),
+    conventionalRecency: z.enum(CONVENTIONAL_RECENCY).nullable().optional(),
     challengeToken: z.string().max(2048).optional(),
   })
   .strict();
 export type RatingInput = z.infer<typeof ratingInput>;
+export type RatingDetailsInput = Pick<
+  RatingInput,
+  "dimensions" | "conventionalRecency"
+>;
 
 export interface PersonalRating {
   id: string;
   productVersionId: string;
   categoryId: string;
   overallSimilarity: number;
+  // Answers to the food's active detail questions, by key.
+  dimensions: Record<string, number>;
+  conventionalRecency: ConventionalRecency | null;
   updatedAt: number;
 }
 
@@ -38,7 +58,10 @@ export interface RatingState {
   turnstileSiteKey: string | null;
 }
 
-export interface MyRating extends PersonalRating {
+export interface MyRating extends Omit<
+  PersonalRating,
+  "dimensions" | "conventionalRecency"
+> {
   productId: string;
   productSlug: string;
   productName: string;

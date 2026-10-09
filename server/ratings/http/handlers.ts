@@ -71,6 +71,10 @@ export async function saveRating(request: Request, env: Cloudflare.Env) {
       input.productVersionId,
       input.categoryId,
       input.overallSimilarity,
+      {
+        dimensions: input.dimensions,
+        conventionalRecency: input.conventionalRecency,
+      },
     );
     if (saved.outcome !== "unchanged")
       recordEvent(

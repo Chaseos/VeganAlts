@@ -286,3 +286,27 @@
   justify-content: space-between;
   gap: 8px 16px;
 }
+
+.va-question-list {
+  display: grid;
+  gap: var(--va-space-2);
+  margin: var(--va-space-2) 0;
+  padding-left: 22px;
+}
+
+.va-question-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 4px 16px;
+}
+
+.va-inline-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.va-inline-field input {
+  flex: 1 1 200px;
+}

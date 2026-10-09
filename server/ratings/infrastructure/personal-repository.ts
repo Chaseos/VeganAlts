@@ -10,10 +10,10 @@ export class D1PersonalRatingsRepository implements PersonalRatingsRepository {
   async state(userId: string, versionIds: string[]) {
     if (!versionIds.length) return { ratings: [], triedVersionIds: [] };
     const placeholders = versionIds.map(() => "?").join(",");
-    const [ratings, trials] = await this.db.batch([
+    const [ratings, trials, answers] = await this.db.batch([
       this.db
         .prepare(
-          `SELECT id,product_version_id AS productVersionId,category_id AS categoryId,overall_similarity AS overallSimilarity,updated_at AS updatedAt FROM ratings WHERE user_id=? AND product_version_id IN (${placeholders}) LIMIT 2000`,
+          `SELECT id,product_version_id AS productVersionId,category_id AS categoryId,overall_similarity AS overallSimilarity,conventional_recency AS conventionalRecency,updated_at AS updatedAt FROM ratings WHERE user_id=? AND product_version_id IN (${placeholders}) LIMIT 2000`,
         )
         .bind(userId, ...versionIds),
       this.db
@@ -21,9 +21,31 @@ export class D1PersonalRatingsRepository implements PersonalRatingsRepository {
           `SELECT product_version_id AS id FROM product_trials WHERE user_id=? AND product_version_id IN (${placeholders})`,
         )
         .bind(userId, ...versionIds),
+      // Answers to retired questions stay stored but are not shown.
+      this.db
+        .prepare(
+          `SELECT a.rating_id AS ratingId,d.key,a.score FROM rating_dimension_values a JOIN ratings r ON r.id=a.rating_id JOIN category_rating_dimensions d ON d.id=a.dimension_id AND d.is_active=1
+          WHERE r.user_id=? AND r.product_version_id IN (${placeholders}) LIMIT 16000`,
+        )
+        .bind(userId, ...versionIds),
     ]);
+    const details = new Map<string, Record<string, number>>();
+    for (const row of answers!.results as {
+      ratingId: string;
+      key: string;
+      score: number;
+    }[])
+      details.set(row.ratingId, {
+        ...details.get(row.ratingId),
+        [row.key]: row.score,
+      });
     return {
-      ratings: ratings!.results as unknown as PersonalRating[],
+      ratings: (
+        ratings!.results as unknown as Omit<PersonalRating, "dimensions">[]
+      ).map((rating) => ({
+        ...rating,
+        dimensions: details.get(rating.id) ?? {},
+      })),
       triedVersionIds: (trials!.results as { id: string }[]).map(
         (row) => row.id,
       ),

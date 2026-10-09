@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ratingKey, usePersonalState } from "./personal-state";
+import { draftOf, ratingKey, usePersonalState } from "./personal-state";
 import { Turnstile } from "./turnstile";
 
 export function PendingRatingRecovery() {
@@ -41,9 +41,7 @@ export function PendingRatingRecovery() {
             onClick={() => {
               select(
                 {
-                  productVersionId: pending.productVersionId,
-                  categoryId: pending.categoryId,
-                  overallSimilarity: pending.overallSimilarity,
+                  ...draftOf(pending),
                   ...(token ? { challengeToken: token } : {}),
                 },
                 pending.returnTo,

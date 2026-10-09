@@ -206,6 +206,7 @@ export default function Product({
                   categoryId={c.id}
                   categoryName={c.name}
                   productSlug={p.slug}
+                  dimensions={c.dimensions}
                 />
               ) : (
                 <p className="muted">

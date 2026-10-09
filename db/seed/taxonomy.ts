@@ -1,4 +1,5 @@
 import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
+import { DEFAULT_DIMENSIONS } from "../../server/ratings/domain/details";
 
 // Production-safe taxonomy: real conventional foods and search aliases only.
 // No products, ratings, people or images. Reviewed before any production use.
@@ -88,6 +89,64 @@ export const TAXONOMY_LEAVES = [
     aliases: ["egg alternatives", "egg replacer"],
   },
 ] as const;
+// Each launch food's detail questions (owner decision, 2026-10-09). Other
+// foods start with Taste and Texture.
+export const TAXONOMY_DIMENSIONS: Record<
+  string,
+  [key: string, label: string][]
+> = {
+  "ground-beef": [
+    ["taste", "Taste"],
+    ["texture", "Texture"],
+    ["browning", "Browning"],
+  ],
+  "beef-burgers": [
+    ["taste", "Taste"],
+    ["texture", "Texture"],
+    ["juiciness", "Juiciness"],
+  ],
+  "chicken-nuggets": [
+    ["taste", "Taste"],
+    ["texture", "Texture"],
+    ["crispiness", "Crispiness"],
+  ],
+  bacon: [
+    ["taste", "Taste"],
+    ["texture", "Texture"],
+    ["crispiness", "Crispiness"],
+  ],
+  milk: [
+    ["taste", "Taste"],
+    ["creaminess", "Creaminess"],
+    ["in_coffee", "In coffee"],
+  ],
+  butter: [
+    ["taste", "Taste"],
+    ["spreading", "Spreading"],
+    ["baking", "Baking"],
+  ],
+  cheddar: [
+    ["taste", "Taste"],
+    ["texture", "Texture"],
+    ["melt", "Melt"],
+  ],
+  mozzarella: [
+    ["taste", "Taste"],
+    ["texture", "Texture"],
+    ["melt", "Melt"],
+    ["stretch", "Stretch"],
+  ],
+  "cream-cheese": [
+    ["taste", "Taste"],
+    ["texture", "Texture"],
+    ["spreading", "Spreading"],
+  ],
+  eggs: [
+    ["taste", "Taste"],
+    ["texture", "Texture"],
+    ["scrambling", "Scrambling"],
+  ],
+};
 // The English-speaking launch countries (owner decision, 2026-10-09). Each
 // list follows that country's labeling rules (PRODUCT_MASTER, milestone 5);
 // a label overrides the shared vocabulary's wording.
@@ -265,6 +324,25 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
           AND NOT EXISTS(SELECT 1 FROM category_aliases a WHERE a.category_id=c.id AND a.country_id=co.id AND a.is_display_name=1)
           ON CONFLICT DO NOTHING;`,
         );
+  // Questions are seeded only for foods that have none, so an operator's
+  // list is never overwritten. SQLite reads the whole SELECT before inserting.
+  const questions = (
+    where: string,
+    list: readonly (readonly [string, string])[],
+  ) =>
+    `INSERT INTO category_rating_dimensions(id,category_id,key,label,description,sort_order,is_active,created_at,updated_at)
+    SELECT ${quote(`${newId()}-`)}||c.id||'-'||j.key,c.id,json_extract(j.value,'$[0]'),json_extract(j.value,'$[1]'),NULL,j.key,1,${now},${now}
+    FROM categories c CROSS JOIN json_each(${quote(JSON.stringify(list))}) j
+    WHERE ${where} AND NOT EXISTS(SELECT 1 FROM category_rating_dimensions d WHERE d.category_id=c.id)
+    ON CONFLICT DO NOTHING;`;
+  for (const [slug, list] of Object.entries(TAXONOMY_DIMENSIONS))
+    statements.push(questions(`c.slug=${quote(slug)}`, list));
+  statements.push(
+    questions(
+      "c.is_rankable=1",
+      DEFAULT_DIMENSIONS.map(({ key, label }) => [key, label] as const),
+    ),
+  );
   // Features are seeded per country, only where none are configured yet.
   statements.push(
     `INSERT INTO category_features(country_id,category_id,position,updated_at)

@@ -13,13 +13,16 @@ import {
   storedCategoryProposal,
   categorySlug,
   createCategoryInput,
+  dimensionsInput,
   featuresInput,
+  MAX_ACTIVE_DIMENSIONS,
   mergeInput,
   planCategoryUpdate,
   updateCategoryInput,
   sortAliases,
   type CategoryPatch,
   type CategoryState,
+  type DimensionState,
 } from "../domain/taxonomy";
 import type {
   CategoryRecord,
@@ -736,6 +739,76 @@ export class TaxonomyService {
     await this.effects.invalidate([], []);
     return result;
   }
+  /**
+   * Replaces a food's ordered detail questions. Keys are never removed, so
+   * stored answers always keep their question; retiring hides one.
+   */
+  async setDimensions(actor: Actor, key: string, id: string, raw: unknown) {
+    administrator(actor);
+    const input = dimensionsInput.parse(raw);
+    const now = this.clock(),
+      receipt = await receiptWrite(
+        actor.id,
+        "category-dimensions",
+        key,
+        { id, ...input },
+        now,
+      );
+    const prior = await this.repository.replay<{ actionId: string }>(receipt);
+    if (prior) return prior;
+    const category = await this.existing(id);
+    if (category.revision !== input.expectedRevision)
+      throw new ApplicationError(
+        "STALE_CATEGORY",
+        "This food changed. Refresh before editing its questions.",
+        409,
+      );
+    if (!category.isActive || !category.isRankable)
+      throw new ApplicationError(
+        "INVALID_DIMENSIONS",
+        "Only active foods ask detail questions.",
+        409,
+      );
+    if (
+      (await this.repository.busyMerges([id])).some(
+        (m) => m.state !== "complete",
+      )
+    )
+      throw new ApplicationError(
+        "MERGE_IN_PROGRESS",
+        "Finish the merge involving this food first.",
+        409,
+      );
+    const current = await this.repository.dimensions(id);
+    const next = input.dimensions;
+    assertDimensions(current, next);
+    const before = current.map(({ key, label, description, active }) => ({
+      key,
+      label,
+      description,
+      active,
+    }));
+    const result = await this.repository.commit(
+      this.action(
+        actor,
+        "category_dimensions",
+        id,
+        input.note,
+        { dimensions: before },
+        { dimensions: next },
+      ),
+      {
+        sql: "EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=? AND is_active=1)",
+        values: [id, category.revision],
+      },
+      (fence) =>
+        this.repository.dimensionStatements(id, current, next, now, fence),
+      receipt,
+    );
+    // Product pages show the questions; their cached copies refresh.
+    await this.effects.invalidate([category.slug], []);
+    return result;
+  }
   /** Reverses a non-merge taxonomy action by restoring its recorded fields. */
   async reverseUpdate(
     actor: Actor,
@@ -758,7 +831,9 @@ export class TaxonomyService {
     if (
       !original ||
       original.reversed_by ||
-      !["category_update", "category_features"].includes(original.kind)
+      !["category_update", "category_features", "category_dimensions"].includes(
+        original.kind,
+      )
     )
       throw new ApplicationError(
         "INVALID_REVERSAL",
@@ -766,9 +841,11 @@ export class TaxonomyService {
       );
     const before = JSON.parse(original.before_data) as CategoryPatch & {
       features?: string[];
+      dimensions?: DimensionState[];
     };
     const after = JSON.parse(original.after_data) as CategoryPatch & {
       features?: string[];
+      dimensions?: DimensionState[];
     };
     const action = this.action(
       actor,
@@ -828,6 +905,49 @@ export class TaxonomyService {
         receipt,
       );
       await this.effects.invalidate([], []);
+      return result;
+    }
+    if (original.kind === "category_dimensions") {
+      const category = await this.existing(original.target_id);
+      const current = await this.repository.dimensions(category.id);
+      const stored = current.map(({ key, label, description, active }) => ({
+        key,
+        label,
+        description,
+        active,
+      }));
+      if (JSON.stringify(stored) !== JSON.stringify(after.dimensions))
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "These questions changed since this action. Review the newer change first.",
+          409,
+        );
+      // Questions the action added stay (keys are never removed), retired.
+      const restored = [
+        ...(before.dimensions ?? []),
+        ...(after.dimensions ?? [])
+          .filter((d) => !before.dimensions?.some((b) => b.key === d.key))
+          .map((d) => ({ ...d, active: false })),
+      ];
+      const result = await this.repository.commit(
+        action,
+        {
+          sql: `${reversed.sql} AND EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)`,
+          values: [...reversed.values, category.id, category.revision],
+        },
+        (fence) => [
+          ...this.repository.dimensionStatements(
+            category.id,
+            current,
+            restored,
+            now,
+            fence,
+          ),
+          this.reversedStatement(actionId, action.id, fence),
+        ],
+        receipt,
+      );
+      await this.effects.invalidate([category.slug], []);
       return result;
     }
     const current = await this.existing(original.target_id);
@@ -1005,12 +1125,6 @@ export class TaxonomyService {
         "Merge rankable categories only into rankable categories.",
         409,
       );
-    if (donor.ratingDimensions || survivor.ratingDimensions)
-      throw new ApplicationError(
-        "INVALID_MERGE",
-        "Categories with detailed rating dimensions cannot be merged yet.",
-        409,
-      );
   }
   /** Processes bounded pages; returns whether the merge is complete. */
   async continueMerge(actor: Actor | null, mergeId: string) {
@@ -1151,4 +1265,30 @@ export class TaxonomyService {
     );
     await this.repository.clearDerived(merge.id);
   }
+}
+
+function assertDimensions(current: { key: string }[], next: DimensionState[]) {
+  const keys = new Set(next.map((d) => d.key));
+  if (keys.size !== next.length)
+    throw new ApplicationError(
+      "INVALID_DIMENSIONS",
+      "Use each question key once.",
+    );
+  if (current.some((d) => !keys.has(d.key)))
+    throw new ApplicationError(
+      "INVALID_DIMENSIONS",
+      "Questions are never removed. Retire one instead.",
+    );
+  const active = next.filter((d) => d.active);
+  if (active.length > MAX_ACTIVE_DIMENSIONS)
+    throw new ApplicationError(
+      "INVALID_DIMENSIONS",
+      `A food asks at most ${MAX_ACTIVE_DIMENSIONS} detail questions.`,
+    );
+  const labels = new Set(active.map((d) => d.label.toLocaleLowerCase()));
+  if (labels.size !== active.length)
+    throw new ApplicationError(
+      "INVALID_DIMENSIONS",
+      "Give each active question its own label.",
+    );
 }

@@ -97,6 +97,40 @@ it("keeps a pending action bound to its original formula, category and tab until
   ).toBeNull();
 });
 
+it("keeps rating details across sign-in and still honors a score-only v1 selection", () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+    removeItem: (key: string) => {
+      values.delete(key);
+    },
+  };
+  const origin = "https://staging.veganalts.com";
+  const action = {
+    id: "pending",
+    productVersionId: "formula",
+    categoryId: "category",
+    overallSimilarity: 4,
+    dimensions: { taste: 5, texture: null },
+    conventionalRecency: "within_month" as const,
+    createdAt: 100,
+    returnTo: "/us/products/example#rate-category",
+  };
+  storePendingRating(storage, action);
+  expect(readPendingRating(storage, origin, 101)).toEqual(action);
+  storePendingRating(storage, { ...action, dimensions: { Taste: 9 } });
+  expect(readPendingRating(storage, origin, 101)).toBeNull();
+  const { dimensions: _d, conventionalRecency: _r, ...legacy } = action;
+  values.set("veganalts.pending-rating.v1", JSON.stringify(legacy));
+  expect(readPendingRating(storage, origin, 101)).toEqual(legacy);
+  storePendingRating(storage, action);
+  readPendingRating(storage, origin, 101 + PENDING_RATING_TTL);
+  expect(values.size).toBe(0);
+});
+
 it("bounds anonymous personal-state requests before any repository read", async () => {
   const service = new PersonalRatingsService({
     state: () => {

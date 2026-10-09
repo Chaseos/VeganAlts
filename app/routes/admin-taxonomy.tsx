@@ -319,6 +319,19 @@ export default function AdminTaxonomy({
                     </button>
                   </form>
                 )}
+                {editing === c.id && c.isRankable === 1 && c.isActive === 1 && (
+                  <DimensionEditor
+                    category={c}
+                    busy={action.busy}
+                    onSave={(dimensions, note) =>
+                      send(
+                        `admin/taxonomy/categories/${c.id}/dimensions`,
+                        { expectedRevision: c.revision, dimensions, note },
+                        `${c.name} questions saved.`,
+                      )
+                    }
+                  />
+                )}
               </li>
             ))}
           </ul>
@@ -642,5 +655,172 @@ export default function AdminTaxonomy({
         </section>
       </CommunityControls>
     </PageShell>
+  );
+}
+
+type Question = Category["dimensions"][number];
+const questionKey = (label: string) =>
+  label
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/^(?=[0-9])/, "q_")
+    .slice(0, 40);
+
+// A food's ordered detail questions. Keys are fixed once saved, so a question
+// is retired rather than removed; its answers are kept.
+function DimensionEditor({
+  category,
+  busy,
+  onSave,
+}: {
+  category: Category;
+  busy: boolean;
+  onSave: (dimensions: Question[], note: string) => Promise<void>;
+}) {
+  const [questions, setQuestions] = useState<Question[]>(category.dimensions);
+  const [label, setLabel] = useState("");
+  const saved = new Set(category.dimensions.map((d) => d.key));
+  const move = (index: number, by: number) =>
+    setQuestions((list) => {
+      const next = [...list];
+      const [item] = next.splice(index, 1);
+      next.splice(index + by, 0, item!);
+      return next;
+    });
+  const update = (index: number, patch: Partial<Question>) =>
+    setQuestions((list) =>
+      list.map((q, i) => (i === index ? { ...q, ...patch } : q)),
+    );
+  const id = `questions-${category.id}`;
+  return (
+    <form
+      className="community-form va-taxonomy-tree__form"
+      aria-labelledby={id}
+      onSubmit={(event) => {
+        event.preventDefault();
+        const note = String(new FormData(event.currentTarget).get("note"));
+        void onSave(questions, note);
+      }}
+    >
+      <h3 id={id} className="va-heading-s">
+        Detail questions for {category.name}
+      </h3>
+      <p className="small muted">
+        Asked after the overall score, in this order. Retired questions keep
+        their answers but are no longer asked, shown or sorted.
+      </p>
+      <ol className="va-question-list">
+        {questions.map((q, index) => (
+          <li key={q.key}>
+            <div className="form-field">
+              <label htmlFor={`${id}-${q.key}`}>
+                Label <span className="muted">({q.key})</span>
+              </label>
+              <input
+                id={`${id}-${q.key}`}
+                value={q.label}
+                required
+                minLength={2}
+                maxLength={40}
+                onChange={(event) =>
+                  update(index, { label: event.target.value })
+                }
+              />
+            </div>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={q.active}
+                onChange={(event) =>
+                  update(index, { active: event.target.checked })
+                }
+              />
+              Asked
+            </label>
+            <span className="button-row">
+              <button
+                type="button"
+                className="text-button"
+                disabled={index === 0}
+                aria-label={`Move ${q.label} up`}
+                onClick={() => move(index, -1)}
+              >
+                Up
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                disabled={index === questions.length - 1}
+                aria-label={`Move ${q.label} down`}
+                onClick={() => move(index, 1)}
+              >
+                Down
+              </button>
+              {!saved.has(q.key) && (
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() =>
+                    setQuestions((list) => list.filter((_, i) => i !== index))
+                  }
+                >
+                  Remove
+                </button>
+              )}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="form-field">
+        <label htmlFor={`${id}-new`}>New question</label>
+        <span className="va-inline-field">
+          <input
+            id={`${id}-new`}
+            value={label}
+            maxLength={40}
+            placeholder="For example, Melt"
+            onChange={(event) => setLabel(event.target.value)}
+          />
+          <button
+            type="button"
+            className="button secondary"
+            disabled={
+              label.trim().length < 2 ||
+              !questionKey(label) ||
+              questions.some((q) => q.key === questionKey(label))
+            }
+            onClick={() => {
+              setQuestions((list) => [
+                ...list,
+                {
+                  key: questionKey(label),
+                  label: label.trim(),
+                  description: null,
+                  active: true,
+                },
+              ]);
+              setLabel("");
+            }}
+          >
+            Add question
+          </button>
+        </span>
+      </div>
+      <div className="form-field">
+        <label htmlFor={`${id}-note`}>Reason</label>
+        <textarea
+          id={`${id}-note`}
+          name="note"
+          required
+          minLength={8}
+          rows={2}
+        />
+      </div>
+      <button className="button" disabled={busy}>
+        Save questions
+      </button>
+    </form>
   );
 }

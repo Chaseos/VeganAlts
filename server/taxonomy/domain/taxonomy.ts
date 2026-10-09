@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApplicationError } from "../../shared/domain/errors";
 import { id, note, shortText } from "../../community/domain/contracts";
+import { DIMENSION_KEY, MAX_DIMENSIONS } from "../../ratings/domain/details";
 
 // Route segments beneath /us/ and other words a category slug must never take.
 export const RESERVED_SLUGS = new Set([
@@ -127,6 +128,31 @@ export const featuresInput = z
     note,
   })
   .strict();
+// A food's full ordered question list (docs/API.md, milestone 5). Keys are
+// fixed once created; `active: false` retires a question.
+export const MAX_ACTIVE_DIMENSIONS = MAX_DIMENSIONS;
+export const dimensionsInput = z
+  .object({
+    expectedRevision: z.number().int().nonnegative(),
+    dimensions: z
+      .array(
+        z
+          .object({
+            key: z.string().regex(DIMENSION_KEY),
+            label: z.string().trim().min(2).max(40),
+            description: z.string().trim().max(200).nullable().default(null),
+            active: z.boolean(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(24),
+    note,
+  })
+  .strict();
+export type DimensionState = z.infer<
+  typeof dimensionsInput
+>["dimensions"][number];
 export const categoryDecision = z
   .object({
     decision: z.enum(["accept", "alias", "reject"]),

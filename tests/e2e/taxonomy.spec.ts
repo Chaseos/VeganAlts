@@ -66,6 +66,24 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
     await page.goto(`/us/${slug}`);
     await expect(page).toHaveURL(new RegExp(`/us/${renamed}$`));
 
+    // A new food asks Taste and Texture until an operator adds its own.
+    await page.goto("/admin/taxonomy");
+    await page.getByRole("button", { name: `Edit ${name}` }).click();
+    const questions = page.getByRole("form", {
+      name: `Detail questions for ${name}`,
+    });
+    await expect(questions.getByLabel("Label (taste)")).toHaveValue("Taste");
+    await expect(questions.getByLabel("Label (texture)")).toHaveValue(
+      "Texture",
+    );
+    await questions.getByLabel("New question").fill("Snap");
+    await questions.getByRole("button", { name: "Add question" }).click();
+    await questions
+      .getByRole("textbox", { name: "Reason" })
+      .fill("A bratwurst casing should snap.");
+    await questions.getByRole("button", { name: "Save questions" }).click();
+    await expect(page.getByRole("status")).toContainText("questions saved");
+
     // Merge a second new category into it; the donor URL then redirects.
     await page.goto("/admin/taxonomy");
     const donorName = `Brats ${stamp}`;

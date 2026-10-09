@@ -591,6 +591,8 @@ The approved [milestone 5 specification](MILESTONE_5_PLAN.md) adds the following
   - Rebuilds the empty-dependency `category_merge_moves` ledger so merges can record dimension rows.
   - Adds a trigger that moves a rating's detail answers to the same-key dimension when the rating changes category, and refuses the change if no such dimension exists.
   - Adds a trigger that fixes a dimension's key and category once created.
+  - Adds triggers that bump the formula revision whenever a detail answer changes, so concurrent rating writers retry.
+  - Backfills familiarity rows (recency `unanswered`) for existing counted ratings. The taxonomy seed, not the migration, gives foods without questions their launch list or Taste and Texture.
 
 **Taxonomy shape.** Depth is computed from `parent_id`, not stored: aisles are children of the root, shelves are children of aisles, and rankable foods are children of shelves. Food names and all aliases remain unique across the taxonomy (case-, accent- and spacing-insensitive); group names are unique among siblings and groups have no aliases. Slugs remain globally unique. Every new rankable category starts with Taste and Texture dimensions.
 

@@ -530,6 +530,89 @@ export const productCategoryStats = sqliteTable(
   ],
 );
 
+// Detail answers from counted ratings, per formula, food and dimension.
+// Derived from rating_dimension_values and rebuilt with product_category_stats.
+export const productCategoryDimensionStats = sqliteTable(
+  "product_category_dimension_stats",
+  {
+    productVersionId: text("product_version_id")
+      .notNull()
+      .references((): AnySQLiteColumn => productVersions.id, {
+        onDelete: "cascade",
+      }),
+    categoryId: text("category_id")
+      .notNull()
+      .references((): AnySQLiteColumn => categories.id, {
+        onDelete: "cascade",
+      }),
+    dimensionId: text("dimension_id")
+      .notNull()
+      .references((): AnySQLiteColumn => categoryRatingDimensions.id, {
+        onDelete: "cascade",
+      }),
+    answerCount: integer("answer_count").notNull(),
+    answerSum: integer("answer_sum").notNull(),
+    recomputedAt: integer("recomputed_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.productVersionId, table.categoryId, table.dimensionId],
+    }),
+    index("ix_product_category_dimension_stats_category").on(
+      table.categoryId,
+      table.dimensionId,
+    ),
+    check(
+      "ck_product_category_dimension_stats_1",
+      sql.raw(
+        "answer_count > 0 AND answer_sum BETWEEN answer_count AND answer_count * 5",
+      ),
+    ),
+  ],
+);
+
+// Counted ratings by when the rater last ate the original and by overall
+// score: the recent-eaters score and the score distribution. Context only.
+export const productCategoryFamiliarityStats = sqliteTable(
+  "product_category_familiarity_stats",
+  {
+    productVersionId: text("product_version_id")
+      .notNull()
+      .references((): AnySQLiteColumn => productVersions.id, {
+        onDelete: "cascade",
+      }),
+    categoryId: text("category_id")
+      .notNull()
+      .references((): AnySQLiteColumn => categories.id, {
+        onDelete: "cascade",
+      }),
+    recency: text("recency").notNull(),
+    overallSimilarity: integer("overall_similarity").notNull(),
+    ratingCount: integer("rating_count").notNull(),
+    recomputedAt: integer("recomputed_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.productVersionId,
+        table.categoryId,
+        table.recency,
+        table.overallSimilarity,
+      ],
+    }),
+    check(
+      "ck_product_category_familiarity_stats_1",
+      sql.raw(
+        "recency IN ('current_or_week', 'within_month', 'within_year', 'over_year', 'prefer_not_to_say', 'unanswered')",
+      ),
+    ),
+    check(
+      "ck_product_category_familiarity_stats_2",
+      sql.raw("overall_similarity BETWEEN 1 AND 5 AND rating_count > 0"),
+    ),
+  ],
+);
+
 export const productCategoryDailyStats = sqliteTable(
   "product_category_daily_stats",
   {
