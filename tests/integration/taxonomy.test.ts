@@ -397,7 +397,9 @@ it("validates slugs and names, redirects renamed slugs and reverses taxonomy edi
     categoryIds: [w.S, created.categoryId],
     note,
   });
-  const home = await catalogService(env).home();
+  const home = await catalogService(env).home(
+    await catalogService(env).market("us"),
+  );
   expect(home.featured.map((c) => c.id)).toEqual([w.S, created.categoryId]);
 });
 

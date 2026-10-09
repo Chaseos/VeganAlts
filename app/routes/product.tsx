@@ -18,35 +18,60 @@ import { ProposalResponses } from "../components/proposal-responses";
 import { PhotoSlots } from "../components/photo-slots";
 import { commentServices } from "@server/comments/infrastructure/composition";
 import { breadcrumbs, publicMetadata } from "../lib/metadata";
+import {
+  foodPath,
+  homePath,
+  productPath,
+} from "@server/catalog/domain/markets";
+import { Breadcrumb } from "../components/ui/navigation";
 import type { Route } from "./+types/product";
 import { dateLabel, friendly } from "../lib/community";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env);
-  const canonical = await catalogService(env).canonicalRedirect(
-    params.productSlug,
-  );
-  if (canonical)
-    throw redirect(`/us/products/${canonical.slug}`, {
-      status: 302,
-      headers: { "Cache-Control": "private, no-store" },
-    });
-  return publicLoader(async () => ({
-    product: await catalogService(env).product(
+  const catalog = catalogService(env);
+  return publicLoader(async () => {
+    const market = await catalog.market(params.country);
+    const canonical = await catalog.canonicalRedirect(
+      market,
       params.productSlug,
-      new URL(request.url).searchParams.get("version"),
-    ),
-    // The first Best page is crawler-visible and shares the product cache.
-    comments: await commentServices(env).page(
-      params.productSlug,
-      "best",
-      "current",
-      null,
-    ),
-    origin: env.APP_URL,
-    staging: env.APP_ENV !== "production",
-  }));
+    );
+    if (canonical)
+      throw redirect(productPath(market.code, canonical.slug), {
+        status: 302,
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    return {
+      market,
+      product: await catalog.product(
+        market,
+        params.productSlug,
+        new URL(request.url).searchParams.get("version"),
+      ),
+      // The first Best page is crawler-visible and shares the product cache.
+      comments: await commentServices(env).page(
+        market.id,
+        params.productSlug,
+        "best",
+        "current",
+        null,
+      ),
+      origin: env.APP_URL,
+      staging: env.APP_ENV !== "production",
+    };
+  });
 }
+// Products belong to one country; switching moves to the product's food.
+export const handle = {
+  countrySwitch: (data: unknown, code: string) => {
+    const food = (
+      data as
+        | { product?: { categories: { slug: string; isActive: number }[] } }
+        | undefined
+    )?.product?.categories.find((c) => c.isActive);
+    return food ? foodPath(code, food.slug) : null;
+  },
+};
 export function meta({ loaderData: data }: Route.MetaArgs) {
   const p = data?.product;
   const origin = data?.origin ?? "https://veganalts.com";
@@ -57,7 +82,7 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
         ? `${p.name}${p.formula.isCurrent ? "" : " · Formula history"}`
         : "Product",
       `Explore ${p?.name ?? "this vegan alternative"}, its category scores, formula history and community experience.`,
-      `/us/products/${p?.slug ?? ""}${p && !p.formula.isCurrent ? `?version=${p.versionId}` : ""}`,
+      `${productPath(data?.market.code ?? "us", p?.slug ?? "")}${p && !p.formula.isCurrent ? `?version=${p.versionId}` : ""}`,
       origin,
       data?.staging ?? true,
     ),
@@ -66,32 +91,40 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
           breadcrumbs(origin, [
             { name: "Home", path: "/" },
             ...(category
-              ? [{ name: category.name, path: `/us/${category.slug}` }]
+              ? [
+                  {
+                    name: category.name,
+                    path: foodPath(data!.market.code, category.slug),
+                  },
+                ]
               : []),
-            { name: p.name, path: `/us/products/${p.slug}` },
+            { name: p.name, path: productPath(data!.market.code, p.slug) },
           ]),
         ]
       : []),
   ];
 }
 export default function Product({
-  loaderData: { product: p, comments },
+  loaderData: { product: p, comments, market },
 }: Route.ComponentProps) {
+  const food = p.categories.find((c) => c.isActive);
   return (
     <SiteShell>
-      <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <Link to="/">Home</Link>
-        <span aria-hidden="true">/</span>
-        <Link to="/us/search">Discover</Link>
-        <span aria-hidden="true">/</span>
-        <span>{p.name}</span>
-      </nav>
+      <Breadcrumb
+        items={[
+          { label: "All foods", to: homePath(market.code) },
+          ...(food
+            ? [{ label: food.name, to: foodPath(market.code, food.slug) }]
+            : []),
+          { label: p.name },
+        ]}
+      />
       {!p.formula.isCurrent && (
         <div className="notice historical-notice">
           <strong>Historical formula · Read only</strong>
           <p>
             These ratings belong to a previous formula.{" "}
-            <Link to={`/us/products/${p.slug}`}>
+            <Link to={productPath(market.code, p.slug)}>
               View the current formula →
             </Link>
           </p>
@@ -159,7 +192,7 @@ export default function Product({
                   <span className="eyebrow">Compared with</span>
                   <h3>
                     {c.isActive ? (
-                      <Link to={`/us/${c.slug}`}>{c.name} ↗</Link>
+                      <Link to={foodPath(market.code, c.slug)}>{c.name} ↗</Link>
                     ) : (
                       c.name
                     )}
@@ -286,8 +319,10 @@ export default function Product({
               <ul>
                 {p.relatedProducts.map((r) => (
                   <li key={r.id}>
-                    {r.country === "US" ? (
-                      <Link to={`/us/products/${r.slug}`}>{r.name}</Link>
+                    {r.country ? (
+                      <Link to={productPath(r.country.toLowerCase(), r.slug)}>
+                        {r.name}
+                      </Link>
                     ) : (
                       r.name
                     )}
@@ -320,7 +355,7 @@ export default function Product({
               {p.history.map((v) => (
                 <li key={v.id}>
                   <Link
-                    to={`/us/products/${p.slug}${v.isCurrent ? "" : `?version=${v.id}`}`}
+                    to={`${productPath(market.code, p.slug)}${v.isCurrent ? "" : `?version=${v.id}`}`}
                     aria-current={v.id === p.versionId ? "page" : undefined}
                   >
                     {v.versionLabel}

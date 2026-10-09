@@ -4,6 +4,7 @@ import {
   edgeCacheControl,
   invalidationTags,
   normalizedPublicRequest,
+  publicRedirect,
   publicRoute,
 } from "../../server/shared/http/public-cache";
 
@@ -76,7 +77,7 @@ it("normalizes public identities without session state and separates representat
   for (const header of ["Cookie", "Authorization", "Origin", "X-Render-Nonce"])
     expect(normalized.headers.has(header)).toBe(false);
   expect(normalized.url).not.toContain("utm_source");
-  expect(normalized.url).toContain("__country=US");
+  expect(normalized.url).toContain("__country=us");
   expect(normalized.url).toContain("__deployment=v1");
   const data = normalizedPublicRequest(
     new Request(`${origin}/us/search.data?q=beef&_routes=routes/search,root`),
@@ -102,13 +103,14 @@ it("normalizes public identities without session state and separates representat
       "v1",
     ),
   ).toThrow();
-  expect(() =>
+  // Documents take their country from the path; a stray parameter is dropped.
+  expect(
     normalizedPublicRequest(
-      new Request(`${origin}/us/search?country=CA`),
+      new Request(`${origin}/us/search?q=beef&country=CA`),
       origin,
       "v1",
-    ),
-  ).toThrow();
+    ).url,
+  ).toBe(normalized.url);
 });
 
 it("uses native stale semantics with bounded stale errors and separate browser directives", () => {
@@ -155,33 +157,136 @@ it("invalidates all affected material representations without a rating invalidat
     invalidationTags({
       kind: "product",
       slug: "example",
+      country: "us",
       categorySlugs: ["milk", "butter"],
     }),
   ).toEqual([
-    "product:example",
-    "surface:home",
-    "surface:search",
-    "category:milk",
-    "category:butter",
+    "product:us:example",
+    "category:us:milk",
+    "category:us:butter",
+    "surface:home:us",
+    "surface:search:us",
   ]);
   expect(invalidationTags({ kind: "profile", slug: "example" })).toEqual([
     "profile:example",
   ]);
-  expect(invalidationTags({ kind: "category", slug: "milk" })).toContain(
+  // Every country page names categories in its aisle bar.
+  expect(invalidationTags({ kind: "category", slug: "milk" })).toEqual([
+    "category:milk",
+    "surface:home",
+    "surface:search",
+    "surface:category",
     "surface:product",
-  );
+  ]);
   expect(() =>
-    invalidationTags({ kind: "product", slug: "bad,tag" }),
+    invalidationTags({ kind: "product", slug: "bad,tag", country: "us" }),
   ).toThrow();
-  // Retailer evidence changes only the product page; listings stay cached.
+  // Product slugs are unique only within a country.
+  expect(() =>
+    invalidationTags({ kind: "product", slug: "example" }),
+  ).toThrow();
+  // Comments change only the product page; retailer reports also feed the
+  // store filter on the product's rankings.
   expect(
     invalidationTags({
       kind: "product",
       slug: "example",
+      country: "ca",
       categorySlugs: ["milk"],
-      pageOnly: true,
+      scope: "page",
     }),
-  ).toEqual(["product:example"]);
+  ).toEqual(["product:ca:example"]);
+  expect(
+    invalidationTags({
+      kind: "product",
+      slug: "example",
+      country: "ca",
+      categorySlugs: ["milk"],
+      scope: "listings",
+    }),
+  ).toEqual(["product:ca:example", "category:ca:milk"]);
+});
+
+it("routes every country through the same public boundary and tags it", () => {
+  const route = (path: string) => publicRoute(new URL(path, origin));
+  expect(route("/ca")).toMatchObject({ kind: "home", country: "ca" });
+  expect(route("/")).toMatchObject({ kind: "home", country: "us" });
+  expect(route("/gb/search")).toMatchObject({ kind: "search", country: "gb" });
+  expect(route("/au/products/oat-milk")).toMatchObject({
+    kind: "product",
+    country: "au",
+    slug: "oat-milk",
+  });
+  expect(route("/NZ/Ground-Beef")).toMatchObject({
+    kind: "category",
+    country: "nz",
+    slug: "ground-beef",
+  });
+  expect(route("/ie/ground-beef.data")).toMatchObject({
+    kind: "category",
+    representation: "data",
+    country: "ie",
+  });
+  expect(route("/api/v1/categories/milk?country=CA")).toMatchObject({
+    kind: "category",
+    country: "ca",
+  });
+  expect(route("/api/v1/categories/milk")).toMatchObject({ country: "us" });
+  expect(route("/api/v1/search?country=usa")).toBeNull();
+  // Utility pages are not public catalog reads; three-letter segments are not countries.
+  for (const path of ["/abc", "/sign-in", "/abc/ground-beef"])
+    expect(route(path)).toBeNull();
+  const key = (path: string) =>
+    new URL(
+      normalizedPublicRequest(new Request(`${origin}${path}`), origin, "v1")
+        .url,
+    );
+  expect(key("/ca/milk").searchParams.get("__country")).toBe("ca");
+  expect(
+    key("/api/v1/categories/milk?country=GB").searchParams.get("country"),
+  ).toBe("gb");
+  expect(key("/users/example").searchParams.has("__country")).toBe(false);
+  const tags = (path: string) =>
+    cachePublicResponse(new Response("ok"), route(path)!).headers.get(
+      "Cache-Tag",
+    );
+  expect(tags("/ca/milk")).toBe(
+    "catalog:ca,surface:category,surface:category:ca,category:milk,category:ca:milk",
+  );
+  expect(tags("/ca/products/oat-milk")).toBe(
+    "catalog:ca,surface:product,surface:product:ca,product:ca:oat-milk",
+  );
+});
+
+it("gives each filter combination one normalized cache identity", () => {
+  const url = (path: string) => new URL(path, origin);
+  const redirect = (path: string) =>
+    publicRedirect(url(path), publicRoute(url(path))!);
+  expect(redirect("/us")).toBe("/");
+  expect(redirect("/ca")).toBeNull();
+  expect(redirect("/us/milk?stores=kroger,target")).toBeNull();
+  expect(redirect("/us/milk?stores=Target&stores=kroger&page=3")).toBe(
+    "/us/milk?stores=kroger%2Ctarget",
+  );
+  expect(redirect("/us/milk?freeFrom=soy,SOY,milk&view=trending")).toBe(
+    "/us/milk?freeFrom=milk%2Csoy&view=trending",
+  );
+  expect(redirect("/us/milk?stores=a%20b,target")).toBe(
+    "/us/milk?stores=target",
+  );
+  // The redirect target is a fixed point.
+  const target = redirect("/us/milk?stores=Target&stores=kroger")!;
+  expect(redirect(target)).toBeNull();
+  // Framework data and API reads normalize silently into the same key.
+  const key = (path: string) =>
+    normalizedPublicRequest(new Request(`${origin}${path}`), origin, "v1").url;
+  expect(key("/us/milk.data?stores=target&stores=kroger")).toBe(
+    key("/us/milk.data?stores=kroger,target"),
+  );
+  expect(key("/us/milk?stores=kroger,target")).not.toBe(key("/us/milk"));
+  expect(
+    new URL(key("/us/milk?freeFrom=soy&utm=1")).searchParams.get("freeFrom"),
+  ).toBe("soy");
 });
 
 it("shares validated image variants while allowing moderation revocation", () => {

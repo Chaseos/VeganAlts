@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { usePersonalState, ratingKey } from "./personal-state";
 import { Turnstile } from "./turnstile";
+import { productPath, useCountryCode } from "../lib/site-chrome";
 
 export const SCORE_MEANINGS = [
   "Not close",
@@ -26,7 +27,8 @@ export function RatingControl({
   const [token, setToken] = useState("");
   useEffect(() => register(versionId), [register, versionId]);
   const state = states[ratingKey(versionId, categoryId)];
-  const returnTo = `/us/products/${productSlug}#rate-${categoryId}`;
+  const country = useCountryCode();
+  const returnTo = `${productPath(country, productSlug)}#rate-${categoryId}`;
   function save(score: number) {
     select(
       {
@@ -111,7 +113,9 @@ export function RatingControl({
       {state?.status === "conflict" && (
         <p>
           This formula or category has changed.{" "}
-          <a href={`/us/products/${productSlug}`}>Open the current formula</a>{" "}
+          <a href={productPath(country, productSlug)}>
+            Open the current formula
+          </a>{" "}
           and choose a new score.
         </p>
       )}

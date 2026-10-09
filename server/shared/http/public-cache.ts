@@ -1,4 +1,9 @@
 import { ApplicationError } from "../domain/errors";
+import {
+  applyFilters,
+  filtersAreNormalized,
+  readFilters,
+} from "../../catalog/domain/filters";
 
 export interface PublicRoute {
   kind:
@@ -15,7 +20,13 @@ export interface PublicRoute {
   pathname: string;
   ttl: number;
   slug?: string;
+  // Lowercase ISO code of the catalog a read belongs to. Documents carry it in
+  // the path; public API reads take a `country` query parameter (default us).
+  country?: string;
 }
+
+const COUNTRY = "[a-z]{2}";
+const ROUTE_COUNTRY = new RegExp(`^/(${COUNTRY})(?:/|$)`);
 export function publicRoute(url: URL): PublicRoute | null {
   const data = url.pathname.endsWith(".data");
   let path = data
@@ -55,28 +66,71 @@ export function publicRoute(url: URL): PublicRoute | null {
     representation,
     pathname: data ? (path === "/" ? "/_root.data" : `${path}.data`) : path,
   };
+  const apiCountry =
+    representation === "api"
+      ? (url.searchParams.get("country") ?? "us").toLowerCase()
+      : null;
+  if (apiCountry !== null && !/^[a-z]{2}$/.test(apiCountry)) return null;
+  const pathCountry = path.match(ROUTE_COUNTRY)?.[1];
+  const country = apiCountry ?? pathCountry ?? "us";
   if (path === "/" || path === "/api/v1/categories")
-    return { ...canonical, kind: "home", ttl: 1800 };
+    return { ...canonical, kind: "home", ttl: 1800, country };
   if (path === "/sitemap.xml")
     return { ...canonical, kind: "sitemap", ttl: 3600 };
   const policy = path.match(/^\/about\/([a-z-]+)$/);
   // Policies change rarely and are long-lived.
   if (policy)
     return { ...canonical, kind: "policy", ttl: 86400, slug: policy[1] };
-  if (path === "/us/search" || path === "/api/v1/search")
-    return { ...canonical, kind: "search", ttl: 600 };
-  let match = data
+  let match = path.match(/^\/(?:users|api\/v1\/profiles)\/([a-z0-9_]+)$/);
+  if (match) return { ...canonical, kind: "profile", ttl: 600, slug: match[1] };
+  if (new RegExp(`^/${COUNTRY}$`).test(path))
+    return { ...canonical, kind: "home", ttl: 1800, country };
+  if (
+    new RegExp(`^/${COUNTRY}/search$`).test(path) ||
+    path === "/api/v1/search"
+  )
+    return { ...canonical, kind: "search", ttl: 600, country };
+  match = data
     ? null
     : path.match(/^\/api\/v1\/products\/([a-z0-9-]+)\/comments$/);
   // Comment pages share the product's purge tag and refresh within a minute.
-  if (match) return { ...canonical, kind: "comments", ttl: 60, slug: match[1] };
-  match = path.match(/^\/(?:us\/products|api\/v1\/products)\/([a-z0-9-]+)$/);
-  if (match) return { ...canonical, kind: "product", ttl: 900, slug: match[1] };
-  match = path.match(/^\/(?:users|api\/v1\/profiles)\/([a-z0-9_]+)$/);
-  if (match) return { ...canonical, kind: "profile", ttl: 600, slug: match[1] };
-  match = path.match(/^\/(?:us|api\/v1\/categories)\/([a-z0-9-]+)$/);
   if (match)
-    return { ...canonical, kind: "category", ttl: 600, slug: match[1] };
+    return { ...canonical, kind: "comments", ttl: 60, slug: match[1], country };
+  match = path.match(
+    new RegExp(`^/(?:${COUNTRY}/products|api/v1/products)/([a-z0-9-]+)$`),
+  );
+  if (match)
+    return { ...canonical, kind: "product", ttl: 900, slug: match[1], country };
+  match = path.match(
+    new RegExp(`^/(?:${COUNTRY}|api/v1/categories)/([a-z0-9-]+)$`),
+  );
+  if (match)
+    return {
+      ...canonical,
+      kind: "category",
+      ttl: 600,
+      slug: match[1],
+      country,
+    };
+  return null;
+}
+
+// Permanent redirects decided from the URL alone, before any cache lookup or
+// D1 read: the United States home lives at "/", and filter parameters have one
+// normalized form so each filter combination is cached once.
+export function publicRedirect(url: URL, route: PublicRoute) {
+  if (route.representation !== "document") return null;
+  if (route.kind === "home" && route.pathname === "/us") return "/";
+  if (route.kind === "category" && !filtersAreNormalized(url.searchParams)) {
+    const target = new URL(url);
+    const params = applyFilters(
+      url.searchParams,
+      readFilters(url.searchParams),
+    );
+    params.delete("page");
+    target.search = params.size ? `?${params}` : "";
+    return `${target.pathname}${target.search}`;
+  }
   return null;
 }
 
@@ -92,14 +146,6 @@ export function normalizedPublicRequest(
       "INVALID_PUBLIC_REQUEST",
       "This request cannot use public caching.",
     );
-  if (
-    incoming.searchParams.has("country") &&
-    incoming.searchParams.get("country") !== "US"
-  )
-    throw new ApplicationError(
-      "UNSUPPORTED_COUNTRY",
-      "Choose the United States catalog.",
-    );
   const url = new URL(route.pathname, origin);
   const keys =
     route.kind === "search"
@@ -111,6 +157,16 @@ export function normalizedPublicRequest(
           : route.kind === "comments"
             ? ["sort", "formula", "cursor"]
             : [];
+  if (route.kind === "category") {
+    // Several values are allowed and merged into one normalized parameter.
+    const filters = readFilters(incoming.searchParams);
+    if (filters.stores.length)
+      url.searchParams.set("stores", filters.stores.join(","));
+    if (filters.freeFrom.length)
+      url.searchParams.set("freeFrom", filters.freeFrom.join(","));
+  }
+  if (route.representation === "api" && route.country)
+    url.searchParams.set("country", route.country);
   if (route.representation === "data") keys.push("_routes");
   for (const key of keys) {
     const values = incoming.searchParams.getAll(key);
@@ -137,7 +193,7 @@ export function normalizedPublicRequest(
       value = [...new Set(value.split(","))].sort().join(",");
     if (value) url.searchParams.set(key, value);
   }
-  url.searchParams.set("__country", "US");
+  if (route.country) url.searchParams.set("__country", route.country);
   url.searchParams.set("__representation", route.representation);
   url.searchParams.set("__deployment", version);
   url.searchParams.sort();
@@ -159,12 +215,23 @@ export function normalizedPublicRequest(
 export const edgeCacheControl = (ttl: number) =>
   `public, max-age=${ttl}, stale-while-revalidate=60, stale-if-error=86400`;
 export function publicCacheTags(route: PublicRoute) {
-  const owner = route.kind === "comments" ? "product" : route.kind;
-  return [
-    "catalog:US",
-    `surface:${route.kind}`,
-    ...(route.slug ? [`${owner}:${route.slug}`] : []),
-  ];
+  const country = route.country;
+  const tags = country
+    ? [
+        `catalog:${country}`,
+        `surface:${route.kind}`,
+        `surface:${route.kind}:${country}`,
+      ]
+    : [`surface:${route.kind}`];
+  if (route.slug) {
+    if (route.kind === "category")
+      tags.push(`category:${route.slug}`, `category:${country}:${route.slug}`);
+    else if (route.kind === "product" || route.kind === "comments")
+      // Product slugs are unique only within a country.
+      tags.push(`product:${country}:${route.slug}`);
+    else tags.push(`${route.kind}:${route.slug}`);
+  }
+  return tags;
 }
 
 export function cachePublicResponse(response: Response, route: PublicRoute) {
@@ -190,17 +257,22 @@ export function cachePublicResponse(response: Response, route: PublicRoute) {
 export interface MaterialCatalogChange {
   kind: "product" | "category" | "profile" | "media";
   slug: string;
+  // Required for products: their slugs are unique only within a country.
+  country?: string;
   categorySlugs?: string[];
-  // The change appears only on the product page (for example retailer
-  // evidence); listings, home and search stay cached.
-  pageOnly?: boolean;
+  // How far a product change reaches: its own page; its page and its foods'
+  // rankings (retailer reports feed the store filter); or everything that
+  // lists it (default).
+  scope?: "page" | "listings" | "all";
 }
 export function invalidationTags(change: MaterialCatalogChange) {
   if (
     !/^[a-z0-9_-]{1,100}$/.test(change.slug) ||
+    (change.country !== undefined && !/^[a-z]{2}$/.test(change.country)) ||
     (change.categorySlugs ?? []).some(
       (slug) => !/^[a-z0-9-]{1,100}$/.test(slug),
-    )
+    ) ||
+    (change.kind === "product" && !change.country)
   )
     throw new ApplicationError(
       "INVALID_INVALIDATION",
@@ -208,15 +280,27 @@ export function invalidationTags(change: MaterialCatalogChange) {
     );
   if (change.kind === "profile") return [`profile:${change.slug}`];
   if (change.kind === "media") return [`media:${change.slug}`];
-  if (change.kind === "product" && change.pageOnly)
-    return [`product:${change.slug}`];
+  if (change.kind === "category")
+    // The aisle bar and menus on every country page name categories.
+    return [
+      `category:${change.slug}`,
+      ...["home", "search", "category", "product"].map(
+        (kind) => `surface:${kind}`,
+      ),
+    ];
+  const country = change.country!;
+  const scope = change.scope ?? "all";
   return [
     ...new Set([
-      `${change.kind}:${change.slug}`,
-      "surface:home",
-      "surface:search",
-      ...(change.categorySlugs?.map((slug) => `category:${slug}`) ?? []),
-      ...(change.kind === "category" ? ["surface:product"] : []),
+      `product:${country}:${change.slug}`,
+      ...(scope === "page"
+        ? []
+        : (change.categorySlugs ?? []).map(
+            (slug) => `category:${country}:${slug}`,
+          )),
+      ...(scope === "all"
+        ? [`surface:home:${country}`, `surface:search:${country}`]
+        : []),
     ]),
   ];
 }

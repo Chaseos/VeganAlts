@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture } from "./fixtures";
+import { catalogFixture, testMarket } from "./fixtures";
 import { trendingService } from "../../server/ranking/infrastructure/trending-composition";
 import { CatalogService } from "../../server/catalog/application/service";
 import { D1CatalogRepository } from "../../server/catalog/infrastructure/d1-repository";
@@ -111,18 +111,25 @@ it("computes Trending and New from precomputed activity without changing Top", a
     () => NOW,
   );
   const slug = w.category;
-  const top = await catalog.category(slug, 1, 1, "top");
+  const top = await catalog.category(testMarket(w.f.countryId), slug, {
+    view: "top",
+  });
   const before = await topHash(w.category);
   await trendingService(rankingEnv, () => NOW).rebuild();
   expect(await topHash(w.category)).toBe(before);
-  expect((await catalog.category(slug, 1, 1, "top")).ranked).toEqual(
-    top.ranked,
-  );
+  expect(
+    (await catalog.category(testMarket(w.f.countryId), slug, { view: "top" }))
+      .ranked,
+  ).toEqual(top.ranked);
   expect(top.ranked[0]!.id).toBe(w.steady);
-  const trending = await catalog.category(slug, 1, 1, "trending");
+  const trending = await catalog.category(testMarket(w.f.countryId), slug, {
+    view: "trending",
+  });
   expect(trending.discovery.map((p) => p.id)).toEqual([w.f.productId]);
   // New lists recent eligible products before they have any ratings.
-  const fresh = await catalog.category(slug, 1, 1, "new");
+  const fresh = await catalog.category(testMarket(w.f.countryId), slug, {
+    view: "new",
+  });
   expect(fresh.discovery.map((p) => p.id)).toEqual([w.fresh]);
   expect(fresh.discovery[0]).toMatchObject({ ratingCount: 0, isNew: true });
   // The configured New window bounds the view: a one-day window excludes a
@@ -133,10 +140,10 @@ it("computes Trending and New from precomputed activity without changing Top", a
         new D1CatalogRepository(env.DB),
         () => NOW,
         trendingParameters('{"newDays":1}').newDays,
-      ).category(slug, 1, 1, "new")
+      ).category(testMarket(w.f.countryId), slug, { view: "new" })
     ).discovery.map((p) => p.id),
   ).not.toContain(w.fresh);
-  const home = await catalog.home();
+  const home = await catalog.home(testMarket(w.f.countryId));
   expect(home.trending.map((p) => p.id)).toContain(w.f.productId);
   expect(home.newest.map((p) => p.id)).toContain(w.fresh);
   expect(home.newest.map((p) => p.id)).not.toContain(w.gone);
@@ -148,7 +155,7 @@ it("computes Trending and New from precomputed activity without changing Top", a
       await new CatalogService(
         new D1CatalogRepository(env.DB),
         () => NOW + 9 * DAY,
-      ).category(slug, 1, 1, "trending")
+      ).category(testMarket(w.f.countryId), slug, { view: "trending" })
     ).discovery,
   ).toEqual([]);
   expect(await topHash(w.category)).toBe(before);
@@ -211,8 +218,8 @@ it("serves every category view without reading raw ratings", async () => {
     () => NOW,
   );
   for (const view of ["top", "trending", "new"] as const)
-    await catalog.category(w.category, 1, 1, view);
-  await catalog.home();
+    await catalog.category(testMarket(w.f.countryId), w.category, { view });
+  await catalog.home(testMarket(w.f.countryId));
   expect(statements.length).toBeGreaterThan(0);
   for (const sql of statements)
     expect(sql).not.toMatch(/\b(from|join)\s+ratings\b/i);

@@ -1,10 +1,21 @@
 import { useState, type ReactNode } from "react";
-import { Form, Link, useLocation } from "react-router";
+import { Form, Link } from "react-router";
 import type {
   CategorySummary,
+  DiscoveryRow,
   ProductSummary,
   RankingRow,
+  StoreOption,
 } from "@server/catalog/domain/contracts";
+import { StoreLine } from "./catalog/ranking-filters";
+import {
+  foodPath,
+  productPath,
+  searchPath,
+  useCountryCode,
+  useSiteChrome,
+} from "../lib/site-chrome";
+import { useFoodHref } from "../lib/ranking-filters";
 import { PageShell } from "./layout/page-shell";
 
 // Transitional wrapper: pages move to PageShell as they are redesigned.
@@ -31,10 +42,11 @@ export function SearchForm({
   query?: string;
   large?: boolean;
 }) {
+  const country = useCountryCode();
   return (
     <Form
       method="get"
-      action="/us/search"
+      action={searchPath(country)}
       role="search"
       className={`search-form${large ? " large" : ""}`}
     >
@@ -79,29 +91,37 @@ export function CategoryCards({
   return (
     <div className="category-grid">
       {categories.map((category, index) => (
-        <Link
-          className="category-card"
-          to={`/us/${category.slug}`}
-          key={category.id}
-        >
-          <span
-            className={`category-mark tone-${index % 3}`}
-            aria-hidden="true"
-          >
-            {category.name.charAt(0)}
-          </span>
-          <div>
-            <h3>{category.name}</h3>
-            <p>
-              {category.productCount
-                ? `${category.productCount} alternatives`
-                : "Explore categories"}
-            </p>
-          </div>
-          <span aria-hidden="true">↗</span>
-        </Link>
+        <CategoryCard key={category.id} category={category} index={index} />
       ))}
     </div>
+  );
+}
+
+function CategoryCard({
+  category,
+  index,
+}: {
+  category: CategorySummary;
+  index: number;
+}) {
+  const country = useCountryCode();
+  // Rankings carry the visitor's saved stores and allergens once hydrated.
+  const href = useFoodHref(country, foodPath(country, category.slug));
+  return (
+    <Link className="category-card" to={href}>
+      <span className={`category-mark tone-${index % 3}`} aria-hidden="true">
+        {category.name.charAt(0)}
+      </span>
+      <div>
+        <h3>{category.name}</h3>
+        <p>
+          {category.productCount
+            ? `${category.productCount} alternatives`
+            : "Explore categories"}
+        </p>
+      </div>
+      <span aria-hidden="true">↗</span>
+    </Link>
   );
 }
 
@@ -185,52 +205,66 @@ export function ProductRows({
   start,
   categoryId,
   unranked = false,
+  stores = [],
 }: {
-  products: (ProductSummary | RankingRow)[];
+  products: (ProductSummary | RankingRow | DiscoveryRow)[];
   start?: number;
   categoryId?: string;
   unranked?: boolean;
+  stores?: StoreOption[];
 }) {
+  const { country } = useSiteChrome();
   return (
     <ol className="product-list" start={start}>
-      {products.map((product, index) => (
-        <li key={product.id} className="product-row">
-          {start !== undefined && (
-            <span
-              className="rank-position"
-              aria-label={`Rank ${start + index}`}
-            >
-              {String(start + index).padStart(2, "0")}
-            </span>
-          )}
-          <Link
-            to={`/us/products/${product.slug}${categoryId ? `#rate-${categoryId}` : ""}`}
-            className="product-link"
-          >
-            <ProductImage id={product.imageId} name={product.name} />
-            <div>
-              <span className="product-brand">{product.brand}</span>
-              <h3>{product.name}</h3>
-              <NewProductBadge isNew={product.isNew} />
-              <span className="product-meta">
-                {product.developmentOnly ? "Demo product · " : ""}United States
+      {products.map((product, index) => {
+        // Rows show their overall Top rank even when filters narrow the list.
+        const rank =
+          "topRank" in product
+            ? product.topRank
+            : start !== undefined
+              ? start + index
+              : null;
+        const href = `${productPath(country.code, product.slug)}${categoryId ? `#rate-${categoryId}` : ""}`;
+        return (
+          <li key={product.id} className="product-row">
+            {rank !== null && (
+              <span className="rank-position" aria-label={`Rank ${rank}`}>
+                {String(rank).padStart(2, "0")}
               </span>
-            </div>
-          </Link>
-          {"bayesianScore" in product ? (
-            <Score value={product.bayesianScore} count={product.ratingCount} />
-          ) : unranked ? (
-            <span className="unrated-label">Not yet rated</span>
-          ) : null}
-          <Link
-            className="row-arrow"
-            to={`/us/products/${product.slug}${categoryId ? `#rate-${categoryId}` : ""}`}
-            aria-label={`Explore ${product.name}`}
-          >
-            ↗
-          </Link>
-        </li>
-      ))}
+            )}
+            <Link to={href} className="product-link">
+              <ProductImage id={product.imageId} name={product.name} />
+              <div>
+                <span className="product-brand">{product.brand}</span>
+                <h3>{product.name}</h3>
+                <NewProductBadge isNew={product.isNew} />
+                <span className="product-meta">
+                  {product.developmentOnly ? "Demo product · " : ""}
+                  {country.name}
+                </span>
+                {"matchedStores" in product && (
+                  <StoreLine slugs={product.matchedStores} stores={stores} />
+                )}
+              </div>
+            </Link>
+            {"bayesianScore" in product ? (
+              <Score
+                value={product.bayesianScore}
+                count={product.ratingCount}
+              />
+            ) : unranked ? (
+              <span className="unrated-label">Not yet rated</span>
+            ) : null}
+            <Link
+              className="row-arrow"
+              to={href}
+              aria-label={`Explore ${product.name}`}
+            >
+              ↗
+            </Link>
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -262,53 +296,5 @@ export function RankingExplanation() {
   );
 }
 
-export function Pagination({
-  page,
-  hasNext,
-  parameter = "page",
-  label = "Rankings",
-}: {
-  page: number;
-  hasNext: boolean;
-  parameter?: string;
-  label?: string;
-}) {
-  const location = useLocation();
-  const destination = (number: number) => {
-    const params = new URLSearchParams(location.search);
-    if (number === 1) params.delete(parameter);
-    else params.set(parameter, String(number));
-    return `${location.pathname}${params.size ? `?${params}` : ""}`;
-  };
-  if (page === 1 && !hasNext) return null;
-  return (
-    <nav className="pagination" aria-label={`${label} pages`}>
-      {page > 1 && (
-        <Link to={destination(page - 1)} rel="prev">
-          ← Previous
-        </Link>
-      )}
-      <span>Page {page}</span>
-      {hasNext && page < 100 && (
-        <Link to={destination(page + 1)} rel="next">
-          Next →
-        </Link>
-      )}
-    </nav>
-  );
-}
-
-export function EmptyState({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="empty-state">
-      <h2>{title}</h2>
-      <p>{children}</p>
-    </div>
-  );
-}
+export { EmptyState } from "./ui/feedback";
+export { Pagination } from "./ui/navigation";

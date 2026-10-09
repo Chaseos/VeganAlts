@@ -5,7 +5,7 @@ import { accessible } from "./a11y";
 test("policy pages are linked, readable and accessible", async ({ page }) => {
   await page.goto("/");
   await page
-    .getByRole("navigation", { name: "About VeganAlts" })
+    .getByRole("contentinfo")
     .getByRole("link", { name: "How rankings work" })
     .click();
   await expect(

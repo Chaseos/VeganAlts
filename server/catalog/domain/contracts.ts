@@ -1,4 +1,6 @@
 import type { CommunityProductDetails } from "../../community/domain/public";
+import type { TaxonomyNode } from "../../taxonomy/domain/shape";
+import type { RankingFilters } from "./filters";
 
 export interface CategorySummary {
   id: string;
@@ -25,11 +27,42 @@ export interface ProductSummary {
 export interface RankingRow extends ProductSummary {
   bayesianScore: number;
   ratingCount: number;
+  // Position in the unfiltered Top order, so a filtered view still shows
+  // where a product actually ranks.
+  topRank: number;
+  // Chosen stores (slugs) where the product is commonly found.
+  matchedStores: string[];
 }
 // Discovery rows show the Top score as context; it never orders them.
 export interface DiscoveryRow extends ProductSummary {
   bayesianScore: number | null;
   ratingCount: number;
+  matchedStores: string[];
+}
+
+export interface MarketRow {
+  id: string;
+  iso2: string;
+  name: string;
+  hasRankings: number;
+}
+
+export interface TaxonomyCounts {
+  categoryId: string;
+  productCount: number;
+  rankedCount: number;
+}
+
+export interface StoreOption {
+  slug: string;
+  name: string;
+  // Ranked swaps in this food commonly found there.
+  count: number;
+}
+
+export interface FilterOption {
+  key: string;
+  label: string;
 }
 export type CategoryView = "top" | "trending" | "new";
 
@@ -74,42 +107,69 @@ export interface PublicProfile {
 }
 
 export interface CatalogRepository {
-  categories(parentId?: string): Promise<CategorySummary[]>;
+  markets(): Promise<MarketRow[]>;
+  taxonomy(countryId: string): Promise<{
+    categories: TaxonomyNode[];
+    counts: TaxonomyCounts[];
+  }>;
+  categories(countryId: string, parentId?: string): Promise<CategorySummary[]>;
   sitemap(): Promise<{
     categories: { slug: string; updatedAt: number }[];
-    products: { slug: string; updatedAt: number }[];
+    products: { slug: string; updatedAt: number; country: string }[];
   }>;
   trending(
+    countryId: string,
     categoryId: string | null,
+    filters: RankingFilters,
     offset: number,
     limit: number,
   ): Promise<DiscoveryRow[]>;
   newest(
+    countryId: string,
     categoryId: string | null,
     since: number,
+    filters: RankingFilters,
     offset: number,
     limit: number,
   ): Promise<DiscoveryRow[]>;
-  featuredCategories(): Promise<CategorySummary[]>;
+  featuredCategories(countryId: string): Promise<CategorySummary[]>;
   categoryRedirect(slug: string): Promise<string | null>;
-  category(slug: string): Promise<CategorySummary | null>;
+  category(countryId: string, slug: string): Promise<CategorySummary | null>;
   rankings(
+    countryId: string,
     categoryId: string,
+    filters: RankingFilters,
     offset: number,
     limit: number,
   ): Promise<RankingRow[]>;
   unranked(
+    countryId: string,
     categoryId: string,
+    filters: RankingFilters,
     offset: number,
     limit: number,
   ): Promise<ProductSummary[]>;
+  storeOptions(
+    countryId: string,
+    categoryId: string,
+    freeFrom: string[],
+  ): Promise<StoreOption[]>;
+  filterOptions(
+    countryId: string,
+  ): Promise<{ stores: FilterOption[]; allergens: FilterOption[] }>;
   product(
+    countryId: string,
     slug: string,
     versionId: string | null,
   ): Promise<ProductDetails | null>;
   search(
+    countryId: string,
+    iso2: string,
     expression: string,
   ): Promise<{ categories: CategorySummary[]; products: ProductSummary[] }>;
   profile(handle: string): Promise<PublicProfile | null>;
-  canonicalRedirect(slug: string): Promise<{ id: string; slug: string } | null>;
+  canonicalRedirect(
+    countryId: string,
+    slug: string,
+  ): Promise<{ id: string; slug: string } | null>;
 }

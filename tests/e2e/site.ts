@@ -42,3 +42,17 @@ export async function openAccountLink(page: Page, name: string) {
     .getByRole("link", { name })
     .click();
 }
+
+export async function chooseCountry(page: Page, name: string) {
+  if (isPhone(page)) {
+    const menu = await openSiteMenu(page);
+    await menu.getByRole("link", { name: new RegExp(`^${name}`) }).click();
+    return;
+  }
+  await page.getByLabel(/^Country: /).click();
+  await page
+    .getByRole("banner")
+    .getByRole("navigation", { name: "Countries" })
+    .getByRole("link", { name: new RegExp(`^${name}`) })
+    .click();
+}

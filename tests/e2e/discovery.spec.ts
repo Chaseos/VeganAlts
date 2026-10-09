@@ -130,7 +130,10 @@ test("public HTML is session-independent apart from fresh CSP nonces; API/privat
     html.replace(/nonce="[^"]+"/g, 'nonce="DELIVERY"');
   for (const path of [
     "/",
+    "/ca",
     "/us/ground-beef",
+    "/us/ground-beef?view=trending",
+    "/gb/ground-beef",
     "/us/products/beyond-beef",
     "/users/demo_taster_01",
   ]) {

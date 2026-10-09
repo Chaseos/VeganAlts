@@ -2,6 +2,7 @@ import type { Classification } from "./contracts";
 
 export interface RetailerSummary {
   id: string;
+  slug: string;
   name: string;
   websiteUrl: string | null;
   status: string;

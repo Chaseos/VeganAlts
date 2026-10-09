@@ -1,10 +1,23 @@
-import { type RouteConfig, index, route } from "@react-router/dev/routes";
+import {
+  type RouteConfig,
+  index,
+  layout,
+  prefix,
+  route,
+} from "@react-router/dev/routes";
 
 export default [
-  index("routes/home.tsx"),
-  route("us/search", "routes/search.tsx"),
-  route("us/products/:productSlug", "routes/product.tsx"),
-  route("us/:categorySlug", "routes/category.tsx"),
+  // Every country's catalog shares one layout (header, aisles, footer). "/" is
+  // the United States home; static first segments below outrank ":country".
+  layout("routes/country-layout.tsx", [
+    index("routes/home.tsx"),
+    ...prefix(":country", [
+      index("routes/home.tsx", { id: "routes/country-home" }),
+      route("search", "routes/search.tsx"),
+      route("products/:productSlug", "routes/product.tsx"),
+      route(":categorySlug", "routes/category.tsx"),
+    ]),
+  ]),
   route("users/:handle", "routes/profile.tsx"),
   route("about/:page", "routes/policy.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),

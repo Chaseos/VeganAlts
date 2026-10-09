@@ -15,6 +15,8 @@ import {
   decodeCommentCursor,
 } from "../domain/comments";
 
+export type CommentProductLookup =
+  { id: string } | { slug: string; countryId: string };
 export interface CommentProduct {
   id: string;
   slug: string;
@@ -69,18 +71,18 @@ export class D1CommentRepository {
   replay<T>(receipt: ReceiptWrite) {
     return replay<T>(this.db, receipt);
   }
-  /** A visible US product's current formula, which new comments describe. */
-  async product(where: { id?: string; slug?: string }) {
+  /** A visible product's current formula in an active country, which new comments describe. */
+  async product(where: CommentProductLookup) {
     const row = await this.db
       .prepare(
         `SELECT p.id,p.slug,p.name,b.name AS brand,v.id AS versionId,
         (SELECT json_group_array(json_object('id',c.id,'name',c.name)) FROM product_categories pc JOIN categories c ON c.id=pc.category_id WHERE pc.product_id=p.id AND c.is_active=1) AS categories
-        FROM products p JOIN countries co ON co.id=p.country_id AND co.iso2='US' AND co.is_active=1
+        FROM products p JOIN countries co ON co.id=p.country_id AND co.is_active=1
         JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
         LEFT JOIN brands b ON b.id=p.brand_id
-        WHERE ${where.id ? "p.id=?" : "p.slug=?"} AND p.lifecycle_status<>'hidden'`,
+        WHERE ${"id" in where ? "p.id=?" : "p.slug=? AND p.country_id=?"} AND p.lifecycle_status<>'hidden'`,
       )
-      .bind(where.id ?? where.slug)
+      .bind(...("id" in where ? [where.id] : [where.slug, where.countryId]))
       .first<Omit<CommentProduct, "categories"> & { categories: string }>();
     if (!row) return null;
     return {

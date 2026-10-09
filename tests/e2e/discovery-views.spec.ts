@@ -10,12 +10,16 @@ test("categories offer separate Top, Trending and New views and the homepage sur
   ).toBeVisible();
   await accessible(page);
   await page.goto("/us/ground-beef");
-  const tabs = page.getByRole("navigation", { name: "Ranking view" });
-  await expect(tabs.getByRole("link", { name: "Top" })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
-  await tabs.getByRole("link", { name: "Trending" }).click();
+  // One sort menu holds Closest match (Top), Trending and Newest.
+  const sortBy = async (current: string, next: RegExp) => {
+    await page.getByLabel(`Sort: ${current}`).click();
+    await page
+      .getByRole("group", { name: "Sort by" })
+      .getByRole("link", { name: next })
+      .click();
+  };
+  await expect(page.getByLabel("Sort: Closest match")).toBeVisible();
+  await sortBy("Closest match", /^Trending/);
   await expect(page).toHaveURL(/view=trending/);
   await expect(
     page.getByRole("heading", { name: "Trending alternatives" }),
@@ -24,7 +28,7 @@ test("categories offer separate Top, Trending and New views and the homepage sur
     page.getByText("It never changes the Top ranking."),
   ).toBeVisible();
   await accessible(page);
-  await tabs.getByRole("link", { name: "New" }).click();
+  await sortBy("Trending", /^Newest/);
   await expect(page).toHaveURL(/view=new/);
   await expect(
     page.getByRole("heading", { name: "New alternatives" }),
@@ -33,7 +37,7 @@ test("categories offer separate Top, Trending and New views and the homepage sur
     "href",
     /\/us\/ground-beef\?view=new$/,
   );
-  await tabs.getByRole("link", { name: "Top" }).click();
+  await sortBy("Newest", /^Closest match/);
   await expect(
     page.getByRole("heading", { name: /Top alternatives/ }),
   ).toBeVisible();

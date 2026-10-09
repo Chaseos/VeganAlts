@@ -75,6 +75,11 @@ describe("comment policy", () => {
   });
 });
 
+const url0 = (request: Request) =>
+  new URL(
+    normalizedPublicRequest(request, "https://staging.veganalts.com", "v1").url,
+  );
+
 describe("comment cache identity", () => {
   it("caches comment pages briefly under the product's purge tag", () => {
     const origin = "https://staging.veganalts.com";
@@ -87,7 +92,9 @@ describe("comment cache identity", () => {
       ttl: 60,
       slug: "beyond-beef",
     });
-    expect(publicCacheTags(route)).toContain("product:beyond-beef");
+    // Product slugs are unique per country; the API defaults to the United States.
+    expect(publicCacheTags(route)).toContain("product:us:beyond-beef");
+    expect(url0(request).searchParams.get("country")).toBe("us");
     const url = new URL(normalizedPublicRequest(request, origin, "v1").url);
     expect(url.pathname).toBe("/api/v1/products/beyond-beef/comments");
     expect(url.searchParams.get("sort")).toBe("newest");

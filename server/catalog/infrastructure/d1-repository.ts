@@ -4,12 +4,17 @@ import type {
   CategorySummary,
   DiscoveryRow,
   FormulaSummary,
+  MarketRow,
   ProductCategory,
   ProductDetails,
   ProductSummary,
   PublicProfile,
   RankingRow,
+  StoreOption,
+  TaxonomyCounts,
 } from "../domain/contracts";
+import type { RankingFilters } from "../domain/filters";
+import type { TaxonomyNode } from "../../taxonomy/domain/shape";
 import {
   eligibleProductSql as eligible,
   rankedMembershipSql,
@@ -24,21 +29,113 @@ import {
 
 const identity = `p.id,p.slug,p.name,b.name AS brand,v.id AS versionId,p.development_only AS developmentOnly,p.published_at AS publishedAt,
   (SELECT i.id FROM product_images i WHERE i.product_version_id=v.id AND i.slot='front' AND i.state='accepted' LIMIT 1) AS imageId`;
-const productJoins = `JOIN products p ON p.id=v.product_id JOIN countries country ON country.id=p.country_id AND country.iso2='US' AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id`;
+// Every catalog read is scoped to one active country, bound as its ID.
+const productJoins = `JOIN products p ON p.id=v.product_id AND p.country_id=? JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id`;
 const visible = `p.lifecycle_status <> 'hidden'`;
 const categoryFields = `c.id,c.slug,c.name,c.parent_id AS parentId,c.is_rankable AS isRankable,
- (SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id=pc.product_id JOIN countries country ON country.id=p.country_id WHERE pc.category_id=c.id AND country.iso2='US' AND country.is_active=1 AND ${visible}) AS productCount`;
+ (SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=c.id AND p.country_id=? AND ${visible}) AS productCount`;
+
+interface Fragment {
+  sql: string;
+  binds: unknown[];
+}
+
+// Ranking filters only narrow a view. A product qualifies for the store
+// filter when an active report places it at any chosen store in an active
+// market of its own country (OR across stores). Free-from requires a confirmed
+// declaration naming none of the chosen allergens.
+function filterSql(
+  filters: RankingFilters,
+  product = "p",
+  version = "v",
+): Fragment {
+  const parts: string[] = [];
+  const binds: unknown[] = [];
+  if (filters.stores.length) {
+    parts.push(`EXISTS(SELECT 1 FROM product_retailers pr JOIN retailers r ON r.id=pr.retailer_id
+      JOIN products fp ON fp.id=pr.product_id
+      JOIN retailer_markets m ON m.retailer_id=pr.retailer_id AND m.country_id=fp.country_id AND m.is_active=1
+      WHERE pr.product_id=${product}.id AND pr.status='active' AND r.slug IN (SELECT value FROM json_each(?)))`);
+    binds.push(JSON.stringify(filters.stores));
+  }
+  if (filters.freeFrom.length) {
+    parts.push(`EXISTS(SELECT 1 FROM product_version_allergen_declarations d WHERE d.product_version_id=${version}.id)
+      AND NOT EXISTS(SELECT 1 FROM product_version_allergens a WHERE a.product_version_id=${version}.id AND a.allergen_key IN (SELECT value FROM json_each(?)))`);
+    binds.push(JSON.stringify(filters.freeFrom));
+  }
+  return { sql: parts.length ? ` AND ${parts.join(" AND ")}` : "", binds };
+}
+
+// The chosen stores where a listed product is commonly found (active reports).
+function matchedStoresSql(filters: RankingFilters, product = "p"): Fragment {
+  if (!filters.stores.length)
+    return { sql: ",NULL AS matchedStores", binds: [] };
+  return {
+    sql: `,(SELECT json_group_array(r.slug) FROM product_retailers pr JOIN retailers r ON r.id=pr.retailer_id
+      JOIN products fp ON fp.id=pr.product_id
+      JOIN retailer_markets m ON m.retailer_id=pr.retailer_id AND m.country_id=fp.country_id AND m.is_active=1
+      WHERE pr.product_id=${product}.id AND pr.status='active' AND r.slug IN (SELECT value FROM json_each(?))) AS matchedStores`,
+    binds: [JSON.stringify(filters.stores)],
+  };
+}
+
+function parseStores<T extends { matchedStores?: unknown }>(rows: T[]) {
+  return rows.map((row) => ({
+    ...row,
+    matchedStores:
+      typeof row.matchedStores === "string"
+        ? (JSON.parse(row.matchedStores) as string[]).sort()
+        : [],
+  }));
+}
 
 export class D1CatalogRepository implements CatalogRepository {
   constructor(private readonly db: D1Database) {}
 
-  async categories(parentId?: string) {
+  async markets() {
+    return (
+      await this.db
+        .prepare(
+          `SELECT co.id,co.iso2,co.name,EXISTS(SELECT 1 FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1
+            JOIN products p ON p.id=v.product_id AND p.country_id=co.id ${rankedMembershipSql}
+            WHERE ${eligible} AND ${rankedSampleSql}) AS hasRankings
+          FROM countries co WHERE co.is_active=1 ORDER BY CASE WHEN co.iso2='US' THEN 0 ELSE 1 END,co.name LIMIT 300`,
+        )
+        .all<MarketRow>()
+    ).results;
+  }
+
+  // Every active category plus per-food counts for one country: the aisle
+  // tree is shaped from these in the domain.
+  async taxonomy(countryId: string) {
+    const [categories, counts] = await this.db.batch([
+      this.db.prepare(
+        "SELECT id,slug,name,parent_id AS parentId,is_rankable AS isRankable FROM categories WHERE is_active=1 ORDER BY name LIMIT 2000",
+      ),
+      this.db
+        .prepare(
+          `SELECT pc.category_id AS categoryId,COUNT(DISTINCT p.id) AS productCount,
+            COUNT(DISTINCT CASE WHEN s.rating_count>0 AND pc.ranking_eligible=1 AND ${eligible} THEN p.id END) AS rankedCount
+          FROM product_categories pc JOIN products p ON p.id=pc.product_id AND p.country_id=? AND ${visible}
+          JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
+          LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id
+          GROUP BY pc.category_id`,
+        )
+        .bind(countryId),
+    ]);
+    return {
+      categories: categories!.results as unknown as TaxonomyNode[],
+      counts: counts!.results as unknown as TaxonomyCounts[],
+    };
+  }
+
+  async categories(countryId: string, parentId?: string) {
     return (
       await this.db
         .prepare(
           `SELECT ${categoryFields} FROM categories c WHERE c.is_active=1 AND ${parentId ? "c.parent_id=?" : "c.is_rankable=1"} ORDER BY c.name LIMIT 100`,
         )
-        .bind(...(parentId ? [parentId] : []))
+        .bind(countryId, ...(parentId ? [parentId] : []))
         .all<CategorySummary>()
     ).results;
   }
@@ -47,27 +144,29 @@ export class D1CatalogRepository implements CatalogRepository {
     const [categories, products] = await this.db.batch<{
       slug: string;
       updatedAt: number;
+      country: string;
     }>([
       this.db.prepare(
-        "SELECT slug,updated_at AS updatedAt FROM categories WHERE is_active=1 ORDER BY slug LIMIT 10000",
+        "SELECT slug,updated_at AS updatedAt,NULL AS country FROM categories WHERE is_active=1 ORDER BY slug LIMIT 10000",
       ),
       // Discontinued products stay indexable with their status; hidden
-      // (archived duplicates) and other markets are excluded.
+      // (archived duplicates) and inactive markets are excluded.
       this.db.prepare(
-        `SELECT p.slug,p.updated_at AS updatedAt FROM products p JOIN countries country ON country.id=p.country_id AND country.iso2='US' AND country.is_active=1
-        WHERE ${visible} ORDER BY p.slug LIMIT 40000`,
+        `SELECT p.slug,p.updated_at AS updatedAt,lower(country.iso2) AS country FROM products p JOIN countries country ON country.id=p.country_id AND country.is_active=1
+        WHERE ${visible} ORDER BY country.iso2,p.slug LIMIT 40000`,
       ),
     ]);
     return { categories: categories!.results, products: products!.results };
   }
 
-  async featuredCategories() {
+  async featuredCategories(countryId: string) {
     return (
       await this.db
         .prepare(
-          `SELECT ${categoryFields} FROM category_features f JOIN countries co ON co.id=f.country_id AND co.iso2='US'
-          JOIN categories c ON c.id=f.category_id AND c.is_active=1 ORDER BY f.position LIMIT 12`,
+          `SELECT ${categoryFields} FROM category_features f
+          JOIN categories c ON c.id=f.category_id AND c.is_active=1 WHERE f.country_id=? ORDER BY f.position LIMIT 12`,
         )
+        .bind(countryId, countryId)
         .all<CategorySummary>()
     ).results;
   }
@@ -76,88 +175,190 @@ export class D1CatalogRepository implements CatalogRepository {
     return resolveCategoryRedirect(this.db, slug);
   }
 
-  category(slug: string) {
+  category(countryId: string, slug: string) {
     return this.db
       .prepare(
         `SELECT ${categoryFields} FROM categories c WHERE c.slug=? AND c.is_active=1`,
       )
-      .bind(slug)
+      .bind(countryId, slug)
       .first<CategorySummary>();
   }
 
-  async rankings(categoryId: string, offset: number, limit: number) {
-    return (
+  // Top order is computed over the whole ranking first, so a filtered row
+  // still shows its overall rank and filters never change a score.
+  async rankings(
+    countryId: string,
+    categoryId: string,
+    filters: RankingFilters,
+    offset: number,
+    limit: number,
+  ) {
+    const filter = filterSql(filters, "ranked", "ranked_v");
+    const stores = matchedStoresSql(filters, "ranked");
+    const rows = (
       await this.db
         .prepare(
-          `SELECT ${identity},s.bayesian_score AS bayesianScore,s.rating_count AS ratingCount
-      FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
-      ${rankedMembershipSql}
-      WHERE s.category_id=? AND ${eligible} AND ${rankedSampleSql}
-      ORDER BY ${rankingOrderSql} LIMIT ? OFFSET ?`,
+          `WITH ranked AS (SELECT ${identity},s.bayesian_score AS bayesianScore,s.rating_count AS ratingCount,
+            ROW_NUMBER() OVER (ORDER BY ${rankingOrderSql}) AS topRank
+          FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
+          ${rankedMembershipSql}
+          WHERE s.category_id=? AND ${eligible} AND ${rankedSampleSql})
+          SELECT ranked.*${stores.sql} FROM ranked JOIN product_versions ranked_v ON ranked_v.id=ranked.versionId
+          WHERE 1=1${filter.sql} ORDER BY ranked.topRank LIMIT ? OFFSET ?`,
         )
-        .bind(categoryId, limit, offset)
+        .bind(
+          countryId,
+          categoryId,
+          ...stores.binds,
+          ...filter.binds,
+          limit,
+          offset,
+        )
         .all<RankingRow>()
     ).results;
+    return parseStores(rows);
   }
 
   // Trending reads the precomputed trends read model, never raw ratings.
-  async trending(categoryId: string | null, offset: number, limit: number) {
-    return (
+  async trending(
+    countryId: string,
+    categoryId: string | null,
+    filters: RankingFilters,
+    offset: number,
+    limit: number,
+  ) {
+    const filter = filterSql(filters);
+    const stores = matchedStoresSql(filters);
+    const rows = (
       await this.db
         .prepare(
-          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount
+          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount${stores.sql}
       FROM product_category_trends t JOIN product_versions v ON v.id=t.product_version_id AND v.is_current=1 ${productJoins}
       JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=t.category_id AND pc.ranking_eligible=1
       JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1
       LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=t.category_id
-      WHERE ${categoryId ? "t.category_id=? AND" : ""} t.trending_score>0 AND ${eligible}
+      WHERE ${categoryId ? "t.category_id=? AND" : ""} t.trending_score>0 AND ${eligible}${filter.sql}
       ${categoryId ? "" : "GROUP BY p.id"}
       ORDER BY ${categoryId ? "t.trending_score" : "MAX(t.trending_score)"} DESC,p.id LIMIT ? OFFSET ?`,
         )
-        .bind(...(categoryId ? [categoryId] : []), limit, offset)
+        .bind(
+          ...stores.binds,
+          countryId,
+          ...(categoryId ? [categoryId] : []),
+          ...filter.binds,
+          limit,
+          offset,
+        )
         .all<DiscoveryRow>()
     ).results;
+    return parseStores(rows);
   }
 
   // New is chronological discovery of recently published, eligible products.
   async newest(
+    countryId: string,
     categoryId: string | null,
     since: number,
+    filters: RankingFilters,
     offset: number,
     limit: number,
   ) {
-    return (
+    const filter = filterSql(filters);
+    const stores = matchedStoresSql(filters);
+    const rows = (
       await this.db
         .prepare(
-          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount
+          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount${stores.sql}
       FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
-      JOIN countries country ON country.id=p.country_id AND country.iso2='US' AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id
+      JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id
       ${categoryId ? "JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=? AND pc.ranking_eligible=1 LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id" : ""}
-      WHERE p.published_at>=? AND ${eligible}
+      WHERE p.country_id=? AND p.published_at>=? AND ${eligible}${filter.sql}
       ${categoryId ? "" : "AND EXISTS(SELECT 1 FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 AND c.is_rankable=1 WHERE pc.product_id=p.id AND pc.ranking_eligible=1)"}
       ORDER BY p.published_at DESC,p.id DESC LIMIT ? OFFSET ?`,
         )
-        .bind(...(categoryId ? [categoryId] : []), since, limit, offset)
+        .bind(
+          ...stores.binds,
+          ...(categoryId ? [categoryId] : []),
+          countryId,
+          since,
+          ...filter.binds,
+          limit,
+          offset,
+        )
         .all<DiscoveryRow>()
     ).results;
+    return parseStores(rows);
   }
 
-  async unranked(categoryId: string, offset: number, limit: number) {
+  async unranked(
+    countryId: string,
+    categoryId: string,
+    filters: RankingFilters,
+    offset: number,
+    limit: number,
+  ) {
+    const filter = filterSql(filters);
     return (
       await this.db
         .prepare(
           `SELECT ${identity} FROM product_categories pc
       JOIN product_versions v ON v.product_id=pc.product_id AND v.is_current=1 ${productJoins}
       LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id
-      WHERE pc.category_id=? AND pc.ranking_eligible=1 AND ${eligible} AND COALESCE(s.rating_count,0)=0
+      WHERE pc.category_id=? AND pc.ranking_eligible=1 AND ${eligible} AND COALESCE(s.rating_count,0)=0${filter.sql}
       ORDER BY p.name,p.id LIMIT ? OFFSET ?`,
         )
-        .bind(categoryId, limit, offset)
+        .bind(countryId, categoryId, ...filter.binds, limit, offset)
         .all<ProductSummary>()
     ).results;
   }
 
+  // Each store in the country's active markets with its number of ranked
+  // swaps in this food under the current Free-from choice (but not the store
+  // choice), so a count says what choosing that store adds.
+  async storeOptions(
+    countryId: string,
+    categoryId: string,
+    freeFrom: string[],
+  ) {
+    const filter = filterSql({ stores: [], freeFrom });
+    return (
+      await this.db
+        .prepare(
+          `WITH ranked AS (SELECT p.id FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
+            ${rankedMembershipSql}
+            WHERE s.category_id=? AND ${eligible} AND ${rankedSampleSql}${filter.sql})
+          SELECT r.slug,COALESCE(m.market_name,r.canonical_name) AS name,
+            (SELECT COUNT(*) FROM product_retailers pr WHERE pr.retailer_id=r.id AND pr.status='active' AND pr.product_id IN (SELECT id FROM ranked)) AS count
+          FROM retailer_markets m JOIN retailers r ON r.id=m.retailer_id
+          WHERE m.country_id=? AND m.is_active=1 ORDER BY count DESC,name LIMIT 50`,
+        )
+        .bind(countryId, categoryId, ...filter.binds, countryId)
+        .all<StoreOption>()
+    ).results;
+  }
+
+  // Values the country offers, used to validate filter parameters.
+  async filterOptions(countryId: string) {
+    const [stores, allergens] = await this.db.batch<{
+      key: string;
+      label: string;
+    }>([
+      this.db
+        .prepare(
+          "SELECT r.slug AS key,COALESCE(m.market_name,r.canonical_name) AS label FROM retailer_markets m JOIN retailers r ON r.id=m.retailer_id WHERE m.country_id=? AND m.is_active=1 ORDER BY label LIMIT 500",
+        )
+        .bind(countryId),
+      this.db
+        .prepare(
+          "SELECT ca.allergen_key AS key,COALESCE(ca.label,a.label) AS label FROM country_allergens ca JOIN allergens a ON a.key=ca.allergen_key WHERE ca.country_id=? ORDER BY ca.position",
+        )
+        .bind(countryId),
+    ]);
+    return { stores: stores!.results, allergens: allergens!.results };
+  }
+
   async product(
+    countryId: string,
     slug: string,
     versionId: string | null,
   ): Promise<ProductDetails | null> {
@@ -166,7 +367,7 @@ export class D1CatalogRepository implements CatalogRepository {
         `SELECT ${identity},country.name AS country,p.vegan_status AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.lifecycle_status AS lifecycleStatus,p.data_notes AS dataNotes
       FROM product_versions v ${productJoins} WHERE p.slug=? AND ${visible} AND ${versionId ? "v.id=?" : "v.is_current=1"}`,
       )
-      .bind(slug, ...(versionId ? [versionId] : []))
+      .bind(countryId, slug, ...(versionId ? [versionId] : []))
       .first<
         Omit<ProductDetails, "formula" | "categories" | "history" | "images">
       >();
@@ -222,18 +423,18 @@ export class D1CatalogRepository implements CatalogRepository {
     };
   }
 
-  async search(expression: string) {
+  async search(countryId: string, iso2: string, expression: string) {
     const [categories, products] = await this.db.batch([
       this.db
         .prepare(
-          `SELECT ${categoryFields} FROM search_index JOIN categories c ON c.id=search_index.entity_id AND c.is_active=1 WHERE search_index MATCH ? AND entity_type='category' AND country_code='US' ORDER BY rank,c.name LIMIT 12`,
+          `SELECT ${categoryFields} FROM search_index JOIN categories c ON c.id=search_index.entity_id AND c.is_active=1 WHERE search_index MATCH ? AND entity_type='category' AND country_code=? ORDER BY rank,c.name LIMIT 12`,
         )
-        .bind(expression),
+        .bind(countryId, expression, iso2),
       this.db
         .prepare(
-          `SELECT ${identity} FROM search_index JOIN product_versions v ON v.product_id=search_index.entity_id AND v.is_current=1 ${productJoins} WHERE search_index MATCH ? AND entity_type='product' AND country_code='US' AND p.lifecycle_status<>'discontinued' AND ${visible} ORDER BY rank,p.name,p.id LIMIT 20`,
+          `SELECT ${identity} FROM search_index JOIN product_versions v ON v.product_id=search_index.entity_id AND v.is_current=1 ${productJoins} WHERE search_index MATCH ? AND entity_type='product' AND country_code=? AND p.lifecycle_status<>'discontinued' AND ${visible} ORDER BY rank,p.name,p.id LIMIT 20`,
         )
-        .bind(expression),
+        .bind(countryId, expression, iso2),
     ]);
     return {
       categories: categories!.results as unknown as CategorySummary[],
@@ -241,8 +442,8 @@ export class D1CatalogRepository implements CatalogRepository {
     };
   }
 
-  canonicalRedirect(slug: string) {
-    return readCanonicalRedirect(this.db, slug);
+  canonicalRedirect(countryId: string, slug: string) {
+    return readCanonicalRedirect(this.db, countryId, slug);
   }
 
   profile(handle: string) {

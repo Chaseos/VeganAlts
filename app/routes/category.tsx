@@ -19,31 +19,74 @@ import {
   SiteShell,
 } from "../components/catalog";
 import { breadcrumbs, itemList, publicMetadata } from "../lib/metadata";
+import { hasFilters, readFilters } from "@server/catalog/domain/filters";
+import {
+  foodPath,
+  homePath,
+  parseCountryCode,
+  productPath,
+} from "@server/catalog/domain/markets";
+import { Breadcrumb } from "../components/ui/navigation";
+import {
+  SortMenu,
+  StoreChecklist,
+} from "../components/catalog/ranking-filters";
+import {
+  filteredHref,
+  saveFilters,
+  useApplySavedFilters,
+} from "../lib/ranking-filters";
 import type { Route } from "./+types/category";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env);
+  const catalog = catalogService(env);
+  const country = parseCountryCode(params.country);
   // A renamed or merged category redirects (uncached) to its current slug.
-  const moved = await catalogService(env).categoryRedirect(params.categorySlug);
+  const moved = await catalog.categoryRedirect(params.categorySlug);
   if (moved)
-    throw redirect(`/us/${moved}${new URL(request.url).search}`, {
+    throw redirect(`/${country}/${moved}${new URL(request.url).search}`, {
       status: 302,
       headers: { "Cache-Control": "private, no-store" },
     });
   return publicLoader(async () => {
     const url = new URL(request.url);
+    const market = await catalog.market(country);
+    // Stores and allergens the country does not offer never become cache
+    // variants: drop them with an uncached redirect.
+    const checked = await catalog.validateFilters(
+      market,
+      readFilters(url.searchParams),
+    );
+    if (checked.changed)
+      throw redirect(filteredHref(url.pathname, url.search, checked.filters), {
+        status: 302,
+        headers: { "Cache-Control": "private, no-store" },
+      });
     return {
-      ...(await catalogService(env).category(
-        params.categorySlug,
-        catalogPage(url.searchParams.get("page")),
-        catalogPage(url.searchParams.get("unrankedPage")),
-        categoryView(url.searchParams.get("view")),
-      )),
+      ...(await catalog.category(market, params.categorySlug, {
+        page: catalogPage(url.searchParams.get("page")),
+        unrankedPage: catalogPage(url.searchParams.get("unrankedPage")),
+        view: categoryView(url.searchParams.get("view")),
+        filters: checked.filters,
+      })),
+      market,
+      allergenOptions: checked.options.allergens,
       origin: env.APP_URL,
       staging: env.APP_ENV !== "production",
     };
   });
 }
+
+// Switching country keeps the food.
+export const handle = {
+  countrySwitch: (data: unknown, code: string) => {
+    const slug = (data as { category?: { slug: string } } | undefined)?.category
+      ?.slug;
+    return slug ? foodPath(code, slug) : null;
+  },
+};
+
 function viewQuery(view: string, page: number) {
   const params = new URLSearchParams();
   if (view !== "top") params.set("view", view);
@@ -56,7 +99,10 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
     ? [
         breadcrumbs(origin, [
           { name: "Home", path: "/" },
-          { name: data.category.name, path: `/us/${data.category.slug}` },
+          {
+            name: data.category.name,
+            path: foodPath(data.market.code, data.category.slug),
+          },
         ]),
         ...(data.view === "top" && data.ranked.length
           ? [
@@ -65,7 +111,7 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
                 `Top vegan alternatives to ${data.category.name}`,
                 data.ranked.map((p) => ({
                   name: p.name,
-                  path: `/us/products/${p.slug}`,
+                  path: productPath(data.market.code, p.slug),
                 })),
                 (data.page - 1) * CATALOG_PAGE_SIZE + 1,
               ),
@@ -79,30 +125,43 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
         ? `Best vegan alternatives to ${data.category.name.toLowerCase()}`
         : "Category",
       `Compare vegan ${data?.category.name.toLowerCase() ?? "food"} alternatives, ranked by similarity with rating counts and formula details.`,
-      `/us/${data?.category.slug ?? ""}${data ? viewQuery(data.view, data.page) : ""}`,
+      // Filtered pages declare the unfiltered ranking canonical.
+      data
+        ? `${foodPath(data.market.code, data.category.slug)}${viewQuery(data.view, data.page)}`
+        : "/",
       origin,
       data?.staging ?? true,
     ),
     ...structured,
   ];
 }
+const SORTS = [
+  { view: "top", label: "Closest match", hint: "The ranking" },
+  { view: "trending", label: "Trending", hint: "Rising this week" },
+  { view: "new", label: "Newest", hint: "Recently added" },
+];
+
 export default function Category({ loaderData: data }: Route.ComponentProps) {
+  const filtered = hasFilters(data.filters);
+  useApplySavedFilters(data.market.code, {
+    stores: data.storeOptions.map((store) => store.slug),
+    freeFrom: [],
+  });
   return (
     <SiteShell>
-      <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <Link to="/">Home</Link>
-        <span aria-hidden="true">/</span>
-        <Link to="/us/search">Discover</Link>
-        <span aria-hidden="true">/</span>
-        <span>{data.category.name}</span>
-      </nav>
-      <header className="page-heading">
-        <p className="eyebrow">United States · Alternatives to</p>
+      <Breadcrumb
+        items={[
+          { label: "All foods", to: homePath(data.market.code) },
+          { label: data.category.name },
+        ]}
+      />
+      <header className="page-heading section-space-sm">
+        <p className="eyebrow">{data.market.name} · Alternatives to</p>
         <h1>{data.category.name}</h1>
         <p>All the familiar flavor. A different way to get there.</p>
         <Link
           className="text-link"
-          to={`/add-product?category=${data.category.id}`}
+          to={`/add-product?category=${data.category.id}&country=${data.market.code}`}
         >
           Know another alternative? Add a product →
         </Link>
@@ -114,23 +173,21 @@ export default function Category({ loaderData: data }: Route.ComponentProps) {
         </section>
       )}
       {!!data.category.isRankable && (
-        <nav className="view-tabs" aria-label="Ranking view">
-          {(
-            [
-              ["top", "Top"],
-              ["trending", "Trending"],
-              ["new", "New"],
-            ] as const
-          ).map(([view, label]) => (
-            <Link
-              key={view}
-              to={`/us/${data.category.slug}${viewQuery(view, 1)}`}
-              aria-current={data.view === view ? "page" : undefined}
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
+        <div className="va-filter-bar">
+          <SortMenu options={SORTS} current={data.view} />
+          <StoreChecklist
+            country={data.market.code}
+            stores={data.storeOptions}
+            filters={data.filters}
+          />
+        </div>
+      )}
+      {!!data.category.isRankable && (
+        <p className="va-filter-note section-space-sm">
+          Your stores are saved on this device and apply to every ranking. A
+          product shows if it’s commonly found at any of your stores. Stores
+          listed are the ones members report in {data.market.name}.
+        </p>
       )}
       {!!data.category.isRankable && data.view !== "top" && (
         <>
@@ -155,6 +212,7 @@ export default function Category({ loaderData: data }: Route.ComponentProps) {
             <ProductRows
               products={data.discovery}
               categoryId={data.category.id}
+              stores={data.storeOptions}
             />
           ) : (
             <EmptyState
@@ -179,11 +237,30 @@ export default function Category({ loaderData: data }: Route.ComponentProps) {
             <span>Ranked by similarity</span>
           </div>
           <RankingExplanation />
-          {data.ranked.length ? (
+          {filtered && !data.ranked.length && data.page === 1 ? (
+            <EmptyState
+              title="No ranked swaps match your filters yet"
+              actions={
+                <Link
+                  className="button secondary"
+                  to={foodPath(data.market.code, data.category.slug)}
+                  onClick={() =>
+                    saveFilters(data.market.code, { stores: [], freeFrom: [] })
+                  }
+                >
+                  Clear filters
+                </Link>
+              }
+            >
+              A new product may still be waiting for its first rating. Check
+              below, or loosen your filters.
+            </EmptyState>
+          ) : data.ranked.length ? (
             <ProductRows
               products={data.ranked}
               start={(data.page - 1) * CATALOG_PAGE_SIZE + 1}
               categoryId={data.category.id}
+              stores={data.storeOptions}
             />
           ) : (
             <EmptyState

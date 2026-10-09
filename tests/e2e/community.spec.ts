@@ -332,7 +332,7 @@ test("submission, private receipt, operator publication, reporting, formula hist
     );
     expect(apiRedirect.status()).toBe(302);
     expect(apiRedirect.headers().location).toBe(
-      "/api/v1/products/beyond-burger",
+      "/api/v1/products/beyond-burger?country=us",
     );
     expect(apiRedirect.headers()["cache-control"]).toContain("no-store");
     const dataRedirect = await page.request.get(

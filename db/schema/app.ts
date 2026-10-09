@@ -732,6 +732,12 @@ export const retailerMarkets = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.retailerId, table.countryId] }),
+    // Lists and validates a country's stores for the store filter.
+    index("ix_retailer_markets_country").on(
+      table.countryId,
+      table.isActive,
+      table.retailerId,
+    ),
     check("ck_retailer_markets_1", sql.raw("is_active IN (0, 1)")),
   ],
 );

@@ -17,6 +17,7 @@ import archivoFont from "./assets/fonts/archivo-latin-wdth.woff2?url";
 import { THEME_COLORS, THEME_SCRIPT } from "./lib/theme";
 import { PageShell } from "./components/layout/page-shell";
 import { ButtonLink } from "./components/ui/button";
+import { searchPath, useSiteChrome } from "./lib/site-chrome";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const nonce = useContext(NonceContext);
@@ -78,6 +79,7 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  const { country } = useSiteChrome();
   const status = isRouteErrorResponse(error) ? error.status : 500;
   const message =
     status === 404
@@ -104,7 +106,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       </div>
       <div className="button-row">
         <ButtonLink to="/">Back to VeganAlts</ButtonLink>
-        <ButtonLink to="/us/search" variant="secondary">
+        <ButtonLink to={searchPath(country.code)} variant="secondary">
           Search foods
         </ButtonLink>
       </div>

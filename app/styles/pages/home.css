@@ -1,0 +1,12 @@
+/* Country home. */
+.va-empty-country {
+  display: grid;
+  gap: var(--va-space-4);
+  max-width: 760px;
+  padding: var(--va-space-6) 0 var(--va-space-8);
+}
+
+.va-empty-country p {
+  margin: 0;
+  color: var(--va-ink-2);
+}

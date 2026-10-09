@@ -56,18 +56,14 @@ export function useSiteChrome(): SiteChrome {
   return data?.chrome ?? FALLBACK;
 }
 
-export function homePath(country: string) {
-  return country === "us" ? "/" : `/${country}`;
+export function useCountryCode() {
+  return useSiteChrome().country.code;
 }
 
-export function searchPath(country: string) {
-  return `/${country}/search`;
-}
-
-export function foodPath(country: string, slug: string) {
-  return `/${country}/${slug}`;
-}
-
-export function productPath(country: string, slug: string) {
-  return `/${country}/products/${slug}`;
-}
+// One source for public paths, shared with the server.
+export {
+  foodPath,
+  homePath,
+  productPath,
+  searchPath,
+} from "@server/catalog/domain/markets";

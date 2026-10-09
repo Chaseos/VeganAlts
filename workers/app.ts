@@ -12,6 +12,7 @@ import {
   cachePublicResponse,
   invalidationTags,
   normalizedPublicRequest,
+  publicRedirect,
   publicRoute,
   type MaterialCatalogChange,
 } from "../server/shared/http/public-cache";
@@ -139,15 +140,19 @@ export default {
             );
           if (route.kind === "search")
             await enforceLimit(env.SEARCH_RATE_LIMIT, clientKey(request));
+          // URL-only redirects (/us, non-normalized filters) need no D1 read.
+          const moved = publicRedirect(url, route);
           // Redirect lookup belongs to the public loaders on a cache miss.
           // Material changes purge product tags; redirect responses are no-store.
-          response = await context.exports.PublicCatalog.fetch(
-            normalizedPublicRequest(
-              request,
-              env.APP_URL,
-              env.VERSION_METADATA.id,
-            ),
-          );
+          response = moved
+            ? new Response(null, { status: 301, headers: { Location: moved } })
+            : await context.exports.PublicCatalog.fetch(
+                normalizedPublicRequest(
+                  request,
+                  env.APP_URL,
+                  env.VERSION_METADATA.id,
+                ),
+              );
           cacheOutcome =
             response.headers.get("CF-Cache-Status") ??
             (env.APP_ENV === "local" ? "LOCAL" : "UNKNOWN");

@@ -73,7 +73,13 @@ it("publishes ordinary comments, rejects duplicates and serves session-free page
       body: "Pretty good.",
     }),
   ).toEqual(first);
-  const page = await comments.page(f.productId, "newest", "current", null);
+  const page = await comments.page(
+    f.countryId,
+    f.productId,
+    "newest",
+    "current",
+    null,
+  );
   expect(page.comments.map((c) => c.id)).toEqual([first.id, saved.id]);
   expect(page.comments[1]).toMatchObject({
     author: { handle: f.users[0]!.id },
@@ -134,14 +140,26 @@ it("keeps one vote per account, ranks Best by confidence and collapses heavily d
       .bind(proven.id)
       .first("n"),
   ).toBe(7);
-  const best = await comments.page(f.productId, "best", "current", null);
+  const best = await comments.page(
+    f.countryId,
+    f.productId,
+    "best",
+    "current",
+    null,
+  );
   expect(best.comments.map((c) => c.id)).toEqual([
     proven.id,
     lucky.id,
     poor.id,
   ]);
   expect(best.comments.find((c) => c.id === poor.id)?.collapsed).toBe(true);
-  const newest = await comments.page(f.productId, "newest", "current", null);
+  const newest = await comments.page(
+    f.countryId,
+    f.productId,
+    "newest",
+    "current",
+    null,
+  );
   expect(newest.comments.map((c) => c.id)).toEqual([
     poor.id,
     proven.id,
@@ -170,9 +188,16 @@ it("paginates with stable cursors and separates earlier formulas", async () => {
       productId: f.productId,
       body: `Comment number ${i}`,
     });
-  const first = await comments.page(f.productId, "newest", "current", null);
+  const first = await comments.page(
+    f.countryId,
+    f.productId,
+    "newest",
+    "current",
+    null,
+  );
   expect(first.comments).toHaveLength(20);
   const second = await comments.page(
+    f.countryId,
     f.productId,
     "newest",
     "current",
@@ -184,7 +209,13 @@ it("paginates with stable cursors and separates earlier formulas", async () => {
     new Set([...first.comments, ...second.comments].map((c) => c.id)).size,
   ).toBe(23);
   await expect(
-    comments.page(f.productId, "best", "current", first.nextCursor),
+    comments.page(
+      f.countryId,
+      f.productId,
+      "best",
+      "current",
+      first.nextCursor,
+    ),
   ).rejects.toMatchObject({ code: "INVALID_CURSOR" });
   // A new current formula keeps earlier comments readable and labeled.
   const next = id();
@@ -197,9 +228,16 @@ it("paginates with stable cursors and separates earlier formulas", async () => {
     ).bind(next, f.productId, "Reformulated"),
   ]);
   expect(
-    (await comments.page(f.productId, "best", "current", null)).counts,
+    (await comments.page(f.countryId, f.productId, "best", "current", null))
+      .counts,
   ).toEqual({ current: 0, earlier: 23 });
-  const earlier = await comments.page(f.productId, "best", "earlier", null);
+  const earlier = await comments.page(
+    f.countryId,
+    f.productId,
+    "best",
+    "earlier",
+    null,
+  );
   expect(earlier.comments[0]!.formula).toMatchObject({ isCurrent: false });
 });
 
@@ -312,7 +350,8 @@ it("holds uncertain or unevaluated comments, blocks near-certain spam and releas
   });
   expect(unevaluated.state).toBe("pending");
   expect(
-    (await comments.page(f.productId, "newest", "current", null)).comments,
+    (await comments.page(f.countryId, f.productId, "newest", "current", null))
+      .comments,
   ).toHaveLength(0);
   // Operators see both in the inbox; only provider failures are retried.
   const inbox = await communityServices(env).moderation.inbox(
@@ -326,7 +365,7 @@ it("holds uncertain or unevaluated comments, blocks near-certain spam and releas
   failing = false;
   expect(await service(flaky).reevaluateHeld()).toBe(1);
   const visible = (
-    await comments.page(f.productId, "newest", "current", null)
+    await comments.page(f.countryId, f.productId, "newest", "current", null)
   ).comments.map((c) => c.id);
   expect(visible).toEqual([unevaluated.id]);
 });
@@ -446,7 +485,8 @@ it("lets authors edit and delete with fences, and operators publish, hide and re
   const removed = await comments.remove(actors[0]!, saved.id);
   expect(removed).toMatchObject({ deleted: true });
   expect(
-    (await comments.page(f.productId, "newest", "current", null)).comments,
+    (await comments.page(f.countryId, f.productId, "newest", "current", null))
+      .comments,
   ).toHaveLength(0);
 });
 

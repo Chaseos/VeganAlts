@@ -5,6 +5,7 @@ import { requireSameOrigin } from "../../shared/http/security";
 import { limitedJson, success } from "../../shared/http/json";
 import { protectContribution } from "../../abuse/service";
 import { communityActor } from "../../community/http/handlers";
+import { catalogService } from "../../catalog/infrastructure/composition";
 import { scheduleCatalogInvalidation } from "../../catalog/infrastructure/invalidation";
 import { commentFormula, commentSort, commentVote } from "../domain/comments";
 import { commentServices } from "../infrastructure/composition";
@@ -31,8 +32,12 @@ export async function publicComments(
   if (!catalogIsPublic(env))
     throw new ApplicationError("NOT_FOUND", "This page is not available.", 404);
   const url = new URL(request.url);
+  const market = await catalogService(env).market(
+    url.searchParams.get("country") ?? "us",
+  );
   return success(
     await commentServices(env).page(
+      market.id,
       parse(slug, productSlug),
       parse(commentSort, url.searchParams.get("sort") ?? "best"),
       parse(commentFormula, url.searchParams.get("formula") ?? "current"),
@@ -42,12 +47,19 @@ export async function publicComments(
 }
 
 async function purgeProduct(env: Cloudflare.Env, productId: string) {
-  const product = await env.DB.prepare("SELECT slug FROM products WHERE id=?")
+  const product = await env.DB.prepare(
+    "SELECT p.slug,lower(co.iso2) AS country FROM products p JOIN countries co ON co.id=p.country_id WHERE p.id=?",
+  )
     .bind(productId)
-    .first<{ slug: string }>();
+    .first<{ slug: string; country: string }>();
   if (product)
     scheduleCatalogInvalidation([
-      { kind: "product", slug: product.slug, pageOnly: true },
+      {
+        kind: "product",
+        slug: product.slug,
+        country: product.country,
+        scope: "page",
+      },
     ]);
 }
 

@@ -34,9 +34,9 @@ export function SiteFooter({
             sponsored
           </p>
         </div>
-        <div className="va-footer__columns">
+        <nav className="va-footer__columns" aria-label="Footer">
           {variant === "full" && aisles.length > 0 && (
-            <nav aria-label="Aisles">
+            <div className="va-footer__group">
               <h2 className="va-footer__heading">Aisles</h2>
               <ul>
                 {aisles.map((aisle) => (
@@ -47,10 +47,10 @@ export function SiteFooter({
                   </li>
                 ))}
               </ul>
-            </nav>
+            </div>
           )}
           {variant === "full" && countries.length > 1 && (
-            <nav aria-label="Countries">
+            <div className="va-footer__group">
               <h2 className="va-footer__heading">Countries</h2>
               <ul>
                 {countries.map((item) => (
@@ -66,9 +66,9 @@ export function SiteFooter({
                   </li>
                 ))}
               </ul>
-            </nav>
+            </div>
           )}
-          <nav aria-label="Contribute">
+          <div className="va-footer__group">
             <h2 className="va-footer__heading">Contribute</h2>
             <ul>
               <li>
@@ -88,8 +88,8 @@ export function SiteFooter({
                 <Link to="/account">Account</Link>
               </li>
             </ul>
-          </nav>
-          <nav aria-label="About VeganAlts">
+          </div>
+          <div className="va-footer__group">
             <h2 className="va-footer__heading">About</h2>
             <ul>
               {ABOUT_LINKS.map((link) => (
@@ -98,8 +98,8 @@ export function SiteFooter({
                 </li>
               ))}
             </ul>
-          </nav>
-        </div>
+          </div>
+        </nav>
       </div>
     </footer>
   );

@@ -16,4 +16,6 @@
 @import "./components/controls.css" layer(components);
 @import "./components/labels.css" layer(components);
 @import "./components/menus.css" layer(components);
+@import "./components/filters.css" layer(components);
 @import "./pages/utility.css" layer(pages);
+@import "./pages/home.css" layer(pages);

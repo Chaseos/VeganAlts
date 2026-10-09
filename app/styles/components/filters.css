@@ -1,0 +1,155 @@
+/* Ranking filter bar: sort menu, store checklist and Free-from chips. */
+.va-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--va-line);
+  border-bottom: 1px solid var(--va-line);
+}
+
+.va-filter-bar__count {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--va-muted);
+}
+
+.va-sort-menu .va-popover__panel {
+  min-width: 300px;
+}
+
+.va-sort-menu__label {
+  flex: 1;
+}
+
+.va-menu-list a[aria-current] .va-sort-menu__label {
+  font-weight: 800;
+}
+
+.va-sort-menu__hint {
+  font-size: 12px;
+  color: var(--va-muted);
+}
+
+.va-filter-bar .va-popover {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.va-store-menu > summary {
+  max-width: 100%;
+}
+
+/* Long store names truncate instead of widening the page. */
+.va-store-menu > summary strong {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.va-store-menu__lead {
+  flex: none;
+  opacity: 0.85;
+}
+
+.va-check-list__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.va-store-menu--active > summary {
+  border-color: var(--va-btn);
+  background: var(--va-btn);
+  color: var(--va-on-btn);
+}
+
+.va-store-menu--active > summary .va-muted {
+  color: var(--va-on-btn);
+}
+
+.va-store-menu .va-popover__panel {
+  min-width: 300px;
+}
+
+.va-check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.va-check-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: var(--va-radius-button);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.va-check-list label:hover {
+  background: var(--va-hover);
+}
+
+.va-check-list__name {
+  flex: 1;
+}
+
+.va-check-list input:checked ~ .va-check-list__name {
+  font-weight: 800;
+}
+
+.va-check-list__count {
+  font-size: 12px;
+  color: var(--va-muted);
+}
+
+.va-check-list__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--va-line);
+}
+
+.va-filter-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--va-muted);
+}
+
+.va-store-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--va-good);
+}
+
+@media (max-width: 759px) {
+  .va-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .va-filter-bar .va-popover > summary {
+    width: 100%;
+    border-radius: var(--va-radius-pill);
+  }
+
+  .va-sort-menu > summary {
+    width: auto;
+    align-self: flex-start;
+  }
+
+  .va-filter-bar__count {
+    margin-left: 0;
+  }
+}

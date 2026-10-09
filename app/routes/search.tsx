@@ -13,30 +13,44 @@ import {
   SiteShell,
 } from "../components/catalog";
 import { publicMetadata } from "../lib/metadata";
+import { searchPath } from "@server/catalog/domain/markets";
 import type { Route } from "./+types/search";
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env);
   return publicLoader(async () => {
     const catalog = catalogService(env);
+    const market = await catalog.market(params.country);
     const result = await catalog.search(
+      market,
       new URL(request.url).searchParams.get("q") ?? "",
     );
     return {
       ...result,
-      allCategories: result.query ? [] : (await catalog.home()).categories,
+      market,
+      allCategories: result.query
+        ? []
+        : (await catalog.home(market)).categories,
       origin: env.APP_URL,
       staging: env.APP_ENV !== "production",
     };
   });
 }
+// Switching country keeps the query.
+export const handle = {
+  countrySwitch: (data: unknown, code: string) => {
+    const query = (data as { query?: string } | undefined)?.query;
+    return `${searchPath(code)}${query ? `?q=${encodeURIComponent(query)}` : ""}`;
+  },
+};
 export function meta({ loaderData }: Route.MetaArgs) {
+  const market = loaderData?.market;
   return publicMetadata(
     loaderData?.query
       ? `Search for ${loaderData.query}`
       : "Discover alternatives",
-    "Explore vegan alternatives by food, brand or product. Browse the United States catalog.",
-    `/us/search${loaderData?.query ? `?q=${encodeURIComponent(loaderData.query)}` : ""}`,
+    `Explore vegan alternatives by food, brand or product. Browse the ${market?.name ?? "United States"} catalog.`,
+    `${searchPath(market?.code ?? "us")}${loaderData?.query ? `?q=${encodeURIComponent(loaderData.query)}` : ""}`,
     loaderData?.origin ?? "https://veganalts.com",
     loaderData?.staging ?? true,
   ).concat(
@@ -50,7 +64,7 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
   return (
     <SiteShell search={false}>
       <header className="page-heading">
-        <p className="eyebrow">Discover · United States</p>
+        <p className="eyebrow">Discover · {data.market.name}</p>
         <h1>Find your next good swap.</h1>
         <SearchForm query={data.query} />
       </header>

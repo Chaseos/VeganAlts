@@ -30,9 +30,14 @@ export function ComingSoon() {
         </div>
       </header>
       <main id="main" tabIndex={-1} className="va-main">
-        <section className="va-kale va-coming-soon__hero" aria-labelledby="hero-title">
+        <section
+          className="va-kale va-coming-soon__hero"
+          aria-labelledby="hero-title"
+        >
           <div className="va-container">
-            <p className="va-coming-soon__eyebrow">Good food. Closer matches.</p>
+            <p className="va-coming-soon__eyebrow">
+              Good food. Closer matches.
+            </p>
             <h1 id="hero-title" className="va-display-xl">
               Find the closest vegan swap.
             </h1>
@@ -41,7 +46,10 @@ export function ComingSoon() {
               Find alternatives to the foods you love, ranked by people who’ve
               tried them.
             </p>
-            <ul className="va-coming-soon__foods" aria-label="Foods we’re starting with">
+            <ul
+              className="va-coming-soon__foods"
+              aria-label="Foods we’re starting with"
+            >
               {["Burgers", "Milk", "Cheese", "Butter", "Eggs"].map((food) => (
                 <li key={food}>{food}</li>
               ))}
@@ -69,7 +77,9 @@ export function ComingSoon() {
       </main>
       <footer className="va-footer va-kale">
         <div className="va-footer__inner">
-          <p>Community-ranked vegan alternatives. Made for your next good swap.</p>
+          <p>
+            Community-ranked vegan alternatives. Made for your next good swap.
+          </p>
         </div>
       </footer>
     </div>

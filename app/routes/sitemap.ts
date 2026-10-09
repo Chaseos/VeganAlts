@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { requireCatalogPreview } from "@server/catalog/http/loader";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { POLICIES } from "../content/policies";
+import { foodPath, productPath } from "@server/catalog/domain/markets";
 
 const escape = (value: string) =>
   value.replace(/[<>&'"]/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -14,11 +15,11 @@ export async function loader() {
   const urls = [
     { path: "/", updatedAt: null as number | null },
     ...entries.categories.map((c) => ({
-      path: `/us/${c.slug}`,
+      path: foodPath("us", c.slug),
       updatedAt: c.updatedAt,
     })),
     ...entries.products.map((p) => ({
-      path: `/us/products/${p.slug}`,
+      path: productPath(p.country, p.slug),
       updatedAt: p.updatedAt,
     })),
     ...Object.keys(POLICIES).map((slug) => ({

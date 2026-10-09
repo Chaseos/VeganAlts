@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture } from "./fixtures";
+import { catalogFixture, testMarket } from "./fixtures";
 import { communityServices } from "../../server/community/infrastructure/composition";
 import {
   changeInput,
@@ -214,7 +214,9 @@ it("archives duplicates without transferring contributions or changing the survi
     note: "Same product, package size variation only.",
   });
   expect(await repository.snapshot(survivorId)).toEqual(survivor);
-  expect(await catalog.canonicalRedirect(donor.slug)).toMatchObject({
+  expect(
+    await catalog.canonicalRedirect(testMarket(f.countryId), donor.slug),
+  ).toMatchObject({
     id: survivorId,
   });
   expect(
@@ -229,7 +231,9 @@ it("archives duplicates without transferring contributions or changing the survi
     expectedRevision: archived.revision,
     note: "Evidence shows the duplicate was a distinct formula.",
   });
-  expect(await catalog.canonicalRedirect(donor.slug)).toBeNull();
+  expect(
+    await catalog.canonicalRedirect(testMarket(f.countryId), donor.slug),
+  ).toBeNull();
   expect((await repository.snapshot(donor.id)).lifecycleStatus).toBe("active");
 });
 
@@ -277,7 +281,13 @@ it("accepts canonical retailer aliases and keeps one current contributor stance 
   });
   // Assert through the production public reader, not a test-only copy.
   const publicRetailer = async () =>
-    (await catalogService(env).product(f.productId, null)).retailers[0];
+    (
+      await catalogService(env).product(
+        testMarket(f.countryId),
+        f.productId,
+        null,
+      )
+    ).retailers[0];
   expect(await publicRetailer()).toMatchObject({
     contributorCount: 1,
     stale: false,
