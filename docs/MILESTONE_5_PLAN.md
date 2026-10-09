@@ -1,15 +1,16 @@
 # Milestone 5: Swap Aisle Redesign
 
-Approved on 2026-10-08. Complete [milestone 5](https://github.com/Chaseos/VeganAlts/milestone/5), issues #36–#44, turning the agreed [design direction](DESIGN_DIRECTION.md) and the canvas's "Round 5 · Screens" page into the public site, through real staging verification, before the production cutover (#31). The starting milestone 4 baseline passes 158 tests in 36 files and 40 desktop and mobile browser tests. Work starts from updated `develop` (`a10dbc9`) on `feature/milestone-five-swap-aisle-redesign`.
+Approved on 2026-10-08. Complete [milestone 5](https://github.com/Chaseos/VeganAlts/milestone/5), issues #36–#45, turning the agreed [design direction](DESIGN_DIRECTION.md) and the canvas's "Round 5 · Screens" page into the public site, through real staging verification, before the production cutover (#31). The starting milestone 4 baseline passes 158 tests in 36 files and 40 desktop and mobile browser tests. Work starts from updated `develop` (`a10dbc9`) on `feature/milestone-five-swap-aisle-redesign`.
 
 ## Agreed boundaries
 
 - **Before launch.** This milestone ships before the cutover (#31), which gains it as a prerequisite. The production taxonomy seed (#33) is reshaped to three levels before it runs. Launch catalog entry (#32) continues through the existing submission flow in parallel and is not blocked.
+- **Launch markets.** The English-speaking countries open first: the United States, Canada, the United Kingdom, Australia, New Zealand and Ireland. The United States opens with the reviewed launch catalog (#32). The others open empty, and their catalogs come from contributors who live there.
 - **Staging only.** No production migrations, secrets, deployment or DNS changes.
 - **Design and behavior sources.** Presentation follows the design direction. Behavior follows the amended specification documents. Canvas content (aisles, shelves, foods, products, scores, counts, stores, allergens) is illustrative and never becomes seed or fixture data.
 - **Ranking integrity.** Top remains the Bayesian overall-similarity order. Detail sorts, familiarity statistics and the store and Free-from filters only reorder or narrow a view. They never change a Top score, eligibility or rating weight.
 - **Cache-safe personalization.** Public pages stay cookie-free and shared-cacheable. Country lives in the URL path. Chosen stores, Free-from allergens and theme are device storage. Stores and allergens reach the server only as normalized query parameters.
-- **Not in this milestone:** meal swaps, a "my swaps" list, account-saved avoid lists, illustration or food photography, catalogs for countries other than the United States, store locations or live inventory, structured ingredient transcription and contributor trust (#26).
+- **Not in this milestone:** meal swaps, a "my swaps" list, account-saved avoid lists, illustration or food photography, countries beyond the English-speaking launch set and languages other than English (#46), store locations or live inventory, structured ingredient transcription and contributor trust (#26).
 - Completion means staging verification and documented evidence. Local commits are made per verified checkpoint. Pushes, PRs, issue/milestone changes, merging and production work require separate authorization.
 
 ## Defaults
@@ -24,9 +25,10 @@ Approved on 2026-10-08. Complete [milestone 5](https://github.com/Chaseos/VeganA
 - **Last ate the original.** Use the existing `ratings.conventional_recency` column and its five buckets: this week, this month, this year, over a year ago, prefer not to say. People who ate it within a year form the recent-eaters group. Its average appears on product pages only above the minimum, from a rebuildable `product_category_familiarity_stats` table. It never changes rating weight.
 - **Allergens.** A `product_version_allergen_declarations` record per formula version (declared, or none declared on the label) with `product_version_allergens` rows (allergen key; Contains or May contain). Declarations are edit proposals of a new kind: tier 2 when they cite the formula's current ingredients or nutrition photo, confirmable by the community, and any disagreement sends them to an operator. A declaration with Contains milk, egg, fish or shellfish is never auto-accepted and opens a classification review. Reformulation starts the new version undeclared. Ingredient and nutrition photo replacement remains tier 3.
 - **Free-from filter.** `freeFrom` lists allergen keys from the country's allergen list. A product qualifies only with a confirmed declaration listing none of them as Contains or May contain. Products without a confirmed declaration are left out and counted in a "not confirmed yet" link. Every allergen surface says "Always check the package."
-- **Store filter.** `stores` lists retailer slugs active in the country's `retailer_markets`. Several stores combine with OR through `product_retailers`. Each option shows its number of ranked swaps in the current food. Rows name which chosen stores carry the product. Device storage keeps the choice per country. After hydration, a page without parameters applies the saved choice by replacing the URL, and links the client renders carry it forward.
+- **Store filter.** Labeled "Commonly found at", never "Sold at" or "in stock". `stores` lists retailer slugs active in the country's `retailer_markets`. Several stores combine with OR through `product_retailers` rows whose status is `active`. Uncertain and not-current reports stay for moderation and history, but never qualify a product, count toward a store or appear in a row. Each option shows its number of ranked swaps in the current food. Rows name which chosen stores the product is commonly found at. Device storage keeps the choice per country. After hydration, a page without parameters applies the saved choice by replacing the URL, and links the client renders carry it forward.
 - **Filter URLs.** The server lowercases, de-duplicates, sorts and validates `stores` and `freeFrom`, drops unknown values and redirects non-normalized forms, so cache variants stay bounded. Filtered pages declare the unfiltered page canonical.
-- **Countries.** Routes generalize from `us/` to `:country/` using lowercase ISO codes from `countries`; existing `/us/` URLs are unchanged. `/{country}` is each country's home and `/` remains the United States home. The switcher lists every row in `countries` (launch: United States, Canada, United Kingdom, Australia). Switching keeps the current food where it exists, and a product page moves to its food. Countries without rankings say "No rankings in [country] yet" and invite submissions. The device remembers the country, and `/` sends returning visitors to it after hydration. Nothing is inferred from IP.
+- **Countries.** Routes generalize from `us/` to `:country/` using lowercase ISO codes from `countries`; existing `/us/` URLs are unchanged. `/{country}` is each country's home and `/` remains the United States home. The switcher lists active rows in `countries` (launch: United States, Canada, United Kingdom, Australia, New Zealand, Ireland), and routes accept only active countries. Switching keeps the current food where it exists, and a product page moves to its food. Countries without rankings say "No rankings in [country] yet" and invite contributors there to add the first products (#45). The device remembers the country, and `/` sends returning visitors to it after hydration. Nothing is inferred from IP.
+- **Contributions per country.** Adding a product creates it in the country of the page it starts from, never a hard-coded United States. Store choices and "Add retailer" use that country's `retailer_markets`. Each launch country has its own declared-allergen list. A country alias can be marked as that country's display name for a food ("Beef mince" in the United Kingdom). Homepage features, the launch-dataset audit and the sitemap work per country, and food pages link their other-country versions with `hreflang`. Moderation shows each item's country.
 - **Theme.** System preference by default, with a System / Light / Dark choice in the header stored on the device. A small inline script sets `data-theme` before first paint, with no cookie.
 - **Type, icons and logo.** Archivo is self-hosted as a variable woff2 with a metric-compatible fallback. Aisle and food line icons are inline SVG components mapped by category slug, with a generic fallback for new foods. The logo is the tagged wordmark component, and the favicon is the "VA" yellow tile.
 - **Site-wide tokens.** `app/styles/site.css` moves to the `--va-*` tokens. Account, contribution, moderation and admin pages adopt the tokens, header and themes and stay readable in dark mode, but keep their current layouts.
@@ -35,7 +37,7 @@ Approved on 2026-10-08. Complete [milestone 5](https://github.com/Chaseos/VeganA
 
 ### 1. Specification
 
-Amend the documents before behavior changes: PRODUCT_MASTER (§03 navigation and homepage, §05 detail and familiarity display, §08 allergens, §09 store preference), RANKING (§5 dimension aggregates, sorts and badges; §18 the recent-eaters threshold; ranking views), MODERATION (§6 the allergen proposal tier and the classification conflict), DATABASE_BASELINE (allergen, dimension and familiarity tables; the depth-three rule), API (the search endpoint, rating fields, filter parameters and caching) and ARCHITECTURE (device preferences and cache variants). Mark the design direction's §9 items resolved.
+Amend the documents before behavior changes: PRODUCT_MASTER (§03 navigation and homepage, §04 country records and per-country contributions, §05 detail and familiarity display, §08 allergens, §09 store preference), RANKING (§5 dimension aggregates, sorts and badges; §18 the recent-eaters threshold; ranking views), MODERATION (§6 the allergen proposal tier and the classification conflict), DATABASE_BASELINE (allergen, dimension and familiarity tables; the depth-three rule), API (the search endpoint, rating fields, filter parameters and caching) and ARCHITECTURE (device preferences and cache variants). Mark the design direction's §9 items resolved.
 
 ### 2. Design foundations (#36)
 
@@ -55,7 +57,7 @@ Search with instant answers and preview, Start with these, Browse every food, Tr
 
 ### 6. Category ranking (#40)
 
-Summary sentence, sort menu, Sold at and Free-from filters, the #1 card, ranked rows with badges, detail mini-scores and allergen line, unrated products and the aisle sidebar.
+Summary sentence, sort menu, Commonly found at and Free-from filters, the #1 card, ranked rows with badges, detail mini-scores and allergen line, unrated products and the aisle sidebar.
 
 ### 7. Product page (#41)
 
@@ -69,29 +71,34 @@ Declaration tables and migration, the proposal kind and confirmation flow, opera
 
 Dimension management, the optional rating-form follow-ups including pending-rating recovery, the API fields, aggregate tables in the ranking rebuild, detail sorts and badges, and the recent-eaters score.
 
-### 10. Hardening (#44)
+### 10. Contributions in every launch country (#45)
+
+Country-scoped product additions, retailer choices and additions, allergen lists, display-name aliases, homepage features, `hreflang` links, sitemap and dataset audit, and country labels in moderation, with the remaining hard-coded United States reads removed.
+
+### 11. Hardening (#44)
 
 Visual comparison against the canvas at 390 px and desktop in both themes, contrast checks for every token pair, keyboard and screen-reader paths through the aisle menu, search, sort and filters, cache behavior of filtered URLs, and updates to #31, #33 and the launch checklist.
 
 ## Configurable defaults
 
-| Control                  | Default                                                                                       |
-| ------------------------ | --------------------------------------------------------------------------------------------- |
-| Start with these         | 6 foods; the #1 must be past Early (10+ counted ratings)                                      |
-| Still waiting            | 6 foods; best eligible product below 3.5/5, then foods with no eligible product               |
-| Aisle menu               | 3 products per food                                                                           |
-| Instant answers          | From 2 characters, 150 ms debounce, 5 foods and 5 products                                    |
-| Detail sort and badge    | 5 answers per dimension                                                                       |
-| Recent-eaters score      | 10 counted ratings from people who ate the original within a year                             |
-| Stores per filter        | 10                                                                                            |
-| Free-from list (US)      | Milk, egg, fish, crustacean shellfish, tree nuts, peanuts, wheat, soy, sesame                 |
-| Allergen auto-acceptance | The milestone 4 tier 2 rule; Contains milk, egg, fish or shellfish always goes to an operator |
-| New food dimensions      | Taste, Texture                                                                                |
-| Launch countries         | United States, Canada, United Kingdom, Australia                                              |
+| Control                                  | Default                                                                                       |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Start with these                         | 6 foods; the #1 must be past Early (10+ counted ratings)                                      |
+| Still waiting                            | 6 foods; best eligible product below 3.5/5, then foods with no eligible product               |
+| Aisle menu                               | 3 products per food                                                                           |
+| Instant answers                          | From 2 characters, 150 ms debounce, 5 foods and 5 products                                    |
+| Detail sort and badge                    | 5 answers per dimension                                                                       |
+| Recent-eaters score                      | 10 counted ratings from people who ate the original within a year                             |
+| Stores per filter                        | 10                                                                                            |
+| Free-from list (US)                      | Milk, egg, fish, crustacean shellfish, tree nuts, peanuts, wheat, soy, sesame                 |
+| Free-from lists (other launch countries) | Each country's declared-allergen list, recorded in the specification step                     |
+| Allergen auto-acceptance                 | The milestone 4 tier 2 rule; Contains milk, egg, fish or shellfish always goes to an operator |
+| New food dimensions                      | Taste, Texture                                                                                |
+| Launch countries                         | United States, Canada, United Kingdom, Australia, New Zealand, Ireland                        |
 
 ## Verification and staging delivery
 
-Each checkpoint passes `npm run check` and focused integration and browser suites before its local commit. Browser tests run axe at 390 px and desktop widths in both themes. Final verification runs `npm run check`, `npm run test:e2e`, fresh and upgrade migrations, foreign-key checks, ranking/dimension/familiarity rebuild equivalence, proof that detail sorts, familiarity and filters leave Top unchanged, and shared-cache HITs for filtered and unfiltered URLs. Before staging migration, capture a Time Travel bookmark. Deploy staging only and exercise rating with details, allergen proposal and confirmation, and country, store and Free-from flows with two distinct accounts. Record evidence, versions, screenshots in both themes and sizes, and limitations in `docs/verification/milestone-5.md`.
+Each checkpoint passes `npm run check` and focused integration and browser suites before its local commit. Browser tests run axe at 390 px and desktop widths in both themes. Final verification runs `npm run check`, `npm run test:e2e`, fresh and upgrade migrations, foreign-key checks, ranking/dimension/familiarity rebuild equivalence, proof that detail sorts, familiarity and filters leave Top unchanged, and shared-cache HITs for filtered and unfiltered URLs. Before staging migration, capture a Time Travel bookmark. Deploy staging only and exercise rating with details, allergen proposal and confirmation, country, store and Free-from flows, and a contribution in a second launch country with two distinct accounts. Record evidence, versions, screenshots in both themes and sizes, and limitations in `docs/verification/milestone-5.md`.
 
 ## Execution contract
 
