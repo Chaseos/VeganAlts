@@ -18,6 +18,8 @@ export interface ProductSnapshot {
   name: string;
   slug: string;
   countryId: string;
+  // Lowercase ISO code, for the product's page path.
+  countryCode: string;
   brandId: string | null;
   familyId: string | null;
   lifecycleStatus: string;

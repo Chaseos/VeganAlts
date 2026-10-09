@@ -27,6 +27,7 @@ import {
   reviewKind,
   inboxFilter,
   consolidationInput,
+  countryCode,
   note,
   type Actor,
 } from "../domain/contracts";
@@ -107,6 +108,7 @@ export async function communityApi(
         await services.contributions.options(
           actor,
           url.searchParams.get("q") ?? "",
+          parse(countryCode, url.searchParams.get("country") ?? "US"),
         ),
       );
     if (path === "community/session")

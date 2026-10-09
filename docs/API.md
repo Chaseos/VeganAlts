@@ -390,7 +390,8 @@ The approved [milestone 5 specification](MILESTONE_5_PLAN.md) extends the v1 con
 - Submissions, identity checks, retailer proposals and category proposals take any active `country` code.
 - Category proposals require `shelfId`.
 - `ProductChange` adds kind `allergens`: `{declaration: {status: "none_declared"} | {status: "declared", contains: key[], mayContain: key[]}, citedImageId?, evidence}`. Keys must be on the product country's list and appear once. `citedImageId` names the current formula's accepted ingredients or nutrition photo; without it the declaration is tier 3. A declaration that contains milk, egg, fish, crustacean or mollusc is tier 3 and opens a system `ingredient_concern` report (`concern-<proposal id>`).
-- A retailer proposal whose name matches a retailer without a market in that country proposes the market instead of failing.
+- A retailer proposal whose name matches a retailer without a market in that country proposes the market instead of failing. It is stored as a `retailer_market` proposal on that retailer; accepting it adds (or reactivates) the market.
+- `GET /community/options` takes `country` and lists retailers with an active market there.
 
 **Administration.**
 

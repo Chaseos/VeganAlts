@@ -253,6 +253,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                     <Link to={`/admin/moderation/${item.kind}/${item.id}`}>
                       <strong>{item.title}</strong>
                       <span>
+                        {item.country ? `${item.country} · ` : ""}
                         {friendly(item.kind)} · {dateLabel(item.createdAt)}
                       </span>
                     </Link>
@@ -519,7 +520,9 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         {data.view === "product" && (
           <div className="community-panel">
             <div className="button-row">
-              <Link to={`/us/products/${data.product.slug}`}>
+              <Link
+                to={`/${data.product.countryCode}/products/${data.product.slug}`}
+              >
                 Public entry ↗
               </Link>
               <Link to={`/contribute/${data.product.id}`}>

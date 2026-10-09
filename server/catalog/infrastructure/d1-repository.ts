@@ -173,7 +173,10 @@ export class D1CatalogRepository implements CatalogRepository {
       country: string;
     }>([
       this.db.prepare(
-        "SELECT slug,updated_at AS updatedAt,NULL AS country FROM categories WHERE is_active=1 ORDER BY slug LIMIT 10000",
+        // Foods and aisles have pages; shelves redirect into their aisle.
+        `SELECT slug,updated_at AS updatedAt,NULL AS country FROM categories
+        WHERE is_active=1 AND (is_rankable=1 OR parent_id IN (SELECT id FROM categories WHERE parent_id IS NULL AND is_active=1))
+        ORDER BY slug LIMIT 10000`,
       ),
       // Discontinued products stay indexable with their status; hidden
       // (archived duplicates) and inactive markets are excluded.

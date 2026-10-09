@@ -368,3 +368,111 @@ it("accepts valid comment targets while rejecting missing and hidden comments", 
     ),
   ).rejects.toMatchObject({ status: 404 });
 });
+
+it("keeps contributions in their country and proposes a known retailer's market there", async () => {
+  const {
+    f,
+    contributions,
+    contributionRepository,
+    moderation,
+    repository,
+    actor,
+    admin,
+  } = await fixture();
+  // The fixture's second country plays Canada.
+  await env.DB.prepare("UPDATE countries SET iso2=id WHERE iso2='CA'").run();
+  await env.DB.prepare("UPDATE countries SET iso2='CA' WHERE id=?")
+    .bind(f.otherCountryId)
+    .run();
+  const name = `Maple Grocer ${id().slice(0, 6)}`;
+  const accept = async (proposalId: string) =>
+    moderation.decide(
+      admin,
+      id(),
+      "proposal",
+      proposalId,
+      decision((await repository.proposal(proposalId))!.updated_at),
+    );
+  const us = await contributions.proposeRetailer(
+    actor,
+    id(),
+    retailerInput.parse({
+      name,
+      websiteUrl: "https://example.com",
+      country: "us",
+      note: "Regional retailer with a public store directory.",
+    }),
+  );
+  await accept(us.id);
+  // The same retailer proposed for Canada becomes a market proposal.
+  const ca = await contributions.proposeRetailer(
+    actor,
+    id(),
+    retailerInput.parse({
+      name,
+      websiteUrl: "https://example.com",
+      country: "CA",
+      note: "The same retailer also operates stores in Canada.",
+    }),
+  );
+  expect(await repository.proposal(ca.id)).toMatchObject({
+    target_id: us.id,
+    change_type: "retailer_market",
+  });
+  const options = async (country: string) =>
+    (await contributions.options(actor, name.slice(0, 10), country)).retailers;
+  expect(await options("CA")).toEqual([]);
+  await accept(ca.id);
+  expect((await options("CA")).map((r) => (r as { id: string }).id)).toEqual([
+    us.id,
+  ]);
+  expect(await contributionRepository.retailerHasMarket(us.id, "CA")).toBe(
+    true,
+  );
+  // Now it is chosen, not proposed again, in either country.
+  await expect(
+    contributions.proposeRetailer(
+      actor,
+      id(),
+      retailerInput.parse({
+        name,
+        websiteUrl: "https://example.com",
+        country: "CA",
+        note: "Proposing the Canadian stores a second time.",
+      }),
+    ),
+  ).rejects.toMatchObject({ code: "RETAILER_EXISTS" });
+  await expect(
+    contributions.proposeRetailer(
+      actor,
+      id(),
+      retailerInput.parse({
+        name: `Elsewhere ${id().slice(0, 6)}`,
+        websiteUrl: "https://example.com",
+        country: "ZZ",
+        note: "A retailer in a country that is not active.",
+      }),
+    ),
+  ).rejects.toMatchObject({ code: "INVALID_COUNTRY" });
+  // The inbox labels each item with its country.
+  const pending = await contributions.proposeRetailer(
+    actor,
+    id(),
+    retailerInput.parse({
+      name: `Prairie Market ${id().slice(0, 6)}`,
+      websiteUrl: "https://example.com",
+      country: "CA",
+      note: "A Canadian retailer with a public store directory.",
+    }),
+  );
+  let item;
+  for (
+    let page = await moderation.inbox(admin, null);
+    !item;
+    page = await moderation.inbox(admin, page.nextCursor)
+  ) {
+    item = page.items.find((entry) => entry.id === pending.id);
+    if (!page.nextCursor) break;
+  }
+  expect(item).toMatchObject({ kind: "proposal", country: "CA" });
+});

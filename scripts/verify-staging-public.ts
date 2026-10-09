@@ -38,12 +38,22 @@ const ranked = (
 ).data.ranked;
 assert.ok(ranked.length, "staging needs a ranked product in ground-beef");
 const product = `/us/products/${ranked[0]!.slug}`;
+// Every launch country's home and a food page share the cache the same way;
+// filtered rankings, aisles, product food views and instant answers too.
+const countries = ["ca", "gb", "au", "nz", "ie"];
 const pages = [
   "/",
   "/us/ground-beef",
   "/us/ground-beef?view=trending",
   "/us/ground-beef?view=new",
+  "/us/ground-beef?view=most-rated",
+  "/us/ground-beef?freeFrom=soy",
+  "/us/meat",
+  "/us/meat?shelf=beef",
+  ...countries.flatMap((code) => [`/${code}`, `/${code}/ground-beef`]),
+  "/api/v1/suggest?country=us&q=beef",
   product,
+  `${product}?food=ground-beef`,
   `/api/v1/products/${product.split("/").at(-1)}/comments?sort=best`,
   "/about/rankings",
   "/sitemap.xml",

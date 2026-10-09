@@ -85,7 +85,7 @@ export function PhotoProposalForm({
       // was recorded as a confirmation of that open proposal.
       await navigate(
         saved.duplicateOf
-          ? `/us/products/${product.slug}#suggested-changes`
+          ? `/${product.countryCode}/products/${product.slug}#suggested-changes`
           : `/my-contributions/proposal/${saved.id}`,
       );
     });

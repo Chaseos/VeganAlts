@@ -35,14 +35,15 @@ const SCORE_WORDS = [
 ];
 
 function ratingHref(rating: MyRating, anchor: boolean) {
-  if (rating.archivedDuplicate) return `/us/products/${rating.canonicalSlug}`;
+  if (rating.archivedDuplicate)
+    return `/${rating.country}/products/${rating.canonicalSlug}`;
   const version = rating.isCurrent ? "" : `?version=${rating.productVersionId}`;
   const hash = !anchor
     ? ""
     : rating.canRate
       ? `#rate-${rating.categoryId}`
       : "#formula-history";
-  return `/us/products/${rating.productSlug}${version}${hash}`;
+  return `/${rating.country}/products/${rating.productSlug}${version}${hash}`;
 }
 
 export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
@@ -56,7 +57,7 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
       {!data.items.length ? (
         <EmptyState
           title="Your next favorite is waiting."
-          actions={<ButtonLink to="/us/search">Find an alternative</ButtonLink>}
+          actions={<ButtonLink to="/">Find an alternative</ButtonLink>}
         >
           Explore a food, try an alternative, and share how close it comes.
         </EmptyState>

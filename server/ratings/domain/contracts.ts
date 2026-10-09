@@ -64,6 +64,8 @@ export interface MyRating extends Omit<
 > {
   productId: string;
   productSlug: string;
+  // Lowercase ISO code of the product's country.
+  country: string;
   productName: string;
   brand: string | null;
   categorySlug: string;

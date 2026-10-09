@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { ApplicationError } from "../../shared/domain/errors";
-import { id, note, shortText } from "../../community/domain/contracts";
+import {
+  countryCode,
+  id,
+  note,
+  shortText,
+} from "../../community/domain/contracts";
+
+export { countryCode };
 import { DIMENSION_KEY, MAX_DIMENSIONS } from "../../ratings/domain/details";
 
 // Route segments beneath /us/ and other words a category slug must never take.
@@ -54,10 +61,6 @@ export function categoryKey(value: string) {
 const aliasList = z.array(shortText).max(10).default([]);
 // An ISO 3166-1 alpha-2 code; whether the country is active is checked
 // against the database.
-export const countryCode = z
-  .string()
-  .regex(/^[A-Za-z]{2}$/)
-  .transform((value) => value.toUpperCase());
 export const categoryProposalInput = z
   .object({
     name: shortText,

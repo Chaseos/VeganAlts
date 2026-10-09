@@ -24,7 +24,13 @@ import {
 } from "../components/catalog/ranking-list";
 import { categorySummary } from "../lib/summaries";
 import { formatScore, joinList, plural } from "../lib/format";
-import { breadcrumbs, itemList, publicMetadata } from "../lib/metadata";
+import {
+  breadcrumbs,
+  countryAlternates,
+  itemList,
+  publicMetadata,
+} from "../lib/metadata";
+import { COUNTRY_LAYOUT_ID } from "../lib/site-chrome";
 import { hasFilters, readFilters } from "@server/catalog/domain/filters";
 import {
   foodPath,
@@ -146,7 +152,28 @@ function viewQuery(view: string, page: number) {
   if (page > 1) params.set("page", String(page));
   return params.size ? `?${params}` : "";
 }
-export function meta({ loaderData }: Route.MetaArgs) {
+export function meta({ loaderData, matches }: Route.MetaArgs) {
+  const countries =
+    (
+      matches.find((match) => match?.id === COUNTRY_LAYOUT_ID)?.loaderData as
+        { chrome?: { countries: { code: string }[] } | null } | undefined
+    )?.chrome?.countries ?? [];
+  const slug =
+    loaderData?.kind === "aisle"
+      ? loaderData.aisle.slug
+      : loaderData?.kind === "food"
+        ? loaderData.category.slug
+        : null;
+  const alternates = slug
+    ? countryAlternates(
+        loaderData?.origin ?? "https://veganalts.com",
+        countries,
+        (code) => foodPath(code, slug),
+      )
+    : [];
+  return [...pageMeta(loaderData), ...alternates];
+}
+function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
   if (loaderData?.kind === "aisle")
     return publicMetadata(
       `${loaderData.aisle.name} aisle · Vegan swaps by food`,

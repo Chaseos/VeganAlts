@@ -56,7 +56,7 @@ export class D1PersonalRatingsRepository implements PersonalRatingsRepository {
       await this.db
         .prepare(
           `SELECT r.id,r.product_version_id AS productVersionId,r.category_id AS categoryId,r.overall_similarity AS overallSimilarity,r.updated_at AS updatedAt,
-      p.id AS productId,p.slug AS productSlug,p.name AS productName,b.name AS brand,c.slug AS categorySlug,c.name AS categoryName,v.version_label AS versionLabel,v.is_current AS isCurrent,
+      p.id AS productId,p.slug AS productSlug,lower(country.iso2) AS country,p.name AS productName,b.name AS brand,c.slug AS categorySlug,c.name AS categoryName,v.version_label AS versionLabel,v.is_current AS isCurrent,
       CASE WHEN v.is_current=1 AND p.lifecycle_status='active' AND p.vegan_status<>'under_review' AND pc.ranking_eligible=1 AND c.is_active=1 AND c.is_rankable=1 AND country.is_active=1 THEN 1 ELSE 0 END AS canRate,
       CASE WHEN p.lifecycle_status<>'hidden' THEN (SELECT i.id FROM product_images i WHERE i.product_version_id=v.id AND i.slot='front' AND i.state='accepted' LIMIT 1) ELSE NULL END AS imageId,
       COALESCE(d.active,0) AS archivedDuplicate,survivor.slug AS canonicalSlug

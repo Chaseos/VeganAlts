@@ -62,7 +62,8 @@ export class ModerationRepository {
       this.db
         .prepare(
           `SELECT p.id,p.name,p.slug,p.country_id AS countryId,p.brand_id AS brandId,p.product_family_id AS familyId,p.lifecycle_status AS lifecycleStatus,p.vegan_status AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.manufacturer_url AS manufacturerUrl,r.revision,v.id AS versionId,v.version_label AS versionLabel,
-          (SELECT COUNT(*) FROM ratings x WHERE x.product_version_id=v.id AND x.is_counted=1) AS countedRatings FROM products p JOIN catalog_revisions r ON r.product_id=p.id JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.id=?`,
+          (SELECT COUNT(*) FROM ratings x WHERE x.product_version_id=v.id AND x.is_counted=1) AS countedRatings,
+          (SELECT lower(iso2) FROM countries WHERE id=p.country_id) AS countryCode FROM products p JOIN catalog_revisions r ON r.product_id=p.id JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.id=?`,
         )
         .bind(productId),
       this.db
@@ -369,17 +370,27 @@ export class ModerationRepository {
       .prepare(
         `WITH inbox AS (
       SELECT s.id,'submission' AS kind,COALESCE(json_extract(p.proposed_data,'$.name'),'Submission') AS title,s.state AS status,2 AS priority,s.created_at AS createdAt,p.revision,NULL AS tier,0 AS confirms,0 AS disagrees,
-        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='submission' AND d.subject_id=s.id AND d.outcome<>'READY') AS flagged
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='submission' AND d.subject_id=s.id AND d.outcome<>'READY') AS flagged,
+        upper(json_extract(p.proposed_data,'$.country')) AS country
         FROM submission_receipts s JOIN pending_submissions p ON p.submission_id=s.id WHERE s.state='review' AND p.resolved_at IS NULL
-      UNION ALL SELECT r.id,'report',replace(r.reason_code,'_',' '),r.status,CASE WHEN r.reason_code='ingredient_concern' THEN 1 ELSE 3 END,r.created_at,COALESCE(e.revision,0),NULL,0,0,0 FROM reports r LEFT JOIN report_evidence e ON e.report_id=r.id WHERE r.status IN ('open','reviewing')
+      UNION ALL SELECT r.id,'report',replace(r.reason_code,'_',' '),r.status,CASE WHEN r.reason_code='ingredient_concern' THEN 1 ELSE 3 END,r.created_at,COALESCE(e.revision,0),NULL,0,0,0,
+        (SELECT co.iso2 FROM products pr JOIN countries co ON co.id=pr.country_id WHERE pr.id=CASE r.target_type
+          WHEN 'product' THEN r.target_id
+          WHEN 'product_image' THEN (SELECT v.product_id FROM product_images i JOIN product_versions v ON v.id=i.product_version_id WHERE i.id=r.target_id)
+          ELSE (SELECT c.product_id FROM comments c WHERE c.id=r.target_id) END)
+        FROM reports r LEFT JOIN report_evidence e ON e.report_id=r.id WHERE r.status IN ('open','reviewing')
       UNION ALL SELECT id,'proposal',replace(change_type,'_',' '),status,CASE WHEN change_type='classification' THEN 1 ELSE 2 END,created_at,updated_at,risk_tier,confirm_count,disagree_count,
-        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='edit_proposal' AND d.subject_id=edit_proposals.id AND d.outcome<>'READY')
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='edit_proposal' AND d.subject_id=edit_proposals.id AND d.outcome<>'READY'),
+        CASE WHEN target_type='product' THEN (SELECT co.iso2 FROM products pr JOIN countries co ON co.id=pr.country_id WHERE pr.id=edit_proposals.target_id)
+          ELSE upper(json_extract(proposed_data,'$.country')) END
         FROM edit_proposals WHERE status='pending'
       UNION ALL SELECT id,'category',name,status,2,created_at,updated_at,3,0,0,
-        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='category_proposal' AND d.subject_id=category_proposals.id AND d.outcome<>'READY')
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='category_proposal' AND d.subject_id=category_proposals.id AND d.outcome<>'READY'),
+        (SELECT iso2 FROM countries WHERE id=category_proposals.country_id)
         FROM category_proposals WHERE status='pending'
       UNION ALL SELECT id,'comment','held comment',moderation_state,2,created_at,updated_at,NULL,0,0,
-        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='comment' AND d.subject_id=comments.id AND d.outcome<>'READY')
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='comment' AND d.subject_id=comments.id AND d.outcome<>'READY'),
+        (SELECT co.iso2 FROM products pr JOIN countries co ON co.id=pr.country_id WHERE pr.id=comments.product_id)
         FROM comments WHERE moderation_state='pending' AND deleted_at IS NULL
     ) SELECT * FROM inbox WHERE (? IS NULL OR (priority,createdAt,kind||'_'||id)>(?,?,?))
       AND CASE ? WHEN 'confirmation' THEN kind='proposal' AND tier<=2

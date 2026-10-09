@@ -109,6 +109,7 @@ const snapshot: ProductSnapshot = {
   name: "Burger",
   slug: "burger",
   countryId: "US",
+  countryCode: "us",
   brandId: "brand",
   familyId: null,
   lifecycleStatus: "active",

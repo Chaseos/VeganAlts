@@ -147,9 +147,11 @@ export class QueueDecisionRepository {
         productId: row.product_id,
         publishedProduct: row.product_id
           ? await this.db
-              .prepare("SELECT slug,name FROM products WHERE id=?")
+              .prepare(
+                "SELECT p.slug,p.name,lower(c.iso2) AS country FROM products p JOIN countries c ON c.id=p.country_id WHERE p.id=?",
+              )
               .bind(row.product_id)
-              .first<{ slug: string; name: string }>()
+              .first<{ slug: string; name: string; country: string }>()
           : null,
       };
     }

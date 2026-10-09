@@ -1,7 +1,7 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import {
   changeInput,
-  retailerInput,
+  retailerProposal,
   type Actor,
   type ConsolidationInput,
   type ReviewDecision,
@@ -317,7 +317,7 @@ export class ModerationService {
       return this.catalog.acceptRetailer(
         { ...action, after: JSON.parse(proposal.proposed_data) as unknown },
         proposal,
-        retailerInput.parse(JSON.parse(proposal.proposed_data)),
+        retailerProposal.parse(JSON.parse(proposal.proposed_data)),
         receipt,
       );
     const change = changeInput.parse(JSON.parse(proposal.proposed_data)),

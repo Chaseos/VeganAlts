@@ -41,9 +41,9 @@ export class ContributionService {
     private readonly newId: () => string,
     private readonly clock = Date.now,
   ) {}
-  options(actor: Actor, query = "") {
+  options(actor: Actor, query = "", country = "US") {
     active(actor);
-    return this.lookup.options(query);
+    return this.lookup.options(query, country);
   }
   /** The contributor-facing product state, without private moderation data. */
   async product(actor: Actor, productId: string) {
@@ -272,13 +272,29 @@ export class ContributionService {
     );
     const prior = await this.repository.replay<{ id: string }>(receipt);
     if (prior) return prior;
-    for (const name of [input.name, ...input.aliases])
-      if (await this.repository.retailerExists(name))
+    if (!(await this.repository.countryActive(input.country)))
+      throw new ApplicationError(
+        "INVALID_COUNTRY",
+        "Choose an active country for this retailer.",
+      );
+    for (const name of [input.name, ...input.aliases]) {
+      const existing = await this.repository.retailerExists(name);
+      if (!existing) continue;
+      // A known retailer already sold in this country is chosen, not proposed.
+      if (await this.repository.retailerHasMarket(existing.id, input.country))
         throw new ApplicationError(
           "RETAILER_EXISTS",
-          "This name or alias already belongs to a retailer. Choose the existing entry.",
+          "This name or alias already belongs to a retailer here. Choose the existing entry.",
           409,
         );
+      // Otherwise this proposes that retailer's market in this country.
+      return this.repository.propose(
+        actor,
+        { ...input, marketFor: existing.id },
+        this.newId(),
+        receipt,
+      );
+    }
     return this.repository.propose(actor, input, this.newId(), receipt);
   }
   async confirm(

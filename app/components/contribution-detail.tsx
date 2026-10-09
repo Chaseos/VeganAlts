@@ -256,7 +256,7 @@ export function ContributionContent({
         <p>
           <Link
             className="button secondary"
-            to={`/us/products/${detail.publishedProduct.slug}`}
+            to={`/${detail.publishedProduct.country}/products/${detail.publishedProduct.slug}`}
           >
             View published product →
           </Link>
@@ -266,7 +266,9 @@ export function ContributionContent({
         <section>
           <h2>Current catalog entry</h2>
           <p>
-            <Link to={`/us/products/${product.slug}`}>{product.name} ↗</Link>
+            <Link to={`/${product.countryCode}/products/${product.slug}`}>
+              {product.name}
+            </Link>
           </p>
           <dl className="review-facts">
             <dt>Formula</dt>

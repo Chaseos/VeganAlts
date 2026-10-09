@@ -416,8 +416,12 @@ export class CatalogService {
       }),
     };
   }
-  sitemap() {
-    return this.repository.sitemap();
+  async sitemap() {
+    const [entries, markets] = await Promise.all([
+      this.repository.sitemap(),
+      this.markets(),
+    ]);
+    return { ...entries, countries: markets.map((row) => row.market.code) };
   }
   // A renamed or merged category's former slug. Callers redirect uncached.
   categoryRedirect(slug: string) {
