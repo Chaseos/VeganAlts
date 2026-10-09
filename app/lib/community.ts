@@ -54,8 +54,11 @@ export function useCommunityAction() {
     setHasToken(Boolean(value));
   };
   async function request<T>(path: string, body?: unknown, key?: string) {
-    if (body !== undefined && !key) {
-      const identity = path + JSON.stringify(body);
+    // A failed submission retries with the same key; once one succeeds, an
+    // identical later submission is a new action with a new key.
+    const identity =
+      body !== undefined && !key ? path + JSON.stringify(body) : null;
+    if (identity) {
       key = keys.current.get(identity) ?? crypto.randomUUID();
       keys.current.set(identity, key);
     }
@@ -64,7 +67,9 @@ export function useCommunityAction() {
     // Tokens are single-use, including rejected requests. A multi-request flow
     // may need another challenge before its next upload or finalization.
     if (value) setChallengeAttempt((attempt) => attempt + 1);
-    return communityRequest<T>(path, body, key, value);
+    const result = await communityRequest<T>(path, body, key, value);
+    if (identity) keys.current.delete(identity);
+    return result;
   }
   async function run<T>(work: () => Promise<T>): Promise<T | undefined> {
     setBusy(true);

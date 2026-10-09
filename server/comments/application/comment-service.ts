@@ -334,6 +334,7 @@ export class CommentService {
           comment.id,
           comment.updated_at,
           evaluation.decisionId,
+          this.clock(),
         );
         released++;
       }

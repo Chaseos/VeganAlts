@@ -428,12 +428,18 @@ export class D1CommentRepository {
         .all<CommentRow>()
     ).results;
   }
-  async release(id: string, updatedAt: number, decisionId: string) {
+  async release(
+    id: string,
+    updatedAt: number,
+    decisionId: string,
+    now: number,
+  ) {
+    // Bumping updated_at marks the visibility change for the Trending pass.
     await this.db
       .prepare(
-        "UPDATE comments SET moderation_state='visible',decision_id=? WHERE id=? AND moderation_state='pending' AND updated_at=?",
+        "UPDATE comments SET moderation_state='visible',decision_id=?,updated_at=max(updated_at+1,?) WHERE id=? AND moderation_state='pending' AND updated_at=?",
       )
-      .bind(decisionId, id, updatedAt)
+      .bind(decisionId, now, id, updatedAt)
       .run();
   }
 }

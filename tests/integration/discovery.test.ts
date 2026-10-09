@@ -154,6 +154,43 @@ it("computes Trending and New from precomputed activity without changing Top", a
   expect(await topHash(w.category)).toBe(before);
 });
 
+it("re-derives an older day when a comment on it changes visibility", async () => {
+  const w = await world();
+  const day = Math.floor(NOW / DAY) * DAY - 5 * DAY;
+  const date = new Date(day).toISOString().slice(0, 10);
+  const comment = `older-${w.s}`;
+  await env.DB.prepare(
+    "INSERT INTO comments(id,user_id,product_id,product_version_id,body,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
+  )
+    .bind(
+      comment,
+      w.f.users[0]!.id,
+      w.f.productId,
+      w.f.versionId,
+      "Five days old.",
+      day + 3_600_000,
+      day + 3_600_000,
+    )
+    .run();
+  const commenters = async () =>
+    await env.DB.prepare(
+      "SELECT COALESCE(SUM(comment_count),0) AS n FROM product_category_daily_stats WHERE stat_date=? AND product_version_id=? AND category_id=?",
+    )
+      .bind(date, w.f.versionId, w.category)
+      .first<number>("n");
+  // Outside the midnight pass only today and yesterday are re-derived.
+  await trendingService(rankingEnv, () => NOW).rebuild();
+  await trendingService(rankingEnv, () => NOW).refresh();
+  expect(await commenters()).toBe(1);
+  await env.DB.prepare(
+    "UPDATE comments SET deleted_at=?,updated_at=? WHERE id=?",
+  )
+    .bind(NOW + 60_000, NOW + 60_000, comment)
+    .run();
+  await trendingService(rankingEnv, () => NOW + 3_600_000).refresh();
+  expect(await commenters()).toBe(0);
+});
+
 it("serves every category view without reading raw ratings", async () => {
   const w = await world();
   await trendingService(rankingEnv, () => NOW).rebuild();

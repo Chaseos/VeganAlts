@@ -143,3 +143,52 @@ test("comments post safely, vote once, report, hold for review and publish after
     await operator.dispose();
   }
 });
+
+test("an identical comment posted after deleting the first is saved as new", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(
+    Boolean(process.env.TEST_BASE_URL),
+    "Real staging accounts are verified interactively.",
+  );
+  const author = await createBrowserSession();
+  const body = `Crisps nicely in a pan ${testInfo.project.name}-${Date.now()}`;
+  try {
+    await context.addCookies([author.cookie]);
+    await page.goto("/us/products/beyond-burger");
+    const section = page.locator("section.comments");
+    await expect(
+      section.getByRole("button", { name: "Post comment" }),
+    ).toBeEnabled();
+    const post = async () => {
+      await section.getByLabel("Add your experience").fill(body);
+      await section.getByRole("button", { name: "Post comment" }).click();
+      await expect(section.getByRole("status")).toHaveText(
+        "Your comment is posted.",
+      );
+    };
+    await post();
+    page.once("dialog", (dialog) => void dialog.accept());
+    await section
+      .getByRole("listitem")
+      .filter({ hasText: body })
+      .getByRole("button", { name: "Delete" })
+      .click();
+    await expect(section.getByRole("status")).toHaveText(
+      "Your comment is deleted.",
+    );
+    // The second post is a new action, not a replay of the deleted comment.
+    await post();
+    await page.reload();
+    await expect(
+      page
+        .locator("section.comments")
+        .getByRole("listitem")
+        .filter({ hasText: body }),
+    ).toBeVisible();
+  } finally {
+    await page.close();
+    await author.dispose();
+  }
+});

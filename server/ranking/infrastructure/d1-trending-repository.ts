@@ -111,6 +111,37 @@ export class D1TrendingRepository {
         .bind(categoryId, now, JSON.stringify(rows)),
     ]);
   }
+  /**
+   * UTC day starts, in [from, to), of comments changed since a time. A delete,
+   * hide, restore or release can change an older day's distinct commenters.
+   */
+  async changedCommentDays(since: number, from: number, to: number) {
+    return (
+      await this.db
+        .prepare(
+          "SELECT DISTINCT (created_at/86400000)*86400000 AS day FROM comments WHERE created_at>=? AND created_at<? AND updated_at>=?",
+        )
+        .bind(from, to, since)
+        .all<{ day: number }>()
+    ).results.map((r) => r.day);
+  }
+  async lastRefresh() {
+    return Number(
+      (await this.db
+        .prepare(
+          "SELECT cursor FROM community_recovery WHERE prefix='trending-refreshed'",
+        )
+        .first<string>("cursor")) ?? 0,
+    );
+  }
+  async saveLastRefresh(at: number) {
+    await this.db
+      .prepare(
+        "INSERT INTO community_recovery(prefix,cursor) VALUES('trending-refreshed',?) ON CONFLICT(prefix) DO UPDATE SET cursor=excluded.cursor",
+      )
+      .bind(String(at))
+      .run();
+  }
   async cursor() {
     return (
       (await this.db

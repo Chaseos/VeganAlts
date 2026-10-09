@@ -41,6 +41,17 @@ export class TrendingService {
     const days = full ? this.span + 1 : 2;
     for (let i = 0; i < days; i++)
       await this.repository.rollupDay(today - i * DAY);
+    // Older days in the window whose comments changed since the last pass.
+    const since = await this.repository.lastRefresh();
+    const changed = full
+      ? []
+      : await this.repository.changedCommentDays(
+          since,
+          today - this.span * DAY,
+          today - DAY,
+        );
+    for (const day of changed) await this.repository.rollupDay(day);
+    await this.repository.saveLastRefresh(now);
     let cursor = await this.repository.cursor();
     let categories = await this.repository.categoriesAfter(
       cursor,
@@ -56,7 +67,7 @@ export class TrendingService {
     await this.repository.saveCursor(
       categories.length < CATEGORIES_PER_PASS ? "" : cursor,
     );
-    return { days, categories: categories.length };
+    return { days: days + changed.length, categories: categories.length };
   }
   /**
    * A category merge or reversal moves older activity between categories, so
