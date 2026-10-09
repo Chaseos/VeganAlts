@@ -293,7 +293,9 @@ test("submission, private receipt, operator publication, reporting, formula hist
     ).toBeVisible();
     await page.goto(`/us/products/${slug}`);
     await expect(
-      page.getByRole("img", { name: `${name} package`, exact: true }),
+      page
+        .getByRole("group", { name: "Package photos" })
+        .getByRole("img", { name: `${name}: Front`, exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Updated test formula", exact: true }),

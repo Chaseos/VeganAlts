@@ -20,7 +20,7 @@ test("comments post safely, vote once, report, hold for review and publish after
     await page.goto("/us/products/beyond-burger");
     const section = page.locator("section.comments");
     await expect(
-      section.getByRole("heading", { name: "Experiences and tips" }),
+      section.getByRole("heading", { name: "Notes from people who tried it" }),
     ).toBeVisible();
     await expect(
       section.getByRole("button", { name: "Post comment" }),

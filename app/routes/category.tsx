@@ -498,6 +498,7 @@ function FoodRanking({ data }: { data: FoodData }) {
                   <UnratedRow
                     key={product.id}
                     country={code}
+                    food={data.category.slug}
                     product={{
                       ...product,
                       publishedAt: product.publishedAt ?? null,

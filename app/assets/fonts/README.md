@@ -2,8 +2,8 @@
 
 Self-hosted variable Archivo (width 62–125, weight 100–900, upright) used by `app/styles/fonts.css`.
 
-| File                           | Source                                                                          | SHA-256                                                            |
-| ------------------------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| File                           | Source                                                                           | SHA-256                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `archivo-latin-wdth.woff2`     | `@fontsource-variable/archivo@5.3.0` `files/archivo-latin-wdth-normal.woff2`     | `e3a28eade21a900c7155a247757f4b2834c07bb7ef07ad7efa55cebaac1e8f5e` |
 | `archivo-latin-ext-wdth.woff2` | `@fontsource-variable/archivo@5.3.0` `files/archivo-latin-ext-wdth-normal.woff2` | `5717f37059660ca5c899bad6c48ee22c3ac55cb3c484055241689d0f905a1a86` |
 

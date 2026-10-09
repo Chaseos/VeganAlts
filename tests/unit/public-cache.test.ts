@@ -360,3 +360,15 @@ it("caches instant answers by country and query only, for five minutes", () => {
   expect(key.searchParams.get("utm")).toBeNull();
   expect(key.searchParams.get("country")).toBe("ca");
 });
+
+it("keeps the food a product page is about in its cache identity", () => {
+  const key = new URL(
+    normalizedPublicRequest(
+      new Request(`${origin}/us/products/beyond-beef?food=beef-burgers&x=1`),
+      origin,
+      "v1",
+    ).url,
+  );
+  expect(key.searchParams.get("food")).toBe("beef-burgers");
+  expect(key.searchParams.get("x")).toBeNull();
+});

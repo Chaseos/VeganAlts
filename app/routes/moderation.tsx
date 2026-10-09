@@ -10,7 +10,8 @@ import { taxonomyServices } from "@server/taxonomy/infrastructure/composition";
 import { CategoryReview } from "../components/category-review";
 import type { ProductSnapshot } from "@server/community/domain/moderation";
 import { hasCatalogChanges } from "@server/community/domain/change-policy";
-import { SiteShell, EmptyState } from "../components/catalog";
+import { SiteShell } from "../components/catalog";
+import { EmptyState } from "../components/ui/feedback";
 import { ContributionContent } from "../components/contribution-detail";
 import {
   CommunityFeedback,

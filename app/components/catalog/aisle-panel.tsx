@@ -77,7 +77,7 @@ export function FoodCard({
               </span>
               <Link
                 className="va-food-card__product"
-                to={productPath(country, product.slug)}
+                to={productPath(country, product.slug, food.slug)}
               >
                 {product.name}
               </Link>

@@ -58,7 +58,7 @@ export function InstantSearch({
         })),
         ...result.products.map((product) => ({
           kind: "product" as const,
-          href: productPath(country, product.slug),
+          href: productPath(country, product.slug, product.food.slug),
           product,
         })),
       ]

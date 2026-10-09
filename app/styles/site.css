@@ -20,6 +20,9 @@
 @import "./components/aisles.css" layer(components);
 @import "./components/rating.css" layer(components);
 @import "./components/search.css" layer(components);
+@import "./components/gallery.css" layer(components);
+@import "./components/comments.css" layer(components);
 @import "./pages/utility.css" layer(pages);
 @import "./pages/home.css" layer(pages);
 @import "./pages/category.css" layer(pages);
+@import "./pages/product.css" layer(pages);

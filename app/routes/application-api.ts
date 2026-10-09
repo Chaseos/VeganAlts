@@ -93,6 +93,7 @@ async function handle(request: Request, path: string) {
               market,
               slug,
               url.searchParams.get("version"),
+              url.searchParams.get("food"),
             ),
           );
         }

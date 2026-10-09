@@ -650,6 +650,73 @@ export class D1CatalogRepository implements CatalogRepository {
     };
   }
 
+  // Per-food context for one formula: Top rank among the food's ranked
+  // products, detail answers, familiarity counts and the allergen label.
+  async productInsights(
+    countryId: string,
+    productId: string,
+    versionId: string,
+  ) {
+    const [ranks, details, familiarity, allergens] = await this.db.batch<
+      Record<string, unknown>
+    >([
+      this.db
+        .prepare(
+          `WITH ranked AS (SELECT s.category_id AS categoryId,p.id AS productId,
+            ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${rankingOrderSql}) AS rank,
+            COUNT(*) OVER (PARTITION BY s.category_id) AS rankedCount
+            FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
+            ${rankedMembershipSql}
+            WHERE s.category_id IN (SELECT category_id FROM product_categories WHERE product_id=?) AND ${eligible} AND ${rankedSampleSql})
+          SELECT categoryId,rank,rankedCount FROM ranked WHERE productId=?`,
+        )
+        .bind(countryId, productId, productId),
+      this.db
+        .prepare(
+          `SELECT ds.category_id AS categoryId,d.key,ds.answer_count AS count,ds.answer_sum AS sum FROM product_category_dimension_stats ds
+          JOIN category_rating_dimensions d ON d.id=ds.dimension_id AND d.is_active=1 WHERE ds.product_version_id=?`,
+        )
+        .bind(versionId),
+      this.db
+        .prepare(
+          "SELECT category_id AS categoryId,recency,overall_similarity AS score,rating_count AS count FROM product_category_familiarity_stats WHERE product_version_id=?",
+        )
+        .bind(versionId),
+      this.db
+        .prepare(
+          `SELECT ${allergensSql("v")} AS allergens,
+            (SELECT e.confirm_count FROM product_version_allergen_declarations d JOIN edit_proposals e ON e.id=d.source_proposal_id WHERE d.product_version_id=v.id) AS confirmations
+          FROM product_versions v WHERE v.id=?`,
+        )
+        .bind(versionId),
+    ]);
+    const label = allergens!.results[0];
+    return {
+      ranks: ranks!.results as {
+        categoryId: string;
+        rank: number;
+        rankedCount: number;
+      }[],
+      details: details!.results as {
+        categoryId: string;
+        key: string;
+        count: number;
+        sum: number;
+      }[],
+      familiarity: familiarity!.results as {
+        categoryId: string;
+        recency: string;
+        score: number;
+        count: number;
+      }[],
+      allergens: label?.allergens
+        ? (JSON.parse(String(label.allergens)) as AllergenDeclaration)
+        : null,
+      allergenConfirmations:
+        typeof label?.confirmations === "number" ? label.confirmations : null,
+    };
+  }
+
   async search(countryId: string, iso2: string, expression: string) {
     const [categories, products] = await this.db.batch([
       this.db

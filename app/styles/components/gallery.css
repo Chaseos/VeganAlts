@@ -1,0 +1,145 @@
+/* Package photos: native radios choose the slot (no inline styles, no JS). */
+.va-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.va-gallery__stage {
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 1px solid var(--va-line);
+  border-radius: var(--va-radius-card-lg);
+  background: var(--va-surface);
+}
+
+.va-gallery__slide {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+.va-gallery__slide a,
+.va-gallery__slide img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.va-gallery__slide img {
+  object-fit: contain;
+}
+
+.va-gallery__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+  color: var(--va-muted);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.va-gallery__tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.va-gallery__tab {
+  display: grid;
+  place-items: center;
+  min-height: 52px;
+  padding: 4px;
+  border: 2px solid var(--va-line);
+  border-radius: 10px;
+  background: var(--va-surface);
+  color: var(--va-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  cursor: pointer;
+}
+
+.va-gallery:has(#gallery-front:checked) .va-gallery__slide--front {
+  display: block;
+}
+
+.va-gallery:has(#gallery-front:checked) .va-gallery__tab--front {
+  border-color: var(--va-emphasis);
+  color: var(--va-ink);
+  font-weight: 800;
+}
+
+.va-gallery:has(#gallery-front:focus-visible) .va-gallery__tab--front {
+  outline: 3px solid var(--va-ring);
+  outline-offset: 2px;
+}
+
+.va-gallery:has(#gallery-back:checked) .va-gallery__slide--back {
+  display: block;
+}
+
+.va-gallery:has(#gallery-back:checked) .va-gallery__tab--back {
+  border-color: var(--va-emphasis);
+  color: var(--va-ink);
+  font-weight: 800;
+}
+
+.va-gallery:has(#gallery-back:focus-visible) .va-gallery__tab--back {
+  outline: 3px solid var(--va-ring);
+  outline-offset: 2px;
+}
+
+.va-gallery:has(#gallery-ingredients:checked) .va-gallery__slide--ingredients {
+  display: block;
+}
+
+.va-gallery:has(#gallery-ingredients:checked) .va-gallery__tab--ingredients {
+  border-color: var(--va-emphasis);
+  color: var(--va-ink);
+  font-weight: 800;
+}
+
+.va-gallery:has(#gallery-ingredients:focus-visible)
+  .va-gallery__tab--ingredients {
+  outline: 3px solid var(--va-ring);
+  outline-offset: 2px;
+}
+
+.va-gallery:has(#gallery-nutrition:checked) .va-gallery__slide--nutrition {
+  display: block;
+}
+
+.va-gallery:has(#gallery-nutrition:checked) .va-gallery__tab--nutrition {
+  border-color: var(--va-emphasis);
+  color: var(--va-ink);
+  font-weight: 800;
+}
+
+.va-gallery:has(#gallery-nutrition:focus-visible) .va-gallery__tab--nutrition {
+  outline: 3px solid var(--va-ring);
+  outline-offset: 2px;
+}
+
+.va-gallery:has(#gallery-prepared:checked) .va-gallery__slide--prepared {
+  display: block;
+}
+
+.va-gallery:has(#gallery-prepared:checked) .va-gallery__tab--prepared {
+  border-color: var(--va-emphasis);
+  color: var(--va-ink);
+  font-weight: 800;
+}
+
+.va-gallery:has(#gallery-prepared:focus-visible) .va-gallery__tab--prepared {
+  outline: 3px solid var(--va-ring);
+  outline-offset: 2px;
+}

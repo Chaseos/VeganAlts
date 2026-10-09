@@ -18,10 +18,12 @@ import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
 import { aisleTree, taxonomyShape } from "../../taxonomy/domain/shape";
 import {
   AISLE_TOP,
+  DETAIL_MIN_ANSWERS,
   HOME_LIST_SIZE,
   SUGGEST_LIMIT,
   isEarly,
 } from "../../ranking/domain/display";
+import { distribution, recentEaters } from "../domain/product-view";
 import {
   intersectFilters,
   NO_FILTERS,
@@ -609,7 +611,17 @@ export class CatalogService {
     };
   }
 
-  async product(market: Market, slug: string, versionId: string | null) {
+  /**
+   * A product page about one of its foods (`food`, else its first active
+   * food): ranks, detail scores and rating context per food, and the other
+   * swaps for the chosen one.
+   */
+  async product(
+    market: Market,
+    slug: string,
+    versionId: string | null,
+    foodSlug: string | null = null,
+  ) {
     if (versionId !== null && !/^[a-zA-Z0-9_-]{1,100}$/.test(versionId))
       throw new ApplicationError(
         "INVALID_VERSION",
@@ -622,7 +634,67 @@ export class CatalogService {
         "Product or formula not found.",
         404,
       );
-    return this.labelNew([product])[0]!;
+    const [insights, taxonomy, options] = await Promise.all([
+      this.repository.productInsights(market.id, product.id, product.versionId),
+      this.repository.taxonomy(market.id),
+      this.repository.filterOptions(market.id),
+    ]);
+    const foods = product.categories.map((category) => {
+      const rank = insights.ranks.find((r) => r.categoryId === category.id);
+      const familiarity = insights.familiarity
+        .filter((row) => row.categoryId === category.id)
+        .map(({ recency, score, count }) => ({ recency, score, count }));
+      return {
+        ...category,
+        rank: rank?.rank ?? null,
+        rankedCount: rank?.rankedCount ?? 0,
+        early: rank ? isEarly(category.ratingCount) : false,
+        details: category.dimensions.map((dimension) => {
+          const row = insights.details.find(
+            (d) => d.categoryId === category.id && d.key === dimension.key,
+          );
+          return {
+            key: dimension.key,
+            label: dimension.label,
+            count: row?.count ?? 0,
+            mean:
+              row && row.count >= DETAIL_MIN_ANSWERS
+                ? row.sum / row.count
+                : null,
+          };
+        }),
+        recentEaters: recentEaters(familiarity),
+        distribution: distribution(familiarity),
+      };
+    });
+    const active = foods.filter((food) => food.isActive);
+    const chosen =
+      (foodSlug && active.find((food) => food.slug === foodSlug)) ||
+      active[0] ||
+      null;
+    if (foodSlug && chosen?.slug !== foodSlug)
+      throw new ApplicationError(
+        "NOT_FOUND",
+        "This product isn’t ranked for that food.",
+        404,
+      );
+    const others = chosen
+      ? (await this.repository.topProducts(market.id, [chosen.id], 4))
+          .filter((other) => other.id !== product.id)
+          .slice(0, 3)
+          .map(leaderProduct)
+      : [];
+    return {
+      ...this.labelNew([product])[0]!,
+      categories: foods,
+      food: chosen?.slug ?? null,
+      place: chosen ? this.placeOf(taxonomy, chosen.id) : null,
+      others,
+      allergens: insights.allergens,
+      allergenConfirmations: insights.allergenConfirmations,
+      // The country's allergen names, for the declaration's wording.
+      allergenOptions: options.allergens,
+    };
   }
 
   // An archived duplicate's slug resolves to its survivor. Callers must

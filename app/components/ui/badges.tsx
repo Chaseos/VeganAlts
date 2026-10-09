@@ -31,6 +31,9 @@ const VEGAN_STATUS: Record<string, { label: string; tone: string }> = {
   under_review: { label: "Under review", tone: "review" },
 };
 
+export const veganStatusLabel = (status: string) =>
+  VEGAN_STATUS[status]?.label ?? status.replaceAll("_", " ");
+
 export function VeganStatusChip({ status }: { status: string }) {
   const known = VEGAN_STATUS[status];
   if (!known) return null;

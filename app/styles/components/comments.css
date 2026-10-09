@@ -1,0 +1,152 @@
+/* Notes from people who tried it (canvas: Product5). */
+.comments {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.comments .section-heading h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  font-stretch: 110%;
+}
+
+.comments > p {
+  margin: 0;
+}
+
+.comment-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* Sort and formula choices read as segmented controls. */
+.comment-toolbar [role="group"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--va-surface-2);
+}
+
+.comment-toolbar button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--va-ink-2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.comment-toolbar button[aria-pressed="true"] {
+  background: var(--va-surface);
+  color: var(--va-ink);
+  box-shadow: var(--va-shadow);
+}
+
+.vote-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vote-group button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--va-line-strong);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--va-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.vote-group button[aria-pressed="true"] {
+  border-color: var(--va-btn);
+  background: var(--va-btn);
+  color: var(--va-on-btn);
+}
+
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.comment {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--va-surface-2);
+}
+
+.comment-list.held .comment {
+  border-left: 3px solid var(--va-warn-line);
+}
+
+.comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 13px;
+  color: var(--va-muted);
+}
+
+.comment-meta a {
+  font-weight: 600;
+}
+
+.comment-tag {
+  padding: 0 8px;
+  border: 1px solid var(--va-line-strong);
+  border-radius: var(--va-radius-pill);
+  font-size: 12px;
+}
+
+.comment-body {
+  margin: 8px 0;
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+blockquote.comment-body {
+  padding-left: 14px;
+  border-left: 3px solid var(--va-line-strong);
+}
+
+.comment-collapsed {
+  color: var(--va-muted);
+  font-style: italic;
+}
+
+.comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  font-size: 13px;
+}
+
+.vote-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.comment-report,
+.comment-composer {
+  margin-top: 12px;
+}

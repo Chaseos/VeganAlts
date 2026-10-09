@@ -94,3 +94,39 @@ it("builds the home page from Top data only", async () => {
     expect(product.foodName.length).toBeGreaterThan(0);
   expect(home.tryFoods[0]).toMatchObject({ slug: "ground-beef" });
 });
+
+it("describes a product for one of its foods with ranks and rating context", async () => {
+  const product = await catalog.product(us, "beyond-beef", null);
+  expect(product.categories.map((food) => food.slug).sort()).toEqual([
+    "beef-burgers",
+    "ground-beef",
+  ]);
+  // Without ?food the page is about its first active food.
+  expect(product.food).toBe(product.categories.find((c) => c.isActive)!.slug);
+  for (const food of product.categories) {
+    expect(food.rank).toBeGreaterThanOrEqual(1);
+    expect(food.rank!).toBeLessThanOrEqual(food.rankedCount);
+    // The distribution accounts for every counted rating.
+    expect(food.distribution.reduce((sum, row) => sum + row.count, 0)).toBe(
+      food.ratingCount,
+    );
+    expect(food.details.map((detail) => detail.key)).toEqual(
+      food.dimensions.map((dimension) => dimension.key),
+    );
+  }
+  const burgers = await catalog.product(
+    us,
+    "beyond-beef",
+    null,
+    "beef-burgers",
+  );
+  expect(burgers.food).toBe("beef-burgers");
+  expect(burgers.place?.aisle?.name).toBe("Meat");
+  expect(burgers.others.every((other) => other.slug !== "beyond-beef")).toBe(
+    true,
+  );
+  expect(burgers.allergenOptions.map((option) => option.key)).toContain("soy");
+  await expect(
+    catalog.product(us, "beyond-beef", null, "cheddar"),
+  ).rejects.toMatchObject({ status: 404 });
+});

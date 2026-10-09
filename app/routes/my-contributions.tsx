@@ -5,7 +5,8 @@ import { communityPageActor } from "@server/community/http/page";
 import { parse } from "@server/community/http/handlers";
 import { communityServices } from "@server/community/infrastructure/composition";
 import { taxonomyServices } from "@server/taxonomy/infrastructure/composition";
-import { SiteShell, EmptyState } from "../components/catalog";
+import { PageShell } from "../components/layout/page-shell";
+import { EmptyState } from "../components/ui/feedback";
 import { ContributionContent } from "../components/contribution-detail";
 import { dateLabel, friendly } from "../lib/community";
 import type { Route } from "./+types/my-contributions";
@@ -48,7 +49,7 @@ export default function Contributions({
   loaderData: { detail, category, list },
 }: Route.ComponentProps) {
   return (
-    <SiteShell compact>
+    <PageShell width="narrow">
       <header className="page-heading">
         <p className="eyebrow">Your catalog contributions</p>
         <h1>{detail ? "Contribution status" : "My contributions"}</h1>
@@ -124,6 +125,6 @@ export default function Contributions({
           </nav>
         </>
       )}
-    </SiteShell>
+    </PageShell>
   );
 }

@@ -191,7 +191,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                   <li key={product.id}>
                     <Link
                       className="va-row-link"
-                      to={productPath(code, product.slug)}
+                      to={productPath(code, product.slug, product.foodSlug)}
                     >
                       <Icon name="trend" size={20} className="va-good-icon" />
                       <span className="va-row-link__text">
@@ -237,7 +237,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                     <span className="va-row-link__text">
                       <Link
                         className="va-row-link__title"
-                        to={productPath(code, product.slug)}
+                        to={productPath(code, product.slug, product.foodSlug)}
                       >
                         {product.name}
                       </Link>
@@ -256,7 +256,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                     <ButtonLink
                       variant="secondary"
                       small
-                      to={`${productPath(code, product.slug)}#scores-title`}
+                      to={`${productPath(code, product.slug, product.foodSlug)}#scores-title`}
                     >
                       Rate it<span className="sr-only">: {product.name}</span>
                     </ButtonLink>

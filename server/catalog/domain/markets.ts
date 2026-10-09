@@ -47,8 +47,9 @@ export function foodPath(code: string, slug: string) {
   return `/${code}/${slug}`;
 }
 
-export function productPath(code: string, slug: string) {
-  return `/${code}/products/${slug}`;
+// A product page, optionally about one of its foods (`?food=`).
+export function productPath(code: string, slug: string, food?: string | null) {
+  return `/${code}/products/${slug}${food ? `?food=${food}` : ""}`;
 }
 
 export function hreflang(code: string) {

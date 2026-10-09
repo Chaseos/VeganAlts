@@ -9,7 +9,8 @@ import {
   type ProductChange,
 } from "@server/community/domain/contracts";
 import type { ImageSlot } from "@server/media/domain/media";
-import { SiteShell } from "../components/catalog";
+import { PageShell } from "../components/layout/page-shell";
+import { Breadcrumb } from "../components/ui/navigation";
 import {
   FactChangeFields,
   factChangeDetails,
@@ -264,12 +265,14 @@ export default function Contribute({
     });
   }
   return (
-    <SiteShell compact>
+    <PageShell width="narrow">
       <CommunityControls>
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <Link to={`/us/products/${product.slug}`}>{product.name}</Link>
-          <span>Contribute</span>
-        </nav>
+        <Breadcrumb
+          items={[
+            { label: product.name, to: `/us/products/${product.slug}` },
+            { label: "Contribute" },
+          ]}
+        />
         <header className="page-heading">
           <p className="eyebrow">Keep the catalog useful</p>
           <h1>{product.name}</h1>
@@ -709,6 +712,6 @@ export default function Contribute({
           <CommunityFeedback action={action} siteKey={siteKey} />
         </section>
       </CommunityControls>
-    </SiteShell>
+    </PageShell>
   );
 }

@@ -126,7 +126,7 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
                   <li key={product.slug}>
                     <Link
                       className="va-row-link"
-                      to={productPath(code, product.slug)}
+                      to={productPath(code, product.slug, product.food.slug)}
                     >
                       <span className="va-row-link__text">
                         <span className="va-row-link__title">

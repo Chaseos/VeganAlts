@@ -229,6 +229,22 @@ export interface CatalogRepository {
     slug: string,
     versionId: string | null,
   ): Promise<ProductDetails | null>;
+  productInsights(
+    countryId: string,
+    productId: string,
+    versionId: string,
+  ): Promise<{
+    ranks: { categoryId: string; rank: number; rankedCount: number }[];
+    details: { categoryId: string; key: string; count: number; sum: number }[];
+    familiarity: {
+      categoryId: string;
+      recency: string;
+      score: number;
+      count: number;
+    }[];
+    allergens: AllergenDeclaration | null;
+    allergenConfirmations: number | null;
+  }>;
   search(
     countryId: string,
     iso2: string,

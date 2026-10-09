@@ -38,7 +38,10 @@ export function allergenSummary(
 ) {
   if (!declaration) return null;
   const named = (keys: string[]) =>
-    keys.map((key) => ({ key, label: labels[key] ?? key.replaceAll("_", " ") }));
+    keys.map((key) => ({
+      key,
+      label: labels[key] ?? key.replaceAll("_", " "),
+    }));
   return declaration.status === "none_declared"
     ? { status: "none_declared" as const, contains: [], mayContain: [] }
     : {
@@ -92,7 +95,7 @@ export function FeaturedSwap({
   labels: Labels;
   stores: StoreOption[];
 }) {
-  const href = productPath(country, product.slug);
+  const href = productPath(country, product.slug, food);
   return (
     <article className="va-featured" aria-labelledby={`featured-${product.id}`}>
       <span className="va-featured__flag">
@@ -161,7 +164,7 @@ export function RankedRow({
 }) {
   const allergens = allergenSummary(product.allergens, labels);
   return (
-    <Link className="va-rank-row" to={productPath(country, product.slug)}>
+    <Link className="va-rank-row" to={productPath(country, product.slug, food)}>
       <span className="va-rank-row__rank">
         {product.topRank ? (
           <>
@@ -177,7 +180,9 @@ export function RankedRow({
         <span className="va-small va-muted">
           {[
             product.brand,
-            product.ratingCount ? ratings(product.ratingCount) : "No ratings yet",
+            product.ratingCount
+              ? ratings(product.ratingCount)
+              : "No ratings yet",
             note,
           ]
             .filter(Boolean)
@@ -211,13 +216,17 @@ export function RankedRow({
 
 export function UnratedRow({
   country,
+  food,
   product,
   labels,
 }: {
   country: string;
-  product: ListedProduct | (Omit<ListedProduct, "details" | "badges"> & {
-    details?: undefined;
-  });
+  food: string;
+  product:
+    | ListedProduct
+    | (Omit<ListedProduct, "details" | "badges"> & {
+        details?: undefined;
+      });
   labels: Labels;
 }) {
   const allergens = allergenSummary(product.allergens, labels);
@@ -226,14 +235,16 @@ export function UnratedRow({
       <span className="va-unrated__main">
         <Link
           className="va-unrated__name"
-          to={productPath(country, product.slug)}
+          to={productPath(country, product.slug, food)}
         >
           {product.name}
         </Link>
         <span className="va-small va-muted">
           {[
             product.brand,
-            product.publishedAt ? `added ${shortDate(product.publishedAt)}` : null,
+            product.publishedAt
+              ? `added ${shortDate(product.publishedAt)}`
+              : null,
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -248,7 +259,7 @@ export function UnratedRow({
       <ButtonLink
         variant="secondary"
         small
-        to={`${productPath(country, product.slug)}#scores-title`}
+        to={`${productPath(country, product.slug, food)}#scores-title`}
       >
         Be the first to rate<span className="sr-only">: {product.name}</span>
       </ButtonLink>

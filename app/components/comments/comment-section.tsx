@@ -223,7 +223,7 @@ export function CommentSection({
   return (
     <section className="comments" aria-labelledby="comments-title">
       <div className="section-heading">
-        <h2 id="comments-title">Experiences and tips</h2>
+        <h2 id="comments-title">Notes from people who tried it</h2>
       </div>
       <p className="small muted">
         Share how it compares: taste, texture, cooking and how recently you had

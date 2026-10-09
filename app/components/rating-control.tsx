@@ -34,12 +34,14 @@ export function RatingControl({
   categoryId,
   categoryName,
   productSlug,
+  foodSlug,
   dimensions,
 }: {
   versionId: string;
   categoryId: string;
   categoryName: string;
   productSlug: string;
+  foodSlug?: string;
   dimensions: RatingQuestion[];
 }) {
   const { user, siteKey, states, register, select, error, retryLoad } =
@@ -48,7 +50,8 @@ export function RatingControl({
   useEffect(() => register(versionId), [register, versionId]);
   const state = states[ratingKey(versionId, categoryId)];
   const country = useCountryCode();
-  const returnTo = `${productPath(country, productSlug)}#rate-${categoryId}`;
+  // Sign-in returns to this food's view of the product.
+  const returnTo = `${productPath(country, productSlug)}${foodSlug ? `?food=${foodSlug}` : ""}#rate-${categoryId}`;
   const food = categoryName.toLowerCase();
   const answers = state?.dimensions ?? {};
   const recency = state?.recency ?? null;
