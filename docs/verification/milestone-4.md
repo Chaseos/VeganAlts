@@ -5,7 +5,7 @@ Verified on 2026-10-09 against the approved [Milestone 4 specification](../MILES
 ## Delivery and scope
 
 - Branch: `feature/milestone-four-trust-lifecycle-discovery`, based on `develop` at `580498f`. One commit per checkpoint, published for review as [Chaseos/VeganAlts#30](https://github.com/Chaseos/VeganAlts/pull/30).
-- Staging: [staging.veganalts.com](https://staging.veganalts.com). Final Worker version: **`27de9525-e1c7-497a-8ecd-41117d51a261`**, Worker `veganalts-staging`.
+- Staging: [staging.veganalts.com](https://staging.veganalts.com). Final Worker version: **`1d27df89-01a6-4441-8730-a10a4d867dfc`**, Worker `veganalts-staging`.
 - Applied append-only migrations `0010`–`0015` to staging. None were applied to production, which still has migrations through `0004`.
 - Automated moderation uses Cloudflare Workers AI Clef on staging (`MODERATION_PROVIDER=clef`). Production is configured with the `AI` binding and `MODERATION_PROVIDER=disabled`.
 - Production still serves the coming-soon page. `PUBLIC_LAUNCH` is `"false"` everywhere; cutover steps are in the [launch checklist](../operations/launch-checklist.md).
@@ -116,7 +116,7 @@ SEO scores 69 on staging only because staging deliberately blocks indexing. The 
 
 ## Recovery references and limits
 
-- Previous staging Worker version (Milestone 3): see `wrangler deployments list --env staging`. Milestone 4 versions: `44cebbae` (initial), `62185f75`, `11687dd7`, `9abdccd1`, `5a996db3`, `a1ff7d34`, `406a03ad`, `e3dc9b05` and `27de9525` (final).
+- Previous staging Worker version (Milestone 3): see `wrangler deployments list --env staging`. Milestone 4 versions: `44cebbae` (initial), `62185f75`, `11687dd7`, `9abdccd1`, `5a996db3`, `a1ff7d34`, `406a03ad`, `e3dc9b05`, `27de9525` and `1d27df89` (final).
 - Prefer audited reversals for catalog and taxonomy corrections. A Time Travel restore discards later contributions and needs an explicit operator decision.
 - Clef thresholds are provisional, calibrated on 20 labeled cases. Trending weights are provisional (RANKING §14). Both need recalibration with real traffic.
 
