@@ -19,3 +19,45 @@ export function publicMetadata(
     ...(staging ? [{ name: "robots", content: "noindex, nofollow" }] : []),
   ];
 }
+
+/**
+ * Honest structured data only: navigation breadcrumbs and ordered lists.
+ * Similarity scores are not product-quality reviews, so no AggregateRating.
+ */
+export function breadcrumbs(
+  origin: string,
+  items: { name: string; path: string }[],
+) {
+  return {
+    "script:ld+json": {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: items.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.name,
+        item: new URL(item.path, origin).href,
+      })),
+    },
+  };
+}
+export function itemList(
+  origin: string,
+  name: string,
+  items: { name: string; path: string }[],
+  start = 1,
+) {
+  return {
+    "script:ld+json": {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name,
+      itemListElement: items.map((item, index) => ({
+        "@type": "ListItem",
+        position: start + index,
+        name: item.name,
+        url: new URL(item.path, origin).href,
+      })),
+    },
+  };
+}

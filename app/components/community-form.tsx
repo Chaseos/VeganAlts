@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import type { CommunityAction } from "../lib/community";
 import { Turnstile } from "./turnstile";
 import type { ImageSlot } from "@server/media/domain/media";
@@ -127,5 +128,16 @@ export function CommunityControls({ children }: { children: ReactNode }) {
     >
       {children}
     </fieldset>
+  );
+}
+
+/** Points contributors at the published rules before they submit. */
+export function GuidelinesNote() {
+  return (
+    <p className="small guidelines-note">
+      Contributions follow the{" "}
+      <Link to="/about/terms">community guidelines</Link> and are reviewed as
+      described in <Link to="/about/moderation">how moderation works</Link>.
+    </p>
   );
 }

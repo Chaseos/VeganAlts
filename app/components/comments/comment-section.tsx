@@ -2,7 +2,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import type { PublicComment } from "@server/comments/infrastructure/d1-comment-repository";
 import type { SavedComment } from "@server/comments/application/comment-service";
 import { usePersonalState } from "../personal-state";
-import { CommunityFeedback, CommunityControls } from "../community-form";
+import {
+  CommunityFeedback,
+  CommunityControls,
+  GuidelinesNote,
+} from "../community-form";
 import { useCommunityAction } from "../../lib/community";
 import { CommentItem, type OwnComment } from "./comment-item";
 
@@ -327,6 +331,7 @@ export function CommentSection({
             >
               {action.busy ? "Posting…" : "Post comment"}
             </button>
+            <GuidelinesNote />
           </form>
         ) : (
           <p>

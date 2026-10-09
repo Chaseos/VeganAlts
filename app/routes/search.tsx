@@ -16,7 +16,7 @@ import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/search";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  requireCatalogPreview(env.APP_ENV);
+  requireCatalogPreview(env);
   return publicLoader(async () => {
     const catalog = catalogService(env);
     const result = await catalog.search(
@@ -39,6 +39,11 @@ export function meta({ loaderData }: Route.MetaArgs) {
     `/us/search${loaderData?.query ? `?q=${encodeURIComponent(loaderData.query)}` : ""}`,
     loaderData?.origin ?? "https://veganalts.com",
     loaderData?.staging ?? true,
+  ).concat(
+    // Query results are thin, unbounded pages; crawlers follow their links.
+    loaderData?.query && !loaderData.staging
+      ? [{ name: "robots", content: "noindex, follow" }]
+      : [],
   );
 }
 export default function Search({ loaderData: data }: Route.ComponentProps) {

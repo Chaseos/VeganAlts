@@ -8,6 +8,8 @@ export interface PublicRoute {
     | "product"
     | "comments"
     | "profile"
+    | "policy"
+    | "sitemap"
     | "media";
   representation: "document" | "data" | "api" | "image";
   pathname: string;
@@ -55,6 +57,12 @@ export function publicRoute(url: URL): PublicRoute | null {
   };
   if (path === "/" || path === "/api/v1/categories")
     return { ...canonical, kind: "home", ttl: 1800 };
+  if (path === "/sitemap.xml")
+    return { ...canonical, kind: "sitemap", ttl: 3600 };
+  const policy = path.match(/^\/about\/([a-z-]+)$/);
+  // Policies change rarely and are long-lived.
+  if (policy)
+    return { ...canonical, kind: "policy", ttl: 86400, slug: policy[1] };
   if (path === "/us/search" || path === "/api/v1/search")
     return { ...canonical, kind: "search", ttl: 600 };
   let match = data

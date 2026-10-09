@@ -26,6 +26,8 @@
     "MODERATION_PROVIDER": "fake",
     "MODERATION_POLICY": "{}",
     "PROPOSAL_AUTO_APPLY": "{}",
+    "PUBLIC_LAUNCH": "false",
+    "SUPPORT_CONTACT": "",
     "WEB_ANALYTICS_TOKEN": "",
   },
   "d1_databases": [
@@ -210,6 +212,8 @@
         "MODERATION_PROVIDER": "clef",
         "MODERATION_POLICY": "{}",
         "PROPOSAL_AUTO_APPLY": "{\"minAgeHours\":1}",
+        "PUBLIC_LAUNCH": "false",
+        "SUPPORT_CONTACT": "",
         "WEB_ANALYTICS_TOKEN": "e7dbbaef8ad448a6bc2cb6e9ff38f8b3",
       },
       "d1_databases": [
@@ -363,6 +367,8 @@
         "MODERATION_PROVIDER": "disabled",
         "MODERATION_POLICY": "{}",
         "PROPOSAL_AUTO_APPLY": "{}",
+        "PUBLIC_LAUNCH": "false",
+        "SUPPORT_CONTACT": "",
         "WEB_ANALYTICS_TOKEN": "",
       },
       "d1_databases": [

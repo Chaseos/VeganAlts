@@ -56,6 +56,14 @@ export function SiteShell({
           VeganAlts.
         </Link>
         <p>Closer to the foods you love.</p>
+        <nav aria-label="About VeganAlts" className="footer-links">
+          <Link to="/about/rankings">How rankings work</Link>
+          <Link to="/about/vegan-status">Vegan status</Link>
+          <Link to="/about/moderation">Moderation</Link>
+          <Link to="/about/terms">Guidelines</Link>
+          <Link to="/about/privacy">Privacy</Link>
+          <Link to="/about/contact">Contact</Link>
+        </nav>
         <span>United States · Independent rankings</span>
       </footer>
     </div>

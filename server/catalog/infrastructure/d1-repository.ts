@@ -43,6 +43,24 @@ export class D1CatalogRepository implements CatalogRepository {
     ).results;
   }
 
+  async sitemap() {
+    const [categories, products] = await this.db.batch<{
+      slug: string;
+      updatedAt: number;
+    }>([
+      this.db.prepare(
+        "SELECT slug,updated_at AS updatedAt FROM categories WHERE is_active=1 ORDER BY slug LIMIT 10000",
+      ),
+      // Discontinued products stay indexable with their status; hidden
+      // (archived duplicates) and other markets are excluded.
+      this.db.prepare(
+        `SELECT p.slug,p.updated_at AS updatedAt FROM products p JOIN countries country ON country.id=p.country_id AND country.iso2='US' AND country.is_active=1
+        WHERE ${visible} ORDER BY p.slug LIMIT 40000`,
+      ),
+    ]);
+    return { categories: categories!.results, products: products!.results };
+  }
+
   async featuredCategories() {
     return (
       await this.db

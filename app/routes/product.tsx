@@ -17,12 +17,12 @@ import { CommentSection } from "../components/comments/comment-section";
 import { ProposalResponses } from "../components/proposal-responses";
 import { PhotoSlots } from "../components/photo-slots";
 import { commentServices } from "@server/comments/infrastructure/composition";
-import { publicMetadata } from "../lib/metadata";
+import { breadcrumbs, publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/product";
 import { dateLabel, friendly } from "../lib/community";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  requireCatalogPreview(env.APP_ENV);
+  requireCatalogPreview(env);
   const canonical = await catalogService(env).canonicalRedirect(
     params.productSlug,
   );
@@ -49,15 +49,30 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 export function meta({ loaderData: data }: Route.MetaArgs) {
   const p = data?.product;
-  return publicMetadata(
-    p
-      ? `${p.name}${p.formula.isCurrent ? "" : " · Formula history"}`
-      : "Product",
-    `Explore ${p?.name ?? "this vegan alternative"}, its category scores, formula history and community experience.`,
-    `/us/products/${p?.slug ?? ""}${p && !p.formula.isCurrent ? `?version=${p.versionId}` : ""}`,
-    data?.origin ?? "https://veganalts.com",
-    data?.staging ?? true,
-  );
+  const origin = data?.origin ?? "https://veganalts.com";
+  const category = p?.categories.find((c) => c.isActive);
+  return [
+    ...publicMetadata(
+      p
+        ? `${p.name}${p.formula.isCurrent ? "" : " · Formula history"}`
+        : "Product",
+      `Explore ${p?.name ?? "this vegan alternative"}, its category scores, formula history and community experience.`,
+      `/us/products/${p?.slug ?? ""}${p && !p.formula.isCurrent ? `?version=${p.versionId}` : ""}`,
+      origin,
+      data?.staging ?? true,
+    ),
+    ...(p
+      ? [
+          breadcrumbs(origin, [
+            { name: "Home", path: "/" },
+            ...(category
+              ? [{ name: category.name, path: `/us/${category.slug}` }]
+              : []),
+            { name: p.name, path: `/us/products/${p.slug}` },
+          ]),
+        ]
+      : []),
+  ];
 }
 export default function Product({
   loaderData: { product: p, comments },

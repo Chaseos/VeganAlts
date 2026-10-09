@@ -13,6 +13,7 @@ import { SiteShell } from "../components/catalog";
 import {
   CommunityFeedback,
   CommunityControls,
+  GuidelinesNote,
   PhotoPicker,
   ManufacturerField,
 } from "../components/community-form";
@@ -222,6 +223,7 @@ export default function AddProduct({
             A clear package photo and ingredient evidence help everyone find a
             reliable alternative.
           </p>
+          <GuidelinesNote />
         </header>
         {followUp && (
           <aside className="community-panel" aria-label="Requested follow-up">

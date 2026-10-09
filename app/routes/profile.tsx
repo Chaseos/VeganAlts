@@ -9,7 +9,7 @@ import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/profile";
 
 export async function loader({ params }: Route.LoaderArgs) {
-  requireCatalogPreview(env.APP_ENV);
+  requireCatalogPreview(env);
   return publicLoader(async () => ({
     profile: await catalogService(env).profile(params.handle),
     origin: env.APP_URL,

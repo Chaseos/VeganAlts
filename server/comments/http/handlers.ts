@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApplicationError } from "../../shared/domain/errors";
+import { catalogIsPublic } from "../../shared/domain/launch";
 import { requireSameOrigin } from "../../shared/http/security";
 import { limitedJson, success } from "../../shared/http/json";
 import { protectContribution } from "../../abuse/service";
@@ -27,7 +28,7 @@ export async function publicComments(
   productSlug: string,
   env: Cloudflare.Env,
 ) {
-  if (env.APP_ENV === "production")
+  if (!catalogIsPublic(env))
     throw new ApplicationError("NOT_FOUND", "This page is not available.", 404);
   const url = new URL(request.url);
   return success(

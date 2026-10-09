@@ -75,6 +75,10 @@ export interface PublicProfile {
 
 export interface CatalogRepository {
   categories(parentId?: string): Promise<CategorySummary[]>;
+  sitemap(): Promise<{
+    categories: { slug: string; updatedAt: number }[];
+    products: { slug: string; updatedAt: number }[];
+  }>;
   trending(
     categoryId: string | null,
     offset: number,

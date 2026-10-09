@@ -7,6 +7,7 @@ import { SiteShell } from "../components/catalog";
 import {
   CommunityControls,
   CommunityFeedback,
+  GuidelinesNote,
 } from "../components/community-form";
 import { useCommunityAction, type CommunityOptions } from "../lib/community";
 import type { Route } from "./+types/propose-category";
@@ -66,6 +67,7 @@ export default function ProposeCategory({
             as “Ground Beef” or “Cream Cheese”. A moderator checks every
             proposal for near-duplicates and overly narrow categories.
           </p>
+          <GuidelinesNote />
         </header>
         {saved ? (
           <div className="community-panel" role="status">

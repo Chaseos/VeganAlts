@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { Link } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader } from "@server/catalog/http/loader";
+import { catalogIsPublic } from "@server/shared/domain/launch";
 import { ComingSoon } from "../components/coming-soon";
 import {
   CategoryCards,
@@ -16,10 +17,9 @@ export async function loader() {
   return {
     staging: env.APP_ENV !== "production",
     origin: env.APP_URL,
-    catalog:
-      env.APP_ENV === "production"
-        ? null
-        : await publicLoader(() => catalogService(env).home()),
+    catalog: catalogIsPublic(env)
+      ? await publicLoader(() => catalogService(env).home())
+      : null,
   };
 }
 export function meta({ loaderData }: Route.MetaArgs) {

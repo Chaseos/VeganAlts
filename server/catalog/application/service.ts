@@ -74,6 +74,9 @@ export class CatalogService {
       newest: this.labelNew(newest),
     };
   }
+  sitemap() {
+    return this.repository.sitemap();
+  }
   // A renamed or merged category's former slug. Callers redirect uncached.
   categoryRedirect(slug: string) {
     return this.repository.categoryRedirect(slug);

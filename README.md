@@ -80,6 +80,8 @@ Public pages render useful SSR content with system fonts, a shared stylesheet an
 | [Milestone 4](docs/MILESTONE_4_PLAN.md)                               | Trust, lifecycle and discovery scope                                |
 | [Operations](docs/operations/deployment.md)                           | Environments, migrations, secrets, deployment, rollback, and costs  |
 | [Core ranking operations](docs/operations/core-ranking.md)            | Caching, analytics, abuse controls, diagnostics and resource checks |
+| [Backup and recovery](docs/operations/backup-recovery.md)             | Time Travel, exports, restore drill and recovery choices            |
+| [Launch checklist](docs/operations/launch-checklist.md)               | Production cutover steps, prepared but not executed                 |
 | [Milestone 2 verification](docs/verification/milestone-2.md)          | Staging evidence against issues #7–#12                              |
 | [Milestone 1 verification](docs/operations/milestone-one-evidence.md) | Historical foundation evidence                                      |
 | [Reference SQL](db/0001_app_baseline.sql)                             | Original design reference, not an executable migration              |

@@ -6,6 +6,8 @@ export default [
   route("us/products/:productSlug", "routes/product.tsx"),
   route("us/:categorySlug", "routes/category.tsx"),
   route("users/:handle", "routes/profile.tsx"),
+  route("about/:page", "routes/policy.tsx"),
+  route("sitemap.xml", "routes/sitemap.ts"),
   route("my-ratings", "routes/my-ratings.tsx"),
   route("add-product", "routes/add-product.tsx"),
   route("propose-category", "routes/propose-category.tsx"),

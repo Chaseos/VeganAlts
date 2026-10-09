@@ -18,7 +18,10 @@ import {
   isFactKind,
 } from "../components/fact-change-fields";
 import { CatalogSelect } from "../components/catalog-select";
-import { CommunityControls } from "../components/community-form";
+import {
+  CommunityControls,
+  GuidelinesNote,
+} from "../components/community-form";
 import {
   CommunityFeedback,
   EvidenceFields,
@@ -270,6 +273,7 @@ export default function Contribute({
             Your evidence helps an operator make an informed decision. Existing
             ratings remain with their original formula.
           </p>
+          <GuidelinesNote />
         </header>
         <nav className="contribution-tabs" aria-label="Contribution type">
           {[

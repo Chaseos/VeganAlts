@@ -6,6 +6,7 @@ import {
 import { BetterAuthSessionReader } from "../../auth/infrastructure/session-reader";
 import { protectContribution, enforceLimit } from "../../abuse/service";
 import { ApplicationError } from "../../shared/domain/errors";
+import { catalogIsPublic } from "../../shared/domain/launch";
 import { requireSameOrigin } from "../../shared/http/security";
 import { limitedJson, success } from "../../shared/http/json";
 import { limitedFormData } from "../../shared/http/limited-form";
@@ -35,7 +36,7 @@ export async function communityActor(
   env: Cloudflare.Env,
   admin = false,
 ): Promise<Actor> {
-  if (env.APP_ENV === "production")
+  if (!catalogIsPublic(env))
     throw new ApplicationError("NOT_FOUND", "This page is not available.", 404);
   const sessions = new BetterAuthSessionReader(env);
   const user = admin

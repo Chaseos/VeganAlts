@@ -18,11 +18,11 @@ import {
   RankingExplanation,
   SiteShell,
 } from "../components/catalog";
-import { publicMetadata } from "../lib/metadata";
+import { breadcrumbs, itemList, publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/category";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  requireCatalogPreview(env.APP_ENV);
+  requireCatalogPreview(env);
   // A renamed or merged category redirects (uncached) to its current slug.
   const moved = await catalogService(env).categoryRedirect(params.categorySlug);
   if (moved)
@@ -51,15 +51,40 @@ function viewQuery(view: string, page: number) {
   return params.size ? `?${params}` : "";
 }
 export function meta({ loaderData: data }: Route.MetaArgs) {
-  return publicMetadata(
-    data
-      ? `Best vegan alternatives to ${data.category.name.toLowerCase()}`
-      : "Category",
-    `Compare vegan ${data?.category.name.toLowerCase() ?? "food"} alternatives, ranked by similarity with rating counts and formula details.`,
-    `/us/${data?.category.slug ?? ""}${data ? viewQuery(data.view, data.page) : ""}`,
-    data?.origin ?? "https://veganalts.com",
-    data?.staging ?? true,
-  );
+  const origin = data?.origin ?? "https://veganalts.com";
+  const structured = data
+    ? [
+        breadcrumbs(origin, [
+          { name: "Home", path: "/" },
+          { name: data.category.name, path: `/us/${data.category.slug}` },
+        ]),
+        ...(data.view === "top" && data.ranked.length
+          ? [
+              itemList(
+                origin,
+                `Top vegan alternatives to ${data.category.name}`,
+                data.ranked.map((p) => ({
+                  name: p.name,
+                  path: `/us/products/${p.slug}`,
+                })),
+                (data.page - 1) * CATALOG_PAGE_SIZE + 1,
+              ),
+            ]
+          : []),
+      ]
+    : [];
+  return [
+    ...publicMetadata(
+      data
+        ? `Best vegan alternatives to ${data.category.name.toLowerCase()}`
+        : "Category",
+      `Compare vegan ${data?.category.name.toLowerCase() ?? "food"} alternatives, ranked by similarity with rating counts and formula details.`,
+      `/us/${data?.category.slug ?? ""}${data ? viewQuery(data.view, data.page) : ""}`,
+      origin,
+      data?.staging ?? true,
+    ),
+    ...structured,
+  ];
 }
 export default function Category({ loaderData: data }: Route.ComponentProps) {
   return (
