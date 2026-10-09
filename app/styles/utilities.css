@@ -1,0 +1,39 @@
+/* Forced colors (Windows high contrast): backgrounds disappear, so selected
+   states, labels and bars get system-color borders and fills instead. */
+@media (forced-colors: active) {
+  .va-score,
+  .va-flag,
+  .va-badge,
+  .va-status,
+  .va-allergen,
+  .va-chip,
+  .va-rate button[aria-pressed],
+  .va-detail-cell,
+  .va-gallery__tab {
+    border: 1px solid CanvasText;
+  }
+
+  [aria-pressed="true"],
+  [aria-current="page"],
+  [aria-current="true"],
+  [aria-selected="true"] {
+    outline: 3px solid Highlight;
+    outline-offset: 1px;
+  }
+
+  .va-bar__track {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+
+  .va-bar__fill {
+    fill: Highlight;
+  }
+
+  .va-featured,
+  .va-score-card,
+  .va-rate,
+  .va-card {
+    border: 2px solid CanvasText;
+  }
+}

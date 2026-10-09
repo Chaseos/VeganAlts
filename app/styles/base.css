@@ -100,8 +100,10 @@ svg {
   *::before,
   *::after {
     scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
+    /* none, not a tiny duration: with the default property of all, a duration
+       would make every color fade on a theme change. */
+    transition: none !important;
+    animation: none !important;
   }
 }
 
@@ -120,4 +122,12 @@ svg {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+/* Long names and pasted text wrap instead of widening the page. */
+h1,
+h2,
+h3,
+p {
+  overflow-wrap: break-word;
 }

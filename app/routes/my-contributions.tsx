@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { z } from "zod";
 import { communityPageActor } from "@server/community/http/page";
 import { parse } from "@server/community/http/handlers";
@@ -48,6 +48,8 @@ export function meta() {
 export default function Contributions({
   loaderData: { detail, category, list },
 }: Route.ComponentProps) {
+  // Paging links only once there is more than one page.
+  const paged = useSearchParams()[0].has("cursor") || Boolean(list?.nextCursor);
   return (
     <PageShell width="narrow">
       <header className="page-heading">
@@ -113,16 +115,18 @@ export default function Contributions({
               ))}
             </ul>
           )}
-          <nav className="pagination" aria-label="Contribution pages">
-            <Link to="/my-contributions">Most recent</Link>
-            {list?.nextCursor && (
-              <Link
-                to={`/my-contributions?cursor=${encodeURIComponent(list.nextCursor)}`}
-              >
-                Older contributions →
-              </Link>
-            )}
-          </nav>
+          {paged && (
+            <nav className="button-row" aria-label="Contribution pages">
+              <Link to="/my-contributions">Most recent</Link>
+              {list?.nextCursor && (
+                <Link
+                  to={`/my-contributions?cursor=${encodeURIComponent(list.nextCursor)}`}
+                >
+                  Older contributions →
+                </Link>
+              )}
+            </nav>
+          )}
         </>
       )}
     </PageShell>

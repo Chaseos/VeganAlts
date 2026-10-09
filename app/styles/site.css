@@ -2,15 +2,13 @@
  * VeganAlts styles. Vite inlines these imports into one hashed stylesheet.
  * Every color is a --va-* token from tokens.css (docs/DESIGN_DIRECTION.md §3);
  * the content security policy forbids inline styles, so components use classes.
- * Later layers win: legacy overrides the reset; type, layout, components and
- * pages override legacy.
+ * Later layers win: type, layout, components and pages override the reset.
  */
-@layer tokens, base, legacy, type, layout, components, pages, utilities;
+@layer tokens, base, type, layout, components, pages, utilities;
 
 @import "./fonts.css";
 @import "./tokens.css" layer(tokens);
 @import "./base.css" layer(base);
-@import "./legacy.css" layer(legacy);
 @import "./type.css" layer(type);
 @import "./layout.css" layer(layout);
 @import "./components/controls.css" layer(components);
@@ -22,7 +20,9 @@
 @import "./components/search.css" layer(components);
 @import "./components/gallery.css" layer(components);
 @import "./components/comments.css" layer(components);
+@import "./components/community.css" layer(components);
 @import "./pages/utility.css" layer(pages);
 @import "./pages/home.css" layer(pages);
 @import "./pages/category.css" layer(pages);
 @import "./pages/product.css" layer(pages);
+@import "./utilities.css" layer(utilities);

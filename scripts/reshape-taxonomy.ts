@@ -18,7 +18,7 @@ import { RatingsService } from "../server/ratings/application/service";
 import { D1RatingsRepository } from "../server/ratings/infrastructure/d1-repository";
 import { validateRankingParameters } from "../server/ranking/domain/policy";
 import { rebuildSearchIndex } from "../server/catalog/infrastructure/search-index";
-import { taxonomyShape } from "../server/taxonomy/domain/shape";
+import { reshapeTaxonomy } from "../server/taxonomy/application/reshape";
 import { SYSTEM_ACTOR_ID } from "../server/community/domain/policy";
 import type { ModerationDecisionService } from "../server/moderation/application/decision-service";
 import { TAXONOMY_GROUPS, TAXONOMY_LEAVES } from "../db/seed/taxonomy";
@@ -97,79 +97,29 @@ try {
       accountState: "active",
       administrator: true,
     };
-    const tree = await service.tree(actor);
-    const bySlug = new Map(tree.categories.map((c) => [c.slug, c]));
-    const wanted = [
-      ...TAXONOMY_GROUPS.map((g) => ({ ...g, rankable: false })),
-      ...TAXONOMY_LEAVES.map((l) => ({ ...l, rankable: true })),
-    ];
-    const problems: string[] = [];
-    for (const item of wanted) {
-      const found = bySlug.get(item.slug);
-      if (!found)
-        problems.push(`${item.slug} is missing; run the taxonomy seed first`);
-      else if (!found.isActive) problems.push(`${item.slug} is retired`);
-      else if (!!found.isRankable !== item.rankable)
-        problems.push(
-          `${item.slug} should ${item.rankable ? "" : "not "}be rankable`,
-        );
-    }
-    if (tree.merges.some((merge) => merge.state !== "complete"))
-      problems.push("a category merge is unfinished");
-    if (problems.length) {
-      console.error(JSON.stringify({ environment, problems }, null, 2));
+    const result = await reshapeTaxonomy(
+      service,
+      actor,
+      [
+        ...TAXONOMY_GROUPS.map((g) => ({ ...g, rankable: false })),
+        ...TAXONOMY_LEAVES.map((l) => ({ ...l, rankable: true })),
+      ],
+      apply,
+    );
+    if (result.problems.length) {
+      console.error(
+        JSON.stringify({ environment, problems: result.problems }, null, 2),
+      );
       process.exit(1);
     }
-    // Top-down, so each aisle sits under Food before its shelves move.
-    const moves = wanted.flatMap((item) => {
-      const current = bySlug.get(item.slug)!;
-      const parentId = item.parent ? bySlug.get(item.parent)!.id : null;
-      return current.parentId === parentId
-        ? []
-        : [
-            {
-              slug: item.slug,
-              id: current.id,
-              from:
-                tree.categories.find((c) => c.id === current.parentId)?.slug ??
-                null,
-              to: item.parent,
-              parentId,
-            },
-          ];
-    });
-    const done: { slug: string; actionId: string }[] = [];
-    if (apply)
-      for (const move of moves) {
-        const fresh = (await service.tree(actor)).categories.find(
-          (c) => c.id === move.id,
-        )!;
-        const result = (await service.update(
-          actor,
-          `m5-reshape-${move.slug}-${move.to ?? "root"}`,
-          move.id,
-          {
-            expectedRevision: fresh.revision,
-            parentId: move.parentId,
-            note: `Milestone 5 three-level taxonomy: ${move.slug} moves under ${move.to ?? "the root"}.`,
-          },
-        )) as { actionId: string };
-        done.push({ slug: move.slug, actionId: result.actionId });
-      }
-    const after = await service.tree(actor);
-    const shape = taxonomyShape(after.categories.filter((c) => c.isActive));
-    const outside = after.categories
-      .filter((c) => c.isActive && shape.get(c.id)?.outsideDepth)
-      .map((c) => c.slug);
     console.log(
       JSON.stringify(
         {
           environment,
           applied: apply,
-          moves: moves.map(({ slug, from, to }) => ({ slug, from, to })),
-          actions: done,
-          // Rankable foods the aisle bar cannot place; review them by hand.
-          outsideDepthThree: outside,
+          moves: result.moves,
+          actions: result.actions,
+          outsideDepthThree: result.outside,
         },
         null,
         2,

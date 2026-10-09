@@ -12,6 +12,7 @@ import type { ProductSnapshot } from "@server/community/domain/moderation";
 import { hasCatalogChanges } from "@server/community/domain/change-policy";
 import { SiteShell } from "../components/catalog";
 import { EmptyState } from "../components/ui/feedback";
+import { TabLinks } from "../components/ui/navigation";
 import { ContributionContent } from "../components/contribution-detail";
 import {
   CommunityFeedback,
@@ -199,12 +200,27 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
   return (
     <SiteShell>
       <CommunityControls>
-        <nav className="breadcrumbs" aria-label="Moderation navigation">
-          <Link to="/admin/moderation">Review inbox</Link>
-          <Link to="/admin/moderation/consolidate">Consolidate duplicates</Link>
-          <Link to="/admin/taxonomy">Taxonomy</Link>
-          <Link to="/my-contributions">My contributions</Link>
-        </nav>
+        <TabLinks
+          label="Moderation navigation"
+          tabs={[
+            {
+              to: "/admin/moderation",
+              label: "Review inbox",
+              current: data.view === "inbox",
+            },
+            {
+              to: "/admin/moderation/consolidate",
+              label: "Consolidate duplicates",
+              current: data.view === "consolidate",
+            },
+            { to: "/admin/taxonomy", label: "Taxonomy", current: false },
+            {
+              to: "/my-contributions",
+              label: "My contributions",
+              current: false,
+            },
+          ]}
+        />
         <header className="page-heading">
           <p className="eyebrow">Operator workspace</p>
           <h1>

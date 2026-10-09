@@ -102,6 +102,7 @@
 .form-field select,
 .form-field textarea,
 .va-input,
+input:not([type]),
 input[type="text"],
 input[type="email"],
 input[type="url"],
