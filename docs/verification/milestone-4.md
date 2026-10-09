@@ -106,7 +106,7 @@ SEO scores 69 on staging only because staging deliberately blocks indexing. The 
 
 - Production (`veganalts.com`) still shows the coming-soon page. Catalog routes and `/sitemap.xml` return 404.
 - `npx tsx scripts/audit-launch-dataset.ts staging` reports `readyForLaunch: false`, as expected. It flags the 31 development products, 28 demo accounts, missing ingredient evidence and unreviewed Vegan classifications in the staging fixtures. It reports no duplicates, empty rankable categories or categories without aliases.
-- The taxonomy list in `db/seed/taxonomy.ts` and the policy drafts were reviewed and approved. `SUPPORT_CONTACT` is still empty; the launch checklist tracks it.
+- The taxonomy list in `db/seed/taxonomy.ts` and the policy drafts were reviewed and approved. The support contact is `chaseosapps@gmail.com` in every environment.
 
 ## Recovery references and limits
 

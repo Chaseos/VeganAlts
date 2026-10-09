@@ -14,7 +14,7 @@ Milestone 4 delivered launch readiness on staging. Production still serves the c
 - [ ] `ADMIN_USER_IDS`: real operator user IDs after their first production sign-in.
 - [ ] `TURNSTILE_SITE_KEY` and the `TURNSTILE_SECRET_KEY` secret for the production hostname.
 - [ ] `WEB_ANALYTICS_TOKEN` for production.
-- [ ] `SUPPORT_CONTACT`: the reviewed support address shown on the policy pages.
+- [x] `SUPPORT_CONTACT`: `chaseosapps@gmail.com`, shown on the policy pages (set in every environment).
 - [ ] `MODERATION_PROVIDER`: switch from `disabled` to `clef` once budgets are confirmed; keep `MODERATION_POLICY` thresholds from the staging calibration.
 - [ ] `PROPOSAL_AUTO_APPLY`: keep the default (24 hours minimum age).
 - [ ] Rate-limit namespaces reviewed (auth, ratings, comments, votes, uploads, search, events).
