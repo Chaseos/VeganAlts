@@ -41,7 +41,10 @@ export function SiteHeader({
             aria-label={`Back to ${phoneBack.label}`}
           >
             <Icon name="back" size={22} />
-            <span aria-hidden="true">{phoneBack.label}</span>
+            {/* The context line already names the place. */}
+            {!phoneBack.context && (
+              <span aria-hidden="true">{phoneBack.label}</span>
+            )}
           </Link>
         ) : null}
         <Link

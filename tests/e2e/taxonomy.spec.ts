@@ -52,7 +52,9 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
       page.getByText("Status: accepted", { exact: true }),
     ).toBeVisible();
     await page.goto(`/us/${slug}`);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText(name);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      new RegExp(name, "i"),
+    );
 
     await page.goto("/admin/taxonomy");
     await page.getByRole("button", { name: `Edit ${name}` }).click();

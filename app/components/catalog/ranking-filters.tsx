@@ -1,6 +1,9 @@
 import { Form, Link, useLocation, useNavigate } from "react-router";
 import type { RankingFilters } from "@server/catalog/domain/filters";
-import type { StoreOption } from "@server/catalog/domain/contracts";
+import type {
+  FilterOption,
+  StoreOption,
+} from "@server/catalog/domain/contracts";
 import { Icon } from "../icons/icon";
 import { Popover } from "../ui/popover";
 import { formatCount, plural, summarizeNames } from "../../lib/format";
@@ -182,6 +185,111 @@ export function StoreChecklist({
               }}
             >
               Any store
+            </button>
+            <button type="submit" className="button small-button">
+              Done
+            </button>
+          </div>
+        </Form>
+      )}
+    </Popover>
+  );
+}
+
+// "Free from": the country's declared allergens. Only products with a
+// confirmed label naming none of them qualify; the rest are counted as "not
+// confirmed yet" rather than shown as safe.
+export function FreeFromChecklist({
+  country,
+  options,
+  filters,
+}: {
+  country: string;
+  options: FilterOption[];
+  filters: RankingFilters;
+}) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const chosen = new Set(filters.freeFrom);
+  const names = options
+    .filter((option) => chosen.has(option.key))
+    .map((option) => option.label);
+  const apply = (next: string[]) => {
+    const value = { ...filters, freeFrom: [...new Set(next)].sort() };
+    saveFilters(country, value);
+    void navigate(filteredHref(location.pathname, location.search, value), {
+      preventScrollReset: true,
+    });
+  };
+  const params = new URLSearchParams(location.search);
+  const summary = names.length
+    ? summarizeNames(names.map((name) => `${name.toLowerCase()}-free`))
+    : "Any";
+  return (
+    <Popover
+      className={`va-store-menu${chosen.size ? " va-store-menu--active" : ""}`}
+      summaryLabel={`Free from: ${names.length ? names.join(", ") : "any allergens"}`}
+      panelLabel="Allergens to avoid"
+      summary={
+        <>
+          <span className="va-store-menu__lead">Free from</span>
+          <strong>{summary}</strong>
+          <Icon name="chevronDown" size={14} strokeWidth={2.6} />
+        </>
+      }
+    >
+      {(close) => (
+        <Form
+          key={filters.freeFrom.join(",")}
+          method="get"
+          action={location.pathname}
+          preventScrollReset
+          onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            apply(data.getAll("freeFrom").map(String));
+            close(true);
+          }}
+        >
+          {params.get("view") && (
+            <input type="hidden" name="view" value={params.get("view")!} />
+          )}
+          {filters.stores.length > 0 && (
+            <input
+              type="hidden"
+              name="stores"
+              value={filters.stores.join(",")}
+            />
+          )}
+          <p className="va-menu-heading">Avoid products whose label lists</p>
+          <ul className="va-check-list">
+            {options.map((option) => (
+              <li key={option.key}>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="freeFrom"
+                    value={option.key}
+                    defaultChecked={chosen.has(option.key)}
+                  />
+                  <span className="va-check-list__name">{option.label}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <p className="va-menu-note">
+            “May contain” counts too. Always check the package.
+          </p>
+          <div className="va-check-list__actions">
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => {
+                apply([]);
+                close(true);
+              }}
+            >
+              No allergen filter
             </button>
             <button type="submit" className="button small-button">
               Done

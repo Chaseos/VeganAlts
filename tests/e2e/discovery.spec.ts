@@ -43,17 +43,18 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   await expect(
     page.getByRole("heading", { level: 1, name: "Ground Beef" }),
   ).toBeVisible();
-  await expect(page.getByText("Early", { exact: true })).toBeVisible();
-  expect(await page.locator(".product-row .score").first().innerText()).toMatch(
-    /\d\.\d\/5/,
-  );
+  await expect(page.getByText(/^Early · \d+ ratings?$/).first()).toBeVisible();
+  expect(
+    await page.locator(".va-rank-row .va-score").first().textContent(),
+  ).toMatch(/\d\.\d\/5/);
   await page.screenshot({
     path: testInfo.outputPath("category.png"),
     fullPage: true,
   });
   await page
-    .locator(".product-link")
-    .filter({ hasText: "Beyond Beef" })
+    .getByRole("main")
+    .getByRole("link", { name: "Beyond Beef", exact: true })
+    .first()
     .click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Beyond Beef" }),
@@ -86,10 +87,10 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   await page.goto("/us/bacon");
   await expect(
     page
-      .locator(".product-row")
+      .locator(".va-unrated")
       .filter({ hasText: "Bacon Seitan" })
-      .locator(".unrated-label"),
-  ).toHaveText("Not yet rated");
+      .getByRole("link", { name: /Be the first to rate/ }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
 });
 

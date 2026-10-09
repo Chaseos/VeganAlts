@@ -125,13 +125,13 @@ it("computes Trending and New from precomputed activity without changing Top", a
   const trending = await catalog.category(testMarket(w.f.countryId), slug, {
     view: "trending",
   });
-  expect(trending.discovery.map((p) => p.id)).toEqual([w.f.productId]);
+  expect(trending.ranked.map((p) => p.id)).toEqual([w.f.productId]);
   // New lists recent eligible products before they have any ratings.
   const fresh = await catalog.category(testMarket(w.f.countryId), slug, {
     view: "new",
   });
-  expect(fresh.discovery.map((p) => p.id)).toEqual([w.fresh]);
-  expect(fresh.discovery[0]).toMatchObject({ ratingCount: 0, isNew: true });
+  expect(fresh.ranked.map((p) => p.id)).toEqual([w.fresh]);
+  expect(fresh.ranked[0]).toMatchObject({ ratingCount: 0, isNew: true });
   // The configured New window bounds the view: a one-day window excludes a
   // product published two days ago.
   expect(
@@ -141,7 +141,7 @@ it("computes Trending and New from precomputed activity without changing Top", a
         () => NOW,
         trendingParameters('{"newDays":1}').newDays,
       ).category(testMarket(w.f.countryId), slug, { view: "new" })
-    ).discovery.map((p) => p.id),
+    ).ranked.map((p) => p.id),
   ).not.toContain(w.fresh);
   const home = await catalog.home(testMarket(w.f.countryId));
   expect(home.trending.map((p) => p.id)).toContain(w.f.productId);
@@ -156,7 +156,7 @@ it("computes Trending and New from precomputed activity without changing Top", a
         new D1CatalogRepository(env.DB),
         () => NOW + 9 * DAY,
       ).category(testMarket(w.f.countryId), slug, { view: "trending" })
-    ).discovery,
+    ).ranked,
   ).toEqual([]);
   expect(await topHash(w.category)).toBe(before);
 });

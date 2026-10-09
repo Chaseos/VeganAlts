@@ -230,3 +230,95 @@ it("resolves only active countries and builds their aisle tree", async () => {
     (await catalog.markets()).some((row) => row.market.code === "zy"),
   ).toBe(false);
 });
+
+it("sorts by detail scores and rating counts and filters by label without changing Top", async () => {
+  const w = await world();
+  const q = (key: string) => `${key}-q-${w.s}`;
+  const stat = (
+    p: { version: string },
+    key: string,
+    count: number,
+    sum: number,
+  ) =>
+    env.DB.prepare(
+      "INSERT INTO product_category_dimension_stats(product_version_id,category_id,dimension_id,answer_count,answer_sum,recomputed_at) VALUES(?,?,?,?,?,1)",
+    ).bind(p.version, w.category, q(key), count, sum);
+  await env.DB.batch([
+    ...["taste", "melt"].map((key, index) =>
+      env.DB.prepare(
+        "INSERT INTO category_rating_dimensions(id,category_id,key,label,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
+      ).bind(
+        q(key),
+        w.category,
+        key,
+        key === "taste" ? "Taste" : "Melt",
+        index,
+      ),
+    ),
+    stat(w.a, "taste", 6, 24),
+    stat(w.b, "taste", 5, 24),
+    stat(w.c, "taste", 2, 10),
+    stat(w.a, "melt", 5, 22),
+    stat(w.b, "melt", 5, 20),
+    env.DB.prepare(
+      "INSERT INTO country_allergens(country_id,allergen_key,position) VALUES(?,'soy',0),(?,'wheat',1)",
+    ).bind(w.f.countryId, w.f.countryId),
+    env.DB.prepare(
+      "INSERT INTO product_version_allergen_declarations(product_version_id,status,evidence_data,created_at,updated_at) VALUES(?,'declared','{}',1,1),(?,'none_declared','{}',1,1)",
+    ).bind(w.a.version, w.b.version),
+    env.DB.prepare(
+      "INSERT INTO product_version_allergens(product_version_id,allergen_key,presence) VALUES(?,'soy','contains')",
+    ).bind(w.a.version),
+  ]);
+  const top = await catalog.category(w.us, w.category);
+  const ranks = Object.fromEntries(
+    top.ranked.map((row) => [row.id, [row.topRank, row.bayesianScore]]),
+  );
+  const same = (rows: typeof top.ranked) =>
+    rows.forEach((row) =>
+      expect([row.topRank, row.bayesianScore]).toEqual(ranks[row.id]),
+    );
+  expect(top.questions.map((question) => question.key)).toEqual([
+    "taste",
+    "melt",
+  ]);
+  // Taste: B (4.8) and A (4.0) have five answers; C follows in Top order.
+  const taste = await catalog.category(w.us, w.category, {
+    view: "detail-taste",
+  });
+  expect(ids(taste.ranked)).toEqual([w.b.id, w.a.id, w.c.id]);
+  expect(taste.qualified).toBe(2);
+  same(taste.ranked);
+  expect(taste.ranked[2]!.details[0]).toMatchObject({ mean: null, count: 2 });
+  // "Best taste" goes to B; A is already #1, so it gets no melt badge.
+  expect(
+    Object.fromEntries(top.ranked.map((row) => [row.id, row.badges])),
+  ).toEqual({
+    [w.a.id]: [],
+    [w.b.id]: ["Best taste"],
+    [w.c.id]: [],
+  });
+  const rated = await catalog.category(w.us, w.category, {
+    view: "most-rated",
+  });
+  expect(ids(rated.ranked)).toEqual([w.a.id, w.b.id, w.c.id]);
+  same(rated.ranked);
+  // Free from soy: only confirmed labels without soy; C is not confirmed.
+  const soyFree = await catalog.category(w.us, w.category, {
+    filters: { stores: [], freeFrom: ["soy"] },
+  });
+  expect(ids(soyFree.ranked)).toEqual([w.b.id]);
+  expect(soyFree.notConfirmedCount).toBe(1);
+  expect(soyFree.ranked[0]!.badges).toEqual(["Best taste"]);
+  same(soyFree.ranked);
+  expect(soyFree.summary.rankedCount).toBe(3);
+  expect(top.ranked[0]!.allergens).toEqual({
+    status: "declared",
+    contains: ["soy"],
+    mayContain: [],
+  });
+  // A detail sort the food does not ask about is refused.
+  await expect(
+    catalog.category(w.us, w.category, { view: "detail-crunch" }),
+  ).rejects.toMatchObject({ code: "UNKNOWN_VIEW" });
+});

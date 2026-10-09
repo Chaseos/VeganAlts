@@ -64,7 +64,8 @@ it("reads current aggregate rankings separately from unrated and historical form
   expect(category.unranked.some((p) => p.slug === "beyond-burger")).toBe(true);
   expect(
     category.ranked.every(
-      (p, i, rows) => i === 0 || rows[i - 1]!.bayesianScore >= p.bayesianScore,
+      (p, i, rows) =>
+        i === 0 || rows[i - 1]!.bayesianScore! >= p.bayesianScore!,
     ),
   ).toBe(true);
   const current = await catalog.product(us, "beyond-beef", null);

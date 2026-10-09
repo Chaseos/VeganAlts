@@ -15,8 +15,9 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
   try {
     await page.goto("/us/beef-burgers");
     await page
-      .locator(".product-link")
-      .filter({ hasText: "Beyond Beef" })
+      .getByRole("main")
+      .getByRole("link", { name: "Beyond Beef", exact: true })
+      .first()
       .click();
     const saves: number[] = [];
     page.on("request", (request) => {

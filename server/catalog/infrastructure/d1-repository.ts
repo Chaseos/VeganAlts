@@ -11,12 +11,14 @@ import type {
   ProductPlacement,
   ProductSummary,
   PublicProfile,
+  RankedRow,
   RankingRow,
   StoreOption,
   TaxonomyCounts,
   TopProduct,
 } from "../domain/contracts";
 import type { RankingFilters } from "../domain/filters";
+import type { AllergenDeclaration } from "../../community/domain/allergens";
 import type { TaxonomyNode } from "../../taxonomy/domain/shape";
 import {
   eligibleProductSql as eligible,
@@ -38,6 +40,21 @@ const visible = `p.lifecycle_status <> 'hidden'`;
 // A food's name in a country: its display-name alias there, else its name.
 const displayName = (category: string, country = "?") =>
   `COALESCE((SELECT d.alias FROM category_aliases d WHERE d.category_id=${category}.id AND d.country_id=${country} AND d.is_display_name=1),${category}.name)`;
+// A formula's allergen declaration as JSON, or NULL when none is confirmed.
+const allergensSql = (version = "v") =>
+  `(SELECT json_object('status',d.status,
+    'contains',json((SELECT json_group_array(a.allergen_key) FROM product_version_allergens a WHERE a.product_version_id=d.product_version_id AND a.presence='contains')),
+    'mayContain',json((SELECT json_group_array(a.allergen_key) FROM product_version_allergens a WHERE a.product_version_id=d.product_version_id AND a.presence='may_contain')))
+    FROM product_version_allergen_declarations d WHERE d.product_version_id=${version}.id)`;
+function parseAllergens<T extends { allergens?: unknown }>(row: T) {
+  return {
+    ...row,
+    allergens:
+      typeof row.allergens === "string"
+        ? (JSON.parse(row.allergens) as AllergenDeclaration)
+        : null,
+  };
+}
 // Binds the country ID twice: display name, then product count.
 const categoryFields = `c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,
  (SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=c.id AND p.country_id=? AND ${visible}) AS productCount`;
@@ -241,7 +258,8 @@ export class D1CatalogRepository implements CatalogRepository {
     const rows = (
       await this.db
         .prepare(
-          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount${stores.sql}
+          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount,${allergensSql()} AS allergens,
+        ${categoryId ? "COALESCE(s.recent_rating_count,0)" : "0"} AS recentRatingCount${stores.sql}
       FROM product_category_trends t JOIN product_versions v ON v.id=t.product_version_id AND v.is_current=1 ${productJoins}
       JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=t.category_id AND pc.ranking_eligible=1
       JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1
@@ -260,7 +278,7 @@ export class D1CatalogRepository implements CatalogRepository {
         )
         .all<DiscoveryRow>()
     ).results;
-    return parseStores(rows);
+    return parseStores(rows).map(parseAllergens);
   }
 
   // New is chronological discovery of recently published, eligible products.
@@ -277,7 +295,7 @@ export class D1CatalogRepository implements CatalogRepository {
     const rows = (
       await this.db
         .prepare(
-          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount${stores.sql}
+          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount,${allergensSql()} AS allergens,0 AS recentRatingCount${stores.sql}
       FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
       JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id
       ${categoryId ? "JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=? AND pc.ranking_eligible=1 LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id" : ""}
@@ -296,7 +314,7 @@ export class D1CatalogRepository implements CatalogRepository {
         )
         .all<DiscoveryRow>()
     ).results;
-    return parseStores(rows);
+    return parseStores(rows).map(parseAllergens);
   }
 
   async unranked(
@@ -310,15 +328,15 @@ export class D1CatalogRepository implements CatalogRepository {
     return (
       await this.db
         .prepare(
-          `SELECT ${identity} FROM product_categories pc
+          `SELECT ${identity},${allergensSql()} AS allergens FROM product_categories pc
       JOIN product_versions v ON v.product_id=pc.product_id AND v.is_current=1 ${productJoins}
       LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id
       WHERE pc.category_id=? AND pc.ranking_eligible=1 AND ${eligible} AND COALESCE(s.rating_count,0)=0${filter.sql}
       ORDER BY p.name,p.id LIMIT ? OFFSET ?`,
         )
         .bind(countryId, categoryId, ...filter.binds, limit, offset)
-        .all<ProductSummary>()
-    ).results;
+        .all<ProductSummary & { allergens: unknown }>()
+    ).results.map(parseAllergens);
   }
 
   // The first products of several foods in Top order (aggregates only, never
@@ -337,6 +355,70 @@ export class D1CatalogRepository implements CatalogRepository {
         )
         .bind(countryId, JSON.stringify(categoryIds), perFood)
         .all<TopProduct>()
+    ).results;
+  }
+
+  // Every ranked product of a food with its Top rank over the unfiltered set,
+  // whether it passes each filter, its allergen declaration and its detail
+  // answer counts. Views, filters and badges are applied in the domain.
+  async rankedSet(
+    countryId: string,
+    categoryId: string,
+    filters: RankingFilters,
+  ) {
+    const storeFilter = filterSql({ stores: filters.stores, freeFrom: [] });
+    const allergenFilter = filterSql({
+      stores: [],
+      freeFrom: filters.freeFrom,
+    });
+    const stores = matchedStoresSql(filters);
+    const rows = (
+      await this.db
+        .prepare(
+          `SELECT ${identity},s.bayesian_score AS bayesianScore,s.rating_count AS ratingCount,s.recent_rating_count AS recentRatingCount,
+            ROW_NUMBER() OVER (ORDER BY ${rankingOrderSql}) AS topRank,
+            CASE WHEN 1=1${storeFilter.sql} THEN 1 ELSE 0 END AS storeMatch,
+            CASE WHEN 1=1${allergenFilter.sql} THEN 1 ELSE 0 END AS allergenMatch,
+            ${allergensSql()} AS allergens,
+            (SELECT json_group_object(ds.dimension_id,json_array(ds.answer_count,ds.answer_sum)) FROM product_category_dimension_stats ds
+              WHERE ds.product_version_id=v.id AND ds.category_id=s.category_id) AS details${stores.sql}
+          FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
+          ${rankedMembershipSql}
+          WHERE s.category_id=? AND ${eligible} AND ${rankedSampleSql}
+          ORDER BY topRank LIMIT 1000`,
+        )
+        .bind(
+          ...storeFilter.binds,
+          ...allergenFilter.binds,
+          ...stores.binds,
+          countryId,
+          categoryId,
+        )
+        .all<
+          Omit<RankedRow, "details" | "allergens" | "matchedStores"> & {
+            details: string | null;
+            allergens: unknown;
+            matchedStores: unknown;
+          }
+        >()
+    ).results;
+    return parseStores(rows).map((row) => ({
+      ...parseAllergens(row),
+      details: (row.details
+        ? JSON.parse(row.details)
+        : {}) as RankedRow["details"],
+    }));
+  }
+
+  // A food's active detail questions, in order.
+  async questions(categoryId: string) {
+    return (
+      await this.db
+        .prepare(
+          "SELECT id,key,label FROM category_rating_dimensions WHERE category_id=? AND is_active=1 ORDER BY sort_order,key",
+        )
+        .bind(categoryId)
+        .all<{ id: string; key: string; label: string }>()
     ).results;
   }
 

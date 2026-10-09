@@ -2,10 +2,18 @@ import { ApplicationError } from "../../shared/domain/errors";
 import type {
   CatalogRepository,
   CategoryView,
+  DiscoveryRow,
   ProductSummary,
   TopProduct,
 } from "../domain/contracts";
 import { startWithThese, stillWaiting, type FoodLeader } from "../domain/home";
+import {
+  detailBadges,
+  detailKey,
+  detailScores,
+  orderRows,
+  parseCategoryView,
+} from "../domain/ranking-view";
 import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
 import { aisleTree, taxonomyShape } from "../../taxonomy/domain/shape";
 import {
@@ -38,9 +46,20 @@ export function searchExpression(input: string) {
 }
 
 export function categoryView(input: string | null): CategoryView {
-  if (input === null || input === "top") return "top";
-  if (input === "trending" || input === "new") return input;
-  throw new ApplicationError("INVALID_VIEW", "Choose Top, Trending or New.");
+  const view = parseCategoryView(input);
+  if (!view)
+    throw new ApplicationError(
+      "INVALID_VIEW",
+      "Choose Closest match, Trending, Newest, Most rated or a detail sort.",
+    );
+  return view;
+}
+// A detail sort for a question the food does not ask (any more). Pages
+// redirect to Closest match.
+export class UnknownViewError extends ApplicationError {
+  constructor() {
+    super("UNKNOWN_VIEW", "This food has no such sort.", 404);
+  }
 }
 export function catalogPage(input: string | null) {
   if (input === null) return 1;
@@ -416,79 +435,177 @@ export class CatalogService {
     const category = await this.repository.category(market.id, slug);
     if (!category)
       throw new ApplicationError("NOT_FOUND", "Category not found.", 404);
-    const storeOptions = category.isRankable
-      ? this.repository.storeOptions(market.id, category.id, filters.freeFrom)
-      : Promise.resolve([]);
-    if (view !== "top") {
-      // Trending and New are separate discovery views; they never reorder Top.
-      const [rows, children, stores] = await Promise.all([
+    const [questions, set, storeOptions, unranked, taxonomy] =
+      await Promise.all([
+        this.repository.questions(category.id),
+        this.repository.rankedSet(market.id, category.id, filters),
+        this.repository.storeOptions(market.id, category.id, filters.freeFrom),
+        this.repository.unranked(
+          market.id,
+          category.id,
+          filters,
+          (unrankedPage - 1) * CATALOG_PAGE_SIZE,
+          CATALOG_PAGE_SIZE + 1,
+        ),
+        this.repository.taxonomy(market.id),
+      ]);
+    const key = detailKey(view);
+    if (key && !questions.some((question) => question.key === key))
+      throw new UnknownViewError();
+    const all = set.map((row) => ({
+      ...row,
+      details: detailScores(row.details, questions),
+    }));
+    // Badges come from the unfiltered ranking so filters never move them.
+    const badges = detailBadges(all, questions);
+    const byId = new Map(all.map((row) => [row.id, row]));
+    const listing = (row: (typeof all)[number] | DiscoveryRow) => {
+      const ranked = byId.get(row.id);
+      return {
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        brand: row.brand,
+        versionId: row.versionId,
+        imageId: row.imageId,
+        developmentOnly: row.developmentOnly,
+        publishedAt: row.publishedAt ?? null,
+        topRank: ranked?.topRank ?? null,
+        bayesianScore: ranked?.bayesianScore ?? null,
+        ratingCount: ranked?.ratingCount ?? row.ratingCount,
+        recentRatingCount: row.recentRatingCount,
+        early: ranked ? isEarly(ranked.ratingCount) : false,
+        matchedStores: row.matchedStores,
+        allergens: row.allergens,
+        details: ranked?.details ?? [],
+        badges: badges.get(row.id) ?? [],
+      };
+    };
+    const shown = all.filter((row) => row.storeMatch && row.allergenMatch);
+    let listed: ReturnType<typeof listing>[];
+    let hasNext: boolean;
+    // The position on this page where products without enough answers for
+    // a detail sort begin (they follow in Top order).
+    let qualified: number | null = null;
+    if (view === "trending" || view === "new") {
+      // Trending and Newest are discovery views; they never reorder Top.
+      const rows =
         view === "trending"
-          ? this.repository.trending(
+          ? await this.repository.trending(
               market.id,
               category.id,
               filters,
               (page - 1) * CATALOG_PAGE_SIZE,
               CATALOG_PAGE_SIZE + 1,
             )
-          : this.repository.newest(
+          : await this.repository.newest(
               market.id,
               category.id,
               this.newSince(),
               filters,
               (page - 1) * CATALOG_PAGE_SIZE,
               CATALOG_PAGE_SIZE + 1,
-            ),
-        this.repository.categories(market.id, category.id),
-        storeOptions,
-      ]);
-      return {
-        view,
-        category,
-        children,
-        filters,
-        storeOptions: stores,
-        ranked: [],
-        unranked: [],
-        discovery: this.labelNew(rows.slice(0, CATALOG_PAGE_SIZE)),
-        newDays: this.newDays,
-        page,
-        unrankedPage: 1,
-        hasNext: rows.length > CATALOG_PAGE_SIZE,
-        hasNextUnranked: false,
-      };
+            );
+      listed = rows.slice(0, CATALOG_PAGE_SIZE).map(listing);
+      hasNext = rows.length > CATALOG_PAGE_SIZE;
+    } else {
+      const ordered = orderRows(shown, view);
+      const offset = (page - 1) * CATALOG_PAGE_SIZE;
+      listed = ordered.rows
+        .slice(offset, offset + CATALOG_PAGE_SIZE)
+        .map(listing);
+      hasNext = ordered.rows.length > offset + CATALOG_PAGE_SIZE;
+      if (key && ordered.qualified < ordered.rows.length)
+        qualified = Math.max(0, ordered.qualified - offset);
     }
-    const [ranked, unranked, children, stores] = await Promise.all([
-      this.repository.rankings(
-        market.id,
-        category.id,
-        filters,
-        (page - 1) * CATALOG_PAGE_SIZE,
-        CATALOG_PAGE_SIZE + 1,
-      ),
-      this.repository.unranked(
-        market.id,
-        category.id,
-        filters,
-        (unrankedPage - 1) * CATALOG_PAGE_SIZE,
-        CATALOG_PAGE_SIZE + 1,
-      ),
-      this.repository.categories(market.id, category.id),
-      storeOptions,
-    ]);
+    const best = all[0] ?? null;
     return {
       view,
       category,
-      children,
+      questions: questions.map(({ key, label }) => ({ key, label })),
+      place: this.placeOf(taxonomy, category.id),
+      sidebar: await this.sidebar(market, taxonomy, category.id),
       filters,
-      storeOptions: stores,
-      discovery: [],
-      newDays: this.newDays,
-      ranked: this.labelNew(ranked.slice(0, CATALOG_PAGE_SIZE)),
+      storeOptions,
+      summary: {
+        rankedCount: all.length,
+        ratingCount: all.reduce((sum, row) => sum + row.ratingCount, 0),
+        best: best && listing(best),
+      },
+      shownCount: shown.length,
+      // Ranked products the Free-from choice hides only because their label
+      // is not confirmed yet.
+      notConfirmedCount: filters.freeFrom.length
+        ? all.filter((row) => row.storeMatch && !row.allergens).length
+        : 0,
+      ranked: this.labelNew(listed),
+      qualified,
       unranked: this.labelNew(unranked.slice(0, CATALOG_PAGE_SIZE)),
+      newDays: this.newDays,
       page,
       unrankedPage,
-      hasNext: ranked.length > CATALOG_PAGE_SIZE,
+      hasNext,
       hasNextUnranked: unranked.length > CATALOG_PAGE_SIZE,
+    };
+  }
+  /** A food's aisle and shelf, for its breadcrumb and back link. */
+  private placeOf(
+    taxonomy: Awaited<ReturnType<CatalogRepository["taxonomy"]>>,
+    categoryId: string,
+  ) {
+    const shape = taxonomyShape(taxonomy.categories);
+    const node = shape.get(categoryId);
+    const aisle = node?.aisleId ? shape.get(node.aisleId) : undefined;
+    const shelf =
+      node?.parentId && node.depth === 3 ? shape.get(node.parentId) : undefined;
+    return {
+      aisle:
+        aisle && aisle.id !== categoryId
+          ? { slug: aisle.slug, name: aisle.name }
+          : null,
+      shelf: shelf ? { slug: shelf.slug, name: shelf.name } : null,
+    };
+  }
+  /** The food's aisle with every food's #1 score, and the other aisles. */
+  private async sidebar(
+    market: Market,
+    taxonomy: Awaited<ReturnType<CatalogRepository["taxonomy"]>>,
+    categoryId: string,
+  ) {
+    const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
+    const aisles = aisleTree(taxonomy.categories, counts);
+    const current = aisles.find((aisle) =>
+      aisle.shelves.some((shelf) =>
+        shelf.foods.some((food) => food.id === categoryId),
+      ),
+    );
+    const foods = current?.shelves.flatMap((shelf) => shelf.foods) ?? [];
+    const top = await this.repository.topProducts(
+      market.id,
+      foods.map((food) => food.id),
+      1,
+    );
+    return {
+      aisle: current
+        ? {
+            slug: current.slug,
+            name: current.name,
+            shelves: current.shelves.map((shelf) => ({
+              slug: shelf.slug,
+              name: shelf.name,
+              foods: shelf.foods.map((food) => ({
+                slug: food.slug,
+                name: food.name,
+                score:
+                  top.find((product) => product.categoryId === food.id)
+                    ?.bayesianScore ?? null,
+              })),
+            })),
+          }
+        : null,
+      otherAisles: aisles
+        .filter((aisle) => aisle.slug !== current?.slug)
+        .map((aisle) => ({ slug: aisle.slug, name: aisle.name })),
     };
   }
 

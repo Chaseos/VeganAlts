@@ -7,12 +7,12 @@ test("switching country keeps the food, remembers the choice and invites the fir
 }) => {
   await page.goto("/us/ground-beef");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "Ground Beef",
+    /ground beef/i,
   );
   await chooseCountry(page, "Canada");
   await expect(page).toHaveURL(/\/ca\/ground-beef$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "Ground Beef",
+    /ground beef/i,
   );
   // United States products never appear in Canada.
   await expect(page.getByRole("link", { name: /Beyond Beef/ })).toHaveCount(0);

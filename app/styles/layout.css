@@ -108,7 +108,23 @@
   text-decoration: none;
 }
 
+/* A phone sub-page trades the wordmark for a back link. */
+.va-header__brand.va-desktop-only {
+  display: none;
+}
+
+@media (min-width: 760px) {
+  .va-header__brand.va-desktop-only {
+    display: inline-flex;
+  }
+
+  .va-header__back {
+    display: none;
+  }
+}
+
 .va-header__context {
+  flex: 1;
   font-size: 14px;
   color: var(--va-on-kale-muted);
   white-space: nowrap;

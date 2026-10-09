@@ -1,6 +1,7 @@
 import type { CommunityProductDetails } from "../../community/domain/public";
 import type { TaxonomyNode } from "../../taxonomy/domain/shape";
 import type { RankingFilters } from "./filters";
+import type { AllergenDeclaration } from "../../community/domain/allergens";
 
 export interface CategorySummary {
   id: string;
@@ -37,7 +38,18 @@ export interface RankingRow extends ProductSummary {
 export interface DiscoveryRow extends ProductSummary {
   bayesianScore: number | null;
   ratingCount: number;
+  recentRatingCount: number;
   matchedStores: string[];
+  allergens: AllergenDeclaration | null;
+}
+// A ranked product of one food, before views and filters are applied.
+export interface RankedRow extends RankingRow {
+  recentRatingCount: number;
+  storeMatch: number;
+  allergenMatch: number;
+  allergens: AllergenDeclaration | null;
+  // Detail answers per question id: [count, sum].
+  details: Record<string, [number, number]>;
 }
 
 export interface MarketRow {
@@ -93,7 +105,7 @@ export interface FilterOption {
   key: string;
   label: string;
 }
-export type CategoryView = "top" | "trending" | "new";
+export type { CategoryView } from "./ranking-view";
 
 export interface FormulaSummary {
   id: string;
@@ -179,7 +191,15 @@ export interface CatalogRepository {
     filters: RankingFilters,
     offset: number,
     limit: number,
-  ): Promise<ProductSummary[]>;
+  ): Promise<(ProductSummary & { allergens: AllergenDeclaration | null })[]>;
+  rankedSet(
+    countryId: string,
+    categoryId: string,
+    filters: RankingFilters,
+  ): Promise<RankedRow[]>;
+  questions(
+    categoryId: string,
+  ): Promise<{ id: string; key: string; label: string }[]>;
   topProducts(
     countryId: string,
     categoryIds: string[],

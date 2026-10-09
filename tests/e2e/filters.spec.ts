@@ -67,7 +67,7 @@ test("stores narrow a ranking with OR, are saved per country and never change To
   });
   try {
     await page.goto("/us/ground-beef");
-    const rows = page.locator(".product-row");
+    const rows = page.locator(".va-rank-list > li");
     await expect(rows).toHaveCount(ranked.length);
     await page.getByLabel(/^Commonly found at: Any store/).click();
     const panel = page.getByRole("group", { name: "Stores you shop at" });
@@ -162,7 +162,8 @@ test("the sort menu works from the keyboard and keeps Top unchanged", async ({
   page,
 }) => {
   await page.goto("/us/ground-beef");
-  const top = await page.locator(".product-row h3").allTextContents();
+  const names = page.locator(".va-featured__name, .va-rank-row__name");
+  const top = await names.allTextContents();
   const sort = page.getByLabel("Sort: Closest match");
   await sort.focus();
   await page.keyboard.press("Enter");
@@ -178,5 +179,120 @@ test("the sort menu works from the keyboard and keeps Top unchanged", async ({
   await page.keyboard.press("Escape");
   await expect(page.getByLabel("Sort: Trending")).toBeFocused();
   await page.goto("/us/ground-beef");
-  expect(await page.locator(".product-row h3").allTextContents()).toEqual(top);
+  expect(await names.allTextContents()).toEqual(top);
+});
+
+test("Free from shows only confirmed labels without the allergen and counts the rest", async ({
+  page,
+  request,
+}) => {
+  test.skip(!!process.env.TEST_BASE_URL, "Labels are arranged locally.");
+  const ranked = (
+    (await (await request.get("/api/v1/categories/ground-beef")).json()) as {
+      data: { ranked: { id: string; name: string; versionId: string }[] };
+    }
+  ).data.ranked;
+  const [soy, plain] = ranked as [(typeof ranked)[0], (typeof ranked)[0]];
+  await withLocalDb((db) =>
+    db.batch([
+      db
+        .prepare(
+          "INSERT INTO product_version_allergen_declarations(product_version_id,status,evidence_data,created_at,updated_at) VALUES(?,'declared','{}',1,1),(?,'none_declared','{}',1,1)",
+        )
+        .bind(soy.versionId, plain.versionId),
+      db
+        .prepare(
+          "INSERT INTO product_version_allergens(product_version_id,allergen_key,presence) VALUES(?,'soy','contains')",
+        )
+        .bind(soy.versionId),
+    ]),
+  );
+  try {
+    await page.goto("/us/ground-beef");
+    await expect(
+      page.locator(".va-featured").getByText("Contains soy"),
+    ).toBeVisible();
+    await page.getByLabel(/^Free from: any allergens/).click();
+    const panel = page.getByRole("group", { name: "Allergens to avoid" });
+    await panel.getByLabel("Soy", { exact: true }).check();
+    await panel.getByRole("button", { name: "Done" }).click();
+    await expect(page).toHaveURL(/freeFrom=soy$/);
+    const rows = page.locator(".va-rank-list > li");
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText(plain.name);
+    await expect(rows.first()).toContainText("No major allergens on the label");
+    // The closest soy-free match keeps its overall rank.
+    await expect(page.locator(".va-featured")).toContainText(
+      "Closest match · soy-free",
+    );
+    await expect(page.locator(".va-featured")).toContainText("#2 overall");
+    const hidden = ranked.length - 2;
+    if (hidden > 0)
+      await expect(
+        page.getByRole("link", { name: `Show ${hidden} not confirmed yet` }),
+      ).toBeVisible();
+    await expect(
+      page.locator(".va-check-package").getByText(/Always check the package/),
+    ).toBeVisible();
+    await accessible(page);
+    // The choice is saved for this country.
+    await page.goto("/us/ground-beef");
+    await expect(page).toHaveURL(/freeFrom=soy/);
+    await page.getByLabel(/^Free from: /).click();
+    await page.getByRole("button", { name: "No allergen filter" }).click();
+    await expect(page).not.toHaveURL(/freeFrom=/);
+  } finally {
+    await withLocalDb((db) =>
+      db.batch([
+        db
+          .prepare(
+            "DELETE FROM product_version_allergens WHERE product_version_id IN (?,?)",
+          )
+          .bind(soy.versionId, plain.versionId),
+        db
+          .prepare(
+            "DELETE FROM product_version_allergen_declarations WHERE product_version_id IN (?,?)",
+          )
+          .bind(soy.versionId, plain.versionId),
+      ]),
+    );
+  }
+});
+
+test("detail and most-rated sorts reorder without changing ranks, and unknown ones fall back", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/us/ground-beef");
+  const ranks = await page.locator(".va-rank-row__rank").allTextContents();
+  await page.getByLabel("Sort: Closest match").click();
+  await page
+    .getByRole("group", { name: "Sort by" })
+    .getByRole("link", { name: /^Best taste/ })
+    .click();
+  await expect(page).toHaveURL(/view=detail-taste$/);
+  await expect(page.getByLabel("Sort: Best taste")).toBeVisible();
+  // The #1 card only heads Closest match.
+  await expect(page.locator(".va-featured")).toHaveCount(0);
+  await expect(
+    page.getByText(
+      /fewer than 5 answers about taste, so they follow the ranking/,
+    ),
+  ).toBeVisible();
+  await accessible(page);
+  await page.getByLabel("Sort: Best taste").click();
+  await page
+    .getByRole("group", { name: "Sort by" })
+    .getByRole("link", { name: /^Most rated/ })
+    .click();
+  await expect(page).toHaveURL(/view=most-rated$/);
+  // The same products keep their ranks; the #1 joins the rows here.
+  expect(
+    (await page.locator(".va-rank-row__rank").allTextContents()).sort(),
+  ).toEqual(["Rank #1", ...ranks].sort());
+  const unknown = await request.get("/us/ground-beef?view=detail-crunch", {
+    maxRedirects: 0,
+  });
+  expect(unknown.status()).toBe(302);
+  expect(unknown.headers().location).toBe("/us/ground-beef");
 });

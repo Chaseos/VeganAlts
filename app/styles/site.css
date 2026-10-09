@@ -22,3 +22,4 @@
 @import "./components/search.css" layer(components);
 @import "./pages/utility.css" layer(pages);
 @import "./pages/home.css" layer(pages);
+@import "./pages/category.css" layer(pages);

@@ -24,24 +24,18 @@ test("categories offer separate Top, Trending and New views and the homepage sur
   await expect(page.getByLabel("Sort: Closest match")).toBeVisible();
   await sortBy("Closest match", /^Trending/);
   await expect(page).toHaveURL(/view=trending/);
-  await expect(
-    page.getByRole("heading", { name: "Trending alternatives" }),
-  ).toBeVisible();
+  await expect(page.getByLabel("Sort: Trending")).toBeVisible();
   await expect(
     page.getByText("It never changes the Top ranking."),
   ).toBeVisible();
   await accessible(page);
   await sortBy("Trending", /^Newest/);
   await expect(page).toHaveURL(/view=new/);
-  await expect(
-    page.getByRole("heading", { name: "New alternatives" }),
-  ).toBeVisible();
+  await expect(page.getByText(/^Added in the last \d+ days/)).toBeVisible();
   await expect(page.locator("link[rel=canonical]")).toHaveAttribute(
     "href",
     /\/us\/ground-beef\?view=new$/,
   );
   await sortBy("Newest", /^Closest match/);
-  await expect(
-    page.getByRole("heading", { name: /Top alternatives/ }),
-  ).toBeVisible();
+  await expect(page.locator(".va-featured")).toContainText("#1 swap");
 });
