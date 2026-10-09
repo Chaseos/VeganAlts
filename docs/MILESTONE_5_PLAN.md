@@ -1,6 +1,6 @@
 # Milestone 5: Swap Aisle Redesign
 
-Approved on 2026-10-08. Turn the agreed [design direction](DESIGN_DIRECTION.md) and the canvas's "Round 5 · Screens" page into the public site, through real staging verification, before the production cutover (#31). The starting milestone 4 baseline passes 158 tests in 36 files and 40 desktop and mobile browser tests. Work starts from updated `develop` (`a10dbc9`) on `feature/milestone-five-swap-aisle-redesign`.
+Approved on 2026-10-08. Complete [milestone 5](https://github.com/Chaseos/VeganAlts/milestone/5), issues #36–#44, turning the agreed [design direction](DESIGN_DIRECTION.md) and the canvas's "Round 5 · Screens" page into the public site, through real staging verification, before the production cutover (#31). The starting milestone 4 baseline passes 158 tests in 36 files and 40 desktop and mobile browser tests. Work starts from updated `develop` (`a10dbc9`) on `feature/milestone-five-swap-aisle-redesign`.
 
 ## Agreed boundaries
 
@@ -37,39 +37,39 @@ Approved on 2026-10-08. Turn the agreed [design direction](DESIGN_DIRECTION.md) 
 
 Amend the documents before behavior changes: PRODUCT_MASTER (§03 navigation and homepage, §05 detail and familiarity display, §08 allergens, §09 store preference), RANKING (§5 dimension aggregates, sorts and badges; §18 the recent-eaters threshold; ranking views), MODERATION (§6 the allergen proposal tier and the classification conflict), DATABASE_BASELINE (allergen, dimension and familiarity tables; the depth-three rule), API (the search endpoint, rating fields, filter parameters and caching) and ARCHITECTURE (device preferences and cache variants). Mark the design direction's §9 items resolved.
 
-### 2. Design foundations
+### 2. Design foundations (#36)
 
 Tokens in both themes, Archivo, the logo, line icons, the theme switch and core components: score label, #1 flag, Early, New and detail badges, vegan status chip, allergen label, chips, sort menu and buttons. Restyle shared layout so every existing page adopts the system before page-level work.
 
-### 3. Countries, the store filter and Free-from parameters
+### 3. Countries, the store filter and Free-from parameters (#37)
 
-Generalize routes to `:country/`, add country homes and the header switcher with empty-market states, and add the normalized `stores` and `freeFrom` parameter contract with device storage. Free-from options stay hidden until step 8 provides confirmed declarations.
+Generalize routes to `:country/`, add country homes and the header switcher with empty-market states, and add the normalized `stores` and `freeFrom` parameter contract with device storage. Free-from options stay hidden until #42 provides confirmed declarations.
 
-### 4. Taxonomy and aisles
+### 4. Taxonomy and aisles (#38)
 
 Reshape the seed and local/staging data to three levels, add the depth flag and shelf choice to the taxonomy workspace and category proposals, and build the aisle bar, the desktop aisle menu and the phone aisle page with each food's top three.
 
-### 5. Home
+### 5. Home (#39)
 
 Search with instant answers and preview, Start with these, Browse every food, Trending now, New and needs ratings, and Still waiting, on desktop and phone.
 
-### 6. Category ranking
+### 6. Category ranking (#40)
 
 Summary sentence, sort menu, Sold at and Free-from filters, the #1 card, ranked rows with badges, detail mini-scores and allergen line, unrated products and the aisle sidebar.
 
-### 7. Product page
+### 7. Product page (#41)
 
 Five photo slots, name, vegan status and allergen label, the score card with rating count, recent-eaters score and detail scores, Commonly found at with store toggles, the rating form, notes, Also ranked for, other swaps and product facts.
 
-### 8. Allergens
+### 8. Allergens (#42)
 
 Declaration tables and migration, the proposal kind and confirmation flow, operator review and the classification conflict, product display and the Free-from filter.
 
-### 9. Detail scores and last ate the original
+### 9. Detail scores and last ate the original (#43)
 
 Dimension management, the optional rating-form follow-ups including pending-rating recovery, the API fields, aggregate tables in the ranking rebuild, detail sorts and badges, and the recent-eaters score.
 
-### 10. Hardening
+### 10. Hardening (#44)
 
 Visual comparison against the canvas at 390 px and desktop in both themes, contrast checks for every token pair, keyboard and screen-reader paths through the aisle menu, search, sort and filters, cache behavior of filtered URLs, and updates to #31, #33 and the launch checklist.
 
