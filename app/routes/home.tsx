@@ -1,141 +1,510 @@
 import { env } from "cloudflare:workers";
-import { Link } from "react-router";
+import { useCallback, useState } from "react";
+import { Link, redirect } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader } from "@server/catalog/http/loader";
 import { catalogIsPublic } from "@server/shared/domain/launch";
 import { ComingSoon } from "../components/coming-soon";
-import {
-  CategoryCards,
-  ProductRows,
-  SearchForm,
-  SiteShell,
-} from "../components/catalog";
+import { PageShell } from "../components/layout/page-shell";
+import { InstantSearch } from "../components/catalog/instant-search";
+import { FoodIcon } from "../components/icons/food-icons";
+import { Icon } from "../components/icons/icon";
+import { ScoreLabel, RankFlag } from "../components/ui/score";
+import { Badge, EarlyBadge } from "../components/ui/badges";
+import { ButtonLink } from "../components/ui/button";
 import { publicMetadata } from "../lib/metadata";
+import { formatCount, plural, shortDate } from "../lib/format";
+import type { SuggestedFood } from "../lib/instant-search";
+import {
+  foodPath,
+  homePath,
+  productPath,
+  useSiteChrome,
+} from "../lib/site-chrome";
+import { useFoodHref } from "../lib/ranking-filters";
+import { useRememberedCountry } from "../lib/country-memory";
 import type { Route } from "./+types/home";
 
-export async function loader() {
-  return {
-    staging: env.APP_ENV !== "production",
-    origin: env.APP_URL,
-    catalog: catalogIsPublic(env)
-      ? await publicLoader(() => catalogService(env).home())
-      : null,
-  };
+export async function loader({ params }: Route.LoaderArgs) {
+  // The United States home lives at "/".
+  if (params.country?.toLowerCase() === "us") throw redirect("/", 301);
+  const base = { staging: env.APP_ENV !== "production", origin: env.APP_URL };
+  if (!catalogIsPublic(env)) return { ...base, market: null, catalog: null };
+  return publicLoader(async () => {
+    const catalog = catalogService(env);
+    const market = await catalog.market(params.country ?? "us");
+    return { ...base, market, catalog: await catalog.home(market) };
+  });
 }
 export function meta({ loaderData }: Route.MetaArgs) {
+  const market = loaderData?.market;
   return publicMetadata(
-    "Find the closest vegan alternative",
-    "Discover vegan alternatives to the foods you love, ranked by how closely they resemble the original.",
-    "/",
+    market && market.code !== "us"
+      ? `Find the closest vegan alternative in ${market.name}`
+      : "Find the closest vegan alternative",
+    "Search a food you already buy and see the vegan products people say come closest, ranked.",
+    homePath(market?.code ?? "us"),
     loaderData?.origin ?? "https://veganalts.com",
     loaderData?.staging ?? true,
   );
 }
 
-export default function Home({ loaderData }: Route.ComponentProps) {
-  if (!loaderData.catalog) return <ComingSoon />;
+type Home = NonNullable<Route.ComponentProps["loaderData"]["catalog"]>;
+type Leader = Home["startWithThese"][number];
+
+// The country home (canvas: Home5, PHome5).
+export default function HomePage({ loaderData }: Route.ComponentProps) {
+  const { country } = useSiteChrome();
+  useRememberedCountry(!loaderData.market || loaderData.market.code === "us");
+  const [preview, setPreview] = useState<SuggestedFood | null>(null);
+  const onPreview = useCallback(
+    (food: SuggestedFood | null) => setPreview(food),
+    [],
+  );
+  if (!loaderData.catalog || !loaderData.market) return <ComingSoon />;
+  const home = loaderData.catalog;
+  const code = loaderData.market.code;
+  if (!country.hasRankings)
+    return (
+      <PageShell search={false}>
+        <EmptyCountry name={loaderData.market.name} code={code} />
+      </PageShell>
+    );
   return (
-    <SiteShell>
-      <section className="discovery-hero">
-        <p className="eyebrow">Good food. Familiar favorites.</p>
-        <h1>
-          Your favorites.
-          <br />
-          <em>A little more plant-based.</em>
-        </h1>
-        <p>
-          Find the closest vegan alternatives to the foods you love.
-          <br className="desktop-break" /> Ranked by people who’ve tried them.
-        </p>
-        <SearchForm large />
-        <div className="popular-searches">
-          <span>Start with</span>
-          {loaderData.catalog.featured.slice(0, 3).map((category) => (
-            <Link key={category.id} to={`/us/${category.slug}`}>
-              {category.name} ↗
-            </Link>
-          ))}
-        </div>
-        <span className="hero-sprout" aria-hidden="true">
-          <svg viewBox="0 0 160 180" fill="none">
-            <path d="M81 165V81" stroke="currentColor" strokeWidth="3" />
-            <path
-              d="M80 115C12 114 13 43 13 43s66-5 67 72Z"
-              fill="#d8e6b1"
-              stroke="currentColor"
-              strokeWidth="2"
+    <PageShell width="full" search={false}>
+      <div className="va-home-hero">
+        <div className="va-container va-home-hero__inner">
+          <section
+            className="va-home-hero__search va-kale"
+            aria-labelledby="home-title"
+          >
+            <p className="va-home-hero__eyebrow">
+              {plural(home.counts.foods, "food")} ·{" "}
+              {formatCount(home.counts.products)} vegan products, rated by
+              people who’ve tried them
+            </p>
+            <h1 id="home-title" className="va-home-hero__title">
+              What do you want to swap?
+            </h1>
+            <p className="va-home-hero__lede">
+              Search a food you already buy. You’ll see the vegan products
+              people say come closest, ranked.
+            </p>
+            <InstantSearch
+              country={code}
+              variant="hero"
+              id="home-search"
+              onPreview={onPreview}
             />
-            <path
-              d="M81 84C79 13 144 14 144 14s6 62-63 70Z"
-              fill="#c7df86"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-            <path
-              d="m37 69 44 47m0-32 40-44"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-          </svg>
-        </span>
-      </section>
-      <section className="section-space" aria-labelledby="categories-title">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">A good place to start</p>
-            <h2 id="categories-title">What’s on your plate?</h2>
-          </div>
-          <Link className="text-link" to="/us/search">
-            All categories <span aria-hidden="true">↗</span>
-          </Link>
-        </div>
-        <CategoryCards categories={loaderData.catalog.featured} />
-      </section>
-      {(loaderData.catalog.trending.length > 0 ||
-        loaderData.catalog.newest.length > 0) && (
-        <div className="discovery-columns">
-          {loaderData.catalog.trending.length > 0 && (
-            <section aria-labelledby="trending-title">
-              <p className="eyebrow">Recent community activity</p>
-              <h2 id="trending-title">Trending now</h2>
-              <ProductRows products={loaderData.catalog.trending} />
-            </section>
-          )}
-          {loaderData.catalog.newest.length > 0 && (
-            <section aria-labelledby="new-title">
-              <p className="eyebrow">
-                Added in the last {loaderData.catalog.newDays} days
+            {home.tryFoods.length > 0 && (
+              <p className="va-home-hero__try">
+                <span>Try</span>
+                {home.tryFoods.slice(0, 5).map((food) => (
+                  <Link
+                    key={food.slug}
+                    className="va-chip va-chip--on-kale"
+                    to={foodPath(code, food.slug)}
+                  >
+                    {food.name}
+                  </Link>
+                ))}
               </p>
-              <h2 id="new-title">New alternatives</h2>
-              <ProductRows products={loaderData.catalog.newest} />
+            )}
+          </section>
+          {preview ? (
+            <FoodPreview country={code} food={preview} />
+          ) : (
+            home.startWithThese.length > 0 && (
+              <StartWithThese country={code} leaders={home.startWithThese} />
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="va-container va-home">
+        <section id="browse" aria-labelledby="browse-title">
+          <div className="va-home__heading">
+            <h2 id="browse-title" className="va-home__title">
+              Browse every food
+            </h2>
+            <p className="va-muted">
+              Aisle, then shelf, then food. Each food shows its closest swap.
+            </p>
+          </div>
+          {/* Phones: an accordion of aisles. Desktop: every aisle in columns. */}
+          <ul className="va-browse va-browse--phone">
+            {home.aisles.map((aisle) => (
+              <li key={aisle.slug} className="va-browse__aisle">
+                <details className="va-browse__details">
+                  <summary className="va-browse__summary">
+                    <AisleTitle aisle={aisle} />
+                    <Icon
+                      name="chevronDown"
+                      size={14}
+                      strokeWidth={3}
+                      className="va-browse__chevron"
+                    />
+                  </summary>
+                  <AisleFoods country={code} aisle={aisle} />
+                </details>
+              </li>
+            ))}
+          </ul>
+          <ul className="va-browse va-browse--desktop">
+            {home.aisles.map((aisle) => (
+              <li key={aisle.slug} className="va-browse__aisle">
+                <Link
+                  className="va-browse__summary"
+                  to={foodPath(code, aisle.slug)}
+                >
+                  <AisleTitle aisle={aisle} />
+                </Link>
+                <AisleFoods country={code} aisle={aisle} />
+              </li>
+            ))}
+          </ul>
+          <p className="va-home__suggest">
+            Don’t see the food you’re replacing?{" "}
+            <Link className="va-link" to={`/propose-category?country=${code}`}>
+              Suggest a food
+            </Link>{" "}
+            and it gets its own ranking.
+          </p>
+        </section>
+
+        <div className="va-home__pair">
+          {home.trending.length > 0 && (
+            <section
+              className="va-card va-home__card"
+              aria-labelledby="trending-title"
+            >
+              <div className="va-home__card-head">
+                <h2 id="trending-title" className="va-heading-s">
+                  Trending now
+                </h2>
+                <span className="va-small va-muted">
+                  Rising this week · never changes rankings
+                </span>
+              </div>
+              <ol className="va-trending">
+                {home.trending.map((product) => (
+                  <li key={product.id}>
+                    <Link
+                      className="va-row-link"
+                      to={productPath(code, product.slug, product.foodSlug)}
+                    >
+                      <Icon name="trend" size={20} className="va-good-icon" />
+                      <span className="va-row-link__text">
+                        <span className="va-row-link__title">
+                          {product.name}
+                        </span>
+                        <span className="va-small va-muted">
+                          For {product.foodName.toLowerCase()} ·{" "}
+                          {product.recentRatingCount > 0
+                            ? `+${plural(product.recentRatingCount, "rating")} this week`
+                            : "rising this week"}
+                        </span>
+                      </span>
+                      {product.bayesianScore !== null &&
+                        product.ratingCount > 0 && (
+                          <ScoreLabel
+                            value={product.bayesianScore}
+                            size="compact"
+                          />
+                        )}
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+          {home.newest.length > 0 && (
+            <section
+              className="va-card va-home__card"
+              aria-labelledby="new-title"
+            >
+              <div className="va-home__card-head">
+                <h2 id="new-title" className="va-heading-s">
+                  New and needs ratings
+                </h2>
+                <span className="va-small va-muted">
+                  Added in the last {home.newDays} days
+                </span>
+              </div>
+              <ul className="va-divided">
+                {home.newest.map((product) => (
+                  <li key={product.id} className="va-new-row">
+                    <span className="va-row-link__text">
+                      <Link
+                        className="va-row-link__title"
+                        to={productPath(code, product.slug, product.foodSlug)}
+                      >
+                        {product.name}
+                      </Link>
+                      <span className="va-chip-row va-small va-muted">
+                        {product.ratingCount > 0 ? (
+                          <EarlyBadge count={product.ratingCount} />
+                        ) : (
+                          <strong>No ratings yet</strong>
+                        )}
+                        <span>
+                          For {product.foodName.toLowerCase()} · added{" "}
+                          {shortDate(product.publishedAt ?? 0)}
+                        </span>
+                      </span>
+                    </span>
+                    <ButtonLink
+                      variant="secondary"
+                      small
+                      to={`${productPath(code, product.slug, product.foodSlug)}#scores-title`}
+                    >
+                      Rate it<span className="sr-only">: {product.name}</span>
+                    </ButtonLink>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
         </div>
+
+        {home.stillWaiting.length > 0 && (
+          <section
+            className="va-card va-home__waiting"
+            aria-labelledby="waiting-title"
+          >
+            <div className="va-home__waiting-intro">
+              <h2 id="waiting-title" className="va-heading-s">
+                Still waiting for a great swap
+              </h2>
+              <p className="va-muted">
+                The best option for these foods scores under 3.5, or nothing is
+                ranked yet. Know a better one? Add it and it joins the ranking.
+              </p>
+              <ButtonLink small to={`/add-product?country=${code}`}>
+                Add a product
+              </ButtonLink>
+            </div>
+            <ul className="va-home__waiting-list">
+              {home.stillWaiting.map((leader) => (
+                <li key={leader.food.slug}>
+                  <FoodRow
+                    country={code}
+                    food={leader.food}
+                    best={leader.best}
+                    neutral
+                    prefix="Best so far: "
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
+    </PageShell>
+  );
+}
+
+type Aisle = Home["aisles"][number];
+function AisleTitle({ aisle }: { aisle: Aisle }) {
+  return (
+    <>
+      <span className="va-browse__tile" aria-hidden="true">
+        <FoodIcon slug={aisle.slug} size={22} />
+      </span>
+      <span className="va-browse__name">{aisle.name}</span>
+      <span className="va-browse__count">
+        {plural(aisle.foodCount, "food")}
+      </span>
+    </>
+  );
+}
+function AisleFoods({ country, aisle }: { country: string; aisle: Aisle }) {
+  return (
+    <div className="va-browse__shelves">
+      {aisle.shelves.map((shelf) => (
+        <section key={shelf.slug} aria-label={`${aisle.name}: ${shelf.name}`}>
+          <p className="va-overline">{shelf.name}</p>
+          <ul className="va-divided">
+            {shelf.foods.map((food) => (
+              <li key={food.slug}>
+                <FoodRow country={country} food={food} best={food.best} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function StartWithThese({
+  country,
+  leaders,
+}: {
+  country: string;
+  leaders: Leader[];
+}) {
+  return (
+    <section
+      className="va-home-panel"
+      aria-labelledby="start-title"
+      aria-live="off"
+    >
+      <h2 id="start-title" className="va-heading-s">
+        New to this? Start with these
+      </h2>
+      <p className="va-muted">
+        The closest matches on the site, so the switch barely registers.
+      </p>
+      <ol className="va-divided">
+        {leaders.map((leader) => (
+          <li key={leader.food.slug}>
+            <StartRow country={country} leader={leader} />
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function StartRow({ country, leader }: { country: string; leader: Leader }) {
+  const href = useFoodHref(country, foodPath(country, leader.food.slug));
+  return (
+    <Link className="va-row-link va-row-link--tall" to={href}>
+      <span className="va-row-link__text">
+        <span className="va-small va-muted">
+          Instead of {leader.food.name.toLowerCase()}
+        </span>
+        <span className="va-row-link__title va-row-link__title--large">
+          {leader.best?.name}
+        </span>
+      </span>
+      {leader.best && (
+        <ScoreLabel
+          value={leader.best.score}
+          size="medium"
+          className="va-home-start__score"
+        />
       )}
-      <section className="how-it-works" aria-label="How VeganAlts works">
-        <div>
-          <span>01 / DISCOVER</span>
-          <h2>Start with the original.</h2>
-          <p>
-            Pick a food you want to replace. Every ranking stays specific to
-            that food.
-          </p>
-        </div>
-        <div>
-          <span>02 / COMPARE</span>
-          <h2>Find a closer alternative.</h2>
-          <p>
-            See community scores with enough context to make your next choice.
-          </p>
-        </div>
-        <div>
-          <span>03 / CONTRIBUTE</span>
-          <h2>Tried it? Pass it on.</h2>
-          <p>
-            One quick rating helps the next person find something they’ll love.
-          </p>
-        </div>
-      </section>
-    </SiteShell>
+    </Link>
+  );
+}
+
+// One food with its closest swap, as a link to its ranking.
+function FoodRow({
+  country,
+  food,
+  best,
+  neutral = false,
+  prefix = "",
+}: {
+  country: string;
+  food: { slug: string; name: string };
+  best: Leader["best"];
+  neutral?: boolean;
+  prefix?: string;
+}) {
+  const href = useFoodHref(country, foodPath(country, food.slug));
+  return (
+    <Link className="va-row-link" to={href}>
+      <span className="va-row-link__text">
+        <span className="va-row-link__title">{food.name}</span>
+        <span className="va-small va-muted va-truncate">
+          {best ? `${prefix}${best.name}` : "No ranked swaps yet"}
+        </span>
+      </span>
+      {best && (
+        <ScoreLabel
+          value={best.score}
+          size="compact"
+          tone={neutral ? "neutral" : "tag"}
+        />
+      )}
+    </Link>
+  );
+}
+
+// The desktop preview of the highlighted search result.
+function FoodPreview({
+  country,
+  food,
+}: {
+  country: string;
+  food: SuggestedFood;
+}) {
+  return (
+    <section
+      className="va-home-panel"
+      aria-label={`Top swaps for ${food.name}`}
+    >
+      <div>
+        <p className="va-small va-muted">Top swaps for</p>
+        <h2 className="va-heading-m">{food.name}</h2>
+        <p className="va-small va-muted">
+          {[food.aisle, plural(food.rankedCount, "ranked product")]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
+      {food.top.length ? (
+        <ol className="va-divided va-preview-list">
+          {food.top.map((product) => (
+            <li key={product.slug}>
+              <span
+                className={`va-food-card__rank${product.rank === 1 ? " va-food-card__rank--first" : ""}`}
+              >
+                {product.rank}
+              </span>
+              <span className="va-truncate">{product.name}</span>
+              {product.early && <Badge tone="early">Early</Badge>}
+              <ScoreLabel
+                value={product.score}
+                size="compact"
+                tone={product.rank === 1 ? "tag" : "neutral"}
+              />
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="va-muted">No ranked swaps yet.</p>
+      )}
+      <ButtonLink to={foodPath(country, food.slug)}>
+        {food.rankedCount
+          ? `See all ${plural(food.rankedCount, `${food.name.toLowerCase()} swap`)}`
+          : `Open ${food.name.toLowerCase()}`}
+      </ButtonLink>
+      <p className="va-small va-muted">
+        Point at another food in the list to preview it.
+      </p>
+    </section>
+  );
+}
+
+// "No rankings in Canada yet": each country's catalog comes from people who
+// live there, so an empty one invites them to add the first products.
+function EmptyCountry({ name, code }: { name: string; code: string }) {
+  return (
+    <section className="va-empty-country" aria-labelledby="empty-country-title">
+      <p className="eyebrow">{name}</p>
+      <h1 id="empty-country-title" className="va-display-l">
+        No rankings in {name} yet
+      </h1>
+      <p className="va-body-l">
+        Rankings here come from people who live in {name}. Add a vegan product
+        you buy, or suggest a food it replaces, and it gets its own ranking once
+        people rate it.
+      </p>
+      <div className="button-row">
+        <ButtonLink to={`/add-product?country=${code}`}>
+          Add the first product
+        </ButtonLink>
+        <ButtonLink
+          to={`/propose-category?country=${code}`}
+          variant="secondary"
+        >
+          Suggest a food
+        </ButtonLink>
+      </div>
+    </section>
   );
 }

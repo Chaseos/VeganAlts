@@ -60,8 +60,19 @@ Tokens are CSS custom properties. Light is the default; dark applies through `pr
 | `--va-emphasis`                  | `#15231B`             | `#A8DDB5`             | Border of the #1 card and the rating card                                    |
 | `--va-good-bg` / `--va-good`     | `#DDEFD9` / `#12372A` | `#1F3D2E` / `#A9E0B8` | Vegan status, positive badges                                                |
 | `--va-warn-bg` / `--va-warn`     | `#FFF1CC` / `#6B4A00` | `#3B2F12` / `#FFD98A` | Allergen "Contains" labels                                                   |
+| `--va-warn-line`                 | `#E0B44A`             | `#8A6A1F`             | Decorative border of allergen labels (the text carries the meaning)          |
 | `--va-focus`                     | `#1F7A4D`             | `#FFD84D`             | Focus ring (3 px)                                                            |
 | `--va-focus-on-kale`             | `#FFD84D`             | `#FFD84D`             | Focus ring on the header, aisle bar and footer                               |
+
+Non-color effect tokens, added in the milestone 5 specification:
+
+| Token                | Light                               | Dark                              | Use                                           |
+| -------------------- | ----------------------------------- | --------------------------------- | --------------------------------------------- |
+| `--va-shadow`        | `0 12px 30px rgba(8, 26, 18, 0.18)` | `0 12px 30px rgba(0, 0, 0, 0.55)` | Menus, popovers and the aisle menu            |
+| `--va-tag-lip`       | `inset 0 -3px 0 rgba(0, 0, 0, 0.1)` | same                              | The shelf-label edge on score labels and logo |
+| `--va-hover`         | `rgba(120, 140, 128, 0.14)`         | same                              | Hover fill on list items and menu options     |
+| `--va-hover-on-kale` | `rgba(255, 255, 255, 0.08)`         | same                              | Hover fill on the header and aisle bar        |
+| `--va-backdrop`      | `rgba(0, 0, 0, 0.45)`               | same                              | Behind the phone menu sheet                   |
 
 All text meets WCAG 2.2 AA (4.5:1, or 3:1 at 24 px and above). Field borders and focus rings meet 3:1 against every color they sit next to: `--va-field-line` is at least 3.35:1 (light) and 3.48:1 (dark) on fields, page, cards and wells, and focus rings switch to `--va-focus-on-kale` (at least 7.2:1) on kale surfaces. Red and green are never the only difference between states; every flag and badge carries text.
 
@@ -139,7 +150,9 @@ Plain, warm and specific. Name things the way shoppers do ("ground beef", "at Ta
 
 ## 9. Required specification changes
 
-These presentation decisions depend on behavior that is not yet specified. Each needs an intentional amendment, per AGENTS.md, before implementation:
+**Resolved on 2026-10-09.** Each item below is now specified in the milestone 5 sections of [PRODUCT_MASTER](PRODUCT_MASTER.md), [RANKING](RANKING.md), [MODERATION](MODERATION.md), [DATABASE_BASELINE](DATABASE_BASELINE.md), [API](API.md) and [ARCHITECTURE](ARCHITECTURE.md). Two owner decisions refine the list: ratings keep saving on tap (overall, details and "last ate" each save when chosen, with no separate Save button), and aisles and shelves may share a food's name. The theme choice is labeled System / Light / Dark.
+
+These presentation decisions depended on behavior that was not yet specified. Each needed an intentional amendment, per AGENTS.md, before implementation:
 
 1. **Allergens.** Add a formula-version-scoped allergen declaration (major allergens from the label's "Contains" statement, plus optional "may contain"). Community-added and community-confirmed, requiring the current nutrition-and-allergens or ingredients photo as evidence; any disagreement routes to an operator. Reconcile with the milestone 4 rule that ingredient and nutrition photo replacement is Tier 3. Update PRODUCT_MASTER §08, MODERATION §6, DATABASE_BASELINE.
 2. **Last ate the original.** Add the optional familiarity answer to ratings and a minimum sample before any subgroup score is shown. It never changes rating weight. Update RANKING §4 and DATABASE_BASELINE.

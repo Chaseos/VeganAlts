@@ -13,7 +13,7 @@ import {
   seedProducts,
   SOURCE_CHECKED_AT,
 } from "./catalog";
-import { TAXONOMY_PARENTS } from "./taxonomy";
+import { TAXONOMY_GROUPS, taxonomySeedStatements } from "./taxonomy";
 
 export interface SeedStatement {
   sql: string;
@@ -58,7 +58,7 @@ export function developmentSeedStatements(
       })
       .onConflictDoNothing(),
   );
-  for (const { slug: key, name, parent } of TAXONOMY_PARENTS) {
+  for (const { slug: key, name, parent } of TAXONOMY_GROUPS) {
     add(
       db
         .insert(schema.categories)
@@ -307,6 +307,15 @@ export function developmentSeedStatements(
     ["ground-beef"],
     8,
     2,
+  );
+  // Countries, allergen lists and homepage features come from the reviewed
+  // taxonomy seed, after the fixture categories exist under their seed IDs.
+  let taxonomyIndex = 0;
+  statements.push(
+    ...taxonomySeedStatements(
+      () => seedId(`taxonomy:${taxonomyIndex++}`),
+      SOURCE_CHECKED_AT,
+    ).map((sql) => ({ sql: sql.replace(/;\s*$/, ""), params: [] })),
   );
   statements.push(
     ...SEARCH_INDEX_STATEMENTS.map((sql) => ({ sql, params: [] })),

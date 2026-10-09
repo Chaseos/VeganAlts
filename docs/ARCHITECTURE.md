@@ -481,3 +481,15 @@ Comments render their first page in the shared product document. Sorting and pag
 The hourly schedule runs independent passes: media recovery, community recovery, trending statistics, and automation (decision lease expiry, held-comment re-evaluation, automatic proposal acceptance and resumable category-merge pages). Each pass is bounded and resumable. Category slug redirects, like product redirects, are resolved inside the public entrypoint on a cache miss and returned uncached. A `view` query parameter is part of category cache identity.
 
 Production catalog availability is controlled by one `PUBLIC_LAUNCH` variable instead of environment-name checks.
+
+## Milestone 5 boundaries
+
+Follow [milestone 5](MILESTONE_5_PLAN.md) and the [design direction](DESIGN_DIRECTION.md).
+
+**Country routes.** A country layout route owns `/:country/*` and the United States home at `/`. Its loader returns the active market, the active countries and the aisle tree (names, display names and counts, no scores), and revalidates only when the country changes. Utility routes (account, contributions, moderation, administration, policies) stay outside it. The gateway recognizes `/`, `/{cc}`, `/{cc}/search`, `/{cc}/products/{slug}` and `/{cc}/{slug}`, adds the country to the cache identity and still never reads D1 before a cache hit; whether a country, store or allergen is valid is decided by the loader on a miss.
+
+**Device preferences.** Public HTML stays identical for every visitor. Theme, remembered country, chosen stores and Free-from allergens live in `localStorage` (per country where relevant), never in cookies. They are applied after hydration: a saved filter replaces the URL with its normalized form, and client-rendered links carry it forward. Only the theme is applied before first paint, by a small inline script that carries the per-request nonce and sets `data-theme` on the document.
+
+**Presentation.** Every color is a `--va-*` token defined once for light and dark; components never use literal colors. The content security policy forbids inline styles, so proportional bars are SVG presentation attributes and components use classes only. Archivo is self-hosted as a hashed asset. The aisle menu reads each aisle's top products from that aisle page's cached route data on first open. Instant search calls the cached `/api/v1/suggest` endpoint with debouncing and request cancellation, and the full results page works without JavaScript.
+
+**Derived reads.** Detail-dimension and familiarity statistics are rebuildable read models written in the same fenced batch as rating aggregates. Category listings compute the overall Top rank before applying sorts and filters, so narrowing a view never changes a score. Store filtering joins only active product–retailer reports in an active market of the product's country.

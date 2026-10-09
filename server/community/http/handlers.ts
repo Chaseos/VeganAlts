@@ -27,6 +27,7 @@ import {
   reviewKind,
   inboxFilter,
   consolidationInput,
+  countryCode,
   note,
   type Actor,
 } from "../domain/contracts";
@@ -107,6 +108,7 @@ export async function communityApi(
         await services.contributions.options(
           actor,
           url.searchParams.get("q") ?? "",
+          parse(countryCode, url.searchParams.get("country") ?? "US"),
         ),
       );
     if (path === "community/session")
@@ -363,8 +365,8 @@ export async function communityApi(
           "actionId" in result && typeof result.actionId === "string"
             ? result.actionId
             : undefined,
-        // Retailer evidence is shown only on the product page.
-        pageOnly: path === "retailer-confirmations",
+        // Retailer reports feed the store filter on the product's rankings.
+        scope: path === "retailer-confirmations" ? "listings" : "all",
       });
     return respond(result);
   }

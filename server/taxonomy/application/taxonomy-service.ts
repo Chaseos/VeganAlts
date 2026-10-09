@@ -1,4 +1,5 @@
 import { ApplicationError } from "../../shared/domain/errors";
+import { taxonomyShape } from "../domain/shape";
 import type { Actor } from "../../community/domain/contracts";
 import { administrator, active } from "../../community/domain/policy";
 import { receiptWrite } from "../../community/infrastructure/receipts";
@@ -9,14 +10,20 @@ import {
   categoryDecision,
   categoryKey,
   categoryProposalInput,
+  storedCategoryProposal,
   categorySlug,
   createCategoryInput,
+  dimensionsInput,
   featuresInput,
+  invalidCountry,
+  MAX_ACTIVE_DIMENSIONS,
   mergeInput,
   planCategoryUpdate,
   updateCategoryInput,
   sortAliases,
   type CategoryPatch,
+  type CategoryState,
+  type DimensionState,
 } from "../domain/taxonomy";
 import type {
   CategoryRecord,
@@ -55,19 +62,38 @@ function fenceParent(
   guard.values.push(parentId, parentId, categoryId);
 }
 /**
+ * Who a category's name must differ from. Foods (rankable) share one namespace
+ * with every food name and alias; an aisle or shelf only needs a name unique
+ * among its siblings, so the Eggs aisle can hold an Eggs shelf and food.
+ */
+export type NameScope =
+  { rankable: true } | { rankable: false; parentId: string | null };
+export const scopeFor = (
+  isRankable: boolean,
+  parentId: string | null,
+): NameScope =>
+  isRankable ? { rankable: true } : { rankable: false, parentId };
+/**
  * Fences names checked before a commit: no other category may have claimed
- * one of them meanwhile (an exact, case-insensitive match).
+ * one of them meanwhile in the same scope (an exact, case-insensitive match).
  */
 function fenceNames(
   guard: { sql: string; values: unknown[] },
   names: string[],
   except: string,
+  scope: NameScope,
 ) {
   if (!names.length) return;
   const list = JSON.stringify(names);
-  guard.sql +=
-    " AND NOT EXISTS(SELECT 1 FROM categories WHERE id<>? AND name COLLATE NOCASE IN (SELECT value FROM json_each(?))) AND NOT EXISTS(SELECT 1 FROM category_aliases WHERE category_id<>? AND alias COLLATE NOCASE IN (SELECT value FROM json_each(?)))";
-  guard.values.push(except, list, except, list);
+  if (scope.rankable) {
+    guard.sql +=
+      " AND NOT EXISTS(SELECT 1 FROM categories WHERE id<>? AND is_rankable=1 AND name COLLATE NOCASE IN (SELECT value FROM json_each(?))) AND NOT EXISTS(SELECT 1 FROM category_aliases WHERE category_id<>? AND alias COLLATE NOCASE IN (SELECT value FROM json_each(?)))";
+    guard.values.push(except, list, except, list);
+  } else {
+    guard.sql +=
+      " AND NOT EXISTS(SELECT 1 FROM categories WHERE id<>? AND parent_id IS ? AND name COLLATE NOCASE IN (SELECT value FROM json_each(?)))";
+    guard.values.push(except, scope.parentId, list);
+  }
 }
 // Bounded work per request; the hourly automation and "continue" finish the rest.
 const PAGES_PER_REQUEST = 4;
@@ -80,9 +106,24 @@ export class TaxonomyService {
     private readonly newId: () => string,
     private readonly clock = Date.now,
   ) {}
-  tree(actor: Actor) {
+  async tree(actor: Actor) {
     administrator(actor);
-    return this.repository.tree();
+    const tree = await this.repository.tree();
+    // Depth is derived, never stored; a rankable food outside depth three is
+    // reachable by URL and search but missing from the aisle bar.
+    const shape = taxonomyShape(
+      tree.categories
+        .filter((c) => c.isActive)
+        .map((c) => ({ ...c, isRankable: c.isRankable })),
+    );
+    return {
+      ...tree,
+      categories: tree.categories.map((c) => ({
+        ...c,
+        depth: shape.get(c.id)?.depth ?? null,
+        outsideDepth: shape.get(c.id)?.outsideDepth ?? false,
+      })),
+    };
   }
   redirect(slug: string) {
     return this.repository.redirect(slug);
@@ -93,16 +134,45 @@ export class TaxonomyService {
       throw new ApplicationError("NOT_FOUND", "Category not found.", 404);
     return category;
   }
-  private async assertNameAvailable(names: string[], except?: string) {
+  private async assertNameAvailable(
+    names: string[],
+    scope: NameScope,
+    except?: string,
+  ) {
     const keys = new Set(names.map(categoryKey));
     const taken = (await this.repository.names()).find(
-      (n) => n.id !== except && keys.has(categoryKey(n.value)),
+      (n) =>
+        n.id !== except &&
+        keys.has(categoryKey(n.value)) &&
+        (scope.rankable
+          ? n.isAlias === 1 || n.rankable === 1
+          : n.isAlias === 0 && n.parentId === scope.parentId),
     );
     if (taken)
       throw new ApplicationError(
         "CATEGORY_EXISTS",
-        `“${taken.value}” already names a category${taken.active ? "" : " (retired)"}. Use or alias the existing category.`,
+        scope.rankable
+          ? `“${taken.value}” already names a food${taken.active ? "" : " (retired)"}. Use or alias the existing food.`
+          : `“${taken.value}” already names a group here${taken.active ? "" : " (retired)"}. Choose another name.`,
         409,
+      );
+  }
+  // Aisles and shelves are navigation, not search targets: no aliases.
+  private assertGroupAliases(isRankable: boolean, aliases: unknown[]) {
+    if (!isRankable && aliases.length)
+      throw new ApplicationError(
+        "GROUP_ALIASES",
+        "Aisles and shelves take no aliases or search terms. Add them to a food.",
+      );
+  }
+  // Category proposals choose a shelf: an active group two levels below Food.
+  private async assertShelf(parentId: string) {
+    const parent = await this.existing(parentId);
+    const ancestors = await this.repository.ancestors(parentId);
+    if (!parent.isActive || parent.isRankable || ancestors.length !== 2)
+      throw new ApplicationError(
+        "INVALID_SHELF",
+        "Choose the shelf the new food belongs on.",
       );
   }
   private async assertSlugAvailable(slug: string, owner?: string) {
@@ -189,8 +259,13 @@ export class TaxonomyService {
         "Today's category proposal allowance is exhausted. Please try again tomorrow.",
         429,
       );
-    await this.assertNameAvailable([input.name, ...input.aliases]);
-    if (input.parentId) await this.assertParent(null, input.parentId);
+    await this.assertNameAvailable([input.name, ...input.aliases], {
+      rankable: true,
+    });
+    await this.assertShelf(input.shelfId);
+    // Every proposal belongs to a country people can browse.
+    if (!(await this.repository.countryActive(input.country)))
+      throw invalidCountry();
     const id = this.newId();
     const automated = await this.decisions.evaluate({
       kind: "category_proposal",
@@ -221,7 +296,8 @@ export class TaxonomyService {
         id,
         userId: actor.id,
         name: input.name,
-        parentId: input.parentId ?? null,
+        parentId: input.shelfId,
+        country: input.country,
         explanation: input.explanation,
         data: input,
         perDay: PROPOSALS_PER_DAY,
@@ -274,7 +350,7 @@ export class TaxonomyService {
         "This proposal changed. Refresh before deciding.",
         409,
       );
-    const data = categoryProposalInput.parse(
+    const data = storedCategoryProposal.parse(
       JSON.parse(proposal.proposed_data),
     );
     const guard = {
@@ -314,6 +390,11 @@ export class TaxonomyService {
           "Choose the category that receives this name.",
         );
       const target = await this.existing(input.aliasOf);
+      if (!target.isRankable)
+        throw new ApplicationError(
+          "INVALID_DECISION",
+          "Aliases belong to foods, not aisles or shelves.",
+        );
       const held = new Set(
         [target.name, ...target.aliases.map((a) => a.alias)].map(categoryKey),
       );
@@ -321,12 +402,16 @@ export class TaxonomyService {
         (alias) => !held.has(categoryKey(alias)),
       );
       // Another category may have claimed a proposed name since submission.
-      await this.assertNameAvailable(claimed, target.id);
-      fenceNames(guard, claimed, target.id);
+      await this.assertNameAvailable(claimed, { rankable: true }, target.id);
+      fenceNames(guard, claimed, target.id, { rankable: true });
       const aliases = [
         ...target.aliases,
-        { alias: data.name, countryId: null },
-        ...data.aliases.map((alias) => ({ alias, countryId: null })),
+        { alias: data.name, countryId: null, displayName: false },
+        ...data.aliases.map((alias) => ({
+          alias,
+          countryId: null,
+          displayName: false,
+        })),
       ];
       const deduped = aliases.filter(
         (a, i) =>
@@ -379,12 +464,14 @@ export class TaxonomyService {
       : categorySlug(data.name);
     await this.assertSlugAvailable(slug);
     const categoryId = this.newId();
-    await this.assertNameAvailable([data.name, ...data.aliases]);
-    fenceNames(guard, [data.name, ...data.aliases], categoryId);
     const parentId =
       input.parentId === undefined
         ? (proposal.parent_id ?? null)
         : input.parentId;
+    const scope = scopeFor(input.isRankable, parentId);
+    this.assertGroupAliases(input.isRankable, data.aliases);
+    await this.assertNameAvailable([data.name, ...data.aliases], scope);
+    fenceNames(guard, [data.name, ...data.aliases], categoryId, scope);
     await this.assertParent(null, parentId);
     fenceParent(guard, null, parentId);
     const created = {
@@ -439,7 +526,9 @@ export class TaxonomyService {
     if (prior) return this.createdReplay(prior.actionId);
     const slug = categorySlug(input.slug || input.name);
     await this.assertSlugAvailable(slug);
-    await this.assertNameAvailable([input.name, ...input.aliases]);
+    const scope = scopeFor(input.isRankable, input.parentId);
+    this.assertGroupAliases(input.isRankable, input.aliases);
+    await this.assertNameAvailable([input.name, ...input.aliases], scope);
     await this.assertParent(null, input.parentId);
     const id = this.newId();
     const created = {
@@ -450,7 +539,7 @@ export class TaxonomyService {
       aliases: input.aliases,
     };
     const guard = { sql: "1", values: [] as (string | number | null)[] };
-    fenceNames(guard, [input.name, ...input.aliases], id);
+    fenceNames(guard, [input.name, ...input.aliases], id, scope);
     fenceParent(guard, null, input.parentId);
     const result = await this.repository.commit(
       this.action(actor, "category_create", id, input.note, {}, created),
@@ -517,7 +606,8 @@ export class TaxonomyService {
         ? {
             aliases: input.aliases.map((a) => ({
               alias: a.alias,
-              countryId: a.country ? "US" : null,
+              countryId: a.country ?? null,
+              displayName: a.displayName ?? false,
             })),
           }
         : {}),
@@ -525,17 +615,25 @@ export class TaxonomyService {
     if (next.slug !== undefined && next.slug !== current.slug)
       await this.assertSlugAvailable(next.slug, id);
     // Like creation, new names and aliases may not collide with another
-    // category. Aliases already held (such as a merged donor's name) stay.
+    // category in their scope. Aliases already held (such as a merged donor's
+    // name) stay. A change of rankability or parent rechecks the name.
+    const rankable = next.isRankable ?? current.isRankable;
+    const parentId =
+      next.parentId === undefined ? current.parentId : next.parentId;
+    const scope = scopeFor(rankable, parentId);
+    this.assertGroupAliases(rankable, next.aliases ?? current.aliases);
     const held = new Set(current.aliases.map((a) => categoryKey(a.alias)));
+    const rescoped =
+      rankable !== current.isRankable || parentId !== current.parentId;
     const added = [
-      ...(next.name !== undefined && next.name !== current.name
-        ? [next.name]
+      ...((next.name !== undefined && next.name !== current.name) || rescoped
+        ? [next.name ?? current.name]
         : []),
       ...(next.aliases ?? [])
         .map((a) => a.alias)
         .filter((alias) => !held.has(categoryKey(alias))),
     ];
-    if (added.length) await this.assertNameAvailable(added, id);
+    if (added.length) await this.assertNameAvailable(added, scope, id);
     if (next.parentId !== undefined) await this.assertParent(id, next.parentId);
     if (next.aliases) next.aliases = await this.countryIds(next.aliases);
     const plan = planCategoryUpdate(current, next);
@@ -543,7 +641,7 @@ export class TaxonomyService {
       sql: "EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)",
       values: [id, current.revision] as (string | number | null)[],
     };
-    fenceNames(guard, added, id);
+    fenceNames(guard, added, id, scope);
     fenceParent(guard, id, next.parentId);
     const result = await this.repository.commit(
       this.action(
@@ -565,13 +663,23 @@ export class TaxonomyService {
     ]);
     return result;
   }
-  /** "US" in input names the market; storage uses its country identifier. */
-  private async countryIds(
-    aliases: { alias: string; countryId: string | null }[],
-  ) {
-    if (!aliases.some((a) => a.countryId)) return aliases;
-    const us = await this.repository.usCountryId();
-    return aliases.map((a) => ({ ...a, countryId: a.countryId ? us : null }));
+  /** Aliases name their market by ISO code; storage uses its identifier. */
+  private async countryIds(aliases: CategoryState["aliases"]) {
+    const codes = [
+      ...new Set(aliases.flatMap((a) => (a.countryId ? [a.countryId] : []))),
+    ];
+    if (!codes.length) return aliases;
+    const ids = await this.repository.countryIdsByIso(codes);
+    return aliases.map((a) => {
+      if (!a.countryId) return { ...a, displayName: false };
+      const countryId = ids.get(a.countryId.toUpperCase());
+      if (!countryId)
+        throw new ApplicationError(
+          "INVALID_COUNTRY",
+          "Choose an active country for each country-specific alias.",
+        );
+      return { ...a, countryId };
+    });
   }
   async setFeatures(actor: Actor, key: string, raw: unknown) {
     administrator(actor);
@@ -600,12 +708,21 @@ export class TaxonomyService {
         "A chosen category is no longer active. Refresh and choose again.",
         409,
       );
-    const before = await this.repository.features();
+    const countryId = (
+      await this.repository.countryIdsByIso([input.country])
+    ).get(input.country);
+    if (!countryId)
+      throw new ApplicationError(
+        "INVALID_COUNTRY",
+        "Choose an active country for homepage features.",
+      );
+    const before = await this.repository.features(countryId);
     const result = await this.repository.commit(
+      // Homepage features are per country; the target names it.
       this.action(
         actor,
         "category_features",
-        "US",
+        `features:${input.country}`,
         input.note,
         { features: before },
         { features: input.categoryIds },
@@ -615,10 +732,85 @@ export class TaxonomyService {
         values: [JSON.stringify(input.categoryIds), input.categoryIds.length],
       },
       (fence) =>
-        this.repository.featureStatements(input.categoryIds, now, fence),
+        this.repository.featureStatements(
+          countryId,
+          input.categoryIds,
+          now,
+          fence,
+        ),
       receipt,
     );
     await this.effects.invalidate([], []);
+    return result;
+  }
+  /**
+   * Replaces a food's ordered detail questions. Keys are never removed, so
+   * stored answers always keep their question; retiring hides one.
+   */
+  async setDimensions(actor: Actor, key: string, id: string, raw: unknown) {
+    administrator(actor);
+    const input = dimensionsInput.parse(raw);
+    const now = this.clock(),
+      receipt = await receiptWrite(
+        actor.id,
+        "category-dimensions",
+        key,
+        { id, ...input },
+        now,
+      );
+    const prior = await this.repository.replay<{ actionId: string }>(receipt);
+    if (prior) return prior;
+    const category = await this.existing(id);
+    if (category.revision !== input.expectedRevision)
+      throw new ApplicationError(
+        "STALE_CATEGORY",
+        "This food changed. Refresh before editing its questions.",
+        409,
+      );
+    if (!category.isActive || !category.isRankable)
+      throw new ApplicationError(
+        "INVALID_DIMENSIONS",
+        "Only active foods ask detail questions.",
+        409,
+      );
+    if (
+      (await this.repository.busyMerges([id])).some(
+        (m) => m.state !== "complete",
+      )
+    )
+      throw new ApplicationError(
+        "MERGE_IN_PROGRESS",
+        "Finish the merge involving this food first.",
+        409,
+      );
+    const current = await this.repository.dimensions(id);
+    const next = input.dimensions;
+    assertDimensions(current, next);
+    const before = current.map(({ key, label, description, active }) => ({
+      key,
+      label,
+      description,
+      active,
+    }));
+    const result = await this.repository.commit(
+      this.action(
+        actor,
+        "category_dimensions",
+        id,
+        input.note,
+        { dimensions: before },
+        { dimensions: next },
+      ),
+      {
+        sql: "EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=? AND is_active=1)",
+        values: [id, category.revision],
+      },
+      (fence) =>
+        this.repository.dimensionStatements(id, current, next, now, fence),
+      receipt,
+    );
+    // Product pages show the questions; their cached copies refresh.
+    await this.effects.invalidate([category.slug], []);
     return result;
   }
   /** Reverses a non-merge taxonomy action by restoring its recorded fields. */
@@ -643,7 +835,9 @@ export class TaxonomyService {
     if (
       !original ||
       original.reversed_by ||
-      !["category_update", "category_features"].includes(original.kind)
+      !["category_update", "category_features", "category_dimensions"].includes(
+        original.kind,
+      )
     )
       throw new ApplicationError(
         "INVALID_REVERSAL",
@@ -651,9 +845,11 @@ export class TaxonomyService {
       );
     const before = JSON.parse(original.before_data) as CategoryPatch & {
       features?: string[];
+      dimensions?: DimensionState[];
     };
     const after = JSON.parse(original.after_data) as CategoryPatch & {
       features?: string[];
+      dimensions?: DimensionState[];
     };
     const action = this.action(
       actor,
@@ -668,7 +864,16 @@ export class TaxonomyService {
       values: [actionId] as (string | number | null)[],
     };
     if (original.kind === "category_features") {
-      const current = await this.repository.features();
+      // Milestone 4 recorded the United States as "US".
+      const iso = original.target_id.replace(/^features:/, "");
+      const countryId = (await this.repository.countryIdsByIso([iso])).get(iso);
+      if (!countryId)
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "That country is no longer active.",
+          409,
+        );
+      const current = await this.repository.features(countryId);
       if (JSON.stringify(current) !== JSON.stringify(after.features))
         throw new ApplicationError(
           "REVERSAL_CONFLICT",
@@ -694,6 +899,7 @@ export class TaxonomyService {
         },
         (fence) => [
           ...this.repository.featureStatements(
+            countryId,
             before.features ?? [],
             now,
             fence,
@@ -705,6 +911,49 @@ export class TaxonomyService {
       await this.effects.invalidate([], []);
       return result;
     }
+    if (original.kind === "category_dimensions") {
+      const category = await this.existing(original.target_id);
+      const current = await this.repository.dimensions(category.id);
+      const stored = current.map(({ key, label, description, active }) => ({
+        key,
+        label,
+        description,
+        active,
+      }));
+      if (JSON.stringify(stored) !== JSON.stringify(after.dimensions))
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "These questions changed since this action. Review the newer change first.",
+          409,
+        );
+      // Questions the action added stay (keys are never removed), retired.
+      const restored = [
+        ...(before.dimensions ?? []),
+        ...(after.dimensions ?? [])
+          .filter((d) => !before.dimensions?.some((b) => b.key === d.key))
+          .map((d) => ({ ...d, active: false })),
+      ];
+      const result = await this.repository.commit(
+        action,
+        {
+          sql: `${reversed.sql} AND EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)`,
+          values: [...reversed.values, category.id, category.revision],
+        },
+        (fence) => [
+          ...this.repository.dimensionStatements(
+            category.id,
+            current,
+            restored,
+            now,
+            fence,
+          ),
+          this.reversedStatement(actionId, action.id, fence),
+        ],
+        receipt,
+      );
+      await this.effects.invalidate([category.slug], []);
+      return result;
+    }
     const current = await this.existing(original.target_id);
     for (const [field, value] of Object.entries(after))
       if (
@@ -712,7 +961,12 @@ export class TaxonomyService {
           field === "aliases"
             ? sortAliases(current.aliases)
             : current[field as keyof CategoryRecord],
-        ) !== JSON.stringify(value)
+        ) !==
+        JSON.stringify(
+          field === "aliases"
+            ? sortAliases(value as CategoryState["aliases"])
+            : value,
+        )
       )
         throw new ApplicationError(
           "REVERSAL_CONFLICT",
@@ -738,8 +992,12 @@ export class TaxonomyService {
       ...(before.name !== undefined ? [before.name] : []),
       ...(before.aliases ?? []).map((a) => a.alias),
     ].filter((name) => !held.has(categoryKey(name)));
+    const restoredScope = scopeFor(
+      before.isRankable ?? current.isRankable,
+      before.parentId === undefined ? current.parentId : before.parentId,
+    );
     if (restoredNames.length)
-      await this.assertNameAvailable(restoredNames, current.id);
+      await this.assertNameAvailable(restoredNames, restoredScope, current.id);
     const guard = {
       sql: `${reversed.sql} AND EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?) AND NOT EXISTS(SELECT 1 FROM category_merges WHERE active=1 AND created_at>? AND ? IN (donor_id,survivor_id))`,
       values: [
@@ -750,7 +1008,7 @@ export class TaxonomyService {
         current.id,
       ] as (string | number | null)[],
     };
-    fenceNames(guard, restoredNames, current.id);
+    fenceNames(guard, restoredNames, current.id, restoredScope);
     const result = await this.repository.commit(
       action,
       guard,
@@ -869,12 +1127,6 @@ export class TaxonomyService {
       throw new ApplicationError(
         "INVALID_MERGE",
         "Merge rankable categories only into rankable categories.",
-        409,
-      );
-    if (donor.ratingDimensions || survivor.ratingDimensions)
-      throw new ApplicationError(
-        "INVALID_MERGE",
-        "Categories with detailed rating dimensions cannot be merged yet.",
         409,
       );
   }
@@ -1017,4 +1269,30 @@ export class TaxonomyService {
     );
     await this.repository.clearDerived(merge.id);
   }
+}
+
+function assertDimensions(current: { key: string }[], next: DimensionState[]) {
+  const keys = new Set(next.map((d) => d.key));
+  if (keys.size !== next.length)
+    throw new ApplicationError(
+      "INVALID_DIMENSIONS",
+      "Use each question key once.",
+    );
+  if (current.some((d) => !keys.has(d.key)))
+    throw new ApplicationError(
+      "INVALID_DIMENSIONS",
+      "Questions are never removed. Retire one instead.",
+    );
+  const active = next.filter((d) => d.active);
+  if (active.length > MAX_ACTIVE_DIMENSIONS)
+    throw new ApplicationError(
+      "INVALID_DIMENSIONS",
+      `A food asks at most ${MAX_ACTIVE_DIMENSIONS} detail questions.`,
+    );
+  const labels = new Set(active.map((d) => d.label.toLocaleLowerCase()));
+  if (labels.size !== active.length)
+    throw new ApplicationError(
+      "INVALID_DIMENSIONS",
+      "Give each active question its own label.",
+    );
 }

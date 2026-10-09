@@ -1,9 +1,15 @@
 import { z } from "zod";
+import { allergenDeclaration } from "./allergens";
 
 export const id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 export const key = z.string().regex(/^[a-zA-Z0-9_-]{16,100}$/);
 export const shortText = z.string().trim().min(2).max(160);
 export const note = z.string().trim().min(8).max(2000);
+// An ISO 3166-1 alpha-2 code in either case; the country must also be active.
+export const countryCode = z
+  .string()
+  .regex(/^[A-Za-z]{2}$/)
+  .transform((value) => value.toUpperCase());
 export const evidenceUrl = z
   .string()
   .trim()
@@ -50,7 +56,7 @@ export const submissionInput = z
   .object({
     name: shortText,
     brand: shortText,
-    country: z.literal("US"),
+    country: countryCode,
     categoryIds: z
       .array(id)
       .min(1)
@@ -99,7 +105,7 @@ export const submissionIdentity = z
   .object({
     name: shortText,
     brand: shortText,
-    country: z.literal("US"),
+    country: countryCode,
     categoryIds: z.array(id).min(1).max(5),
   })
   .strict();
@@ -273,6 +279,16 @@ export const changeInput = z.discriminatedUnion("kind", [
   z
     .object({ ...changeBase, kind: z.literal("category_add"), categoryId: id })
     .strict(),
+  // What the package says about allergens, optionally citing the formula's
+  // accepted ingredients or nutrition photo (which lowers the risk tier).
+  z
+    .object({
+      ...changeBase,
+      kind: z.literal("allergens"),
+      declaration: allergenDeclaration,
+      citedImageId: id.optional(),
+    })
+    .strict(),
   // One canonical photo per slot: an empty slot is filled, a filled slot gets
   // a replacement proposal. Formula evidence uses the reformulation flow.
   z
@@ -301,13 +317,19 @@ export type ProductChange = z.infer<typeof changeInput>;
 export const retailerInput = z
   .object({
     name: shortText,
-    country: z.literal("US"),
+    country: countryCode,
     websiteUrl: evidenceUrl,
     aliases: z.array(shortText).max(10).default([]),
     note,
   })
   .strict();
 export type RetailerInput = z.infer<typeof retailerInput>;
+// A stored retailer proposal: a new retailer, or (`marketFor`) an existing
+// retailer proposed for another country.
+export const retailerProposal = retailerInput.extend({
+  marketFor: id.optional(),
+});
+export type RetailerProposal = z.infer<typeof retailerProposal>;
 export const reviewDecision = z
   .object({
     decision: z.enum(["accept", "reject", "resolve", "dismiss", "follow_up"]),
@@ -361,6 +383,8 @@ export interface QueueItem {
   disagrees: number;
   // An automated check held, corrected or could not evaluate the item.
   flagged: number;
+  // The ISO code of the catalog the item belongs to, when it has one.
+  country: string | null;
 }
 export interface ContributionItem {
   id: string;

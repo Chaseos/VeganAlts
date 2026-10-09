@@ -2,11 +2,16 @@ import { ApplicationError } from "../../shared/domain/errors";
 import type {
   ProductChange,
   ReportInput,
-  RetailerInput,
+  RetailerProposal,
   Actor,
 } from "../domain/contracts";
 import { normalizeName, type CommunityLimits } from "../domain/policy";
 import { replay, type ReceiptWrite } from "./receipts";
+import {
+  describeDeclaration,
+  needsClassificationReview,
+} from "../domain/allergens";
+import { SYSTEM_ACTOR_ID } from "../domain/policy";
 
 export class ContributionRepository {
   constructor(
@@ -29,7 +34,7 @@ export class ContributionRepository {
         : type === "product_image"
           ? "t.id=? AND t.state IN ('accepted','archived')"
           : "t.id=? AND t.moderation_state='visible' AND t.deleted_at IS NULL";
-    return `SELECT p.id FROM ${join} JOIN countries c ON c.id=p.country_id WHERE ${condition} AND p.lifecycle_status<>'hidden' AND c.iso2='US' AND c.is_active=1`;
+    return `SELECT p.id FROM ${join} JOIN countries c ON c.id=p.country_id WHERE ${condition} AND p.lifecycle_status<>'hidden' AND c.is_active=1`;
   }
   async target(type: ReportInput["targetType"], id: string) {
     const target = await this.db
@@ -285,7 +290,7 @@ export class ContributionRepository {
   }
   async propose(
     actor: Actor,
-    input: ProductChange | RetailerInput,
+    input: ProductChange | RetailerProposal,
     id: string,
     receipt: ReceiptWrite,
     baseline: unknown = null,
@@ -322,8 +327,12 @@ export class ContributionRepository {
           id,
           actor.id,
           product ? "product" : "retailer",
-          product ? input.productId : id,
-          product ? input.kind : "retailer",
+          product ? input.productId : (input.marketFor ?? id),
+          product
+            ? input.kind
+            : input.marketFor
+              ? "retailer_market"
+              : "retailer",
           tier,
           JSON.stringify(input),
           baseline === null ? null : JSON.stringify(baseline),
@@ -361,6 +370,36 @@ export class ContributionRepository {
           id,
         ),
     );
+    // A label that contains milk, egg, fish or shellfish contradicts an
+    // animal-free classification: the system account opens an ingredient
+    // concern for operators, linked to this proposal.
+    if (
+      product &&
+      input.kind === "allergens" &&
+      needsClassificationReview(input.declaration)
+    ) {
+      const reportNote = `Allergen proposal ${id} says the label contains ${
+        describeDeclaration(input.declaration)
+          .replace(/^Contains /, "")
+          .split(" · ")[0]
+      }. Review the classification.`;
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO reports(id,reporter_user_id,target_type,target_id,reason_code,note,created_at,updated_at) SELECT ?,?,'product',?,'ingredient_concern',?,?,? WHERE ${accepted}
+          ON CONFLICT(reporter_user_id,target_type,target_id,reason_code) WHERE status IN ('open','reviewing') DO UPDATE SET note=substr(reports.note||char(10)||char(10)||excluded.note,1,8000),updated_at=excluded.updated_at`,
+          )
+          .bind(
+            `concern-${id}`,
+            SYSTEM_ACTOR_ID,
+            input.productId,
+            reportNote,
+            receipt.now,
+            receipt.now,
+            id,
+          ),
+      );
+    }
     try {
       const results = await this.db.batch(statements);
       if (!results[0]!.meta.changes) {
@@ -392,6 +431,24 @@ export class ContributionRepository {
     }
     return result;
   }
+  async countryActive(iso2: string) {
+    return Boolean(
+      await this.db
+        .prepare("SELECT 1 FROM countries WHERE iso2=? AND is_active=1")
+        .bind(iso2)
+        .first(),
+    );
+  }
+  async retailerHasMarket(retailerId: string, iso2: string) {
+    return Boolean(
+      await this.db
+        .prepare(
+          "SELECT 1 FROM retailer_markets m JOIN countries c ON c.id=m.country_id WHERE m.retailer_id=? AND c.iso2=? AND m.is_active=1",
+        )
+        .bind(retailerId, iso2)
+        .first(),
+    );
+  }
   async retailerExists(name: string) {
     return this.db
       .prepare(
@@ -410,7 +467,7 @@ export class ContributionRepository {
     const valid = await this.db
       .prepare(
         `SELECT p.id,cr.revision FROM products p JOIN catalog_revisions cr ON cr.product_id=p.id JOIN retailer_markets m ON m.country_id=p.country_id JOIN countries c ON c.id=p.country_id
-      WHERE p.id=? AND m.retailer_id=? AND m.is_active=1 AND p.lifecycle_status='active' AND c.iso2='US' AND c.is_active=1`,
+      WHERE p.id=? AND m.retailer_id=? AND m.is_active=1 AND p.lifecycle_status='active' AND c.is_active=1`,
       )
       .bind(productId, retailerId)
       .first<{ id: string; revision: number }>();

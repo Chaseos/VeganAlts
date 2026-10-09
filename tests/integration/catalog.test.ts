@@ -8,6 +8,7 @@ import { D1RatingsRepository } from "../../server/ratings/infrastructure/d1-repo
 import { PersonalRatingsService } from "../../server/ratings/application/personal-service";
 import { D1PersonalRatingsRepository } from "../../server/ratings/infrastructure/personal-repository";
 import { catalogFixture } from "./fixtures";
+import type { Market } from "../../server/catalog/domain/markets";
 
 const catalog = new CatalogService(new D1CatalogRepository(env.DB));
 const ratings = new RatingsService(
@@ -27,8 +28,10 @@ async function seed() {
         .map((s) => env.DB.prepare(s.sql).bind(...s.params)),
     );
 }
+let us: Market;
 beforeAll(async () => {
   await seed();
+  us = await catalog.market("us");
   let cursor: string | null = null;
   do {
     cursor = (await ratings.rebuildPage(cursor)).next;
@@ -37,44 +40,52 @@ beforeAll(async () => {
 
 it("finds categories and products through aliases, brands and category ancestry", async () => {
   for (const query of ["mince", "beef", "cheese"]) {
-    const result = await catalog.search(query);
+    const result = await catalog.search(us, query);
     expect(result.categories.length).toBeGreaterThan(0);
     expect(result.products.length).toBeGreaterThan(0);
   }
   expect(
-    (await catalog.search("mince")).categories.some(
+    (await catalog.search(us, "mince")).categories.some(
       (c) => c.slug === "ground-beef",
     ),
   ).toBe(true);
   expect(
-    (await catalog.search("oatly")).products.every((p) => p.brand === "Oatly"),
+    (await catalog.search(us, "oatly")).products.every(
+      (p) => p.brand === "Oatly",
+    ),
   ).toBe(true);
-  expect((await catalog.search('" - * ()')).products).toEqual([]);
-  expect((await catalog.search('" OR NOT : foo')).products).toEqual([]);
+  expect((await catalog.search(us, '" - * ()')).products).toEqual([]);
+  expect((await catalog.search(us, '" OR NOT : foo')).products).toEqual([]);
 });
 
 it("reads current aggregate rankings separately from unrated and historical formulas", async () => {
-  const category = await catalog.category("beef-burgers");
+  const category = await catalog.category(us, "beef-burgers");
   expect(category.ranked.length).toBeGreaterThan(0);
   expect(category.unranked.some((p) => p.slug === "beyond-burger")).toBe(true);
   expect(
     category.ranked.every(
-      (p, i, rows) => i === 0 || rows[i - 1]!.bayesianScore >= p.bayesianScore,
+      (p, i, rows) =>
+        i === 0 || rows[i - 1]!.bayesianScore! >= p.bayesianScore!,
     ),
   ).toBe(true);
-  const current = await catalog.product("beyond-beef", null);
+  const current = await catalog.product(us, "beyond-beef", null);
   expect(current.categories).toHaveLength(2);
   expect(current.categories.every((c) => c.canRate === 1)).toBe(true);
   const history = await catalog.product(
+    us,
     "beyond-beef",
     seedId("formula:beyond-beef:historical"),
   );
   expect(history.formula.isCurrent).toBe(0);
   expect(history.categories.every((c) => c.canRate === 0)).toBe(true);
   await expect(
-    catalog.product("beyond-beef", seedId("formula:oatly-original:current")),
+    catalog.product(
+      us,
+      "beyond-beef",
+      seedId("formula:oatly-original:current"),
+    ),
   ).rejects.toMatchObject({ status: 404 });
-  await expect(catalog.category("not-a-category")).rejects.toMatchObject({
+  await expect(catalog.category(us, "not-a-category")).rejects.toMatchObject({
     status: 404,
   });
 });
@@ -82,7 +93,7 @@ it("reads current aggregate rankings separately from unrated and historical form
 it("preserves inactive categories and their scores in read-only formula history", async () => {
   const versionId = seedId("formula:beyond-beef:historical");
   const categoryId = seedId("category:ground-beef");
-  const before = await catalog.product("beyond-beef", versionId);
+  const before = await catalog.product(us, "beyond-beef", versionId);
   const score = before.categories.find(
     (category) => category.id === categoryId,
   )!;
@@ -91,7 +102,7 @@ it("preserves inactive categories and their scores in read-only formula history"
     .bind(categoryId)
     .run();
   try {
-    const history = await catalog.product("beyond-beef", versionId);
+    const history = await catalog.product(us, "beyond-beef", versionId);
     expect(
       history.categories.find((category) => category.id === categoryId),
     ).toMatchObject({
@@ -100,19 +111,22 @@ it("preserves inactive categories and their scores in read-only formula history"
       isActive: 0,
       canRate: 0,
     });
-    const current = await catalog.product("beyond-beef", null);
+    const current = await catalog.product(us, "beyond-beef", null);
     expect(
       current.categories.some((category) => category.id === categoryId),
     ).toBe(false);
     expect(current.categories.every((category) => category.canRate === 1)).toBe(
       true,
     );
-    await expect(catalog.category("ground-beef")).rejects.toMatchObject({
+    await expect(catalog.category(us, "ground-beef")).rejects.toMatchObject({
       status: 404,
     });
+    // A retired food leaves the home page's aisles.
     expect(
-      (await catalog.home()).categories.some(
-        (category) => category.id === categoryId,
+      (await catalog.home(us)).aisles.some((aisle) =>
+        aisle.shelves.some((shelf) =>
+          shelf.foods.some((food) => food.slug === "ground-beef"),
+        ),
       ),
     ).toBe(false);
   } finally {

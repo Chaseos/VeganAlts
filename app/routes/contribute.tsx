@@ -3,13 +3,15 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { communityPageActor } from "@server/community/http/page";
 import { communityServices } from "@server/community/infrastructure/composition";
+import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   reportReasons,
   imageSlot,
   type ProductChange,
 } from "@server/community/domain/contracts";
 import type { ImageSlot } from "@server/media/domain/media";
-import { SiteShell } from "../components/catalog";
+import { PageShell } from "../components/layout/page-shell";
+import { Breadcrumb } from "../components/ui/navigation";
 import {
   FactChangeFields,
   factChangeDetails,
@@ -18,6 +20,7 @@ import {
   isFactKind,
 } from "../components/fact-change-fields";
 import { CatalogSelect } from "../components/catalog-select";
+import { AllergenFields, allergenDetails } from "../components/allergen-fields";
 import {
   CommunityControls,
   GuidelinesNote,
@@ -47,7 +50,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     product,
     options: (await services.contributions.options(
       actor,
+      "",
+      product.countryCode.toUpperCase(),
     )) as unknown as CommunityOptions,
+    countryName:
+      (await catalogService(env).markets()).find(
+        (row) => row.market.code === product.countryCode,
+      )?.market.name ?? product.countryCode.toUpperCase(),
     siteKey: env.TURNSTILE_SITE_KEY,
     initialAction: query.get("action") ?? "change",
     initialSlot: imageSlot.safeParse(query.get("slot")).data ?? "front",
@@ -70,6 +79,7 @@ const kinds = [
   "reintroduce",
   "relationships",
   "retailer_status",
+  "allergens",
 ] as const;
 const labels = {
   ...factLabels,
@@ -80,10 +90,12 @@ const labels = {
   reintroduce: "Reintroduced product",
   relationships: "Family, variants and category eligibility",
   retailer_status: "Retailer availability concern",
+  allergens: "Allergens on the label",
 };
 export default function Contribute({
   loaderData: {
     product,
+    countryName,
     options,
     siteKey,
     initialAction,
@@ -107,7 +119,7 @@ export default function Contribute({
     let active = true;
     const timer = setTimeout(() => {
       void communityRequest<CommunityOptions>(
-        `community/options?q=${encodeURIComponent(query)}`,
+        `community/options?q=${encodeURIComponent(query)}&country=${product.countryCode}`,
       )
         .then((result) => {
           if (active) setRetailers(result.retailers);
@@ -143,7 +155,7 @@ export default function Contribute({
           {
             name: form.get("retailerName"),
             websiteUrl: form.get("websiteUrl"),
-            country: "US",
+            country: product.countryCode.toUpperCase(),
             aliases: String(form.get("aliases") ?? "")
               .split(",")
               .map((s) => s.trim())
@@ -158,7 +170,9 @@ export default function Contribute({
           retailerId: form.get("retailer"),
           stance: form.get("stance"),
         });
-        await navigate(`/us/products/${product.slug}#retailers`);
+        await navigate(
+          `/${product.countryCode}/products/${product.slug}#retailers`,
+        );
       }
     });
   }
@@ -251,6 +265,7 @@ export default function Contribute({
           retailerId: form.get("retailer"),
           status: form.get("status"),
         };
+      if (kind === "allergens") details = allergenDetails(form);
       if (isFactKind(kind)) details = factChangeDetails(kind, form);
       const saved = await action.request<{ id: string }>("proposals", {
         ...base,
@@ -260,12 +275,17 @@ export default function Contribute({
     });
   }
   return (
-    <SiteShell compact>
+    <PageShell width="narrow">
       <CommunityControls>
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <Link to={`/us/products/${product.slug}`}>{product.name}</Link>
-          <span>Contribute</span>
-        </nav>
+        <Breadcrumb
+          items={[
+            {
+              label: product.name,
+              to: `/${product.countryCode}/products/${product.slug}`,
+            },
+            { label: "Contribute" },
+          ]}
+        />
         <header className="page-heading">
           <p className="eyebrow">Keep the catalog useful</p>
           <h1>{product.name}</h1>
@@ -335,8 +355,8 @@ export default function Contribute({
             <>
               <h2>Commonly found at</h2>
               <p>
-                Share where this product is commonly sold in the United States.
-                This does not indicate live inventory.
+                Share where this product is commonly sold in {countryName}. This
+                does not indicate live inventory.
               </p>
               <div className="button-row">
                 <button
@@ -624,6 +644,7 @@ export default function Contribute({
                   existing={product.categories.map((c) => c.categoryId)}
                 />
               )}
+              {kind === "allergens" && <AllergenFields product={product} />}
               {kind === "retailer_status" && (
                 <>
                   <label htmlFor="change-retailer">Relationship</label>
@@ -704,6 +725,6 @@ export default function Contribute({
           <CommunityFeedback action={action} siteKey={siteKey} />
         </section>
       </CommunityControls>
-    </SiteShell>
+    </PageShell>
   );
 }

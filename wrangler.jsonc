@@ -117,6 +117,14 @@
         "period": 60,
       },
     },
+    {
+      "name": "SUGGEST_RATE_LIMIT",
+      "namespace_id": "1791141091",
+      "simple": {
+        "limit": 240,
+        "period": 60,
+      },
+    },
   ],
   "env": {
     "staging": {
@@ -197,6 +205,14 @@
           "namespace_id": "1791141082",
           "simple": {
             "limit": 60,
+            "period": 60,
+          },
+        },
+        {
+          "name": "SUGGEST_RATE_LIMIT",
+          "namespace_id": "1791141092",
+          "simple": {
+            "limit": 240,
             "period": 60,
           },
         },
@@ -352,6 +368,14 @@
           "namespace_id": "1791141083",
           "simple": {
             "limit": 60,
+            "period": 60,
+          },
+        },
+        {
+          "name": "SUGGEST_RATE_LIMIT",
+          "namespace_id": "1791141093",
+          "simple": {
+            "limit": 240,
             "period": 60,
           },
         },

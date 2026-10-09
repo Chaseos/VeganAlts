@@ -41,10 +41,27 @@ interface PersonalContext {
 const Context = createContext<PersonalContext | null>(null);
 export const ratingKey = (versionId: string, categoryId: string) =>
   `${versionId}:${categoryId}`;
+// The parts of a selection worth keeping across sign-in (never a challenge
+// token, which is single use).
+export function draftOf(input: RatingInput | PendingRating): RatingInput {
+  return {
+    productVersionId: input.productVersionId,
+    categoryId: input.categoryId,
+    overallSimilarity: input.overallSimilarity,
+    ...(input.dimensions ? { dimensions: input.dimensions } : {}),
+    ...(input.conventionalRecency !== undefined
+      ? { conventionalRecency: input.conventionalRecency }
+      : {}),
+  };
+}
 export function usePersonalState() {
   const context = useContext(Context);
   if (!context) throw new Error("Personal state is unavailable.");
   return context;
+}
+// Header parts also render in the root error boundary, outside the provider.
+export function useOptionalPersonalState() {
+  return useContext(Context);
 }
 
 export function PersonalStateProvider({ children }: { children: ReactNode }) {
@@ -81,9 +98,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
     try {
       storePendingRating(sessionStorage, {
         id: crypto.randomUUID(),
-        productVersionId: input.productVersionId,
-        categoryId: input.categoryId,
-        overallSimilarity: input.overallSimilarity,
+        ...draftOf(input),
         createdAt: Date.now(),
         returnTo,
       });
@@ -202,13 +217,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
           window.location.origin,
         );
         if (stored) {
-          const updated = {
-            ...stored,
-            productVersionId: input.productVersionId,
-            categoryId: input.categoryId,
-            overallSimilarity: input.overallSimilarity,
-            returnTo,
-          };
+          const updated = { ...stored, ...draftOf(input), returnTo };
           storePendingRating(sessionStorage, updated);
           setPending(updated);
         }
@@ -255,6 +264,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
             ).initialize(
               rating.overallSimilarity,
               data.triedVersionIds.includes(rating.productVersionId),
+              rating,
             );
           if (data.user) {
             let pending;
@@ -269,11 +279,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
             setPending(pending);
             if (pending && !attempted.current.has(pending.id)) {
               attempted.current.add(pending.id);
-              getQueue(pending, pending.returnTo).select({
-                productVersionId: pending.productVersionId,
-                categoryId: pending.categoryId,
-                overallSimilarity: pending.overallSimilarity,
-              });
+              getQueue(pending, pending.returnTo).select(draftOf(pending));
             }
           }
         })

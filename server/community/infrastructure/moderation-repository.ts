@@ -1,3 +1,7 @@
+import {
+  normalizeDeclaration,
+  type AllergenDeclaration,
+} from "../domain/allergens";
 import type { InboxFilter } from "../domain/contracts";
 import { ApplicationError } from "../../shared/domain/errors";
 import type { Actor, ContributionItem, QueueItem } from "../domain/contracts";
@@ -58,7 +62,8 @@ export class ModerationRepository {
       this.db
         .prepare(
           `SELECT p.id,p.name,p.slug,p.country_id AS countryId,p.brand_id AS brandId,p.product_family_id AS familyId,p.lifecycle_status AS lifecycleStatus,p.vegan_status AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.manufacturer_url AS manufacturerUrl,r.revision,v.id AS versionId,v.version_label AS versionLabel,
-          (SELECT COUNT(*) FROM ratings x WHERE x.product_version_id=v.id AND x.is_counted=1) AS countedRatings FROM products p JOIN catalog_revisions r ON r.product_id=p.id JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.id=?`,
+          (SELECT COUNT(*) FROM ratings x WHERE x.product_version_id=v.id AND x.is_counted=1) AS countedRatings,
+          (SELECT lower(iso2) FROM countries WHERE id=p.country_id) AS countryCode FROM products p JOIN catalog_revisions r ON r.product_id=p.id JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.id=?`,
         )
         .bind(productId),
       this.db
@@ -89,6 +94,17 @@ export class ModerationRepository {
       this.db
         .prepare(
           "SELECT pr.retailer_id AS retailerId,r.canonical_name AS name,pr.status,pr.confirmation_count AS contributorCount,pr.disagreement_count AS disagreementCount,pr.last_confirmed_at AS lastConfirmedAt FROM product_retailers pr JOIN retailers r ON r.id=pr.retailer_id WHERE pr.product_id=? ORDER BY pr.retailer_id",
+        )
+        .bind(productId),
+      this.db
+        .prepare(
+          `SELECT d.status,d.evidence_data AS evidence,d.source_proposal_id AS proposalId,(SELECT json_group_array(json_object('key',a.allergen_key,'presence',a.presence)) FROM product_version_allergens a WHERE a.product_version_id=d.product_version_id) AS allergens
+          FROM product_version_allergen_declarations d JOIN product_versions v ON v.id=d.product_version_id WHERE v.product_id=? AND v.is_current=1`,
+        )
+        .bind(productId),
+      this.db
+        .prepare(
+          "SELECT ca.allergen_key AS key,COALESCE(ca.label,a.label) AS label FROM country_allergens ca JOIN allergens a ON a.key=ca.allergen_key JOIN products p ON p.country_id=ca.country_id WHERE p.id=? ORDER BY ca.position",
         )
         .bind(productId),
     ]);
@@ -122,6 +138,14 @@ export class ModerationRepository {
       relationships: rows[4]!.results,
       aliases: rows[5]!.results.map((r) => String(r.alias)),
       retailers: rows[6]!.results,
+      allergens: declarationRow(rows[7]!.results[0]),
+      allergenSource: rows[7]!.results[0]
+        ? {
+            evidence: JSON.parse(String(rows[7]!.results[0].evidence)),
+            proposalId: rows[7]!.results[0].proposalId ?? null,
+          }
+        : null,
+      allergenList: rows[8]!.results,
     } as unknown as ProductSnapshot;
   }
   proposal(id: string) {
@@ -352,17 +376,27 @@ export class ModerationRepository {
       .prepare(
         `WITH inbox AS (
       SELECT s.id,'submission' AS kind,COALESCE(json_extract(p.proposed_data,'$.name'),'Submission') AS title,s.state AS status,2 AS priority,s.created_at AS createdAt,p.revision,NULL AS tier,0 AS confirms,0 AS disagrees,
-        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='submission' AND d.subject_id=s.id AND d.outcome<>'READY') AS flagged
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='submission' AND d.subject_id=s.id AND d.outcome<>'READY') AS flagged,
+        upper(json_extract(p.proposed_data,'$.country')) AS country
         FROM submission_receipts s JOIN pending_submissions p ON p.submission_id=s.id WHERE s.state='review' AND p.resolved_at IS NULL
-      UNION ALL SELECT r.id,'report',replace(r.reason_code,'_',' '),r.status,CASE WHEN r.reason_code='ingredient_concern' THEN 1 ELSE 3 END,r.created_at,COALESCE(e.revision,0),NULL,0,0,0 FROM reports r LEFT JOIN report_evidence e ON e.report_id=r.id WHERE r.status IN ('open','reviewing')
+      UNION ALL SELECT r.id,'report',replace(r.reason_code,'_',' '),r.status,CASE WHEN r.reason_code='ingredient_concern' THEN 1 ELSE 3 END,r.created_at,COALESCE(e.revision,0),NULL,0,0,0,
+        (SELECT co.iso2 FROM products pr JOIN countries co ON co.id=pr.country_id WHERE pr.id=CASE r.target_type
+          WHEN 'product' THEN r.target_id
+          WHEN 'product_image' THEN (SELECT v.product_id FROM product_images i JOIN product_versions v ON v.id=i.product_version_id WHERE i.id=r.target_id)
+          ELSE (SELECT c.product_id FROM comments c WHERE c.id=r.target_id) END)
+        FROM reports r LEFT JOIN report_evidence e ON e.report_id=r.id WHERE r.status IN ('open','reviewing')
       UNION ALL SELECT id,'proposal',replace(change_type,'_',' '),status,CASE WHEN change_type='classification' THEN 1 ELSE 2 END,created_at,updated_at,risk_tier,confirm_count,disagree_count,
-        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='edit_proposal' AND d.subject_id=edit_proposals.id AND d.outcome<>'READY')
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='edit_proposal' AND d.subject_id=edit_proposals.id AND d.outcome<>'READY'),
+        CASE WHEN target_type='product' THEN (SELECT co.iso2 FROM products pr JOIN countries co ON co.id=pr.country_id WHERE pr.id=edit_proposals.target_id)
+          ELSE upper(json_extract(proposed_data,'$.country')) END
         FROM edit_proposals WHERE status='pending'
       UNION ALL SELECT id,'category',name,status,2,created_at,updated_at,3,0,0,
-        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='category_proposal' AND d.subject_id=category_proposals.id AND d.outcome<>'READY')
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='category_proposal' AND d.subject_id=category_proposals.id AND d.outcome<>'READY'),
+        (SELECT iso2 FROM countries WHERE id=category_proposals.country_id)
         FROM category_proposals WHERE status='pending'
       UNION ALL SELECT id,'comment','held comment',moderation_state,2,created_at,updated_at,NULL,0,0,
-        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='comment' AND d.subject_id=comments.id AND d.outcome<>'READY')
+        EXISTS(SELECT 1 FROM moderation_decisions d WHERE d.subject_type='comment' AND d.subject_id=comments.id AND d.outcome<>'READY'),
+        (SELECT co.iso2 FROM products pr JOIN countries co ON co.id=pr.country_id WHERE pr.id=comments.product_id)
         FROM comments WHERE moderation_state='pending' AND deleted_at IS NULL
     ) SELECT * FROM inbox WHERE (? IS NULL OR (priority,createdAt,kind||'_'||id)>(?,?,?))
       AND CASE ? WHEN 'confirmation' THEN kind='proposal' AND tier<=2
@@ -427,4 +461,22 @@ export class ModerationRepository {
           : null,
     };
   }
+}
+
+function declarationRow(
+  row: Record<string, unknown> | undefined,
+): AllergenDeclaration | null {
+  if (!row) return null;
+  if (row.status === "none_declared") return { status: "none_declared" };
+  const rows = JSON.parse(String(row.allergens)) as {
+    key: string;
+    presence: string;
+  }[];
+  return normalizeDeclaration({
+    status: "declared",
+    contains: rows.filter((r) => r.presence === "contains").map((r) => r.key),
+    mayContain: rows
+      .filter((r) => r.presence === "may_contain")
+      .map((r) => r.key),
+  });
 }

@@ -335,3 +335,25 @@ A score is zero unless the last seven days contain at least three rating or tria
 **New.** New lists eligible products in the category whose `published_at` falls within 90 days, newest first. Reformulations do not re-enter New.
 
 **Category merges.** When an operator merges two categories describing the same reference product, the donor's ratings move to the survivor. A user who rated the same formula in both keeps their most recently updated rating counted; the other remains stored with `is_counted=0`. Aggregates and trends are rebuilt from canonical rows. Reversal restores the original categories and counted flags.
+
+## Milestone 5 detail and familiarity decisions
+
+The approved [milestone 5 specification](MILESTONE_5_PLAN.md) activates §5 and §18 with provisional, configurable constants. None of them change Top.
+
+**Views.** A food's ranking has one sort menu: Closest match (`view=top`, the default and the only ranking), Trending, Newest (`view=new`), one detail sort per active dimension (`view=detail-<key>`, labeled "Best taste", "Best texture", …) and Most rated (`view=most-rated`, counted ratings descending, then Top order). The #1 card and flag appear only for Closest match. Every row shows its overall Top rank, so sorts and filters never hide where a product actually ranks.
+
+**Early.** A ranked product with 1–9 counted ratings carries the Early badge. The threshold is one server constant shared by every surface.
+
+**Detail aggregates.** `product_category_dimension_stats` stores, per formula, category and dimension, the number and sum of detail answers from counted ratings. It is updated in the same write as `product_category_stats` and rebuilt by the integrity rebuild. A detail mean is shown, sorted on or awarded only with at least 5 answers. A detail sort orders qualifying products by mean (ties in Top order), then lists the rest in Top order under a note that they have too few answers. A detail badge ("Best taste") goes to the qualifying product with the highest mean for that dimension when it is not the #1. Retired dimensions keep their answers but are not shown, sorted or awarded.
+
+**Familiarity.** `product_category_familiarity_stats` stores, per formula and category, counted ratings by recency bucket (including unanswered) and overall score. People who last ate the original this week, this month or this year form the recent-eaters group; their average similarity is shown on the product page once 10 of their ratings count. The same table provides the score distribution ("How people rated it"). Familiarity is context only and never changes a rating's weight.
+
+**Filters.** The "Commonly found at" store filter and the Free-from filter only narrow a view. Filtered rows keep their Top score and rank; nothing about eligibility, weight or `product_category_stats` changes. Trending, Newest, detail sorts and Most rated likewise only reorder.
+
+| Control                 | Default                                                       |
+| ----------------------- | ------------------------------------------------------------- |
+| Early                   | 1–9 counted ratings                                           |
+| Detail sort and badge   | 5 answers per dimension                                       |
+| Recent-eaters score     | 10 counted ratings from people who ate the original this year |
+| Start with these (home) | 6 foods whose #1 is past Early                                |
+| Still waiting (home)    | 6 foods whose best ranked product is below 3.5/5              |

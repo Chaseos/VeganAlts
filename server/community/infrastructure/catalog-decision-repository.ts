@@ -1,7 +1,11 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import { ACTIVE_RESPONSES } from "./moderation-repository";
 import { productSearchStatements } from "../../catalog/infrastructure/search-index";
-import type { Actor, ProductChange, RetailerInput } from "../domain/contracts";
+import type {
+  Actor,
+  ProductChange,
+  RetailerProposal,
+} from "../domain/contracts";
 import type {
   CatalogPatch,
   ProductSnapshot,
@@ -463,6 +467,56 @@ export class CatalogDecisionRepository {
           .bind(snapshot.id, removed, ...values),
       );
     }
+    if (patch.allergens) {
+      const { versionId, value } = patch.allergens;
+      // Rows go first: a "none declared" declaration may not keep any.
+      statements.push(
+        this.db
+          .prepare(
+            `DELETE FROM product_version_allergens WHERE product_version_id=? AND ${sql}`,
+          )
+          .bind(versionId, ...values),
+      );
+      if (!value)
+        statements.push(
+          this.db
+            .prepare(
+              `DELETE FROM product_version_allergen_declarations WHERE product_version_id=? AND ${sql}`,
+            )
+            .bind(versionId, ...values),
+        );
+      else {
+        statements.push(
+          this.db
+            .prepare(
+              `INSERT INTO product_version_allergen_declarations(product_version_id,status,evidence_data,source_proposal_id,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${sql}
+            ON CONFLICT(product_version_id) DO UPDATE SET status=excluded.status,evidence_data=excluded.evidence_data,source_proposal_id=excluded.source_proposal_id,updated_at=excluded.updated_at`,
+            )
+            .bind(
+              versionId,
+              value.status,
+              JSON.stringify(value.evidence ?? {}),
+              value.proposalId ?? null,
+              now,
+              now,
+              ...values,
+            ),
+        );
+        if (value.status === "declared")
+          statements.push(
+            ...[
+              ...value.contains.map((key) => [key, "contains"] as const),
+              ...value.mayContain.map((key) => [key, "may_contain"] as const),
+            ].map(([key, presence]) =>
+              this.db
+                .prepare(
+                  `INSERT INTO product_version_allergens(product_version_id,allergen_key,presence) SELECT ?,?,? WHERE ${sql}`,
+                )
+                .bind(versionId, key, presence, ...values),
+            ),
+          );
+      }
+    }
     if (patch.consolidation && !patch.consolidation.active)
       statements.push(
         this.db
@@ -492,9 +546,48 @@ export class CatalogDecisionRepository {
   async acceptRetailer(
     action: ActionWrite,
     proposal: ProposalRecord,
-    input: RetailerInput,
+    input: RetailerProposal,
     receipt: ReceiptWrite,
   ) {
+    const resolve = (fence: DecisionGuard) =>
+      this.db
+        .prepare(
+          `UPDATE edit_proposals SET status='accepted',resolved_by=?,resolution_note=?,resolved_at=?,updated_at=? WHERE id=? AND ${fence.sql}`,
+        )
+        .bind(
+          action.actor.id,
+          action.note,
+          action.now,
+          action.now,
+          proposal.id,
+          ...fence.values,
+        );
+    // A known retailer gains (or regains) a market in this country.
+    const market = (retailerId: string, fence: DecisionGuard) =>
+      this.db
+        .prepare(
+          `INSERT INTO retailer_markets(retailer_id,country_id,created_at,updated_at) SELECT ?,id,?,? FROM countries WHERE iso2=? AND is_active=1 AND ${fence.sql}
+          ON CONFLICT(retailer_id,country_id) DO UPDATE SET is_active=1,updated_at=excluded.updated_at`,
+        )
+        .bind(
+          retailerId,
+          action.now,
+          action.now,
+          input.country,
+          ...fence.values,
+        );
+    if (input.marketFor) {
+      const retailerId = input.marketFor;
+      return this.repository.commit(
+        action,
+        {
+          sql: "EXISTS(SELECT 1 FROM edit_proposals WHERE id=? AND status='pending' AND updated_at=?) AND EXISTS(SELECT 1 FROM retailers WHERE id=?) AND EXISTS(SELECT 1 FROM countries WHERE iso2=? AND is_active=1)",
+          values: [proposal.id, proposal.updated_at, retailerId, input.country],
+        },
+        (fence) => [market(retailerId, fence), resolve(fence)],
+        receipt,
+      );
+    }
     const aliases = [
       ...new Set([input.name, ...input.aliases].map(normalizeName)),
     ];
@@ -534,23 +627,8 @@ export class CatalogDecisionRepository {
             )
             .bind(normalized, name, proposal.target_id, ...fence.values),
         ),
-        this.db
-          .prepare(
-            `INSERT INTO retailer_markets(retailer_id,country_id,created_at,updated_at) SELECT ?,id,?,? FROM countries WHERE iso2='US' AND is_active=1 AND ${fence.sql}`,
-          )
-          .bind(proposal.target_id, action.now, action.now, ...fence.values),
-        this.db
-          .prepare(
-            `UPDATE edit_proposals SET status='accepted',resolved_by=?,resolution_note=?,resolved_at=?,updated_at=? WHERE id=? AND ${fence.sql}`,
-          )
-          .bind(
-            action.actor.id,
-            action.note,
-            action.now,
-            action.now,
-            proposal.id,
-            ...fence.values,
-          ),
+        market(proposal.target_id, fence),
+        resolve(fence),
       ],
       receipt,
     );

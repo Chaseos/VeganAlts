@@ -1,17 +1,17 @@
 import { expect, test } from "./fixtures";
-import AxeBuilder from "@axe-core/playwright";
+import { accessible } from "./a11y";
 
 // The desktop and 390 px mobile projects both run this.
 test("policy pages are linked, readable and accessible", async ({ page }) => {
   await page.goto("/");
   await page
-    .getByRole("navigation", { name: "About VeganAlts" })
+    .getByRole("contentinfo")
     .getByRole("link", { name: "How rankings work" })
     .click();
   await expect(
     page.getByRole("heading", { level: 1, name: "How rankings work" }),
   ).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await accessible(page);
   const others = page.getByRole("navigation", { name: "Other policies" });
   await expect(
     others.getByRole("link", { name: "How rankings work" }),
@@ -42,11 +42,22 @@ test("robots, sitemap and structured data describe only public pages", async ({
   expect(sitemap.headers()["content-type"]).toContain("application/xml");
   const xml = await sitemap.text();
   expect(xml).toContain("/us/ground-beef</loc>");
+  // Every active country lists its own food and aisle pages; shelves redirect.
+  expect(xml).toContain("/gb/ground-beef</loc>");
+  expect(xml).toContain("/ca/meat</loc>");
+  expect(xml).not.toContain("/us/beef</loc>");
   expect(xml).toMatch(/\/us\/products\/[a-z0-9-]+<\/loc>/);
   expect(xml).toContain("/about/rankings</loc>");
   expect(xml).not.toMatch(/\/(api|account|admin|my-ratings|sign-in)\b/);
 
   await page.goto("/us/ground-beef");
+  // Each country's version of the food, with the United States as default.
+  await expect(
+    page.locator('link[rel="alternate"][hreflang="en-GB"]'),
+  ).toHaveAttribute("href", /\/gb\/ground-beef$/);
+  await expect(
+    page.locator('link[rel="alternate"][hreflang="x-default"]'),
+  ).toHaveAttribute("href", /\/us\/ground-beef$/);
   const data = await page
     .locator('script[type="application/ld+json"]')
     .allTextContents();

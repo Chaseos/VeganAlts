@@ -1,6 +1,6 @@
 # Production launch checklist
 
-Milestone 4 delivered launch readiness on staging. Production still serves the coming-soon page. Cutover is a separately approved operation; every step below needs the operator's explicit go-ahead.
+Milestone 4 delivered launch readiness on staging, and Milestone 5 the swap-aisle redesign in six launch countries ([verification](../verification/milestone-5.md)). Production still serves the coming-soon page. Cutover is a separately approved operation; every step below needs the operator's explicit go-ahead.
 
 ## 1. Accounts and plans
 
@@ -23,24 +23,26 @@ Milestone 4 delivered launch readiness on staging. Production still serves the c
 
 ## 3. Database
 
-Production has applied migrations through `0004`. Pending: `0005`–`0015`.
+Production has applied migrations through `0004`. Pending: `0005`–`0018`.
 
 - [ ] Time Travel bookmark recorded; production export stored privately.
 - [ ] `npm run db:migrate:production` (runs the legacy-report and comment-rebuild preflights).
 - [ ] `PRAGMA foreign_key_check` returns no rows.
-- [ ] `npm run taxonomy:seed:production -- --confirm-taxonomy-only` after reviewing `db/seed/taxonomy.ts`. Never run the development seed in production.
+- [ ] `npm run taxonomy:seed:production -- --confirm-taxonomy-only` after reviewing `db/seed/taxonomy.ts`. It creates the full launch shape (aisles, shelves, foods, questions, per-country display names, allergen lists and homepage features for six countries), so production needs no reshape; the reshape script refuses production. Never run the development seed in production.
 - [ ] `npm run rankings:rebuild:production`.
 
 ## 4. Launch catalog
 
 - [ ] Operators add the initial real products through the normal submission and review flow (front photo plus ingredient evidence).
 - [ ] `npx tsx scripts/audit-launch-dataset.ts production` reports `readyForLaunch: true` (no development products, demo accounts, missing evidence, unreviewed Vegan classifications or likely duplicates).
-- [ ] Homepage features configured in the taxonomy workspace.
+- [ ] Homepage features reviewed for each launch country in the taxonomy workspace (seeded with Ground Beef, Beef Burgers, Milk, Cheddar, Butter and Eggs).
+- [ ] Retailers reported in each country where products are added (retailer and retailer-market proposals), so store filters have options.
 
 ## 5. Policy and trust surfaces
 
 - [ ] Legal review of `/about/privacy` and `/about/terms` (drafted to match actual behavior, including Workers AI moderation).
 - [ ] `/about/moderation`, `/about/rankings`, `/about/vegan-status` and `/about/contact` reviewed.
+- [ ] Per-country allergen lists (PRODUCT_MASTER, milestone 5 decisions) and the "Always check the package" wording reviewed against current regulator guidance.
 
 ## 6. Release and deployment
 
@@ -52,7 +54,8 @@ Production has applied migrations through `0004`. Pending: `0005`–`0015`.
 
 - [ ] `TEST_BASE_URL=https://veganalts.com npx tsx scripts/verify-staging-public.ts` adapted for production (robots must list the sitemap; pages must not carry `X-Robots-Tag: noindex`).
 - [ ] Real Google and Apple sign-in, a rating, a comment and a photo proposal with an operator account.
-- [ ] `/robots.txt` lists the sitemap; `/sitemap.xml` contains categories and products.
+- [ ] `/robots.txt` lists the sitemap; `/sitemap.xml` contains categories and products for every launch country.
+- [ ] `/us` redirects to `/`; each country home and food page is a shared-cache `HIT`; food pages carry hreflang alternates for every country plus `x-default`.
 - [ ] Workers Logs show `automation` passes every hour without `failed` steps.
 - [ ] Alerting: watch `request_error` 5xx counts, `automation_failed`, `community_recovery_failed`, `media_recovery_failed` and Workers AI spend daily during the first week.
 

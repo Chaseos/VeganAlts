@@ -9,6 +9,11 @@ import {
 
 if (process.argv[2] !== "--staging")
   throw new Error("Pass --staging for read-only query measurements.");
+// Measures one launch country's catalog (default the United States).
+const country = (
+  process.argv.find((arg) => arg.startsWith("--country="))?.slice(10) ?? "US"
+).toUpperCase();
+if (!/^[A-Z]{2}$/.test(country)) throw new Error("Use --country=XX.");
 await withCatalogPlatform("staging", async ({ DB }) => {
   const category = await DB.prepare(
     "SELECT id FROM categories WHERE slug='ground-beef'",
@@ -23,18 +28,18 @@ await withCatalogPlatform("staging", async ({ DB }) => {
       name: "aggregate leaderboard",
       sql: `SELECT p.id,p.name,s.bayesian_score,s.rating_count FROM product_category_stats s
         JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1
-        JOIN products p ON p.id=v.product_id JOIN countries country ON country.id=p.country_id AND country.iso2='US' AND country.is_active=1
+        JOIN products p ON p.id=v.product_id JOIN countries country ON country.id=p.country_id AND country.iso2=? AND country.is_active=1
         ${rankedMembershipSql} WHERE s.category_id=? AND ${eligibleProductSql} AND ${rankedSampleSql}
         ORDER BY ${rankingOrderSql} LIMIT ? OFFSET ?`,
-      values: [category.id, 21, 0],
+      values: [country, category.id, 21, 0],
     },
     {
       name: "bounded FTS product lookup",
       sql: `SELECT p.id,p.name FROM search_index JOIN product_versions v ON v.product_id=search_index.entity_id AND v.is_current=1
-        JOIN products p ON p.id=v.product_id JOIN countries country ON country.id=p.country_id AND country.iso2='US' AND country.is_active=1
-        WHERE search_index MATCH ? AND entity_type='product' AND country_code='US' AND p.lifecycle_status<>'hidden'
+        JOIN products p ON p.id=v.product_id JOIN countries country ON country.id=p.country_id AND country.iso2=? AND country.is_active=1
+        WHERE search_index MATCH ? AND entity_type='product' AND country_code=? AND p.lifecycle_status<>'hidden'
         ORDER BY rank,p.name,p.id LIMIT 20`,
-      values: ['"beef"*'],
+      values: [country, '"beef"*', country],
     },
     {
       name: "private rating cursor",

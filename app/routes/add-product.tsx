@@ -23,6 +23,7 @@ import {
   type CommunityOptions,
 } from "../lib/community";
 import { CatalogSelect } from "../components/catalog-select";
+import { catalogService } from "@server/catalog/infrastructure/composition";
 import type { Route } from "./+types/add-product";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -30,7 +31,16 @@ export async function loader({ request }: Route.LoaderArgs) {
   const services = communityServices(env);
   const query = new URL(request.url).searchParams;
   const followUpId = query.get("followUp");
+  // A product belongs to the country of the page it was added from.
+  const catalog = catalogService(env);
+  const markets = (await catalog.markets()).map((row) => row.market);
+  const market =
+    markets.find(
+      (m) => m.code === (query.get("country") ?? "us").toLowerCase(),
+    ) ?? markets[0]!;
   return {
+    market,
+    markets,
     options: (await services.contributions.options(
       actor,
     )) as unknown as CommunityOptions,
@@ -48,7 +58,7 @@ export function meta() {
   ];
 }
 export default function AddProduct({
-  loaderData: { options, siteKey, category, followUp },
+  loaderData: { options, siteKey, category, followUp, market, markets },
 }: Route.ComponentProps) {
   const [step, setStep] = useState(1),
     [name, setName] = useState(followUp?.input.name ?? ""),
@@ -56,7 +66,10 @@ export default function AddProduct({
     [categories, setCategories] = useState<string[]>(
       followUp?.input.categoryIds ?? (category ? [category] : []),
     ),
-    [candidates, setCandidates] = useState<Candidate[]>([]);
+    [candidates, setCandidates] = useState<Candidate[]>([]),
+    [countryCode, setCountryCode] = useState(
+      followUp?.input.country ?? market.iso2,
+    );
   const [brandOptions, setBrandOptions] = useState(options.brands);
   useEffect(() => {
     let active = true;
@@ -100,7 +113,7 @@ export default function AddProduct({
     await action.run(async () => {
       const found = await action.request<Candidate[]>(
         "submissions/check-identity",
-        { name, brand, country: "US", categoryIds: categories },
+        { name, brand, country: countryCode, categoryIds: categories },
       );
       setCandidates(found);
       go(2);
@@ -122,7 +135,7 @@ export default function AddProduct({
     setDetails({
       name,
       brand,
-      country: "US",
+      country: countryCode,
       categoryIds: categories,
       imageSlots: Object.keys(files).filter(
         (slot) => files[slot as ImageSlot],
@@ -165,7 +178,9 @@ export default function AddProduct({
         >("submissions/preflight", details, key.current);
         // A retried key may already have been published.
         if (checked.slug) {
-          await navigate(`/us/products/${checked.slug}`);
+          await navigate(
+            `/${countryCode.toLowerCase()}/products/${checked.slug}`,
+          );
           return;
         }
         if (checked.decision === "NEEDS_CHANGES" || !checked.receiptId) {
@@ -194,7 +209,7 @@ export default function AddProduct({
         reasons?: string[];
       }>(`submissions/${receiptId}/finalize`, details, key.current);
       if (saved.decision === "READY" && saved.slug) {
-        await navigate(`/us/products/${saved.slug}`);
+        await navigate(`/${countryCode.toLowerCase()}/products/${saved.slug}`);
         return;
       }
       if (saved.decision === "BLOCKED") {
@@ -302,9 +317,20 @@ export default function AddProduct({
                 with your submission.
               </p>
               <label htmlFor="country">Country</label>
-              <select id="country" value="US" disabled>
-                <option value="US">United States</option>
+              <select
+                id="country"
+                value={countryCode}
+                onChange={(event) => setCountryCode(event.target.value)}
+              >
+                {markets.map((m) => (
+                  <option key={m.code} value={m.iso2}>
+                    {m.name}
+                  </option>
+                ))}
               </select>
+              <p className="small muted">
+                Where you buy it. Each country keeps its own rankings.
+              </p>
               <fieldset>
                 <legend>What does it replace?</legend>
                 <p className="small muted">
@@ -350,7 +376,9 @@ export default function AddProduct({
               <ul className="candidate-list">
                 {candidates.map((c) => (
                   <li key={c.id}>
-                    <Link to={`/us/products/${c.slug}`}>
+                    <Link
+                      to={`/${countryCode.toLowerCase()}/products/${c.slug}`}
+                    >
                       {c.brand} · {c.name}
                     </Link>
                     <span>
@@ -488,7 +516,10 @@ export default function AddProduct({
                   {brand} · {name}
                 </dd>
                 <dt>Country</dt>
-                <dd>United States</dd>
+                <dd>
+                  {markets.find((m) => m.iso2 === details.country)?.name ??
+                    details.country}
+                </dd>
                 <dt>Replaces</dt>
                 <dd>
                   {options.categories

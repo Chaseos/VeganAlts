@@ -1,6 +1,8 @@
 import { wilsonInterval } from "../../shared/domain/statistics";
 import type { ProductChange } from "./contracts";
 import type { ProductSnapshot } from "./moderation";
+import { needsClassificationReview } from "./allergens";
+import { citedEvidence } from "./change-policy";
 
 const HOUR = 3_600_000;
 export const DEFAULT_AUTO_APPLY = {
@@ -82,6 +84,13 @@ export function riskTier(
     case "category_add":
     case "retailer_status":
       return 2;
+    case "allergens":
+      // Community-confirmable only against the formula's own label photo,
+      // and never when it contradicts an animal-free classification.
+      return !needsClassificationReview(change.declaration) &&
+        citedEvidence(snapshot).some((i) => i.id === change.citedImageId)
+        ? 2
+        : 3;
   }
 }
 
@@ -97,6 +106,7 @@ const AUTOMATIC = new Set<ProductChange["kind"]>([
   "discontinue",
   "reintroduce",
   "category_add",
+  "allergens",
 ]);
 
 /** Lower bound of independent support; disagreement lowers it. */
@@ -117,7 +127,12 @@ export function autoAcceptance(
   input: AutoAcceptInput,
   policy: AutoApplyPolicy,
 ): { eligible: boolean; reason: string } {
-  if (input.tier === 3 || !AUTOMATIC.has(input.change.kind))
+  if (
+    input.tier === 3 ||
+    !AUTOMATIC.has(input.change.kind) ||
+    (input.change.kind === "allergens" &&
+      needsClassificationReview(input.change.declaration))
+  )
     return { eligible: false, reason: "protected" };
   // An enabled provider's READY is required; a disabled provider or an
   // unavailable check leaves the decision to an operator.

@@ -25,10 +25,10 @@ export async function invalidateProductMedia(
 ) {
   const product = await db
     .prepare(
-      "SELECT p.id,p.slug FROM product_versions v JOIN products p ON p.id=v.product_id WHERE v.id=?",
+      "SELECT p.id,p.slug,lower(co.iso2) AS country FROM product_versions v JOIN products p ON p.id=v.product_id JOIN countries co ON co.id=p.country_id WHERE v.id=?",
     )
     .bind(versionId)
-    .first<{ id: string; slug: string }>();
+    .first<{ id: string; slug: string; country: string }>();
   if (!product) return;
   const categories = await db
     .prepare(
@@ -40,6 +40,7 @@ export async function invalidateProductMedia(
     {
       kind: "product",
       slug: product.slug,
+      country: product.country,
       categorySlugs: categories.results.map((row) => row.slug),
     },
   ]);

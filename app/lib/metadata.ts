@@ -1,3 +1,4 @@
+import { hreflang } from "@server/catalog/domain/markets";
 export function publicMetadata(
   title: string,
   description: string,
@@ -60,4 +61,30 @@ export function itemList(
       })),
     },
   };
+}
+
+/**
+ * The same food in every active country, so search engines show each
+ * country its own ranking. The United States page is the default.
+ */
+export function countryAlternates(
+  origin: string,
+  countries: { code: string }[],
+  path: (code: string) => string,
+) {
+  if (countries.length < 2) return [];
+  return [
+    ...countries.map((country) => ({
+      tagName: "link",
+      rel: "alternate",
+      hrefLang: hreflang(country.code),
+      href: new URL(path(country.code), origin).href,
+    })),
+    {
+      tagName: "link",
+      rel: "alternate",
+      hrefLang: "x-default",
+      href: new URL(path("us"), origin).href,
+    },
+  ];
 }

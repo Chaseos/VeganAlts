@@ -113,6 +113,27 @@
       "when": 1791504250218,
       "tag": "0015_trending_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1791526620829,
+      "tag": "0016_markets_allergens",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1791528336692,
+      "tag": "0017_taxonomy_shape",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1791529800157,
+      "tag": "0018_detail_scores",
+      "breakpoints": true
     }
   ]
 }

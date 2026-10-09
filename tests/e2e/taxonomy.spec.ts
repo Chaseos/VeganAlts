@@ -1,15 +1,6 @@
-import { expect, test, type Page } from "./fixtures";
-import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "./fixtures";
+import { accessible } from "./a11y";
 import { createBrowserSession } from "./session-fixture";
-
-async function accessible(page: Page) {
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-}
 
 test("a proposed category is reviewed, created, renamed with a redirect and merged with a redirect", async ({
   page,
@@ -28,10 +19,15 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
     await context.addCookies([contributor.cookie]);
     await page.goto(`/us/search?q=${encodeURIComponent(name)}`);
     await page
-      .getByRole("link", { name: "Propose a missing category" })
+      .getByRole("main")
+      .getByRole("link", { name: "Suggest a food" })
       .click();
     await expect(page.getByLabel("Conventional food")).toHaveValue(name);
     await expect(page.getByLabel("Conventional food")).toBeEnabled();
+    // Category proposals choose the shelf the food belongs on.
+    await page
+      .getByLabel("Aisle and shelf")
+      .selectOption({ label: "Meat · Pork" });
     await page
       .getByLabel("Why is a separate category needed?")
       .fill("Plant-based bratwurst is sold widely and has no category yet.");
@@ -56,7 +52,9 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
       page.getByText("Status: accepted", { exact: true }),
     ).toBeVisible();
     await page.goto(`/us/${slug}`);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText(name);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      new RegExp(name, "i"),
+    );
 
     await page.goto("/admin/taxonomy");
     await page.getByRole("button", { name: `Edit ${name}` }).click();
@@ -70,6 +68,24 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
     await expect(page.getByRole("status")).toContainText("updated");
     await page.goto(`/us/${slug}`);
     await expect(page).toHaveURL(new RegExp(`/us/${renamed}$`));
+
+    // A new food asks Taste and Texture until an operator adds its own.
+    await page.goto("/admin/taxonomy");
+    await page.getByRole("button", { name: `Edit ${name}` }).click();
+    const questions = page.getByRole("form", {
+      name: `Detail questions for ${name}`,
+    });
+    await expect(questions.getByLabel("Label (taste)")).toHaveValue("Taste");
+    await expect(questions.getByLabel("Label (texture)")).toHaveValue(
+      "Texture",
+    );
+    await questions.getByLabel("New question").fill("Snap");
+    await questions.getByRole("button", { name: "Add question" }).click();
+    await questions
+      .getByRole("textbox", { name: "Reason" })
+      .fill("A bratwurst casing should snap.");
+    await questions.getByRole("button", { name: "Save questions" }).click();
+    await expect(page.getByRole("status")).toContainText("questions saved");
 
     // Merge a second new category into it; the donor URL then redirects.
     await page.goto("/admin/taxonomy");

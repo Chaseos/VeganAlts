@@ -1,0 +1,427 @@
+/* A food's ranking (canvas: Category5, PCategory5). */
+.va-ranking {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+}
+
+.va-ranking__main {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.va-ranking__head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Phones put the title in the kale band; the page heading stays for
+   assistive technology. */
+.va-ranking__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.va-ranking__phone-title {
+  margin: 4px 0 0;
+  font-size: 30px;
+  font-weight: 800;
+  font-stretch: 112%;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.va-ranking__head .va-breadcrumb {
+  display: none;
+}
+
+.va-ranking__summary {
+  margin: 0;
+  max-width: 760px;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--va-ink-2);
+}
+
+.va-ranking__how {
+  font-size: 15px;
+}
+
+.va-ranking__how summary {
+  font-weight: 700;
+  color: var(--va-good);
+  cursor: pointer;
+}
+
+.va-ranking__how p {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: var(--va-ink-2);
+}
+
+.va-ranking .va-filter-note,
+.va-ranking .va-check-package {
+  margin: -8px 0 0;
+}
+
+.va-rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.va-rank-list__divider {
+  margin: 8px 0 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--va-line);
+  font-size: 14px;
+  color: var(--va-muted);
+}
+
+/* Thumbnails: the package photo, or the food's icon. */
+.va-thumb {
+  flex: none;
+  border-radius: 10px;
+  background: var(--va-surface-2);
+  object-fit: cover;
+}
+
+.va-thumb--empty {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  color: var(--va-muted);
+}
+
+/* The #1 card. */
+.va-featured {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+  margin-top: 10px;
+  padding: 24px 16px 18px;
+  border: 2px solid var(--va-emphasis);
+  border-radius: var(--va-radius-card-lg);
+  background: var(--va-surface);
+}
+
+.va-featured__flag {
+  position: absolute;
+  top: -13px;
+  left: 16px;
+}
+
+.va-featured__body {
+  display: flex;
+  flex: 1 1 280px;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.va-featured__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.va-featured__title {
+  min-width: 0;
+}
+
+.va-featured__title p {
+  margin: 2px 0 0;
+}
+
+.va-featured__title .va-chip-row {
+  margin-top: 8px;
+}
+
+.va-featured__name {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  font-stretch: 110%;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+.va-featured__name a {
+  color: var(--va-ink);
+  text-decoration: none;
+}
+
+.va-featured__name a:hover {
+  text-decoration: underline;
+}
+
+/* Ranked rows. */
+.va-rank-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 14px;
+  border: 1px solid var(--va-line);
+  border-radius: var(--va-radius-card);
+  background: var(--va-surface);
+  color: var(--va-ink);
+  text-decoration: none;
+}
+
+.va-rank-row:hover .va-rank-row__name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.va-rank-row__rank {
+  flex: none;
+  min-width: 34px;
+  font-size: 24px;
+  font-weight: 800;
+  font-stretch: 72%;
+  font-variant-numeric: tabular-nums;
+  color: var(--va-muted);
+}
+
+.va-rank-row__unranked {
+  font-size: 13px;
+  font-stretch: 100%;
+}
+
+.va-rank-row__main {
+  display: flex;
+  flex: 1 1 180px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.va-rank-row__name {
+  overflow: hidden;
+  font-size: 17px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.va-rank-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.va-rank-row .va-detail-cells {
+  flex: 1 1 100%;
+  order: 3;
+}
+
+/* Phones keep rank, name and score on one line; photos are on product
+   pages. */
+.va-rank-row > .va-thumb,
+.va-featured > .va-thumb {
+  display: none;
+}
+
+.va-rank-row__main {
+  flex-basis: 0;
+}
+
+.va-rank-row__score {
+  flex: none;
+}
+
+/* Not rated yet. */
+.va-ranking__unrated {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.va-ranking__unrated h2,
+.va-ranking__unrated > p {
+  margin: 0;
+}
+
+.va-unrated-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.va-unrated {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 14px 16px;
+  border: 1.5px dashed var(--va-line-strong);
+  border-radius: var(--va-radius-card);
+}
+
+.va-unrated__main {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.va-unrated__name {
+  color: var(--va-ink);
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.va-ranking__add {
+  margin: 8px 0 0;
+  color: var(--va-ink-2);
+}
+
+/* The aisle beside the ranking (desktop). */
+.va-food-side {
+  display: none;
+}
+
+@media (min-width: 760px) {
+  .va-ranking__title {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    margin: 0;
+    font-size: clamp(36px, 3.6vw, 52px);
+    font-weight: 800;
+    font-stretch: 115%;
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  .va-ranking__head .va-breadcrumb {
+    display: flex;
+  }
+
+  .va-ranking__summary {
+    font-size: 18px;
+  }
+
+  .va-featured {
+    padding: 26px 24px 24px;
+  }
+
+  .va-featured > .va-thumb {
+    display: grid;
+    width: 160px;
+    height: 160px;
+  }
+
+  .va-rank-row > .va-thumb {
+    display: grid;
+  }
+
+  .va-rank-row__main {
+    flex-basis: 180px;
+  }
+
+  .va-featured__name {
+    font-size: 30px;
+  }
+
+  .va-rank-row {
+    flex-wrap: nowrap;
+    gap: 12px 18px;
+    padding: 14px 18px;
+  }
+
+  .va-rank-row .va-detail-cells {
+    flex: 0 1 270px;
+    order: 0;
+  }
+}
+
+@media (min-width: 1000px) {
+  .va-ranking {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 40px;
+  }
+
+  .va-food-side {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-self: start;
+  }
+
+  .va-food-side ul {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .va-food-side a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 10px;
+    border-radius: var(--va-radius-button);
+    color: var(--va-ink);
+    font-size: 15px;
+    text-decoration: none;
+  }
+
+  .va-food-side a:hover {
+    background: var(--va-hover);
+  }
+
+  .va-food-side a[aria-current="page"] {
+    background: var(--va-btn);
+    color: var(--va-on-btn);
+    font-weight: 700;
+  }
+
+  .va-food-side .va-overline {
+    margin: 10px 8px 2px;
+  }
+
+  .va-food-side a.va-food-side__aisle {
+    gap: 8px;
+    justify-content: flex-start;
+    font-size: 16px;
+    font-weight: 800;
+    font-stretch: 110%;
+  }
+
+  .va-food-side__score {
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0.85;
+  }
+}

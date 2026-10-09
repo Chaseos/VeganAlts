@@ -1,49 +1,41 @@
-import { expect, test, type Page } from "./fixtures";
-import AxeBuilder from "@axe-core/playwright";
-
-async function accessible(page: Page) {
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-}
+import { expect, test } from "./fixtures";
+import { accessible } from "./a11y";
 
 test("categories offer separate Top, Trending and New views and the homepage surfaces discovery", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "What’s on your plate?" }),
-  ).toBeVisible();
+  for (const name of [
+    "Browse every food",
+    "Trending now",
+    "New and needs ratings",
+  ])
+    await expect(page.getByRole("heading", { name })).toBeVisible();
   await accessible(page);
   await page.goto("/us/ground-beef");
-  const tabs = page.getByRole("navigation", { name: "Ranking view" });
-  await expect(tabs.getByRole("link", { name: "Top" })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
-  await tabs.getByRole("link", { name: "Trending" }).click();
+  // One sort menu holds Closest match (Top), Trending and Newest.
+  const sortBy = async (current: string, next: RegExp) => {
+    await page.getByLabel(`Sort: ${current}`).click();
+    await page
+      .getByRole("group", { name: "Sort by" })
+      .getByRole("link", { name: next })
+      .click();
+  };
+  await expect(page.getByLabel("Sort: Closest match")).toBeVisible();
+  await sortBy("Closest match", /^Trending/);
   await expect(page).toHaveURL(/view=trending/);
-  await expect(
-    page.getByRole("heading", { name: "Trending alternatives" }),
-  ).toBeVisible();
+  await expect(page.getByLabel("Sort: Trending")).toBeVisible();
   await expect(
     page.getByText("It never changes the Top ranking."),
   ).toBeVisible();
   await accessible(page);
-  await tabs.getByRole("link", { name: "New" }).click();
+  await sortBy("Trending", /^Newest/);
   await expect(page).toHaveURL(/view=new/);
-  await expect(
-    page.getByRole("heading", { name: "New alternatives" }),
-  ).toBeVisible();
+  await expect(page.getByText(/^Added in the last \d+ days/)).toBeVisible();
   await expect(page.locator("link[rel=canonical]")).toHaveAttribute(
     "href",
     /\/us\/ground-beef\?view=new$/,
   );
-  await tabs.getByRole("link", { name: "Top" }).click();
-  await expect(
-    page.getByRole("heading", { name: /Top alternatives/ }),
-  ).toBeVisible();
+  await sortBy("Newest", /^Closest match/);
+  await expect(page.locator(".va-featured")).toContainText("#1 swap");
 });

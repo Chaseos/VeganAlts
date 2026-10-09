@@ -20,11 +20,13 @@ export function communityProductStatements(
         "SELECT vegan_status,manufacturer_label,evidence_data,certifications,reviewed_by FROM formula_classifications WHERE product_version_id=?",
       )
       .bind(versionId),
+    // Only active reports are public: uncertain or no-longer-carried rows stay
+    // with moderation and history, never "Commonly found at".
     db
       .prepare(
-        `SELECT r.id,r.canonical_name AS name,r.website_url AS websiteUrl,pr.status,pr.confirmation_count AS contributorCount,pr.last_confirmed_at AS lastConfirmedAt,
+        `SELECT r.id,r.slug,r.canonical_name AS name,r.website_url AS websiteUrl,pr.status,pr.confirmation_count AS contributorCount,pr.last_confirmed_at AS lastConfirmedAt,
       (SELECT COUNT(*) FROM retailer_confirmations rc WHERE rc.product_id=pr.product_id AND rc.retailer_id=pr.retailer_id AND rc.stance='confirm' AND rc.updated_at>=?) AS recentContributorCount
-      FROM product_retailers pr JOIN retailers r ON r.id=pr.retailer_id JOIN products p ON p.id=pr.product_id JOIN retailer_markets m ON m.retailer_id=r.id AND m.country_id=p.country_id AND m.is_active=1 WHERE pr.product_id=? ORDER BY pr.status,r.canonical_name LIMIT 50`,
+      FROM product_retailers pr JOIN retailers r ON r.id=pr.retailer_id JOIN products p ON p.id=pr.product_id JOIN retailer_markets m ON m.retailer_id=r.id AND m.country_id=p.country_id AND m.is_active=1 WHERE pr.product_id=? AND pr.status='active' ORDER BY r.canonical_name LIMIT 50`,
       )
       .bind(now - STALE_AFTER, productId),
     db
@@ -71,11 +73,15 @@ export function communityProductDetails(
     canonicalRedirect: null,
   };
 }
-export function readCanonicalRedirect(db: D1Database, slug: string) {
+export function readCanonicalRedirect(
+  db: D1Database,
+  countryId: string,
+  slug: string,
+) {
   return db
     .prepare(
-      `SELECT survivor.id,survivor.slug FROM products donor JOIN duplicate_consolidations d ON d.donor_id=donor.id AND d.active=1 JOIN products survivor ON survivor.id=d.survivor_id JOIN countries c ON c.id=donor.country_id WHERE donor.slug=? AND c.iso2='US' AND survivor.lifecycle_status<>'hidden'`,
+      `SELECT survivor.id,survivor.slug FROM products donor JOIN duplicate_consolidations d ON d.donor_id=donor.id AND d.active=1 JOIN products survivor ON survivor.id=d.survivor_id WHERE donor.slug=? AND donor.country_id=? AND survivor.lifecycle_status<>'hidden'`,
     )
-    .bind(slug)
+    .bind(slug, countryId)
     .first<{ id: string; slug: string }>();
 }

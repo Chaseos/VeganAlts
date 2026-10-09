@@ -1,11 +1,12 @@
 import { env } from "cloudflare:workers";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { z } from "zod";
 import { communityPageActor } from "@server/community/http/page";
 import { parse } from "@server/community/http/handlers";
 import { communityServices } from "@server/community/infrastructure/composition";
 import { taxonomyServices } from "@server/taxonomy/infrastructure/composition";
-import { SiteShell, EmptyState } from "../components/catalog";
+import { PageShell } from "../components/layout/page-shell";
+import { EmptyState } from "../components/ui/feedback";
 import { ContributionContent } from "../components/contribution-detail";
 import { dateLabel, friendly } from "../lib/community";
 import type { Route } from "./+types/my-contributions";
@@ -47,8 +48,10 @@ export function meta() {
 export default function Contributions({
   loaderData: { detail, category, list },
 }: Route.ComponentProps) {
+  // Paging links only once there is more than one page.
+  const paged = useSearchParams()[0].has("cursor") || Boolean(list?.nextCursor);
   return (
-    <SiteShell compact>
+    <PageShell width="narrow">
       <header className="page-heading">
         <p className="eyebrow">Your catalog contributions</p>
         <h1>{detail ? "Contribution status" : "My contributions"}</h1>
@@ -112,18 +115,20 @@ export default function Contributions({
               ))}
             </ul>
           )}
-          <nav className="pagination" aria-label="Contribution pages">
-            <Link to="/my-contributions">Most recent</Link>
-            {list?.nextCursor && (
-              <Link
-                to={`/my-contributions?cursor=${encodeURIComponent(list.nextCursor)}`}
-              >
-                Older contributions →
-              </Link>
-            )}
-          </nav>
+          {paged && (
+            <nav className="button-row" aria-label="Contribution pages">
+              <Link to="/my-contributions">Most recent</Link>
+              {list?.nextCursor && (
+                <Link
+                  to={`/my-contributions?cursor=${encodeURIComponent(list.nextCursor)}`}
+                >
+                  Older contributions →
+                </Link>
+              )}
+            </nav>
+          )}
         </>
       )}
-    </SiteShell>
+    </PageShell>
   );
 }

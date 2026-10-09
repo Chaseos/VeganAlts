@@ -1,15 +1,7 @@
-import { expect, test, type Page } from "./fixtures";
-import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "./fixtures";
+import { accessible } from "./a11y";
 import { createBrowserSession } from "./session-fixture";
 
-async function accessible(page: Page) {
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-}
 test("submission, private receipt, operator publication, reporting, formula history and duplicate reversal", async ({
   page,
   context,
@@ -301,7 +293,9 @@ test("submission, private receipt, operator publication, reporting, formula hist
     ).toBeVisible();
     await page.goto(`/us/products/${slug}`);
     await expect(
-      page.getByRole("img", { name: `${name} package`, exact: true }),
+      page
+        .getByRole("group", { name: "Package photos" })
+        .getByRole("img", { name: `${name}: Front`, exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Updated test formula", exact: true }),
@@ -340,7 +334,7 @@ test("submission, private receipt, operator publication, reporting, formula hist
     );
     expect(apiRedirect.status()).toBe(302);
     expect(apiRedirect.headers().location).toBe(
-      "/api/v1/products/beyond-burger",
+      "/api/v1/products/beyond-burger?country=us",
     );
     expect(apiRedirect.headers()["cache-control"]).toContain("no-store");
     const dataRedirect = await page.request.get(

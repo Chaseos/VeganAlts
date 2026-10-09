@@ -1,6 +1,10 @@
 import { Link } from "react-router";
 import type { QueueDecisionRepository } from "@server/community/infrastructure/queue-decision-repository";
 import { friendly, dateLabel } from "../lib/community";
+import {
+  allergenDeclaration,
+  describeDeclaration,
+} from "@server/community/domain/allergens";
 
 export type ContributionDetail = Awaited<
   ReturnType<QueueDecisionRepository["detail"]>
@@ -93,6 +97,15 @@ export function ProposalSummary({
           <strong>Related product:</strong>{" "}
           {labels[input.relatedProductId] ?? input.relatedProductId} ·{" "}
           {friendly(String(input.relationship))}
+        </p>
+      )}
+      {allergenDeclaration.safeParse(input.declaration).success && (
+        <p>
+          <strong>Allergens on the label:</strong>{" "}
+          {describeDeclaration(allergenDeclaration.parse(input.declaration))}
+          {typeof input.citedImageId === "string"
+            ? " (cites the formula’s label photo)"
+            : " (no label photo cited)"}
         </p>
       )}
       {typeof input.retailerId === "string" && (
@@ -243,7 +256,7 @@ export function ContributionContent({
         <p>
           <Link
             className="button secondary"
-            to={`/us/products/${detail.publishedProduct.slug}`}
+            to={`/${detail.publishedProduct.country}/products/${detail.publishedProduct.slug}`}
           >
             View published product →
           </Link>
@@ -253,7 +266,9 @@ export function ContributionContent({
         <section>
           <h2>Current catalog entry</h2>
           <p>
-            <Link to={`/us/products/${product.slug}`}>{product.name} ↗</Link>
+            <Link to={`/${product.countryCode}/products/${product.slug}`}>
+              {product.name}
+            </Link>
           </p>
           <dl className="review-facts">
             <dt>Formula</dt>
@@ -264,6 +279,17 @@ export function ContributionContent({
             <dd>{friendly(product.veganStatus)}</dd>
             <dt>Manufacturer wording</dt>
             <dd>{friendly(product.manufacturerLabel)}</dd>
+            <dt>Allergens on file</dt>
+            <dd>
+              {product.allergens
+                ? describeDeclaration(
+                    product.allergens,
+                    Object.fromEntries(
+                      product.allergenList.map((a) => [a.key, a.label]),
+                    ),
+                  )
+                : "Not confirmed yet"}
+            </dd>
           </dl>
           <p>
             <strong>Product family:</strong>{" "}

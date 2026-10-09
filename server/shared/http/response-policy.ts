@@ -72,9 +72,13 @@ export function responsePolicy(
     (route !== null ||
       path.startsWith("/media/") ||
       path.startsWith("/assets/") ||
-      ["/favicon.svg", "/social.png", "/social.svg", "/robots.txt"].includes(
-        path,
-      ));
+      [
+        "/favicon.svg",
+        "/apple-touch-icon.png",
+        "/social.png",
+        "/social.svg",
+        "/robots.txt",
+      ].includes(path));
   if (!publicRead) headers.set("Cache-Control", "private, no-store");
   else if (route && route.kind !== "media")
     headers.set("Cache-Control", "public, max-age=0");

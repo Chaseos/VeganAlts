@@ -553,3 +553,40 @@ it("checks large brands without a hard limit, ranks alias matches first and keep
       .first("brand_id"),
   ).toBe(brandId);
 });
+
+it("publishes a product added from another country's page in that country only", async () => {
+  const { f, repo, media, service, input, actor } = await setup();
+  await env.DB.prepare("UPDATE countries SET iso2=id WHERE iso2='CA'").run();
+  await env.DB.prepare("UPDATE countries SET iso2='CA' WHERE id=?")
+    .bind(f.otherCountryId)
+    .run();
+  const canadian = submissionInput.parse({
+    ...input,
+    name: `Maple patties ${tag()}`,
+    country: "ca",
+  });
+  const checked = await service.preflight(actor, id(), canadian);
+  expect(checked.decision).toBe("READY");
+  const receipt = (await repo.get(checked.receiptId!))!;
+  await media.upload(actor, {
+    receiptId: receipt.id,
+    slot: "front",
+    idempotencyKey: id(),
+    bytes: Uint8Array.from(atob(env.TEST_IMAGES.jpeg), (c) => c.charCodeAt(0)),
+  });
+  await service.finalize(actor, receipt.id, canadian);
+  expect(
+    await env.DB.prepare("SELECT country_id FROM products WHERE id=?")
+      .bind(receipt.planned_product_id)
+      .first("country_id"),
+  ).toBe(f.otherCountryId);
+  // The same name in the United States is a different product.
+  expect(
+    (
+      await service.preflight(actor, id(), {
+        ...canadian,
+        country: "US",
+      })
+    ).decision,
+  ).toBe("READY");
+});

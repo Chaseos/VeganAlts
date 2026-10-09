@@ -1,6 +1,6 @@
 # Milestone 5: Swap Aisle Redesign
 
-Approved on 2026-10-08. Complete [milestone 5](https://github.com/Chaseos/VeganAlts/milestone/5), issues #36–#45, turning the agreed [design direction](DESIGN_DIRECTION.md) and the canvas's "Round 5 · Screens" page into the public site, through real staging verification, before the production cutover (#31). The starting milestone 4 baseline passes 158 tests in 36 files and 40 desktop and mobile browser tests. Work starts from updated `develop` (`a10dbc9`) on `feature/milestone-five-swap-aisle-redesign`.
+Approved on 2026-10-08. Complete [milestone 5](https://github.com/Chaseos/VeganAlts/milestone/5), issues #36–#45, turning the agreed [design direction](DESIGN_DIRECTION.md) and the canvas's "Round 5 · Screens" page into the public site, through real staging verification, before the production cutover (#31). The starting milestone 4 baseline passes 158 tests in 36 files and 40 desktop and mobile browser tests. Work starts from updated `develop` (`cd19cd7`, which adds this plan) on `feature/milestone-five-swap-aisle-redesign`.
 
 ## Agreed boundaries
 
@@ -13,10 +13,20 @@ Approved on 2026-10-08. Complete [milestone 5](https://github.com/Chaseos/VeganA
 - **Not in this milestone:** meal swaps, a "my swaps" list, account-saved avoid lists, illustration or food photography, countries beyond the English-speaking launch set and languages other than English (#46), store locations or live inventory, structured ingredient transcription and contributor trust (#26).
 - Completion means staging verification and documented evidence. Local commits are made per verified checkpoint. Pushes, PRs, issue/milestone changes, merging and production work require separate authorization.
 
+## Owner decisions (2026-10-09)
+
+- The launch tree below is confirmed. Ground Beef's display name is "Beef mince" in the United Kingdom, Australia, New Zealand and Ireland, and the six homepage features (Ground Beef, Beef Burgers, Milk, Cheddar, Butter, Eggs) apply in every launch country.
+- Launch foods' detail dimensions: Ground Beef (Taste, Texture, Browning), Beef Burgers (Taste, Texture, Juiciness), Chicken Nuggets (Taste, Texture, Crispiness), Bacon (Taste, Texture, Crispiness), Milk (Taste, Creaminess, In coffee), Butter (Taste, Spreading, Baking), Cheddar (Taste, Texture, Melt), Mozzarella (Taste, Texture, Melt, Stretch), Cream Cheese (Taste, Texture, Spreading), Eggs (Taste, Texture, Scrambling).
+- Aisles and shelves may share a food's name. Food names and aliases stay unique across the taxonomy; group names are unique among siblings and groups take no aliases or search entries. Colliding group slugs take a suffix: `eggs-aisle`, `eggs-shelf`, `milk-shelf`, `butter-shelf`.
+- Ratings keep saving on tap. Overall saves when chosen; the optional detail scores and "last ate the original" appear after it and also save when chosen. There is no separate Save button.
+- The theme choice is labeled System / Light / Dark.
+- Every screen follows the design patterns, including screens without a canvas board (see Site-wide tokens).
+- Implementation order: the detail-score and allergen data paths (§9 and §8 below) land before the category and product pages (§6 and §7), which consume them.
+
 ## Defaults
 
 - **Taxonomy shape.** Food → aisle → shelf → food. Aisles and shelves are non-rankable groups; rankable foods are leaves at depth three. Category URLs stay flat (`/us/ground-beef`), so reshaping changes no public URL. A rankable category outside depth three stays reachable by URL and search but is left out of the aisle bar, and the taxonomy workspace flags it. Category proposals choose a shelf. An aisle with one shelf hides the shelf rail.
-- **Launch tree** (owner confirms before #33 runs): Meat → Beef (Ground Beef, Beef Burgers), Chicken (Chicken Nuggets), Pork (Bacon); Dairy → Milk (Milk), Butter (Butter); Cheese → Block and shredded (Cheddar, Mozzarella), Soft and spreadable (Cream Cheese); Eggs → Eggs (Eggs). Existing aliases and homepage features carry over. Local and staging data are re-parented with the audited taxonomy tools; production receives the new shape from the seed.
+- **Launch tree** (confirmed by the owner on 2026-10-09): Meat → Beef (Ground Beef, Beef Burgers), Chicken (Chicken Nuggets), Pork (Bacon); Dairy → Milk (Milk), Butter (Butter); Cheese → Block and shredded (Cheddar, Mozzarella), Soft and spreadable (Cream Cheese); Eggs → Eggs (Eggs). Groups whose natural slug belongs to a food use `eggs-aisle`, `eggs-shelf`, `milk-shelf` and `butter-shelf`. Existing aliases and homepage features carry over. Local and staging data are re-parented with the audited taxonomy tools; production receives the new shape from the seed.
 - **Aisle menu.** Each food card shows its first three products in Top order from the existing statistics read model, Early products included with their badge. Foods with fewer than three products say so.
 - **Home.** Search with instant answers beside Start with these; Browse every food; Trending now; New and needs ratings; Still waiting for a great swap. Start with these lists the foods whose #1 has the highest Top score among foods whose #1 is past Early, filled from the operator's homepage features while too few qualify. Still waiting lists foods whose best eligible product is below the threshold, then foods with no eligible product. Both are derived from data and never brand-curated or paid.
 - **Instant answers.** A public JSON search endpoint over the existing D1 FTS5 index returns matching foods with their #1 product and score, and matching products with their rank. Responses are shared-cacheable per normalized query. The preview beside the results renders from the same response with no extra request.
@@ -31,7 +41,7 @@ Approved on 2026-10-08. Complete [milestone 5](https://github.com/Chaseos/VeganA
 - **Contributions per country.** Adding a product creates it in the country of the page it starts from, never a hard-coded United States. Store choices and "Add retailer" use that country's `retailer_markets`. Each launch country has its own declared-allergen list. A country alias can be marked as that country's display name for a food ("Beef mince" in the United Kingdom). Homepage features, the launch-dataset audit and the sitemap work per country, and food pages link their other-country versions with `hreflang`. Moderation shows each item's country.
 - **Theme.** System preference by default, with a System / Light / Dark choice in the header stored on the device. A small inline script sets `data-theme` before first paint, with no cookie.
 - **Type, icons and logo.** Archivo is self-hosted as a variable woff2 with a metric-compatible fallback. Aisle and food line icons are inline SVG components mapped by category slug, with a generic fallback for new foods. The logo is the tagged wordmark component, and the favicon is the "VA" yellow tile.
-- **Site-wide tokens.** `app/styles/site.css` moves to the `--va-*` tokens. Account, contribution, moderation and admin pages adopt the tokens, header and themes and stay readable in dark mode, but keep their current layouts.
+- **Site-wide tokens.** `app/styles/site.css` moves to the `--va-*` tokens. Every screen, including account, contribution, moderation and admin pages and any page without a canvas board, follows the design patterns: tokens and themes, the type scale, shared components, cards for objects and dividers for lists, fields and buttons, at phone and desktop widths. Their workflows and fields stay the same.
 
 ## Implementation sequence
 
@@ -91,7 +101,7 @@ Visual comparison against the canvas at 390 px and desktop in both themes, contr
 | Recent-eaters score                      | 10 counted ratings from people who ate the original within a year                             |
 | Stores per filter                        | 10                                                                                            |
 | Free-from list (US)                      | Milk, egg, fish, crustacean shellfish, tree nuts, peanuts, wheat, soy, sesame                 |
-| Free-from lists (other launch countries) | Each country's declared-allergen list, recorded in the specification step                     |
+| Free-from lists (other launch countries) | Each country's declared-allergen list, recorded in PRODUCT_MASTER (milestone 5 decisions)     |
 | Allergen auto-acceptance                 | The milestone 4 tier 2 rule; Contains milk, egg, fish or shellfish always goes to an operator |
 | New food dimensions                      | Taste, Texture                                                                                |
 | Launch countries                         | United States, Canada, United Kingdom, Australia, New Zealand, Ireland                        |

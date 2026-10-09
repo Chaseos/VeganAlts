@@ -29,7 +29,7 @@ export function robotsTxt(env: {
     "Disallow: /contribute/",
     "Disallow: /add-product",
     "Disallow: /propose-category",
-    "Disallow: /us/search",
+    "Disallow: /*/search",
     ...(catalogIsPublic(env)
       ? [`Sitemap: ${new URL("/sitemap.xml", env.APP_URL).href}`]
       : []),

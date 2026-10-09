@@ -5,7 +5,7 @@ import { ApplicationError } from "@server/shared/domain/errors";
 import { requireSameOrigin } from "@server/shared/http/security";
 import { limitedFormData } from "@server/shared/http/limited-form";
 import type { Route } from "./+types/account";
-import { SiteShell } from "../components/catalog";
+import { PageShell } from "../components/layout/page-shell";
 import { Link } from "react-router";
 import { requirePageUser } from "@server/auth/http/require-page-user";
 import { scheduleCatalogInvalidation } from "@server/catalog/infrastructure/invalidation";
@@ -76,57 +76,85 @@ export default function Account({
 }: Route.ComponentProps) {
   const { profile } = loaderData.user;
   return (
-    <SiteShell compact>
-      <div className="account-settings">
+    <PageShell width="narrow" aisles={false}>
+      <header className="page-heading">
+        <p className="eyebrow">Account</p>
         <h1>Your profile</h1>
         <p>
           Your chosen handle and display name are public. Your email and
           individual rating history stay private.
         </p>
-        <div className="button-row">
-          <Link to={`/users/${profile.handle}`}>View public profile ↗</Link>
-          <Link to="/my-ratings">My Ratings →</Link>
-          <Link to="/my-contributions">My contributions →</Link>
+      </header>
+      <nav aria-label="Your activity" className="va-card va-link-list">
+        <ul className="va-divided">
+          <li>
+            <Link to={`/users/${profile.handle}`}>View public profile</Link>
+          </li>
+          <li>
+            <Link to="/my-ratings">My ratings</Link>
+          </li>
+          <li>
+            <Link to="/my-contributions">My contributions</Link>
+          </li>
           {loaderData.administrator && (
-            <Link to="/admin/moderation">Moderation inbox →</Link>
+            <li>
+              <Link to="/admin/moderation">Moderation inbox</Link>
+            </li>
           )}
-        </div>
-        <Form method="post" className="account-form" reloadDocument>
-          <label htmlFor="handle">Public handle</label>
-          <input
-            id="handle"
-            name="handle"
-            defaultValue={profile.handle}
-            required
-            minLength={3}
-            maxLength={30}
-            pattern="[a-zA-Z][a-zA-Z0-9_]{2,29}"
-            autoComplete="username"
-            aria-describedby="handle-help"
-          />
-          <p id="handle-help">
-            3–30 letters, numbers or underscores. Start with a letter.
-          </p>
-          <label htmlFor="display-name">Display name (optional)</label>
-          <input
-            id="display-name"
-            name="displayName"
-            defaultValue={profile.displayName ?? ""}
-            maxLength={60}
-            autoComplete="nickname"
-          />
+        </ul>
+      </nav>
+      <section className="va-card section-space" aria-labelledby="profile-form">
+        <h2 id="profile-form" className="va-heading-s">
+          Public profile
+        </h2>
+        <Form method="post" reloadDocument>
+          <div className="form-field">
+            <label htmlFor="handle">Public handle</label>
+            <input
+              id="handle"
+              name="handle"
+              defaultValue={profile.handle}
+              required
+              minLength={3}
+              maxLength={30}
+              pattern="[a-zA-Z][a-zA-Z0-9_]{2,29}"
+              autoComplete="username"
+              aria-describedby="handle-help"
+            />
+            <p id="handle-help" className="field-hint">
+              3–30 letters, numbers or underscores. Start with a letter.
+            </p>
+          </div>
+          <div className="form-field">
+            <label htmlFor="display-name">Display name (optional)</label>
+            <input
+              id="display-name"
+              name="displayName"
+              defaultValue={profile.displayName ?? ""}
+              maxLength={60}
+              autoComplete="nickname"
+            />
+          </div>
           <button className="button" name="intent" value="save">
             Save profile
           </button>
-          {actionData?.error && <p role="alert">{actionData.error}</p>}
-          {actionData?.saved && <p role="status">Profile saved.</p>}
+          {actionData?.error && (
+            <p className="notice error" role="alert">
+              {actionData.error}
+            </p>
+          )}
+          {actionData?.saved && (
+            <p className="notice success" role="status">
+              Profile saved.
+            </p>
+          )}
         </Form>
-        <Form method="post" reloadDocument>
-          <button className="button secondary" name="intent" value="sign-out">
-            Sign out
-          </button>
-        </Form>
-      </div>
-    </SiteShell>
+      </section>
+      <Form method="post" reloadDocument className="section-space">
+        <button className="button secondary" name="intent" value="sign-out">
+          Sign out
+        </button>
+      </Form>
+    </PageShell>
   );
 }

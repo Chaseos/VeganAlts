@@ -15,6 +15,7 @@ import {
 } from "../domain/comments";
 import type {
   CommentProduct,
+  CommentProductLookup,
   D1CommentRepository,
 } from "../infrastructure/d1-comment-repository";
 
@@ -42,19 +43,21 @@ export class CommentService {
     private readonly newId: () => string,
     private readonly clock = Date.now,
   ) {}
-  private async product(where: { id?: string; slug?: string }) {
+  private async product(where: CommentProductLookup) {
     const product = await this.repository.product(where);
     if (!product)
       throw new ApplicationError("NOT_FOUND", "Product not found.", 404);
     return product;
   }
+  // Product slugs are unique only within a country.
   async page(
+    countryId: string,
     slug: string,
     sort: CommentSort,
     formula: CommentFormula,
     cursor: string | null,
   ) {
-    const product = await this.product({ slug });
+    const product = await this.product({ slug, countryId });
     const [page, counts] = await Promise.all([
       this.repository.page(product, sort, formula, cursor),
       this.repository.counts(product),

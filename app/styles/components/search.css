@@ -1,0 +1,155 @@
+/* Instant search: the field and its suggestion popup (canvas: Home5). */
+.va-instant {
+  position: relative;
+}
+
+.va-instant__panel {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--va-line);
+  border-radius: var(--va-radius-card);
+  background: var(--va-surface);
+  color: var(--va-ink);
+  box-shadow: var(--va-shadow);
+}
+
+.va-instant__group {
+  margin: 6px 10px 4px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--va-muted);
+}
+
+.va-instant__option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.va-instant__option[aria-selected="true"] {
+  background: var(--va-hover);
+  outline: 2px solid var(--va-ring);
+  outline-offset: -2px;
+}
+
+.va-instant__tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--va-kale);
+  color: var(--va-tag);
+}
+
+.va-instant__food {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.va-instant__name {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.va-instant__meta {
+  font-size: 13px;
+  color: var(--va-muted);
+}
+
+.va-instant__best {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.va-instant__best > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.va-instant__option--product .va-instant__name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.va-instant__message {
+  padding: 12px 10px;
+}
+
+.va-instant__message p {
+  margin: 0;
+  color: var(--va-muted);
+}
+
+.va-instant__message .va-instant__empty {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--va-ink);
+}
+
+.va-instant__footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px 10px 4px;
+  border-top: 1px solid var(--va-line);
+  font-size: 14px;
+}
+
+.va-instant__footer a {
+  color: var(--va-ink-2);
+}
+
+.va-instant__footer a:first-child {
+  font-weight: 700;
+  color: var(--va-good);
+}
+
+/* Desktop: the popup floats over the page. On phones, home results stay in
+   the flow under the field. */
+@media (min-width: 760px) {
+  .va-instant__panel {
+    position: absolute;
+    z-index: 30;
+    top: 100%;
+    left: 0;
+    right: 0;
+  }
+
+  .va-instant--header .va-instant__panel {
+    min-width: 560px;
+  }
+
+  .va-instant__option {
+    flex-wrap: nowrap;
+  }
+
+  .va-instant__food {
+    flex: 0 0 180px;
+  }
+
+  .va-instant__option--product {
+    padding-left: 64px;
+  }
+
+  .va-instant__option--product .va-instant__food {
+    flex: 1 1 auto;
+  }
+}

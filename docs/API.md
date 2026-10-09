@@ -350,3 +350,54 @@ The approved [milestone 4 specification](MILESTONE_4_PLAN.md) extends the milest
 `ProductChange` adds `rename`, `alias`, `source_url`, `category_add` and `photo` (`{slot, reason, evidence}`), alongside the milestone 3 kinds; category removal remains the `relationships` eligibility change. A proposal whose automated evidence check returns `NEEDS_CHANGES` or `BLOCKED` is refused with Problem Details code `PROPOSAL_NEEDS_CHANGES` or `PROPOSAL_BLOCKED` (422) and reserves nothing. `GET /admin/moderation/inbox` accepts `filter=all|confirmation|high_risk|comments|flagged`. Review decisions accept the `category` and `comment` inbox kinds; category proposals can also be resolved as an alias of an existing category.
 
 `GET /categories/:categorySlug` accepts `view=top|trending|new`; `view` and `page` are part of the cache key. Renamed or merged category slugs return an uncached 302 to the current slug, like consolidated products.
+
+## Milestone 5 contract additions
+
+The approved [milestone 5 specification](MILESTONE_5_PLAN.md) extends the v1 contracts additively. Every POST keeps the milestone 3 and 4 rules.
+
+**Countries.** Every active country is supported. Public documents use lowercase ISO codes in the path (`/ca`, `/ca/ground-beef`, `/ca/products/:slug`, `/ca/search`); `/` is the United States home and `/us` redirects there permanently. Public API reads take `country` as a query parameter (either case, default `us`); it is normalized into the cache key. Unknown or inactive countries return 404. Product slugs are unique only within a country.
+
+**Public reads.**
+
+| Method | Path beneath `/api/v1`                                                   | Contract                                                                                                                                                                                                                                                                                                                               |
+| ------ | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/suggest?country=us&q=…`                                                | Instant answers. Queries normalize like search; fewer than two letters or digits return empty lists. Up to 5 foods (aisle, product and ranked counts, #1 product with score and Early flag, top 3 for the preview) and 5 products (food, rank, score). Shared cache for 300 seconds; separate rate limit.                              |
+| GET    | `/categories/:slug?country=&view=&stores=&freeFrom=&page=&unrankedPage=` | `view` is `top`, `trending`, `new`, `most-rated` or `detail-<key>` for an active dimension of that food. `stores` lists retailer slugs active in the country's markets (at most 10, combined with OR); `freeFrom` lists keys from the country's allergen list. Rows add `topRank`, detail means, allergen summary and matching stores. |
+| GET    | `/products/:slug?country=&version=&food=`                                | `food` selects the food the page is about (one of the product's active foods). Adds per-food ranks, detail scores, the recent-eaters score when above its minimum, the score distribution, the allergen declaration and active retailers only.                                                                                         |
+
+**Filter URLs.** `stores` and `freeFrom` accept comma-separated or repeated values. The server lowercases, de-duplicates, sorts and syntax-checks them. A public document in another form redirects permanently to the normalized URL; API and framework data requests are normalized silently. Values not valid for the country (an unknown store or allergen) cause an uncached 302 to the URL without them. Aisle pages accept `shelf`. Filtered and shelf pages declare the unfiltered page canonical. Each normalized combination is cached once; cookies never vary it.
+
+**Ratings.** `PUT /ratings` adds two optional fields.
+
+```json
+{
+  "productVersionId": "...",
+  "categoryId": "...",
+  "overallSimilarity": 4,
+  "dimensions": { "taste": 4, "texture": null },
+  "conventionalRecency": "within_month"
+}
+```
+
+- `overallSimilarity` stays required. An absent field leaves its stored value unchanged.
+- In `dimensions`, a key with `null` clears that answer, and keys left out are unchanged.
+- `conventionalRecency` is `current_or_week`, `within_month`, `within_year`, `over_year`, `prefer_not_to_say` or `null` to clear.
+- Unknown dimension keys return 422 `INVALID_DIMENSION`; retired ones return 409 `STALE_DIMENSIONS`.
+- The response's `rating` and `GET /me/rating-state` include `dimensions` and `conventionalRecency`. Rating-state also reports `administrator` so operator navigation can appear privately.
+
+**Contributions.**
+
+- Submissions, identity checks, retailer proposals and category proposals take any active `country` code.
+- Category proposals require `shelfId`.
+- `ProductChange` adds kind `allergens`: `{declaration: {status: "none_declared"} | {status: "declared", contains: key[], mayContain: key[]}, citedImageId?, evidence}`. Keys must be on the product country's list and appear once. `citedImageId` names the current formula's accepted ingredients or nutrition photo; without it the declaration is tier 3. A declaration that contains milk, egg, fish, crustacean or mollusc is tier 3 and opens a system `ingredient_concern` report (`concern-<proposal id>`).
+- A retailer proposal whose name matches a retailer without a market in that country proposes the market instead of failing. It is stored as a `retailer_market` proposal on that retailer; accepting it adds (or reactivates) the market.
+- `GET /community/options` takes `country` and lists retailers with an active market there.
+
+**Administration.**
+
+- `POST /admin/taxonomy/categories/:id/dimensions` takes `{expectedRevision, dimensions: [{key, label, description, active}], note}`, the full ordered list. Keys are immutable and never removed; `active: false` retires a dimension.
+- Category aliases accept `{alias, country, displayName}`.
+- `POST /admin/taxonomy/features` takes `country`.
+- The moderation inbox and detail add each item's `country`.
+
+**Caching.** Cache tags gain the country: `catalog:<cc>`, `surface:<kind>:<cc>`, `category:<cc>:<slug>` and `product:<cc>:<slug>`. Taxonomy changes purge every country's listings because the aisle bar appears on every page. Retailer confirmations now purge the product and its foods' listings, because the store filter reads them. Ratings still never purge.

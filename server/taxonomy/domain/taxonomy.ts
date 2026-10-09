@@ -1,6 +1,20 @@
 import { z } from "zod";
 import { ApplicationError } from "../../shared/domain/errors";
-import { id, note, shortText } from "../../community/domain/contracts";
+import {
+  countryCode,
+  id,
+  note,
+  shortText,
+} from "../../community/domain/contracts";
+
+export { countryCode };
+import { DIMENSION_KEY, MAX_DIMENSIONS } from "../../ratings/domain/details";
+
+export const invalidCountry = () =>
+  new ApplicationError(
+    "INVALID_COUNTRY",
+    "Choose one of the countries VeganAlts is open in.",
+  );
 
 // Route segments beneath /us/ and other words a category slug must never take.
 export const RESERVED_SLUGS = new Set([
@@ -51,16 +65,24 @@ export function categoryKey(value: string) {
 }
 
 const aliasList = z.array(shortText).max(10).default([]);
+// An ISO 3166-1 alpha-2 code; whether the country is active is checked
+// against the database.
 export const categoryProposalInput = z
   .object({
     name: shortText,
-    parentId: id.optional(),
-    country: z.literal("US"),
+    // Category proposals choose the shelf the new food belongs on.
+    shelfId: id,
+    country: countryCode,
     explanation: note,
     exampleProducts: z.array(shortText).max(5).default([]),
     aliases: aliasList,
   })
   .strict();
+// Proposals stored before milestone 5 named an optional parent instead.
+export const storedCategoryProposal = z.object({
+  name: shortText,
+  aliases: aliasList,
+});
 export type CategoryProposalInput = z.infer<typeof categoryProposalInput>;
 export const createCategoryInput = z
   .object({
@@ -84,7 +106,12 @@ export const updateCategoryInput = z
     aliases: z
       .array(
         z
-          .object({ alias: shortText, country: z.literal("US").optional() })
+          .object({
+            alias: shortText,
+            country: countryCode.optional(),
+            // Marks a country-scoped alias as that country's name for the food.
+            displayName: z.boolean().optional(),
+          })
           .strict(),
       )
       .max(20)
@@ -104,8 +131,37 @@ export const mergeInput = z
   .strict();
 export type MergeInput = z.infer<typeof mergeInput>;
 export const featuresInput = z
-  .object({ categoryIds: z.array(id).max(12), note })
+  .object({
+    categoryIds: z.array(id).max(12),
+    country: countryCode.default("US"),
+    note,
+  })
   .strict();
+// A food's full ordered question list (docs/API.md, milestone 5). Keys are
+// fixed once created; `active: false` retires a question.
+export const MAX_ACTIVE_DIMENSIONS = MAX_DIMENSIONS;
+export const dimensionsInput = z
+  .object({
+    expectedRevision: z.number().int().nonnegative(),
+    dimensions: z
+      .array(
+        z
+          .object({
+            key: z.string().regex(DIMENSION_KEY),
+            label: z.string().trim().min(2).max(40),
+            description: z.string().trim().max(200).nullable().default(null),
+            active: z.boolean(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(24),
+    note,
+  })
+  .strict();
+export type DimensionState = z.infer<
+  typeof dimensionsInput
+>["dimensions"][number];
 export const categoryDecision = z
   .object({
     decision: z.enum(["accept", "alias", "reject"]),
@@ -127,16 +183,27 @@ export interface CategoryState {
   parentId: string | null;
   isRankable: boolean;
   isActive: boolean;
-  aliases: { alias: string; countryId: string | null }[];
+  aliases: {
+    alias: string;
+    countryId: string | null;
+    // Absent in actions recorded before milestone 5.
+    displayName?: boolean;
+  }[];
 }
 export type CategoryPatch = Partial<CategoryState>;
 
 export const sortAliases = (aliases: CategoryState["aliases"]) =>
-  [...aliases].sort(
-    (a, b) =>
-      a.alias.localeCompare(b.alias) ||
-      (a.countryId ?? "").localeCompare(b.countryId ?? ""),
-  );
+  aliases
+    .map((a) => ({
+      alias: a.alias,
+      countryId: a.countryId,
+      displayName: !!a.displayName,
+    }))
+    .sort(
+      (a, b) =>
+        a.alias.localeCompare(b.alias) ||
+        (a.countryId ?? "").localeCompare(b.countryId ?? ""),
+    );
 /** Only the fields an update changes, before and after. */
 export function planCategoryUpdate(
   current: CategoryState,

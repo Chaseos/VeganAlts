@@ -1,7 +1,7 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import {
   changeInput,
-  retailerInput,
+  retailerProposal,
   type Actor,
   type ConsolidationInput,
   type ReviewDecision,
@@ -317,7 +317,7 @@ export class ModerationService {
       return this.catalog.acceptRetailer(
         { ...action, after: JSON.parse(proposal.proposed_data) as unknown },
         proposal,
-        retailerInput.parse(JSON.parse(proposal.proposed_data)),
+        retailerProposal.parse(JSON.parse(proposal.proposed_data)),
         receipt,
       );
     const change = changeInput.parse(JSON.parse(proposal.proposed_data)),
@@ -343,6 +343,9 @@ export class ModerationService {
     await this.catalog.validateRelationships(snapshot, change);
     await this.catalog.validateCategories(change);
     const plan = planProductChange(snapshot, change, actor.id, this.newId());
+    // An accepted declaration remembers the proposal it came from.
+    if (plan.after.allergens?.value)
+      plan.after.allergens.value.proposalId = proposal.id;
     if (change.kind === "rename") {
       // A new display name must not collide with another product's identity.
       const key = identityKey(

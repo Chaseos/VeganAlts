@@ -109,6 +109,7 @@ const snapshot: ProductSnapshot = {
   name: "Burger",
   slug: "burger",
   countryId: "US",
+  countryCode: "us",
   brandId: "brand",
   familyId: null,
   lifecycleStatus: "active",
@@ -132,6 +133,13 @@ const snapshot: ProductSnapshot = {
     { id: "front-old", versionId: "formula", slot: "front", state: "rejected" },
     { id: "front-new", versionId: "formula", slot: "front", state: "accepted" },
     { id: "back", versionId: "formula", slot: "back", state: "pending" },
+  ],
+  allergens: null,
+  allergenSource: null,
+  allergenList: [
+    { key: "soy", label: "Soy" },
+    { key: "wheat", label: "Wheat" },
+    { key: "milk", label: "Milk" },
   ],
   relationships: [],
   retailers: [

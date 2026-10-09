@@ -13,7 +13,7 @@ export class CommunityLookupRepository {
   async contributableProduct(id: string) {
     const product = await this.db
       .prepare(
-        "SELECT p.id FROM products p JOIN countries c ON c.id=p.country_id WHERE p.id=? AND p.lifecycle_status<>'hidden' AND c.iso2='US' AND c.is_active=1",
+        "SELECT p.id FROM products p JOIN countries c ON c.id=p.country_id WHERE p.id=? AND p.lifecycle_status<>'hidden' AND c.is_active=1",
       )
       .bind(id)
       .first();
@@ -24,7 +24,9 @@ export class CommunityLookupRepository {
         404,
       );
   }
-  async options(query = "") {
+  // Choices for contribution forms. Retailers are the ones with an active
+  // market in the product's country; related products may be in any country.
+  async options(query = "", country = "US") {
     const term = `%${query
       .trim()
       .slice(0, 80)
@@ -47,14 +49,14 @@ export class CommunityLookupRepository {
           .bind(term),
         this.db
           .prepare(
-            "SELECT p.id,p.name,p.slug,p.country_id AS countryId FROM products p JOIN countries c ON c.id=p.country_id WHERE p.lifecycle_status<>'hidden' AND c.iso2='US' AND p.name LIKE ? ESCAPE '\\' ORDER BY p.name LIMIT 50",
+            "SELECT p.id,p.name,p.slug,p.country_id AS countryId,c.iso2 AS country FROM products p JOIN countries c ON c.id=p.country_id WHERE p.lifecycle_status<>'hidden' AND c.is_active=1 AND p.name LIKE ? ESCAPE '\\' ORDER BY p.name LIMIT 50",
           )
           .bind(term),
         this.db
           .prepare(
-            "SELECT r.id,r.canonical_name AS name,r.website_url AS websiteUrl FROM retailers r JOIN retailer_markets m ON m.retailer_id=r.id JOIN countries c ON c.id=m.country_id WHERE c.iso2='US' AND m.is_active=1 AND (r.canonical_name LIKE ? ESCAPE '\\' OR r.normalized_name LIKE ? ESCAPE '\\' OR r.id IN (SELECT retailer_id FROM retailer_aliases WHERE normalized_name LIKE ? ESCAPE '\\')) ORDER BY r.canonical_name LIMIT 50",
+            "SELECT r.id,r.canonical_name AS name,r.website_url AS websiteUrl FROM retailers r JOIN retailer_markets m ON m.retailer_id=r.id JOIN countries c ON c.id=m.country_id WHERE c.iso2=? AND m.is_active=1 AND (r.canonical_name LIKE ? ESCAPE '\\' OR r.normalized_name LIKE ? ESCAPE '\\' OR r.id IN (SELECT retailer_id FROM retailer_aliases WHERE normalized_name LIKE ? ESCAPE '\\')) ORDER BY r.canonical_name LIMIT 50",
           )
-          .bind(term, normalized, normalized),
+          .bind(country.toUpperCase(), term, normalized, normalized),
       ]);
     return {
       brands: brands!.results,

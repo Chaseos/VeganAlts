@@ -1,0 +1,379 @@
+/* Buttons. Primary is the dark action (mint in dark mode); secondary is
+   outlined; .search is the one red button; .text reads as a link. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1.5px solid var(--va-btn);
+  border-radius: var(--va-radius-button);
+  background: var(--va-btn);
+  color: var(--va-on-btn);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.button.secondary {
+  border-color: var(--va-ink);
+  background: transparent;
+  color: var(--va-ink);
+}
+
+.button.search {
+  border-color: var(--va-flag);
+  background: var(--va-flag);
+  color: var(--va-on-flag);
+}
+
+.button.text,
+.text-button,
+.link-button {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--va-good);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.text-button,
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.button.small-button {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.text-link,
+.va-link {
+  color: var(--va-good);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--va-space-3);
+}
+
+/* Fields. Their border alone identifies the control, so it uses the 3:1
+   --va-field-line color. */
+.form-field {
+  display: grid;
+  gap: 6px;
+  margin: var(--va-space-4) 0;
+}
+
+.form-field > label,
+.form-field > span:first-child,
+.field-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--va-ink);
+}
+
+.form-field input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.form-field select,
+.form-field textarea,
+.va-input,
+input:not([type]),
+input[type="text"],
+input[type="email"],
+input[type="url"],
+input[type="search"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--va-field-line);
+  border-radius: var(--va-radius-field);
+  background: var(--va-field);
+  color: var(--va-ink);
+  font-size: 16px;
+}
+
+textarea {
+  min-height: 96px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+select {
+  appearance: none;
+  padding-right: 40px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 15px) 50%;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--va-muted);
+  opacity: 1;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--va-btn);
+}
+
+input[type="file"] {
+  max-width: 100%;
+  font-size: 15px;
+}
+
+.field-hint,
+.form-field small {
+  font-size: 13px;
+  color: var(--va-muted);
+}
+
+.field-error {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--va-flag-text);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 15px;
+}
+
+fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  padding: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* Search. The red button is only ever used here. */
+.va-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 5px 0 14px;
+  border: 1px solid var(--va-field-line);
+  border-radius: var(--va-radius-field);
+  background: var(--va-field);
+  color: var(--va-ink);
+}
+
+.va-search:focus-within {
+  outline: 3px solid var(--va-ring);
+  outline-offset: 2px;
+}
+
+.va-search__icon {
+  color: var(--va-muted);
+}
+
+.va-search input[type="search"] {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 16px;
+}
+
+.va-search input[type="search"]:focus-visible {
+  outline: none;
+}
+
+.va-search .button.search {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 7px;
+}
+
+.va-search--hero {
+  min-height: 60px;
+  padding: 0 6px 0 16px;
+  border-radius: 14px;
+}
+
+.va-search--hero input[type="search"] {
+  font-size: 18px;
+}
+
+.va-search--hero .button.search {
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+@media (min-width: 760px) {
+  .va-search--hero {
+    min-height: 68px;
+    padding: 0 8px 0 20px;
+  }
+
+  .va-search--hero input[type="search"] {
+    font-size: 20px;
+  }
+
+  .va-search--hero .button.search {
+    min-height: 52px;
+    padding: 0 22px;
+    font-size: 17px;
+  }
+}
+
+/* Chips: pill toggles. Selected uses the primary color with on-button text. */
+.va-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--va-line-strong);
+  border-radius: var(--va-radius-pill);
+  background: var(--va-surface);
+  color: var(--va-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.va-chip[aria-pressed="true"],
+.va-chip[aria-current],
+.va-chip:has(input:checked) {
+  border-color: var(--va-btn);
+  background: var(--va-btn);
+  color: var(--va-on-btn);
+}
+
+.va-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.va-chip:has(input:focus-visible) {
+  outline: 3px solid var(--va-ring);
+  outline-offset: 2px;
+}
+
+.va-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Segmented control (native radios) and link tabs */
+.va-segmented {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.va-segmented__legend {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.va-segmented__track,
+.va-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--va-radius-field);
+  background: var(--va-surface-2);
+}
+
+.va-segmented__option {
+  position: relative;
+  display: inline-flex;
+}
+
+.va-segmented__option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.va-segmented__option span,
+.va-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: var(--va-radius-button);
+  color: var(--va-ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.va-segmented__option input:checked + span,
+.va-tabs a[aria-current="page"] {
+  background: var(--va-surface);
+  box-shadow: 0 0 0 1px var(--va-line-strong);
+}
+
+.va-segmented__option input:focus-visible + span {
+  outline: 3px solid var(--va-ring);
+  outline-offset: 1px;
+}

@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { catalogPage, categoryView } from "@server/catalog/application/service";
+import { readFilters } from "@server/catalog/domain/filters";
 import {
   ratingState,
   myRatings,
@@ -29,21 +30,25 @@ async function handle(request: Request, path: string) {
     if (request.method === "GET" || request.method === "HEAD") {
       if (path === "me/rating-state") return await ratingState(request, env);
       if (path === "me/ratings") return await myRatings(request, env);
-      if (
-        url.searchParams.has("country") &&
-        url.searchParams.get("country") !== "US"
-      )
-        throw new ApplicationError(
-          "UNSUPPORTED_COUNTRY",
-          "Choose the United States catalog.",
-        );
       const catalog = catalogService(env);
-      if (path === "search")
-        return success(await catalog.search(url.searchParams.get("q") ?? ""));
-      if (path === "categories") return success(await catalog.home());
       const [family, slug, extra] = path.split("/");
       if (family === "products" && slug && extra === "comments")
         return await publicComments(request, slug, env);
+      if (family === "profiles" && slug && !extra)
+        return success(await catalog.profile(slug));
+      // Catalog reads belong to one active country (default United States).
+      const market = await catalog.market(
+        url.searchParams.get("country") ?? "us",
+      );
+      if (path === "search")
+        return success(
+          await catalog.search(market, url.searchParams.get("q") ?? ""),
+        );
+      if (path === "suggest")
+        return success(
+          await catalog.suggest(market, url.searchParams.get("q") ?? ""),
+        );
+      if (path === "categories") return success(await catalog.home(market));
       if (slug && !extra) {
         if (family === "categories") {
           const moved = await catalog.categoryRedirect(slug);
@@ -55,30 +60,43 @@ async function handle(request: Request, path: string) {
                 "Cache-Control": "private, no-store",
               },
             });
+          const checked = await catalog.validateFilters(
+            market,
+            readFilters(url.searchParams),
+          );
+          if (checked.changed)
+            throw new ApplicationError(
+              "INVALID_FILTER",
+              "Choose stores and allergens offered in this country.",
+            );
           return success(
-            await catalog.category(
-              slug,
-              catalogPage(url.searchParams.get("page")),
-              catalogPage(url.searchParams.get("unrankedPage")),
-              categoryView(url.searchParams.get("view")),
-            ),
+            await catalog.category(market, slug, {
+              page: catalogPage(url.searchParams.get("page")),
+              unrankedPage: catalogPage(url.searchParams.get("unrankedPage")),
+              view: categoryView(url.searchParams.get("view")),
+              filters: checked.filters,
+            }),
           );
         }
         if (family === "products") {
-          const canonical = await catalog.canonicalRedirect(slug);
+          const canonical = await catalog.canonicalRedirect(market, slug);
           if (canonical)
             return new Response(null, {
               status: 302,
               headers: {
-                Location: `/api/v1/products/${canonical.slug}`,
+                Location: `/api/v1/products/${canonical.slug}?country=${market.code}`,
                 "Cache-Control": "private, no-store",
               },
             });
           return success(
-            await catalog.product(slug, url.searchParams.get("version")),
+            await catalog.product(
+              market,
+              slug,
+              url.searchParams.get("version"),
+              url.searchParams.get("food"),
+            ),
           );
         }
-        if (family === "profiles") return success(await catalog.profile(slug));
       }
     } else if (path === "ratings") return await saveRating(request, env);
     else if (path === "events" && request.method === "POST") {

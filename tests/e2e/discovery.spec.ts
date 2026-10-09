@@ -1,5 +1,6 @@
 import { expect, test } from "./fixtures";
-import AxeBuilder from "@axe-core/playwright";
+import { accessible } from "./a11y";
+import { signInLink } from "./site";
 
 test("discovery, alias search, rankings and formula history are crawlable and accessible", async ({
   page,
@@ -8,7 +9,7 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "Your favorites.",
+    "What do you want to swap?",
   );
   await page.keyboard.press("Tab");
   await expect(
@@ -16,43 +17,44 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   ).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#main$/);
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .options({
-          rules: { "label-content-name-mismatch": { enabled: true } },
-        })
-        .analyze()
-    ).violations,
-  ).toEqual([]);
+  await accessible(page, { extraRules: true });
   await page.screenshot({
     path: testInfo.outputPath("home.png"),
     fullPage: true,
   });
-  await page.getByRole("searchbox").fill("mince");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  // Enter with nothing highlighted runs the full search.
+  await page
+    .getByRole("combobox", { name: "Search a food or brand" })
+    .fill("mince");
+  await page.keyboard.press("Enter");
   await expect(
     page.getByRole("heading", { name: "Results for “mince”" }),
   ).toBeVisible();
   await expect(
-    page.locator(".product-row").filter({ hasText: "Beyond Beef" }),
+    page
+      .getByRole("main")
+      .getByRole("link", { name: /Beyond Beef/ })
+      .first(),
   ).toBeVisible();
-  await expect(page.locator(".product-row .unrated-label")).toHaveCount(0);
-  await page.getByRole("link", { name: /Ground Beef 3 alternatives/ }).click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Ground Beef", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Ground Beef" }),
   ).toBeVisible();
-  await expect(page.getByText("Early", { exact: true })).toBeVisible();
-  expect(await page.locator(".product-row .score").first().innerText()).toMatch(
-    /\d\.\d\/5/,
-  );
+  await expect(page.getByText(/^Early · \d+ ratings?$/).first()).toBeVisible();
+  expect(
+    await page.locator(".va-rank-row .va-score").first().textContent(),
+  ).toMatch(/\d\.\d\/5/);
   await page.screenshot({
     path: testInfo.outputPath("category.png"),
     fullPage: true,
   });
   await page
-    .locator(".product-link")
-    .filter({ hasText: "Beyond Beef" })
+    .getByRole("main")
+    .getByRole("link", { name: "Beyond Beef", exact: true })
+    .first()
     .click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Beyond Beef" }),
@@ -65,15 +67,7 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .options({
-          rules: { "label-content-name-mismatch": { enabled: true } },
-        })
-        .analyze()
-    ).violations,
-  ).toEqual([]);
+  await accessible(page, { extraRules: true });
   await page.screenshot({
     path: testInfo.outputPath("product.png"),
     fullPage: true,
@@ -93,10 +87,10 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   await page.goto("/us/bacon");
   await expect(
     page
-      .locator(".product-row")
+      .locator(".va-unrated")
       .filter({ hasText: "Bacon Seitan" })
-      .locator(".unrated-label"),
-  ).toHaveText("Not yet rated");
+      .getByRole("link", { name: /Be the first to rate/ }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -131,9 +125,10 @@ test("alternate search URLs pass through the normalized public boundary", async 
   await expect(
     page.getByRole("heading", { name: "Results for “beef”" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Sign in", exact: true }),
-  ).toHaveAttribute("href", `/sign-in?returnTo=${encodeURIComponent(path)}`);
+  await expect(await signInLink(page)).toHaveAttribute(
+    "href",
+    `/sign-in?returnTo=${encodeURIComponent(path)}`,
+  );
   expect(hydrationErrors).toEqual([]);
 });
 
@@ -144,7 +139,10 @@ test("public HTML is session-independent apart from fresh CSP nonces; API/privat
     html.replace(/nonce="[^"]+"/g, 'nonce="DELIVERY"');
   for (const path of [
     "/",
+    "/ca",
     "/us/ground-beef",
+    "/us/ground-beef?view=trending",
+    "/gb/ground-beef",
     "/us/products/beyond-beef",
     "/users/demo_taster_01",
   ]) {

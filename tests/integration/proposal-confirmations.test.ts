@@ -443,3 +443,240 @@ it("considers a proposal again once its only disagreeing account is suspended", 
       .first("status"),
   ).toBe("accepted");
 });
+
+async function labelled(f: Awaited<ReturnType<typeof catalogFixture>>) {
+  const panel = `panel-${f.versionId}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO country_allergens(country_id,allergen_key,position) VALUES(?,'milk',0),(?,'soy',1),(?,'wheat',2),(?,'sesame',3)",
+    ).bind(f.countryId, f.countryId, f.countryId, f.countryId),
+    env.DB.prepare(
+      "INSERT INTO product_images(id,product_version_id,slot,state,full_r2_key,created_at,updated_at) VALUES(?,?,'ingredients','accepted',?,1,1)",
+    ).bind(panel, f.versionId, `test/${panel}`),
+  ]);
+  return panel;
+}
+const declaration = async (versionId: string) => ({
+  status: await env.DB.prepare(
+    "SELECT status FROM product_version_allergen_declarations WHERE product_version_id=?",
+  )
+    .bind(versionId)
+    .first<string>("status"),
+  rows: (
+    await env.DB.prepare(
+      "SELECT allergen_key||':'||presence AS row FROM product_version_allergens WHERE product_version_id=? ORDER BY row",
+    )
+      .bind(versionId)
+      .all<{ row: string }>()
+  ).results.map((r) => r.row),
+});
+
+it("accepts a confirmed allergen declaration that cites the label photo, reversibly", async () => {
+  const { f, services, confirmer, second, admin, propose } = await fixture();
+  const panel = await labelled(f);
+  await expect(
+    propose({
+      kind: "allergens",
+      declaration: {
+        status: "declared",
+        contains: ["mustard"],
+        mayContain: [],
+      },
+      citedImageId: panel,
+    }),
+  ).rejects.toMatchObject({ code: "INVALID_ALLERGEN" });
+  const proposal = await propose({
+    kind: "allergens",
+    declaration: {
+      status: "declared",
+      contains: ["wheat", "soy"],
+      mayContain: ["sesame"],
+    },
+    citedImageId: panel,
+  });
+  expect(await services.repository.proposal(proposal.id)).toMatchObject({
+    risk_tier: 2,
+  });
+  // A disagreement holds it for an operator.
+  await services.contributions.respond(second, id(), proposal.id, {
+    stance: "disagree",
+    note: "My package lists sesame as an ingredient, not may contain.",
+  });
+  await services.contributions.respond(confirmer, id(), proposal.id, {
+    stance: "confirm",
+  });
+  expect(await services.moderation.autoAccept(proposal.id)).toMatchObject({
+    applied: false,
+    reason: "disagreement",
+  });
+  await services.contributions.respond(second, id(), proposal.id, {
+    stance: "confirm",
+  });
+  expect(await services.moderation.sweepProposals()).toHaveLength(1);
+  expect(await declaration(f.versionId)).toEqual({
+    status: "declared",
+    rows: ["sesame:may_contain", "soy:contains", "wheat:contains"],
+  });
+  expect(
+    await env.DB.prepare(
+      "SELECT source_proposal_id FROM product_version_allergen_declarations WHERE product_version_id=?",
+    )
+      .bind(f.versionId)
+      .first("source_proposal_id"),
+  ).toBe(proposal.id);
+  expect((await services.repository.snapshot(f.productId)).allergens).toEqual({
+    status: "declared",
+    contains: ["soy", "wheat"],
+    mayContain: ["sesame"],
+  });
+
+  // A later "none declared" correction replaces it; reversal restores it,
+  // with its evidence and source proposal.
+  const provenance = () =>
+    env.DB.prepare(
+      "SELECT evidence_data,source_proposal_id FROM product_version_allergen_declarations WHERE product_version_id=?",
+    )
+      .bind(f.versionId)
+      .first();
+  const original = await provenance();
+  expect(original).toMatchObject({ source_proposal_id: proposal.id });
+  const correction = await propose({
+    kind: "allergens",
+    declaration: { status: "none_declared" },
+    citedImageId: panel,
+  });
+  const snapshot = await services.repository.snapshot(f.productId);
+  await services.moderation.decide(admin, id(), "proposal", correction.id, {
+    decision: "accept",
+    expectedRevision: (await services.repository.proposal(correction.id))!
+      .updated_at,
+    expectedProductRevision: snapshot.revision,
+    note: "The current package no longer lists allergens.",
+    effect: "none",
+  });
+  expect(await declaration(f.versionId)).toEqual({
+    status: "none_declared",
+    rows: [],
+  });
+  const action = await env.DB.prepare(
+    "SELECT id FROM moderation_actions WHERE target_id=? AND kind='proposal_accept'",
+  )
+    .bind(correction.id)
+    .first<string>("id");
+  await services.moderation.reverse(admin, id(), action!, {
+    expectedRevision: (await services.repository.snapshot(f.productId))
+      .revision,
+    note: "Reversed: the photo was of an older package.",
+  });
+  expect(await declaration(f.versionId)).toEqual({
+    status: "declared",
+    rows: ["sesame:may_contain", "soy:contains", "wheat:contains"],
+  });
+  expect(await provenance()).toEqual(original);
+});
+
+it("keeps a declaration that contradicts the classification with operators and opens a review", async () => {
+  const { f, services, confirmer, second, third, propose } = await fixture();
+  const panel = await labelled(f);
+  const proposal = await propose({
+    kind: "allergens",
+    declaration: {
+      status: "declared",
+      contains: ["milk", "soy"],
+      mayContain: [],
+    },
+    citedImageId: panel,
+  });
+  expect(await services.repository.proposal(proposal.id)).toMatchObject({
+    risk_tier: 3,
+  });
+  const report = await env.DB.prepare(
+    "SELECT reporter_user_id,target_id,reason_code,status,note FROM reports WHERE id=?",
+  )
+    .bind(`concern-${proposal.id}`)
+    .first<Record<string, string>>();
+  expect(report).toMatchObject({
+    reporter_user_id: SYSTEM_ACTOR_ID,
+    target_id: f.productId,
+    reason_code: "ingredient_concern",
+    status: "open",
+  });
+  expect(report!.note).toContain(proposal.id);
+  for (const user of [confirmer, second, third])
+    await services.contributions.respond(user, id(), proposal.id, {
+      stance: "confirm",
+    });
+  expect(await services.moderation.autoAccept(proposal.id)).toMatchObject({
+    applied: false,
+    reason: "protected",
+  });
+  expect((await declaration(f.versionId)).status).toBeNull();
+  // Without a cited label photo, even a harmless declaration waits.
+  const uncited = await propose(
+    {
+      kind: "allergens",
+      declaration: { status: "declared", contains: ["soy"], mayContain: [] },
+    },
+    "The manufacturer page lists soy in the allergen statement.",
+  );
+  expect(await services.repository.proposal(uncited.id)).toMatchObject({
+    risk_tier: 3,
+  });
+});
+
+it("starts a reformulated formula undeclared and restores the old declaration with it", async () => {
+  const { f, services, admin, propose } = await fixture();
+  await labelled(f);
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO product_version_allergen_declarations(product_version_id,status,evidence_data,created_at,updated_at) VALUES(?,'declared','{}',1,1)",
+    ).bind(f.versionId),
+    env.DB.prepare(
+      "INSERT INTO product_version_allergens(product_version_id,allergen_key,presence) VALUES(?,'soy','contains')",
+    ).bind(f.versionId),
+  ]);
+  const decide = async (proposalId: string) =>
+    services.moderation.decide(admin, id(), "proposal", proposalId, {
+      decision: "accept",
+      expectedRevision: (await services.repository.proposal(proposalId))!
+        .updated_at,
+      expectedProductRevision: (await services.repository.snapshot(f.productId))
+        .revision,
+      note: "Reviewed the new recipe evidence.",
+      effect: "none",
+    });
+  const reformulation = await propose({
+    kind: "reformulation",
+    versionLabel: "New recipe",
+    effectiveDate: "2026-09",
+    veganStatus: "vegan",
+    manufacturerLabel: "plant_based",
+  });
+  await decide(reformulation.id);
+  const current = await services.repository.snapshot(f.productId);
+  expect(current.versionId).not.toBe(f.versionId);
+  expect(current.allergens).toBeNull();
+  expect((await declaration(f.versionId)).rows).toEqual(["soy:contains"]);
+  const action = await env.DB.prepare(
+    "SELECT id FROM moderation_actions WHERE target_id=? AND kind='proposal_accept'",
+  )
+    .bind(reformulation.id)
+    .first<string>("id");
+  await services.moderation.reverse(admin, id(), action!, {
+    expectedRevision: current.revision,
+    note: "Reversed: the old recipe is still on shelves.",
+  });
+  expect((await services.repository.snapshot(f.productId)).allergens).toEqual({
+    status: "declared",
+    contains: ["soy"],
+    mayContain: [],
+  });
+  // A key off the country's list never reaches storage.
+  await expect(
+    env.DB.prepare(
+      "INSERT INTO product_version_allergens(product_version_id,allergen_key,presence) VALUES(?,'lupin','contains')",
+    )
+      .bind(f.versionId)
+      .run(),
+  ).rejects.toThrow();
+});

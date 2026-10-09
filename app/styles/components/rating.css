@@ -1,0 +1,230 @@
+/* Rating form (canvas: Rating4). Every choice saves on tap. */
+.va-rate {
+  display: grid;
+  gap: 12px;
+  padding: 18px 16px;
+  border: 2px solid var(--va-emphasis);
+  border-radius: 14px;
+  background: var(--va-surface);
+  color: var(--va-ink);
+}
+
+.va-rate fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.va-rate__title {
+  margin: 0 0 14px;
+  padding: 0;
+  font-size: 20px;
+  font-weight: 800;
+  font-stretch: 108%;
+  line-height: 1.2;
+}
+
+.va-rate__overall {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+/* Lower specificity than the size rules below, so they can set the type. */
+.va-rate button {
+  font: inherit;
+}
+
+.va-rate button[aria-pressed] {
+  border: 1.5px solid var(--va-line-strong);
+  background: var(--va-surface);
+  color: var(--va-ink);
+  cursor: pointer;
+}
+
+.va-rate button[aria-pressed]:hover {
+  background: var(--va-hover);
+}
+
+.va-rate button[aria-pressed="true"],
+.va-rate button[aria-pressed="true"]:hover {
+  border-color: var(--va-btn);
+  background: var(--va-btn);
+  color: var(--va-on-btn);
+}
+
+.va-rate button[aria-pressed]:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.va-rate__overall button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 8px 4px;
+  border-radius: 10px;
+}
+
+.va-rate__number {
+  font-size: 26px;
+  font-weight: 800;
+  font-stretch: 72%;
+  line-height: 1;
+}
+
+/* Phones show numbers with end labels; desktop names each score. */
+.va-rate__meaning {
+  display: none;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.va-rate__ends {
+  display: flex;
+  justify-content: space-between;
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--va-muted);
+}
+
+.va-rate__help,
+.va-rate__note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--va-muted);
+}
+
+.va-rate__more {
+  padding-top: 14px;
+  border-top: 1px solid var(--va-line);
+}
+
+.va-rate__more > fieldset {
+  display: grid;
+  gap: 12px;
+}
+
+.va-rate__subtitle {
+  margin: 0;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.va-rate__subtitle span {
+  font-weight: 500;
+  color: var(--va-muted);
+}
+
+.va-rate__detail {
+  display: grid;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.va-rate__scale {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.va-rate__scale button {
+  min-height: 44px;
+  border-radius: 8px;
+  font-size: 17px;
+  font-weight: 800;
+  font-stretch: 80%;
+}
+
+.va-rate__last {
+  display: grid;
+  gap: 8px;
+}
+
+.va-rate__pills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.va-rate__pills button {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--va-radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.va-rate__more .text-button {
+  justify-self: start;
+}
+
+.va-rate__status {
+  min-height: 22px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--va-good);
+}
+
+@media (min-width: 760px) {
+  .va-rate {
+    padding: 22px 24px;
+    border-radius: 16px;
+  }
+
+  .va-rate__title {
+    font-size: 22px;
+    font-stretch: 110%;
+  }
+
+  .va-rate__overall {
+    gap: 8px;
+  }
+
+  .va-rate__overall button {
+    min-height: 78px;
+  }
+
+  .va-rate__number {
+    font-size: 30px;
+  }
+
+  .va-rate__meaning {
+    display: block;
+  }
+
+  .va-rate__ends {
+    display: none;
+  }
+
+  .va-rate__detail {
+    grid-template-columns: 140px auto;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .va-rate__scale {
+    display: flex;
+  }
+
+  .va-rate__scale button {
+    width: 44px;
+  }
+
+  .va-rate__pills {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+
+.va-rate__more legend {
+  margin-bottom: 10px;
+}

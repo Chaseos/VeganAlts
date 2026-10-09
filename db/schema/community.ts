@@ -10,6 +10,8 @@ import {
 } from "drizzle-orm/sqlite-core";
 import {
   brands,
+  countries,
+  editProposals,
   retailers,
   profiles,
   products,
@@ -384,6 +386,95 @@ export const moderationDecisions = sqliteTable(
     check(
       "ck_decision_result",
       sql`${t.resultData} IS NULL OR json_valid(${t.resultData})`,
+    ),
+  ],
+);
+
+// Milestone 5: the shared allergen vocabulary, each country's declared-allergen
+// list, and community-confirmed declarations per formula version. A version
+// without a declaration is "not confirmed"; only accepted proposals write one.
+export const allergens = sqliteTable(
+  "allergens",
+  {
+    key: text("key").primaryKey(),
+    label: text("label").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    check(
+      "ck_allergens_key",
+      sql.raw(
+        "key GLOB '[a-z]*' AND key NOT GLOB '*[^a-z_]*' AND length(key) BETWEEN 2 AND 30",
+      ),
+    ),
+  ],
+);
+export const countryAllergens = sqliteTable(
+  "country_allergens",
+  {
+    countryId: text("country_id")
+      .notNull()
+      .references(() => countries.id, { onDelete: "cascade" }),
+    allergenKey: text("allergen_key")
+      .notNull()
+      .references(() => allergens.key, { onDelete: "restrict" }),
+    position: integer("position").notNull(),
+    // The country's own wording ("Soya", "Wheat and triticale").
+    label: text("label"),
+  },
+  (t) => [
+    primaryKey({ columns: [t.countryId, t.allergenKey] }),
+    index("ix_country_allergens_position").on(t.countryId, t.position),
+  ],
+);
+export const productVersionAllergenDeclarations = sqliteTable(
+  "product_version_allergen_declarations",
+  {
+    productVersionId: text("product_version_id")
+      .primaryKey()
+      .references(() => productVersions.id, { onDelete: "restrict" }),
+    status: text("status").notNull(),
+    evidenceData: text("evidence_data").notNull(),
+    sourceProposalId: text("source_proposal_id").references(
+      () => editProposals.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    check(
+      "ck_allergen_declarations_status",
+      sql.raw("status IN ('declared', 'none_declared')"),
+    ),
+    check(
+      "ck_allergen_declarations_evidence",
+      sql.raw("json_valid(evidence_data)"),
+    ),
+  ],
+);
+export const productVersionAllergens = sqliteTable(
+  "product_version_allergens",
+  {
+    productVersionId: text("product_version_id")
+      .notNull()
+      .references(() => productVersionAllergenDeclarations.productVersionId, {
+        onDelete: "cascade",
+      }),
+    allergenKey: text("allergen_key")
+      .notNull()
+      .references(() => allergens.key, { onDelete: "restrict" }),
+    presence: text("presence").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.productVersionId, t.allergenKey] }),
+    index("ix_product_version_allergens_key").on(
+      t.allergenKey,
+      t.productVersionId,
+    ),
+    check(
+      "ck_product_version_allergens_presence",
+      sql.raw("presence IN ('contains', 'may_contain')"),
     ),
   ],
 );

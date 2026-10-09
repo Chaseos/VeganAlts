@@ -317,7 +317,7 @@ export class SubmissionRepository {
     const guard = `EXISTS(SELECT 1 FROM submission_receipts WHERE id=? AND state='publishing' AND active_token=? AND lease_expires_at>?)
       AND EXISTS(SELECT 1 FROM profiles WHERE user_id=? AND account_state='active')
       AND EXISTS(SELECT 1 FROM profiles WHERE user_id=? AND account_state='active')
-      AND EXISTS(SELECT 1 FROM countries WHERE id=? AND iso2='US' AND is_active=1)
+      AND EXISTS(SELECT 1 FROM countries WHERE id=? AND is_active=1)
       AND (SELECT COUNT(*) FROM categories WHERE id IN (SELECT value FROM json_each(?)) AND is_active=1 AND is_rankable=1)=?
       AND (?='' OR EXISTS(SELECT 1 FROM products WHERE id=? AND country_id=? AND lifecycle_status<>'hidden'))
       AND (?='' OR EXISTS(SELECT 1 FROM product_families WHERE id=? AND (brand_id IS NULL OR brand_id=?)))`;

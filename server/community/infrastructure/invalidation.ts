@@ -5,18 +5,25 @@ export async function invalidateCommunityProduct(
   productId: string,
   {
     actionId,
-    pageOnly = false,
-  }: { actionId?: string; pageOnly?: boolean } = {},
+    scope = "all",
+  }: { actionId?: string; scope?: "page" | "listings" | "all" } = {},
 ) {
   try {
     const product = await db
-      .prepare("SELECT slug FROM products WHERE id=?")
+      .prepare(
+        "SELECT p.slug,lower(co.iso2) AS country FROM products p JOIN countries co ON co.id=p.country_id WHERE p.id=?",
+      )
       .bind(productId)
-      .first<{ slug: string }>();
+      .first<{ slug: string; country: string }>();
     if (!product) return;
-    if (pageOnly) {
+    if (scope === "page") {
       scheduleCatalogInvalidation([
-        { kind: "product", slug: product.slug, pageOnly: true },
+        {
+          kind: "product",
+          slug: product.slug,
+          country: product.country,
+          scope,
+        },
       ]);
       return;
     }
@@ -25,6 +32,7 @@ export async function invalidateCommunityProduct(
     const [categories, images, related] = await db.batch<{
       slug: string;
       id: string;
+      country: string;
     }>([
       // Current memberships plus any this action linked or unlinked, so a
       // category the product just left is purged too.
@@ -51,7 +59,7 @@ export async function invalidateCommunityProduct(
       db
         .prepare(
           `WITH prior AS (SELECT before_data FROM moderation_actions WHERE id=?)
-          SELECT p.slug FROM products p WHERE p.id IN (SELECT from_product_id FROM product_relationships WHERE to_product_id=? UNION SELECT to_product_id FROM product_relationships WHERE from_product_id=?
+          SELECT p.slug,lower(co.iso2) AS country FROM products p JOIN countries co ON co.id=p.country_id WHERE p.id IN (SELECT from_product_id FROM product_relationships WHERE to_product_id=? UNION SELECT to_product_id FROM product_relationships WHERE from_product_id=?
           UNION SELECT json_extract(value,'$.productId') FROM prior,json_each(prior.before_data,'$.relationships'))
           OR (p.product_family_id IS NOT NULL AND p.product_family_id IN (SELECT product_family_id FROM products WHERE id=? UNION SELECT json_extract(before_data,'$.familyId') FROM prior))`,
         )
@@ -61,12 +69,15 @@ export async function invalidateCommunityProduct(
       {
         kind: "product",
         slug: product.slug,
+        country: product.country,
         categorySlugs: categories!.results.map((c) => c.slug),
+        scope,
       },
       ...images!.results.map((i) => ({ kind: "media" as const, slug: i.id })),
       ...related!.results.map((p) => ({
         kind: "product" as const,
         slug: p.slug,
+        country: p.country,
       })),
     ]);
   } catch {

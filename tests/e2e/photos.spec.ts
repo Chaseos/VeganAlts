@@ -1,15 +1,6 @@
-import { expect, test, type Page } from "./fixtures";
-import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "./fixtures";
+import { accessible } from "./a11y";
 import { createBrowserSession } from "./session-fixture";
-
-async function accessible(page: Page) {
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-}
 
 test("canonical photo slots offer add or replace, never an append gallery", async ({
   page,

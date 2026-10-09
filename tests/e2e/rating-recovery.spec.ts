@@ -1,5 +1,6 @@
 import { expect, test, type Route } from "./fixtures";
 import { createBrowserSession } from "./session-fixture";
+import { expectSignedIn, signInLink } from "./site";
 
 test("reauthentication saves the latest score selected during an expired in-flight request", async ({
   page,
@@ -18,9 +19,7 @@ test("reauthentication saves the latest score selected during an expired in-flig
     });
     await context.addCookies([session.cookie]);
     await page.goto("/us/products/beyond-burger");
-    await expect(
-      page.getByRole("link", { name: "Account", exact: true }),
-    ).toBeVisible();
+    await expectSignedIn(page);
     let receiveRequest!: (route: Route) => void;
     const firstRequest = new Promise<Route>((resolve) => {
       receiveRequest = resolve;
@@ -77,9 +76,7 @@ test("session loss and a cancelled sign-in retain the score for a later successf
   try {
     await context.addCookies([session.cookie]);
     await page.goto("/us/products/beyond-burger");
-    await expect(
-      page.getByRole("link", { name: "Account", exact: true }),
-    ).toBeVisible();
+    await expectSignedIn(page);
     await context.clearCookies();
     await page
       .getByRole("button", { name: "2 Slightly similar (2 of 5)" })
@@ -96,9 +93,7 @@ test("session loss and a cancelled sign-in retain the score for a later successf
     await expect(
       page.getByRole("heading", { level: 1, name: "Beyond Burger" }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "Sign in", exact: true }),
-    ).toHaveAttribute(
+    await expect(await signInLink(page)).toHaveAttribute(
       "href",
       `/sign-in?returnTo=${encodeURIComponent(returnTo)}`,
     );

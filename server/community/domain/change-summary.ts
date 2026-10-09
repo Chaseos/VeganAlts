@@ -1,4 +1,5 @@
 import type { ProductChange } from "./contracts";
+import { describeDeclaration } from "./allergens";
 
 const label = (value: string) => value.replaceAll("_", " ");
 
@@ -36,5 +37,7 @@ export function describeChange(
       return "Family, variant or category eligibility";
     case "retailer_status":
       return `Retailer availability: ${label(change.status)}`;
+    case "allergens":
+      return `Allergens: ${describeDeclaration(change.declaration, names)}`;
   }
 }

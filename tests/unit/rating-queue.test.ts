@@ -10,8 +10,17 @@ const input = (score: number): RatingInput => ({
   categoryId: "category",
   overallSimilarity: score,
 });
-const result = (score: number): SavedRating => ({
-  rating: { ...input(score), id: "rating", updatedAt: 100 },
+const result = (
+  score: number,
+  dimensions: Record<string, number> = {},
+): SavedRating => ({
+  rating: {
+    ...input(score),
+    dimensions,
+    conventionalRecency: null,
+    id: "rating",
+    updatedAt: 100,
+  },
   tried: true,
   outcome: "updated",
 });
@@ -61,4 +70,45 @@ it("retains recoverable selections but stops queued writes on formula conflicts"
   conflict.select(input(5));
   await vi.waitFor(() => expect(conflict.state.status).toBe("conflict"));
   expect(conflict.state.selected).toBe(5);
+});
+
+it("sends the whole draft each time so the newest details win", async () => {
+  const resolvers: ((value: SavedRating) => void)[] = [];
+  const write = vi.fn(
+    (_input: RatingInput) =>
+      new Promise<SavedRating>((resolve) => resolvers.push(resolve)),
+  );
+  const queue = new RatingQueue(write, vi.fn(), vi.fn());
+  queue.initialize(4, true, {
+    dimensions: { taste: 3 },
+    conventionalRecency: "within_year",
+  });
+  expect(queue.state).toMatchObject({
+    selected: 4,
+    dimensions: { taste: 3 },
+    recency: "within_year",
+  });
+  queue.select({ ...input(4), dimensions: { taste: 5, texture: null } });
+  queue.select({
+    ...input(4),
+    dimensions: { taste: 5, texture: 2 },
+    conventionalRecency: null,
+  });
+  // The pressed values show at once, before any response.
+  expect(queue.state).toMatchObject({
+    dimensions: { taste: 5, texture: 2 },
+    recency: null,
+    status: "saving",
+  });
+  resolvers.shift()!(result(4, { taste: 5 }));
+  await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+  expect(write.mock.calls[1]![0]).toMatchObject({
+    dimensions: { taste: 5, texture: 2 },
+    conventionalRecency: null,
+  });
+  resolvers.shift()!(result(4, { taste: 5, texture: 2 }));
+  await vi.waitFor(() => expect(queue.state.status).toBe("saved"));
+  expect(queue.state.message).toBe(
+    "Saved 4/5 with 2 details. You’ve tried this formula.",
+  );
 });

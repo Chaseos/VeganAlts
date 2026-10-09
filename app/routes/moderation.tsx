@@ -10,7 +10,9 @@ import { taxonomyServices } from "@server/taxonomy/infrastructure/composition";
 import { CategoryReview } from "../components/category-review";
 import type { ProductSnapshot } from "@server/community/domain/moderation";
 import { hasCatalogChanges } from "@server/community/domain/change-policy";
-import { SiteShell, EmptyState } from "../components/catalog";
+import { SiteShell } from "../components/catalog";
+import { EmptyState } from "../components/ui/feedback";
+import { TabLinks } from "../components/ui/navigation";
 import { ContributionContent } from "../components/contribution-detail";
 import {
   CommunityFeedback,
@@ -198,12 +200,27 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
   return (
     <SiteShell>
       <CommunityControls>
-        <nav className="breadcrumbs" aria-label="Moderation navigation">
-          <Link to="/admin/moderation">Review inbox</Link>
-          <Link to="/admin/moderation/consolidate">Consolidate duplicates</Link>
-          <Link to="/admin/taxonomy">Taxonomy</Link>
-          <Link to="/my-contributions">My contributions</Link>
-        </nav>
+        <TabLinks
+          label="Moderation navigation"
+          tabs={[
+            {
+              to: "/admin/moderation",
+              label: "Review inbox",
+              current: data.view === "inbox",
+            },
+            {
+              to: "/admin/moderation/consolidate",
+              label: "Consolidate duplicates",
+              current: data.view === "consolidate",
+            },
+            { to: "/admin/taxonomy", label: "Taxonomy", current: false },
+            {
+              to: "/my-contributions",
+              label: "My contributions",
+              current: false,
+            },
+          ]}
+        />
         <header className="page-heading">
           <p className="eyebrow">Operator workspace</p>
           <h1>
@@ -252,6 +269,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                     <Link to={`/admin/moderation/${item.kind}/${item.id}`}>
                       <strong>{item.title}</strong>
                       <span>
+                        {item.country ? `${item.country} · ` : ""}
                         {friendly(item.kind)} · {dateLabel(item.createdAt)}
                       </span>
                     </Link>
@@ -518,7 +536,9 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         {data.view === "product" && (
           <div className="community-panel">
             <div className="button-row">
-              <Link to={`/us/products/${data.product.slug}`}>
+              <Link
+                to={`/${data.product.countryCode}/products/${data.product.slug}`}
+              >
                 Public entry ↗
               </Link>
               <Link to={`/contribute/${data.product.id}`}>

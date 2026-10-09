@@ -1,3 +1,14 @@
+import type { Market } from "../../server/catalog/domain/markets";
+
+// A catalog market for a fixture country (the repository reads only its ID
+// and ISO code).
+export const testMarket = (id: string, code = "us"): Market => ({
+  id,
+  code,
+  iso2: code.toUpperCase(),
+  name: "Test market",
+});
+
 export async function catalogFixture(db: D1Database, userCount = 3) {
   const suffix = crypto.randomUUID();
   const countryId = `country-${suffix}`;

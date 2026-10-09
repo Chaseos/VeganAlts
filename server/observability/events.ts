@@ -16,10 +16,13 @@ export type AppEvent =
 export function routeLabel(path: string) {
   const value = path.replace(/\.data$/, "");
   if (value === "/" || value === "/_root") return "home";
-  if (value === "/us/search" || value === "/api/v1/search") return "search";
-  if (/^\/us\/products\//.test(value)) return "product";
-  if (/^\/us\/[a-z0-9-]+$/.test(value)) return "category";
+  if (/^\/[a-z]{2}$/.test(value)) return "home";
+  if (/^\/[a-z]{2}\/search$/.test(value) || value === "/api/v1/search")
+    return "search";
+  if (value === "/api/v1/suggest") return "suggest";
+  if (/^\/[a-z]{2}\/products\//.test(value)) return "product";
   if (/^\/users\//.test(value)) return "profile";
+  if (/^\/[a-z]{2}\/[a-z0-9-]+$/.test(value)) return "category";
   if (value.startsWith("/api/auth/") || value === "/sign-in") return "auth";
   if (value === "/api/v1/ratings") return "rating";
   if (value.includes("media")) return "media";

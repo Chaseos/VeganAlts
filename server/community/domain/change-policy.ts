@@ -1,5 +1,6 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import type { ProductChange } from "./contracts";
+import { normalizeDeclaration, sameDeclaration } from "./allergens";
 import type {
   CatalogPatch,
   FormulaClassification,
@@ -38,6 +39,7 @@ export function hasCatalogChanges(value: unknown) {
       "relationships",
       "retailer",
       "consolidation",
+      "allergens",
     ].some((key) => Object.hasOwn(value, key)),
   );
 }
@@ -105,6 +107,8 @@ export function proposalBaseline(
       return { manufacturerUrl: snapshot.manufacturerUrl };
     case "category_add":
       return { categories: snapshot.categories.map((c) => c.categoryId) };
+    case "allergens":
+      return { versionId: snapshot.versionId, allergens: snapshot.allergens };
   }
 }
 export type ProposalBaseline = ReturnType<typeof proposalBaseline>;
@@ -303,6 +307,47 @@ export function planProductChange(
       before.removedCategories = [input.categoryId];
       after.addedCategories = [input.categoryId];
       break;
+    case "allergens": {
+      const allowed = new Set(snapshot.allergenList.map((a) => a.key));
+      const declaration = normalizeDeclaration(input.declaration);
+      if (
+        declaration.status === "declared" &&
+        [...declaration.contains, ...declaration.mayContain].some(
+          (key) => !allowed.has(key),
+        )
+      )
+        throw new ApplicationError(
+          "INVALID_ALLERGEN",
+          "Choose allergens from this country’s list.",
+          422,
+        );
+      if (
+        input.citedImageId &&
+        !citedEvidence(snapshot).some((i) => i.id === input.citedImageId)
+      )
+        throw new ApplicationError(
+          "INVALID_EVIDENCE",
+          "Cite this formula’s accepted ingredients or nutrition photo.",
+        );
+      if (sameDeclaration(declaration, snapshot.allergens))
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "This formula already has this allergen declaration.",
+        );
+      before.allergens = {
+        versionId: snapshot.versionId,
+        value: snapshot.allergens && {
+          ...snapshot.allergens,
+          evidence: snapshot.allergenSource?.evidence,
+          proposalId: snapshot.allergenSource?.proposalId ?? undefined,
+        },
+      };
+      after.allergens = {
+        versionId: snapshot.versionId,
+        value: { ...declaration, evidence: input.evidence },
+      };
+      break;
+    }
     case "relationships":
       if (
         new Set(input.categoryEligibility.map((c) => c.categoryId)).size !==
@@ -425,6 +470,12 @@ export function assertCompensable(
       JSON.stringify(snapshot.relationships)
   )
     conflict();
+  if (
+    patch.allergens &&
+    (patch.allergens.versionId !== snapshot.versionId ||
+      !sameDeclaration(patch.allergens.value, snapshot.allergens))
+  )
+    conflict();
   // A restored photo must not collide with a later photo that now holds its
   // formula slot, unless the same reversal also retires that photo.
   const retiring = new Set(
@@ -448,4 +499,14 @@ export function assertCompensable(
     )
       conflict();
   }
+}
+
+/** The current formula's accepted photos a declaration can cite. */
+export function citedEvidence(snapshot: ProductSnapshot) {
+  return snapshot.images.filter(
+    (i) =>
+      i.versionId === snapshot.versionId &&
+      i.state === "accepted" &&
+      (i.slot === "ingredients" || i.slot === "nutrition"),
+  );
 }

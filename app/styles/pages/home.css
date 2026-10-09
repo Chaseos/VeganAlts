@@ -1,0 +1,510 @@
+/* Country home (canvas: Home5, PHome5). */
+.va-empty-country {
+  display: grid;
+  gap: var(--va-space-4);
+  max-width: 760px;
+  padding: var(--va-space-6) 0 var(--va-space-8);
+}
+
+.va-empty-country p {
+  margin: 0;
+  color: var(--va-ink-2);
+}
+
+/* The kale band holds the search; on desktop it also holds the card beside
+   it, on phones the card follows on the page ground. */
+.va-home-hero__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 64px;
+}
+
+.va-home-hero__search {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 560px;
+  gap: 16px;
+  min-width: 0;
+  margin: 0 calc(-1 * var(--va-gutter));
+  padding: 20px var(--va-gutter) 28px;
+  border-top: 1px solid var(--va-kale-line);
+  background: var(--va-kale);
+  color: var(--va-on-kale);
+}
+
+.va-home-hero__eyebrow {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--va-tag);
+}
+
+.va-home-hero__title {
+  margin: 0;
+  font-size: 36px;
+  font-weight: 800;
+  font-stretch: 115%;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.va-home-hero__lede {
+  margin: 0;
+  max-width: 560px;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--va-on-kale-muted);
+}
+
+.va-home-hero__try {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.va-home-hero__try > span {
+  margin-right: 4px;
+  font-size: 14px;
+  color: var(--va-on-kale-muted);
+}
+
+.va-chip.va-chip--on-kale {
+  min-height: 40px;
+  border: 1px solid var(--va-kale-line);
+  background: transparent;
+  color: var(--va-on-kale);
+  font-size: 15px;
+}
+
+.va-chip.va-chip--on-kale:hover {
+  background: var(--va-hover-on-kale);
+}
+
+/* The light card beside the search: Start with these, or a preview. */
+.va-home-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 380px;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 16px 6px;
+  border: 1px solid var(--va-line);
+  border-radius: var(--va-radius-card);
+  background: var(--va-surface);
+  color: var(--va-ink);
+}
+
+.va-home-panel h2,
+.va-home-panel p {
+  margin: 0;
+}
+
+.va-home-panel .button {
+  justify-content: center;
+}
+
+.va-preview-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 17px;
+}
+
+.va-preview-list li > .va-truncate {
+  flex: 1;
+}
+
+/* Linked rows: a title and a line of context, with a score label. */
+.va-row-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 0;
+  color: var(--va-ink);
+  text-decoration: none;
+}
+
+.va-row-link--tall {
+  min-height: 64px;
+}
+
+.va-row-link:hover .va-row-link__title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.va-row-link__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.va-row-link__title {
+  overflow: hidden;
+  color: var(--va-ink);
+  font-size: 16px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.va-row-link__title--large {
+  font-size: 18px;
+}
+
+.va-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.va-home {
+  display: grid;
+  /* Long names truncate instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+  padding-top: 28px;
+  padding-bottom: 56px;
+}
+
+.va-home__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 32px;
+  margin-bottom: 14px;
+}
+
+.va-home__heading p {
+  margin: 0;
+}
+
+.va-home__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  font-stretch: 112%;
+  letter-spacing: -0.02em;
+}
+
+.va-overline {
+  margin: 10px 0 2px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--va-muted);
+}
+
+/* Browse every food: an accordion of aisles on phones, columns on desktop. */
+.va-browse {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.va-browse__aisle {
+  overflow: hidden;
+  border: 1px solid var(--va-line);
+  border-radius: var(--va-radius-card);
+  background: var(--va-surface);
+}
+
+.va-browse__summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.va-browse__summary::-webkit-details-marker {
+  display: none;
+}
+
+.va-browse__tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--va-kale);
+  color: var(--va-tag);
+}
+
+.va-browse__name {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.va-browse__count {
+  font-size: 13px;
+  color: var(--va-muted);
+}
+
+.va-browse__chevron {
+  color: var(--va-muted);
+  transition: transform 0.15s ease;
+}
+
+.va-browse__details[open] .va-browse__chevron {
+  transform: rotate(180deg);
+}
+
+.va-browse__shelves {
+  padding: 0 14px 8px;
+}
+
+.va-browse--desktop {
+  display: none;
+}
+
+.va-home__suggest {
+  margin: 14px 0 0;
+  color: var(--va-ink-2);
+}
+
+.va-home__pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 24px;
+}
+
+.va-home__card {
+  padding: 20px;
+}
+
+.va-home__card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+}
+
+.va-home__card-head h2 {
+  margin: 0;
+}
+
+.va-trending {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.va-trending li + li {
+  border-top: 1px solid var(--va-line);
+}
+
+.va-new-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+}
+
+.va-new-row .va-row-link__title {
+  text-decoration: none;
+}
+
+.va-home__waiting {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 40px;
+  padding: 20px;
+}
+
+.va-home__waiting-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1 1 300px;
+  gap: 8px;
+}
+
+.va-home__waiting-intro h2,
+.va-home__waiting-intro p {
+  margin: 0;
+}
+
+.va-home__waiting-list {
+  display: grid;
+  flex: 2 1 520px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.va-home__waiting-list li {
+  border-top: 1px solid var(--va-line);
+}
+
+@media (min-width: 760px) {
+  .va-home-hero {
+    background: var(--va-kale);
+  }
+
+  .va-home-hero__inner {
+    gap: 48px 64px;
+    padding-top: 56px;
+    padding-bottom: 72px;
+  }
+
+  .va-home-hero__search {
+    gap: 20px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .va-home-hero__eyebrow {
+    font-size: 15px;
+  }
+
+  .va-home-hero__title {
+    font-size: clamp(48px, 5.4vw, 76px);
+    line-height: 0.98;
+  }
+
+  .va-home-hero__lede {
+    font-size: 19px;
+  }
+
+  .va-home-panel {
+    padding: 24px 24px 12px;
+    border: 0;
+    border-radius: var(--va-radius-card-lg);
+  }
+
+  .va-home {
+    gap: 40px;
+    padding-top: 56px;
+    padding-bottom: 72px;
+  }
+
+  .va-home__title {
+    font-size: 36px;
+    font-stretch: 115%;
+  }
+
+  .va-home__heading {
+    margin-bottom: 28px;
+  }
+
+  /* Every aisle open in columns under a heading link. */
+  .va-browse--phone {
+    display: none;
+  }
+
+  .va-browse--desktop {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    align-items: start;
+    gap: 36px 40px;
+  }
+
+  .va-browse--desktop .va-browse__aisle {
+    border: 0;
+    border-top: 4px solid var(--va-kale);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .va-browse--desktop .va-browse__summary {
+    min-height: 0;
+    padding: 12px 0 4px;
+    color: var(--va-ink);
+    text-decoration: none;
+  }
+
+  .va-browse--desktop .va-browse__tile {
+    width: auto;
+    height: auto;
+    background: transparent;
+    color: var(--va-good);
+  }
+
+  .va-browse--desktop .va-browse__name {
+    font-size: 19px;
+    font-weight: 800;
+    font-stretch: 110%;
+  }
+
+  .va-browse--desktop .va-browse__shelves {
+    padding: 0;
+  }
+
+  .va-home__card,
+  .va-home__waiting {
+    padding: 26px;
+  }
+}
+
+/* Search page */
+.va-search-page__head {
+  display: grid;
+  gap: 12px;
+  max-width: 860px;
+  margin-bottom: 28px;
+}
+
+.va-search-page__head h1,
+.va-search-page__head p {
+  margin: 0;
+}
+
+.va-search-page__section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.va-search-page__section h2 {
+  margin: 0;
+}
+
+.va-search-page__products {
+  margin: 0;
+  padding: 0 16px;
+  list-style: none;
+}
+
+.va-search-page__aisles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.va-search-page__aisles > li {
+  padding: 4px 16px 8px;
+}
+
+.va-search-page__aisles .va-browse__summary {
+  padding: 8px 0;
+  color: var(--va-ink);
+  text-decoration: none;
+}

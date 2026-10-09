@@ -1,4 +1,6 @@
 import { expect, test } from "./fixtures";
+import { accessible } from "./a11y";
+import { openAccountLink } from "./site";
 import { createBrowserSession } from "./session-fixture";
 
 test("anonymous selection resumes once after sign-in, then appears in My Ratings and can be edited", async ({
@@ -13,8 +15,9 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
   try {
     await page.goto("/us/beef-burgers");
     await page
-      .locator(".product-link")
-      .filter({ hasText: "Beyond Beef" })
+      .getByRole("main")
+      .getByRole("link", { name: "Beyond Beef", exact: true })
+      .first()
       .click();
     const saves: number[] = [];
     page.on("request", (request) => {
@@ -31,7 +34,7 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
     await expect(page).toHaveURL(/\/sign-in\?returnTo=/);
     const returnTo = new URL(page.url()).searchParams.get("returnTo")!;
     await expect(
-      page.getByRole("heading", { name: "Welcome to VeganAlts." }),
+      page.getByRole("heading", { name: "Sign in to VeganAlts" }),
     ).toBeVisible();
     await context.addCookies([session.cookie]);
     await page.goto(`/auth/return?returnTo=${encodeURIComponent(returnTo)}`);
@@ -44,9 +47,9 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
       page.getByRole("button", { name: "4 Very close (4 of 5)" }).first(),
     ).toHaveAttribute("aria-pressed", "true");
     expect(saves).toEqual([4]);
-    await page.getByRole("link", { name: "My Ratings", exact: true }).click();
+    await openAccountLink(page, "My ratings");
     await expect(
-      page.getByRole("heading", { level: 1, name: "My Ratings" }),
+      page.getByRole("heading", { level: 1, name: "My ratings" }),
     ).toBeVisible();
     await expect(page.getByText("As beef burgers ·")).toBeVisible();
     await page.getByRole("link", { name: "Edit rating", exact: true }).click();
@@ -113,6 +116,75 @@ test("rapid changes, a lost response and retry preserve one authoritative rating
     const body = await response.json();
     expect(body.data).toHaveLength(1);
     expect(body.data[0].overallSimilarity).toBe(5);
+  } finally {
+    await page.close();
+    await session.dispose();
+  }
+});
+
+test("detail answers and last ate save on tap, clear on a second tap and survive a reload", async ({
+  page,
+  context,
+}) => {
+  test.skip(
+    !!process.env.TEST_BASE_URL,
+    "Staging ratings use the owner's real accounts.",
+  );
+  const session = await createBrowserSession();
+  try {
+    await context.addCookies([session.cookie]);
+    const drafts: Record<string, unknown>[] = [];
+    page.on("request", (request) => {
+      if (
+        request.url().endsWith("/api/v1/ratings") &&
+        request.method() === "PUT"
+      )
+        drafts.push(request.postDataJSON());
+    });
+    await page.goto("/us/products/beyond-beef");
+    const form = page.getByRole("region", { name: "Rate it as beef burgers" });
+    const status = form.getByRole("status");
+    // Optional questions appear only once the overall score is chosen.
+    await expect(form.getByRole("group", { name: "Juiciness" })).toHaveCount(0);
+    await form.getByRole("button", { name: "3 Fairly close (3 of 5)" }).click();
+    await expect(status).toHaveText("Saved 3/5. You’ve tried this formula.");
+    await form.getByRole("button", { name: "Taste 4 of 5" }).click();
+    await expect(status).toContainText("Saved 3/5 with 1 detail");
+    await form.getByRole("button", { name: "Juiciness 5 of 5" }).click();
+    await expect(status).toContainText("with 2 details");
+    await form.getByRole("button", { name: "Taste 4 of 5" }).click();
+    await expect(status).toContainText("with 1 detail");
+    await form.getByRole("button", { name: "This month" }).click();
+    await expect(
+      form.getByRole("button", { name: "This month" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(status).toContainText("Saved 3/5 with 1 detail");
+    // Every write carries the whole draft.
+    expect(drafts.at(-1)).toMatchObject({
+      overallSimilarity: 3,
+      dimensions: { taste: null, texture: null, juiciness: 5 },
+      conventionalRecency: "within_month",
+    });
+    await accessible(page);
+
+    await page.reload();
+    const again = page.getByRole("region", { name: "Rate it as beef burgers" });
+    await expect(
+      again.getByRole("button", { name: "Juiciness 5 of 5" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      again.getByRole("button", { name: "Taste 4 of 5" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    await expect(
+      again.getByRole("button", { name: "This month" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await again.getByRole("button", { name: "Clear details" }).click();
+    await expect(again.getByRole("status")).toHaveText(
+      "Saved 3/5. You’ve tried this formula.",
+    );
+    await expect(
+      again.getByRole("button", { name: "This month" }),
+    ).toHaveAttribute("aria-pressed", "false");
   } finally {
     await page.close();
     await session.dispose();

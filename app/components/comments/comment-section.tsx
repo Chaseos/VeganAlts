@@ -9,6 +9,7 @@ import {
 } from "../community-form";
 import { useCommunityAction } from "../../lib/community";
 import { CommentItem, type OwnComment } from "./comment-item";
+import { productPath, useCountryCode } from "../../lib/site-chrome";
 
 export interface CommentPage {
   productId: string;
@@ -36,6 +37,7 @@ export function CommentSection({
   initial: CommentPage;
 }) {
   const { user, siteKey } = usePersonalState();
+  const country = useCountryCode();
   const action = useCommunityAction();
   const [page, setPage] = useState(initial),
     [votes, setVotes] = useState<Record<string, number>>({}),
@@ -84,6 +86,7 @@ export function CommentSection({
     setLoading(true);
     try {
       const params = new URLSearchParams({
+        country,
         ...view,
         ...(cursor ? { cursor } : {}),
       });
@@ -220,7 +223,7 @@ export function CommentSection({
   return (
     <section className="comments" aria-labelledby="comments-title">
       <div className="section-heading">
-        <h2 id="comments-title">Experiences and tips</h2>
+        <h2 id="comments-title">Notes from people who tried it</h2>
       </div>
       <p className="small muted">
         Share how it compares: taste, texture, cooking and how recently you had
@@ -368,7 +371,7 @@ export function CommentSection({
         ) : (
           <p>
             <a
-              href={`/sign-in?returnTo=${encodeURIComponent(`/us/products/${productSlug}#comments-title`)}`}
+              href={`/sign-in?returnTo=${encodeURIComponent(`${productPath(country, productSlug)}#comments-title`)}`}
             >
               Sign in to comment and vote
             </a>
