@@ -1,14 +1,5 @@
-import { expect, test, type Page } from "./fixtures";
-import AxeBuilder from "@axe-core/playwright";
-
-async function accessible(page: Page) {
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-}
+import { expect, test } from "./fixtures";
+import { accessible } from "./a11y";
 
 test("categories offer separate Top, Trending and New views and the homepage surfaces discovery", async ({
   page,

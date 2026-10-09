@@ -27,7 +27,12 @@ export interface SavedRating {
 }
 
 export interface RatingState {
-  user: { handle: string; displayName: string | null } | null;
+  user: {
+    handle: string;
+    displayName: string | null;
+    // Private: lets operator navigation render for allowlisted accounts.
+    administrator: boolean;
+  } | null;
   ratings: PersonalRating[];
   triedVersionIds: string[];
   turnstileSiteKey: string | null;

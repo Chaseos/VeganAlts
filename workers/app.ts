@@ -111,7 +111,12 @@ export default {
         });
       else if (
         url.pathname.startsWith("/assets/") ||
-        ["/favicon.svg", "/social.png", "/social.svg"].includes(url.pathname) ||
+        [
+          "/favicon.svg",
+          "/apple-touch-icon.png",
+          "/social.png",
+          "/social.svg",
+        ].includes(url.pathname) ||
         (import.meta.env.DEV &&
           /^\/(?:@vite\/|@react-router\/|@react-refresh|@id\/|@fs\/|node_modules\/|app\/|server\/)/.test(
             url.pathname,

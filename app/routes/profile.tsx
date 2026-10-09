@@ -4,7 +4,8 @@ import {
   publicLoader,
   requireCatalogPreview,
 } from "@server/catalog/http/loader";
-import { SiteShell } from "../components/catalog";
+import { PageShell } from "../components/layout/page-shell";
+import { formatCount } from "../lib/format";
 import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/profile";
 
@@ -29,29 +30,31 @@ export default function Profile({
   loaderData: { profile },
 }: Route.ComponentProps) {
   return (
-    <SiteShell compact>
-      <header className="page-heading">
-        <div className="profile-avatar" aria-hidden="true">
+    <PageShell width="narrow" aisles={false}>
+      <header className="page-heading va-profile-heading">
+        <div className="va-initial-tile" aria-hidden="true">
           {(profile.displayName || profile.handle).charAt(0).toUpperCase()}
         </div>
-        <p className="eyebrow">Community contributor</p>
-        <h1>{profile.displayName || `@${profile.handle}`}</h1>
-        <p>@{profile.handle}</p>
-      </header>
-      <dl className="contribution-counts">
         <div>
-          <dt>Ratings shared</dt>
-          <dd>{profile.ratingCount}</dd>
+          <p className="eyebrow">Community contributor</p>
+          <h1>{profile.displayName || `@${profile.handle}`}</h1>
+          <p>@{profile.handle}</p>
         </div>
-        <div>
+      </header>
+      <dl className="va-stat-grid">
+        <div className="va-card">
+          <dt>Ratings shared</dt>
+          <dd>{formatCount(profile.ratingCount)}</dd>
+        </div>
+        <div className="va-card">
           <dt>Formulas tried</dt>
-          <dd>{profile.triedCount}</dd>
+          <dd>{formatCount(profile.triedCount)}</dd>
         </div>
       </dl>
-      <p className="muted">
+      <p className="muted section-space">
         Every shared experience helps someone find their next favorite.
         Individual rating histories are private.
       </p>
-    </SiteShell>
+    </PageShell>
   );
 }

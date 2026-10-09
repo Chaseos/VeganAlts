@@ -1,0 +1,154 @@
+/*
+ * The only file allowed to contain literal colors (tests/unit/design-tokens.test.ts).
+ * Values come from docs/DESIGN_DIRECTION.md §3. Light is the default; dark applies
+ * when the device prefers it unless the visitor chose Light, or when they chose Dark.
+ * Keep the two dark blocks identical.
+ */
+:root {
+  color-scheme: light;
+  --va-ground: #f3f4ee;
+  --va-surface: #ffffff;
+  --va-surface-2: #eef0e8;
+  --va-ink: #15231b;
+  --va-ink-2: #2e3d33;
+  --va-muted: #56645a;
+  --va-line: #dde1d5;
+  --va-line-strong: #c3c9b9;
+  --va-kale: #12372a;
+  --va-kale-2: #1c4a39;
+  --va-kale-line: #24503f;
+  --va-on-kale: #f3f4ee;
+  --va-on-kale-muted: #b9cbbe;
+  --va-field: #ffffff;
+  --va-field-line: #7a8577;
+  --va-tag: #ffd84d;
+  --va-on-tag: #15231b;
+  --va-flag: #d63a20;
+  --va-on-flag: #ffffff;
+  --va-flag-text: #c2361d;
+  --va-btn: #12372a;
+  --va-on-btn: #f3f4ee;
+  --va-emphasis: #15231b;
+  --va-good-bg: #ddefd9;
+  --va-good: #12372a;
+  --va-warn-bg: #fff1cc;
+  --va-warn: #6b4a00;
+  --va-warn-line: #e0b44a;
+  --va-focus: #1f7a4d;
+  --va-focus-on-kale: #ffd84d;
+  --va-shadow: 0 12px 30px rgba(8, 26, 18, 0.18);
+  --va-tag-lip: inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+  --va-hover: rgba(120, 140, 128, 0.14);
+  --va-hover-on-kale: rgba(255, 255, 255, 0.08);
+  --va-backdrop: rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --va-ground: #0e1612;
+    --va-surface: #18231d;
+    --va-surface-2: #22302a;
+    --va-ink: #eef2ea;
+    --va-ink-2: #c8d3cb;
+    --va-muted: #9aab9f;
+    --va-line: #2c3b33;
+    --va-line-strong: #46594f;
+    --va-kale: #163a2c;
+    --va-kale-2: #1f4a39;
+    --va-kale-line: #2b5644;
+    --va-on-kale: #f1f5ef;
+    --va-on-kale-muted: #a9bdaf;
+    --va-field: #22302a;
+    --va-field-line: #6f8578;
+    --va-tag: #ffd84d;
+    --va-on-tag: #15231b;
+    --va-flag: #d63a20;
+    --va-on-flag: #ffffff;
+    --va-flag-text: #ff8a6e;
+    --va-btn: #a8ddb5;
+    --va-on-btn: #0e1612;
+    --va-emphasis: #a8ddb5;
+    --va-good-bg: #1f3d2e;
+    --va-good: #a9e0b8;
+    --va-warn-bg: #3b2f12;
+    --va-warn: #ffd98a;
+    --va-warn-line: #8a6a1f;
+    --va-focus: #ffd84d;
+    --va-focus-on-kale: #ffd84d;
+    --va-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    --va-tag-lip: inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+    --va-hover: rgba(120, 140, 128, 0.14);
+    --va-hover-on-kale: rgba(255, 255, 255, 0.08);
+    --va-backdrop: rgba(0, 0, 0, 0.45);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --va-ground: #0e1612;
+  --va-surface: #18231d;
+  --va-surface-2: #22302a;
+  --va-ink: #eef2ea;
+  --va-ink-2: #c8d3cb;
+  --va-muted: #9aab9f;
+  --va-line: #2c3b33;
+  --va-line-strong: #46594f;
+  --va-kale: #163a2c;
+  --va-kale-2: #1f4a39;
+  --va-kale-line: #2b5644;
+  --va-on-kale: #f1f5ef;
+  --va-on-kale-muted: #a9bdaf;
+  --va-field: #22302a;
+  --va-field-line: #6f8578;
+  --va-tag: #ffd84d;
+  --va-on-tag: #15231b;
+  --va-flag: #d63a20;
+  --va-on-flag: #ffffff;
+  --va-flag-text: #ff8a6e;
+  --va-btn: #a8ddb5;
+  --va-on-btn: #0e1612;
+  --va-emphasis: #a8ddb5;
+  --va-good-bg: #1f3d2e;
+  --va-good: #a9e0b8;
+  --va-warn-bg: #3b2f12;
+  --va-warn: #ffd98a;
+  --va-warn-line: #8a6a1f;
+  --va-focus: #ffd84d;
+  --va-focus-on-kale: #ffd84d;
+  --va-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+  --va-tag-lip: inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+  --va-hover: rgba(120, 140, 128, 0.14);
+  --va-hover-on-kale: rgba(255, 255, 255, 0.08);
+  --va-backdrop: rgba(0, 0, 0, 0.45);
+}
+
+/* Non-color scales shared by every component. */
+:root {
+  --va-font: "Archivo", "Archivo Fallback", "Helvetica Neue", Arial, sans-serif;
+  --va-space-1: 4px;
+  --va-space-2: 8px;
+  --va-space-3: 12px;
+  --va-space-4: 16px;
+  --va-space-5: 20px;
+  --va-space-6: 24px;
+  --va-space-7: 32px;
+  --va-space-8: 40px;
+  --va-space-9: 48px;
+  --va-space-10: 64px;
+  --va-radius-label: 4px;
+  --va-radius-button: 8px;
+  --va-radius-field: 10px;
+  --va-radius-card: 14px;
+  --va-radius-card-lg: 16px;
+  --va-radius-pill: 999px;
+  --va-page-max: 1320px;
+  --va-gutter: 16px;
+  --va-ring: var(--va-focus);
+}
+
+@media (min-width: 760px) {
+  :root {
+    --va-gutter: 32px;
+  }
+}

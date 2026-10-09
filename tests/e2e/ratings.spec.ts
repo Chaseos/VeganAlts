@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures";
+import { openAccountLink } from "./site";
 import { createBrowserSession } from "./session-fixture";
 
 test("anonymous selection resumes once after sign-in, then appears in My Ratings and can be edited", async ({
@@ -31,7 +32,7 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
     await expect(page).toHaveURL(/\/sign-in\?returnTo=/);
     const returnTo = new URL(page.url()).searchParams.get("returnTo")!;
     await expect(
-      page.getByRole("heading", { name: "Welcome to VeganAlts." }),
+      page.getByRole("heading", { name: "Sign in to VeganAlts" }),
     ).toBeVisible();
     await context.addCookies([session.cookie]);
     await page.goto(`/auth/return?returnTo=${encodeURIComponent(returnTo)}`);
@@ -44,9 +45,9 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
       page.getByRole("button", { name: "4 Very close (4 of 5)" }).first(),
     ).toHaveAttribute("aria-pressed", "true");
     expect(saves).toEqual([4]);
-    await page.getByRole("link", { name: "My Ratings", exact: true }).click();
+    await openAccountLink(page, "My ratings");
     await expect(
-      page.getByRole("heading", { level: 1, name: "My Ratings" }),
+      page.getByRole("heading", { level: 1, name: "My ratings" }),
     ).toBeVisible();
     await expect(page.getByText("As beef burgers ·")).toBeVisible();
     await page.getByRole("link", { name: "Edit rating", exact: true }).click();

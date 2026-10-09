@@ -72,6 +72,7 @@ Non-color effect tokens, added in the milestone 5 specification:
 | `--va-tag-lip`       | `inset 0 -3px 0 rgba(0, 0, 0, 0.1)` | same                              | The shelf-label edge on score labels and logo |
 | `--va-hover`         | `rgba(120, 140, 128, 0.14)`         | same                              | Hover fill on list items and menu options     |
 | `--va-hover-on-kale` | `rgba(255, 255, 255, 0.08)`         | same                              | Hover fill on the header and aisle bar        |
+| `--va-backdrop`      | `rgba(0, 0, 0, 0.45)`               | same                              | Behind the phone menu sheet                   |
 
 All text meets WCAG 2.2 AA (4.5:1, or 3:1 at 24 px and above). Field borders and focus rings meet 3:1 against every color they sit next to: `--va-field-line` is at least 3.35:1 (light) and 3.48:1 (dark) on fields, page, cards and wells, and focus rings switch to `--va-focus-on-kale` (at least 7.2:1) on kale surfaces. Red and green are never the only difference between states; every flag and badge carries text.
 

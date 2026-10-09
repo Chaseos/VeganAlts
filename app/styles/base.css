@@ -1,0 +1,123 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--va-ground);
+  color: var(--va-ink);
+  font-family: var(--va-font);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.45;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button,
+a,
+input,
+select,
+summary,
+label {
+  touch-action: manipulation;
+}
+
+button {
+  cursor: pointer;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+svg {
+  flex: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--va-ring);
+  outline-offset: 2px;
+}
+
+/* Kale bands (header, aisle bar, footer, hero) switch to the yellow ring. */
+.va-kale {
+  --va-ring: var(--va-focus-on-kale);
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--va-space-4);
+  top: -6rem;
+  z-index: 50;
+  padding: var(--va-space-2) var(--va-space-4);
+  border-radius: var(--va-radius-button);
+  background: var(--va-tag);
+  color: var(--va-on-tag);
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  top: var(--va-space-4);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* Forced colors drop backgrounds; keep every control and label outlined. */
+@media (forced-colors: active) {
+  .va-score,
+  .va-flag,
+  .va-badge,
+  .va-chip,
+  .va-button,
+  .va-card {
+    border: 1px solid CanvasText;
+  }
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

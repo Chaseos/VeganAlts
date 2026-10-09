@@ -20,7 +20,13 @@ export async function ratingState(request: Request, env: Cloudflare.Env) {
   const state: RatingState = {
     ...personal,
     user: user
-      ? { handle: user.profile.handle, displayName: user.profile.displayName }
+      ? {
+          handle: user.profile.handle,
+          displayName: user.profile.displayName,
+          administrator: env.ADMIN_USER_IDS.split(",")
+            .map((id) => id.trim())
+            .includes(user.id),
+        }
       : null,
     turnstileSiteKey: env.TURNSTILE_SITE_KEY || null,
   };

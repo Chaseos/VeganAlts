@@ -8,7 +8,7 @@ import { safeReturnDestination } from "@server/auth/domain/return-destination";
 import { ApplicationError } from "@server/shared/domain/errors";
 import { protectContribution } from "@server/abuse/service";
 import { recordEvent } from "@server/observability/events";
-import { SiteShell } from "../components/catalog";
+import { PageShell } from "../components/layout/page-shell";
 import { Turnstile } from "../components/turnstile";
 import type { Route } from "./+types/sign-in";
 
@@ -98,22 +98,32 @@ export default function SignIn({
     actionData.challengeRequired === true
   );
   return (
-    <SiteShell compact>
-      <div className="sign-in-panel">
+    <PageShell width="narrow" aisles={false}>
+      <header className="page-heading">
         <p className="eyebrow">Your experience makes a difference</p>
-        <h1>Welcome to VeganAlts.</h1>
+        <h1>Sign in to VeganAlts</h1>
         <p>
           Keep track of what you’ve tried and help others find a closer
           alternative. If you just chose a score, we’ll save it when you return.
         </p>
-        {actionData?.error && <p role="alert">{actionData.error}</p>}
+      </header>
+      <section className="va-card va-sign-in" aria-label="Sign-in options">
+        {actionData?.error && (
+          <p className="notice error" role="alert">
+            {actionData.error}
+          </p>
+        )}
         {loaderData.failed && (
-          <p role="alert">Sign-in did not finish. Please try again.</p>
+          <p className="notice error" role="alert">
+            Sign-in did not finish. Please try again.
+          </p>
         )}
         {loaderData.providers.length === 0 && (
-          <p>Sign-in is being prepared. Please check back soon.</p>
+          <p className="notice">
+            Sign-in is being prepared. Please check back soon.
+          </p>
         )}
-        <Form method="post" className="account-form" reloadDocument>
+        <Form method="post" className="va-sign-in__providers" reloadDocument>
           <input type="hidden" name="returnTo" value={loaderData.returnTo} />
           <input type="hidden" name="challengeToken" value={token} />
           {challengeRequired && (
@@ -152,13 +162,18 @@ export default function SignIn({
         >
           Continue browsing →
         </a>
-        <p className="small">
-          By continuing you agree to the{" "}
-          <Link to="/about/terms">terms and community guidelines</Link>. See how
-          we handle your data in the{" "}
-          <Link to="/about/privacy">privacy notice</Link>.
-        </p>
-      </div>
-    </SiteShell>
+      </section>
+      <p className="small muted va-sign-in__terms">
+        By continuing you agree to the{" "}
+        <Link className="text-link" to="/about/terms">
+          terms and community guidelines
+        </Link>
+        . See how we handle your data in the{" "}
+        <Link className="text-link" to="/about/privacy">
+          privacy notice
+        </Link>
+        .
+      </p>
+    </PageShell>
   );
 }

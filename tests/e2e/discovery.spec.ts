@@ -1,5 +1,6 @@
 import { expect, test } from "./fixtures";
-import AxeBuilder from "@axe-core/playwright";
+import { accessible } from "./a11y";
+import { signInLink } from "./site";
 
 test("discovery, alias search, rankings and formula history are crawlable and accessible", async ({
   page,
@@ -16,15 +17,7 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   ).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#main$/);
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .options({
-          rules: { "label-content-name-mismatch": { enabled: true } },
-        })
-        .analyze()
-    ).violations,
-  ).toEqual([]);
+  await accessible(page, { extraRules: true });
   await page.screenshot({
     path: testInfo.outputPath("home.png"),
     fullPage: true,
@@ -65,15 +58,7 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .options({
-          rules: { "label-content-name-mismatch": { enabled: true } },
-        })
-        .analyze()
-    ).violations,
-  ).toEqual([]);
+  await accessible(page, { extraRules: true });
   await page.screenshot({
     path: testInfo.outputPath("product.png"),
     fullPage: true,
@@ -131,9 +116,10 @@ test("alternate search URLs pass through the normalized public boundary", async 
   await expect(
     page.getByRole("heading", { name: "Results for “beef”" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Sign in", exact: true }),
-  ).toHaveAttribute("href", `/sign-in?returnTo=${encodeURIComponent(path)}`);
+  await expect(await signInLink(page)).toHaveAttribute(
+    "href",
+    `/sign-in?returnTo=${encodeURIComponent(path)}`,
+  );
   expect(hydrationErrors).toEqual([]);
 });
 

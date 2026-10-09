@@ -1,15 +1,6 @@
-import { expect, test, type Page } from "./fixtures";
-import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "./fixtures";
+import { accessible } from "./a11y";
 import { createBrowserSession } from "./session-fixture";
-
-async function accessible(page: Page) {
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-}
 
 test("comments post safely, vote once, report, hold for review and publish after operator review", async ({
   page,

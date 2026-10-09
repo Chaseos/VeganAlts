@@ -35,7 +35,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 export default function Home({ loaderData }: Route.ComponentProps) {
   if (!loaderData.catalog) return <ComingSoon />;
   return (
-    <SiteShell>
+    <SiteShell search={false}>
       <section className="discovery-hero">
         <p className="eyebrow">Good food. Familiar favorites.</p>
         <h1>

@@ -1,0 +1,138 @@
+/* Type roles from docs/DESIGN_DIRECTION.md §3. Phone values by default; desktop
+   values from 760px. Width does the work: wide for headings, narrow for scores. */
+.va-display-xl {
+  margin: 0;
+  font-size: 40px;
+  line-height: 1.02;
+  font-weight: 800;
+  font-stretch: 118%;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.va-display-l {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.02;
+  font-weight: 800;
+  font-stretch: 115%;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.va-heading-m {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 800;
+  font-stretch: 112%;
+  letter-spacing: -0.015em;
+}
+
+.va-heading-s {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 800;
+  font-stretch: 110%;
+}
+
+.va-body-l {
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.va-body {
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.va-small {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.va-caption {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.va-muted {
+  color: var(--va-muted);
+}
+
+.va-ink-2 {
+  color: var(--va-ink-2);
+}
+
+.va-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--va-muted);
+}
+
+.va-numeral {
+  font-weight: 800;
+  font-stretch: 70%;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.va-prose {
+  max-width: 68ch;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.va-prose h2 {
+  margin: var(--va-space-7) 0 var(--va-space-2);
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 800;
+  font-stretch: 112%;
+}
+
+.va-prose h3 {
+  margin: var(--va-space-6) 0 var(--va-space-2);
+  font-size: 18px;
+  font-weight: 800;
+  font-stretch: 110%;
+}
+
+.va-prose a,
+.va-link {
+  color: var(--va-good);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+@media (min-width: 760px) {
+  .va-display-xl {
+    font-size: clamp(48px, 5.4vw, 72px);
+    line-height: 0.98;
+  }
+
+  .va-display-l {
+    font-size: clamp(40px, 4.2vw, 56px);
+    line-height: 1;
+  }
+
+  .va-heading-m {
+    font-size: 28px;
+    line-height: 1.1;
+  }
+
+  .va-heading-s {
+    font-size: 20px;
+  }
+
+  .va-body-l,
+  .va-prose {
+    font-size: 18px;
+    line-height: 1.55;
+  }
+}

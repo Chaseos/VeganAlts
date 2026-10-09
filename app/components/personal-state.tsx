@@ -46,6 +46,10 @@ export function usePersonalState() {
   if (!context) throw new Error("Personal state is unavailable.");
   return context;
 }
+// Header parts also render in the root error boundary, outside the provider.
+export function useOptionalPersonalState() {
+  return useContext(Context);
+}
 
 export function PersonalStateProvider({ children }: { children: ReactNode }) {
   const location = useLocation();

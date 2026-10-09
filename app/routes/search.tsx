@@ -48,7 +48,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 export default function Search({ loaderData: data }: Route.ComponentProps) {
   return (
-    <SiteShell>
+    <SiteShell search={false}>
       <header className="page-heading">
         <p className="eyebrow">Discover · United States</p>
         <h1>Find your next good swap.</h1>

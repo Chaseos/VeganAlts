@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import AxeBuilder from "@axe-core/playwright";
+import { accessible } from "./a11y";
 
 // The desktop and 390 px mobile projects both run this.
 test("policy pages are linked, readable and accessible", async ({ page }) => {
@@ -11,7 +11,7 @@ test("policy pages are linked, readable and accessible", async ({ page }) => {
   await expect(
     page.getByRole("heading", { level: 1, name: "How rankings work" }),
   ).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await accessible(page);
   const others = page.getByRole("navigation", { name: "Other policies" });
   await expect(
     others.getByRole("link", { name: "How rankings work" }),

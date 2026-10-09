@@ -1,72 +1,26 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Form, Link, useLocation } from "react-router";
 import type {
   CategorySummary,
   ProductSummary,
   RankingRow,
 } from "@server/catalog/domain/contracts";
-import { usePersonalState } from "./personal-state";
-import { PendingRatingRecovery } from "./pending-rating-recovery";
+import { PageShell } from "./layout/page-shell";
 
+// Transitional wrapper: pages move to PageShell as they are redesigned.
 export function SiteShell({
   children,
   compact = false,
+  search = true,
 }: {
   children: ReactNode;
   compact?: boolean;
+  search?: boolean;
 }) {
-  const { user } = usePersonalState();
-  const location = useLocation();
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
-  // Cached HTML cannot know the visitor's fragment or discarded query params.
-  // Keep the first client render identical, then attach the full return URL.
-  const signInTo = hydrated
-    ? `/sign-in?returnTo=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`
-    : "/sign-in";
   return (
-    <div className="site-shell">
-      <aside className="demo-banner" aria-label="Development preview">
-        Development preview · Demo catalog & sample ratings
-      </aside>
-      <header className="app-header">
-        <Link className="wordmark" to="/" aria-label="VeganAlts home">
-          VeganAlts<span aria-hidden="true">.</span>
-        </Link>
-        <span className="country-label">United States</span>
-        <nav aria-label="Main navigation">
-          <Link to="/us/search">Discover</Link>
-          <Link to="/add-product">Add product</Link>
-          <Link to="/my-ratings">My Ratings</Link>
-          {user ? (
-            <Link to="/account">Account</Link>
-          ) : location.pathname === "/sign-in" ? (
-            <span aria-current="page">Sign in</span>
-          ) : (
-            <Link to={signInTo}>Sign in</Link>
-          )}
-        </nav>
-      </header>
-      <main id="main" className={compact ? "content narrow" : "content"}>
-        <PendingRatingRecovery />
-        {children}
-      </main>
-      <footer className="app-footer">
-        <Link className="wordmark" to="/">
-          VeganAlts.
-        </Link>
-        <p>Closer to the foods you love.</p>
-        <nav aria-label="About VeganAlts" className="footer-links">
-          <Link to="/about/rankings">How rankings work</Link>
-          <Link to="/about/vegan-status">Vegan status</Link>
-          <Link to="/about/moderation">Moderation</Link>
-          <Link to="/about/terms">Guidelines</Link>
-          <Link to="/about/privacy">Privacy</Link>
-          <Link to="/about/contact">Contact</Link>
-        </nav>
-        <span>United States · Independent rankings</span>
-      </footer>
-    </div>
+    <PageShell width={compact ? "narrow" : "wide"} search={search}>
+      {children}
+    </PageShell>
   );
 }
 
