@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { Link, redirect, useLocation } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, redirect, useLocation, useNavigate } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   publicLoader,
@@ -131,10 +132,20 @@ export default function Product({
   loaderData: { product: p, comments, market },
 }: Route.ComponentProps) {
   const code = market.code;
-  // Navigation state from Add a product, never part of the cached page.
-  const added = Boolean(
-    (useLocation().state as { added?: boolean } | null)?.added,
-  );
+  // Navigation state from Add a product, never part of the cached page. It
+  // shows after hydration and is cleared, so a reload doesn't repeat it.
+  const location = useLocation(),
+    navigate = useNavigate();
+  const [added, setAdded] = useState(false);
+  useEffect(() => {
+    if (!(location.state as { added?: boolean } | null)?.added) return;
+    setAdded(true);
+    void navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: null,
+      preventScrollReset: true,
+    });
+  }, [location, navigate]);
   const food = p.categories.find((c) => c.slug === p.food) ?? null;
   const others = p.categories.filter((c) => c.isActive && c.id !== food?.id);
   const labels = Object.fromEntries(

@@ -13,6 +13,7 @@ import {
   decideSubmission,
   fingerprint,
   provisionalClassification,
+  SYSTEM_ACTOR,
 } from "../domain/policy";
 import { CommunityLookupRepository } from "../infrastructure/lookup-repository";
 import { SubmissionRepository } from "../infrastructure/submission-repository";
@@ -23,6 +24,17 @@ import type { SubmissionContext } from "../infrastructure/lookup-repository";
 import type { ModerationDecisionService } from "../../moderation/application/decision-service";
 import { combineDecisions } from "../../moderation/domain/decisions";
 
+/** The deterministic checks a suggested food passes (the taxonomy module). */
+export interface FoodChecks {
+  readonly perDay: number;
+  check(
+    actor: Actor,
+    food: { name: string; shelfId: string; country: string; aliases: string[] },
+  ): Promise<void>;
+}
+const normal = (value: string) =>
+  value.normalize("NFKC").trim().toLocaleLowerCase();
+
 export class SubmissionService {
   constructor(
     private readonly repository: SubmissionRepository,
@@ -32,7 +44,55 @@ export class SubmissionService {
     private readonly decisions: ModerationDecisionService,
     private readonly newId: () => string,
     private readonly clock = Date.now,
+    private readonly foods: FoodChecks | null = null,
   ) {}
+  /**
+   * Why a suggested food can't be added, as a contributor-facing reason, or
+   * null when it can (or a follow-up carries an undecided one forward).
+   */
+  private async foodProblem(actor: Actor, input: SubmissionInput) {
+    const food = input.newFood;
+    if (!food) return { problem: null, carry: null };
+    if (input.followUp) {
+      const earlier = await this.repository.pendingFood(
+        input.followUp.submissionId,
+      );
+      if (
+        earlier &&
+        normal(earlier.name) === normal(food.name) &&
+        earlier.shelfId === food.shelfId
+      ) {
+        if (earlier.status === "pending")
+          return { problem: null, carry: earlier.id };
+        return {
+          problem:
+            earlier.status === "rejected"
+              ? `The food “${earlier.name}” wasn’t added. Choose an existing food.`
+              : `“${earlier.name}” is listed now. Choose it from the foods.`,
+          carry: null,
+        };
+      }
+    }
+    if (!this.foods)
+      throw new ApplicationError(
+        "FOOD_SUGGESTIONS_UNAVAILABLE",
+        "Suggesting a food is unavailable right now. Choose an existing food.",
+        503,
+      );
+    try {
+      await this.foods.check(actor, {
+        name: food.name,
+        shelfId: food.shelfId,
+        country: input.country,
+        aliases: food.aliases ?? [],
+      });
+      return { problem: null, carry: null };
+    } catch (error) {
+      if (error instanceof ApplicationError)
+        return { problem: error.message, carry: null };
+      throw error;
+    }
+  }
   async preflight(actor: Actor, key: string, input: SubmissionInput) {
     active(actor);
     const prior = await this.repository.byKey(actor.id, key);
@@ -56,6 +116,14 @@ export class SubmissionService {
     );
     if (decision.decision === "NEEDS_CHANGES")
       return { ...decision, receiptId: null };
+    const food = await this.foodProblem(actor, input);
+    if (food.problem)
+      return {
+        ...decision,
+        decision: "NEEDS_CHANGES" as const,
+        reasons: [food.problem],
+        receiptId: null,
+      };
     const receipt = await this.repository.reserve(
       actor.id,
       key,
@@ -214,6 +282,48 @@ export class SubmissionService {
     if (decision.decision === "NEEDS_CHANGES")
       return { ...decision, receiptId };
     await this.validateImages(receipt, input);
+    // A suggested food is checked again (names and allowances move) and
+    // assessed on its own before it is held with the product.
+    const food = await this.foodProblem(actor, input);
+    if (food.problem)
+      return {
+        ...decision,
+        decision: "NEEDS_CHANGES" as const,
+        reasons: [food.problem],
+        receiptId,
+      };
+    const proposalId = food.carry ?? `${receipt.id}_food`;
+    if (input.newFood && !food.carry) {
+      const suggestion = await this.decisions.evaluate({
+        kind: "category_proposal",
+        subject: { type: "category_proposal", id: proposalId },
+        userId: actor.id,
+        state: {
+          proposal: {
+            name: input.newFood.name,
+            explanation: input.statusBasis ?? "",
+            aliases: input.newFood.aliases ?? [],
+            exampleProducts: [`${input.brand} ${input.name}`],
+          },
+        },
+      });
+      if (suggestion.outcome === "BLOCKED") {
+        await this.repository.block(receipt.id, this.clock());
+        return {
+          ...decision,
+          decision: "BLOCKED" as const,
+          reasons: suggestion.reasons,
+          receiptId,
+        };
+      }
+      if (suggestion.outcome === "NEEDS_CHANGES")
+        return {
+          ...decision,
+          decision: "NEEDS_CHANGES" as const,
+          reasons: suggestion.reasons,
+          receiptId,
+        };
+    }
     // Automated evidence checks run only after every deterministic gate and
     // can only make the decision more restrictive.
     const automated = await this.decisions.evaluate({
@@ -261,6 +371,13 @@ export class SubmissionService {
         reasons,
         this.clock(),
         this.newId(),
+        input.newFood
+          ? {
+              proposalId,
+              create: !food.carry,
+              perDay: this.foods?.perDay ?? 0,
+            }
+          : undefined,
       );
       return { ...decision, decision: outcome, reasons, receiptId };
     }
@@ -289,6 +406,13 @@ export class SubmissionService {
         409,
       );
     const input = submissionInput.parse(rawInput);
+    // The suggested food is decided first; its decision rewrites the details.
+    if (input.newFood)
+      throw new ApplicationError(
+        "FOOD_PENDING",
+        `Decide the suggested food “${input.newFood.name}” first. The product continues once it is decided.`,
+        409,
+      );
     // An operator's chosen classification is reviewed; without one the
     // product publishes with what the contributor's evidence supports, which
     // is "Ingredients not checked yet" when it supports nothing.
@@ -304,6 +428,35 @@ export class SubmissionService {
       expectedRevision,
       note,
       operation,
+    );
+  }
+  /** The deterministic decision for details as they stand now. */
+  async recheck(input: SubmissionInput) {
+    const context = await this.lookup.context(input);
+    return decideSubmission(
+      input,
+      await this.lookup.candidates(input, context),
+    );
+  }
+  /**
+   * Publishes a held submission whose suggested food was accepted and which
+   * needs nothing else reviewed, as the audited system account.
+   */
+  async publishAfterFood(
+    receiptId: string,
+    input: SubmissionInput,
+    revision: number,
+  ) {
+    const receipt = await this.repository.get(receiptId);
+    if (!receipt || receipt.state !== "review") return null;
+    await this.validateImages(receipt, input);
+    return this.publish(
+      SYSTEM_ACTOR,
+      receipt,
+      input,
+      { ...provisionalClassification(input), reviewedBy: null },
+      revision,
+      "Published after its suggested food was accepted.",
     );
   }
   private async publish(
@@ -381,7 +534,11 @@ export class SubmissionService {
           brand: context.brandName,
           name: input.name,
           country: input.country,
-          categories: await this.lookup.categoryNames(input.categoryIds),
+          // A suggested food is judged by its name, like the listed ones.
+          categories: [
+            ...(await this.lookup.categoryNames(input.categoryIds)),
+            ...(input.newFood ? [input.newFood.name] : []),
+          ],
           manufacturerLabel: input.manufacturerLabel ?? "unknown",
           contributorNote: input.statusBasis ?? "",
         },

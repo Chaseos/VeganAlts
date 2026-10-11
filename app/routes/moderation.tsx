@@ -339,6 +339,24 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
             </article>
             <aside className="community-panel">
               <h2>Record a decision</h2>
+              {"pendingFood" in data.detail &&
+                data.detail.pendingFood?.status === "pending" && (
+                  <div className="notice warn">
+                    <strong className="notice-title">
+                      Waiting on a new food
+                    </strong>
+                    <p>
+                      This product suggested “{data.detail.pendingFood.name}”.{" "}
+                      <Link
+                        to={`/admin/moderation/category/${data.detail.pendingFood.id}`}
+                      >
+                        Decide the food first
+                      </Link>
+                      ; the product continues with it, or its contributor is
+                      asked to choose an existing food.
+                    </p>
+                  </div>
+                )}
               {["review", "pending", "open", "reviewing"].includes(
                 data.detail.status,
               ) ? (

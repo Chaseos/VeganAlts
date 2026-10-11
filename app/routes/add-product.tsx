@@ -373,7 +373,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                   setPhoto={setPhoto}
                   foods={foods}
                   shelves={shelves}
-                  allowSuggest={false}
+                  allowSuggest
                   brands={options.brands}
                   countries={markets}
                   countryName={market.name}

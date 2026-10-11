@@ -132,3 +132,90 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
     await session.dispose();
   }
 });
+
+test("suggests a missing food inline and publishes the product once a moderator accepts it", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.setTimeout(180000);
+  const contributor = await createBrowserSession(),
+    operator = await createBrowserSession({ administrator: true });
+  const stamp = `${testInfo.project.name}${Date.now().toString(36)}`;
+  const food = `Bratwurst ${stamp}`,
+    name = `Grill brats ${stamp}`;
+  try {
+    await context.addCookies([contributor.cookie]);
+    await page.goto("/add-product?country=gb");
+    const picker = page.getByRole("combobox", {
+      name: "What food does it replace? (required)",
+    });
+    await picker.fill(food);
+    await page
+      .getByRole("option", { name: `Suggest “${food}” as a new food` })
+      .click();
+    await expect(
+      page.getByRole("group", {
+        name: "New food (reviewed with your product)",
+      }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Continue" }).click();
+    // The shelf is part of the basics for a new food.
+    await expect(page.getByRole("alert")).toContainText(
+      "Choose the shelf where you’d find it",
+    );
+    await page
+      .getByLabel("Shelf (required)")
+      .selectOption({ label: "Meat › Pork" });
+    await page.getByLabel("Brand (required)").fill(`Grill House ${stamp}`);
+    await page.getByLabel("Product name (required)").fill(name);
+    await page
+      .getByLabel("Front of pack photo (required)")
+      .setInputFiles("tests/fixtures/small.jpg");
+    await accessible(page);
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("main")).toContainText(
+      `${food} (new food, reviewed with your product)`,
+    );
+    await page.getByRole("button", { name: "4 Very close (4 of 5)" }).click();
+    await page
+      .getByRole("button", { name: "Submit product", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Thanks, your product is in review" }),
+    ).toBeVisible();
+    await expect(page.getByRole("main")).toContainText(
+      `checks your new food “${food}” together with your product`,
+    );
+    await page.getByRole("link", { name: "View your submission" }).click();
+    await expect(page).toHaveURL(/\/my-contributions\/submission\//);
+    const receiptId = new URL(page.url()).pathname.split("/").at(-1)!;
+
+    // The moderator decides the food; the product continues with it.
+    await context.clearCookies();
+    await context.addCookies([operator.cookie]);
+    await page.goto(`/admin/moderation/submission/${receiptId}`);
+    await expect(page.getByText("Waiting on a new food")).toBeVisible();
+    await page.getByRole("link", { name: "Decide the food first" }).click();
+    await expect(
+      page.getByRole("heading", { name: `Suggested food: ${food}` }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("1 product is waiting on this food"),
+    ).toBeVisible();
+    await page
+      .getByLabel("Reason and next steps")
+      .fill("A distinct food with several alternatives in the UK.");
+    await page.getByRole("button", { name: "Save decision" }).click();
+    await expect(
+      page.getByText("Status: accepted", { exact: true }),
+    ).toBeVisible();
+    await page.goto(`/admin/moderation/submission/${receiptId}`);
+    await expect(
+      page.getByText("Status: published", { exact: true }),
+    ).toBeVisible();
+  } finally {
+    await page.close();
+    await contributor.dispose();
+    await operator.dispose();
+  }
+});

@@ -19,6 +19,8 @@ import {
   moderationDecisions,
   type ModerationEnv,
 } from "../../moderation/infrastructure/composition";
+import { FoodSuggestions } from "../../taxonomy/application/food-suggestions";
+import { D1TaxonomyRepository } from "../../taxonomy/infrastructure/d1-taxonomy-repository";
 
 export function communityServices(
   env: Pick<Cloudflare.Env, "DB" | "MEDIA_BUCKET" | "IMAGES"> &
@@ -45,6 +47,12 @@ export function communityServices(
     newId,
     clock,
   );
+  const repository = new ModerationRepository(env.DB);
+  // Foods suggested inside a submission pass the Suggest a food checks.
+  const foods = new FoodSuggestions(
+    new D1TaxonomyRepository(repository, newId),
+    clock,
+  );
   const submissions = new SubmissionService(
     receipts,
     lookup,
@@ -53,10 +61,10 @@ export function communityServices(
     decisions,
     newId,
     clock,
+    foods,
   );
   const contributionRepository = new ContributionRepository(env.DB, limits);
-  const repository = new ModerationRepository(env.DB),
-    catalog = new CatalogDecisionRepository(repository),
+  const catalog = new CatalogDecisionRepository(repository),
     queue = new QueueDecisionRepository(repository, catalog, staged),
     duplicates = new DuplicateRepository(repository, catalog),
     autoApply = autoApplyPolicy(env.PROPOSAL_AUTO_APPLY);

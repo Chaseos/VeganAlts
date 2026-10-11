@@ -2,6 +2,7 @@ import { ApplicationError } from "../../shared/domain/errors";
 import {
   changeInput,
   retailerProposal,
+  submissionInput,
   type Actor,
   type ConsolidationInput,
   type ReviewDecision,
@@ -57,6 +58,83 @@ export class ModerationService {
     private readonly newId: () => string,
     private readonly clock = Date.now,
   ) {}
+  /**
+   * Continues the submissions waiting on a suggested food once it is decided
+   * (MODERATION, milestone 6). Accepted or aliased: the details take the
+   * decided food, and the product publishes when nothing else needs review.
+   * Rejected: the contributor is asked to choose an existing food. Safe to
+   * repeat; the hourly sweep finishes anything a failure left waiting.
+   */
+  async continueAfterFood(proposalId: string) {
+    const food = await this.receipts.foodDecision(proposalId);
+    const published: { productId: string }[] = [];
+    if (!food || food.status === "pending") return published;
+    for (const waiting of await this.receipts.waitingOnFood(proposalId)) {
+      const input = submissionInput.parse(JSON.parse(waiting.proposed));
+      const now = this.clock();
+      if (food.status === "rejected" || !food.resolvedId) {
+        await this.queue.submissionDecision(
+          {
+            id: this.newId(),
+            actor: SYSTEM_ACTOR,
+            kind: "submission_follow_up",
+            targetId: waiting.id,
+            productId: null,
+            before: {},
+            after: { proposalId },
+            note: `The food “${food.name}” wasn’t added${food.note ? ` (${food.note})` : ""}. Choose an existing food and send it again.`,
+            now,
+          },
+          waiting.revision,
+          "follow_up",
+          await receiptWrite(
+            SYSTEM_ACTOR_ID,
+            "food-follow-up",
+            `food-${proposalId}-${waiting.id}`.slice(0, 100),
+            { proposalId, submissionId: waiting.id },
+            now,
+          ),
+        );
+        continue;
+      }
+      const { newFood: _decided, ...rest } = input;
+      const resolved = {
+        ...rest,
+        categoryIds: [
+          ...new Set([food.resolvedId, ...input.categoryIds]),
+        ].slice(0, 5),
+      };
+      const decision = await this.submissions.recheck(resolved);
+      const automated = await this.decisions.latest("submission", waiting.id);
+      const clear =
+        decision.decision === "READY" &&
+        (!automated || automated.outcome === "READY");
+      if (
+        !(await this.receipts.resolveFood(
+          waiting.id,
+          waiting.revision,
+          resolved,
+          decision.reasons,
+        ))
+      )
+        continue;
+      if (!clear) continue;
+      const result = await this.submissions.publishAfterFood(
+        waiting.id,
+        resolved,
+        waiting.revision + 1,
+      );
+      if (result) published.push({ productId: result.productId });
+    }
+    return published;
+  }
+  /** The hourly pass over decided foods that still have products waiting. */
+  async sweepFoodDecisions() {
+    const published: { productId: string }[] = [];
+    for (const proposalId of await this.receipts.decidedFoods())
+      published.push(...(await this.continueAfterFood(proposalId)));
+    return published;
+  }
   async inbox(
     actor: Actor,
     cursor: string | null,

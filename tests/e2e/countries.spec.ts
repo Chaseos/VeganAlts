@@ -163,6 +163,7 @@ test("a product added from Ireland is published, rated and ranked in Ireland onl
     ).toBeVisible();
     if (await receipt.isVisible()) {
       await receipt.click();
+      await expect(page).toHaveURL(/\/my-contributions\/submission\//);
       const receiptId = new URL(page.url()).pathname.split("/").at(-1)!;
       await context.clearCookies();
       await context.addCookies([operator.cookie]);

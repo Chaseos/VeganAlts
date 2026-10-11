@@ -16,7 +16,6 @@ import {
   createCategoryInput,
   dimensionsInput,
   featuresInput,
-  invalidCountry,
   MAX_ACTIVE_DIMENSIONS,
   mergeInput,
   planCategoryUpdate,
@@ -31,6 +30,12 @@ import type {
   D1TaxonomyRepository,
   MergeRecord,
 } from "../infrastructure/d1-taxonomy-repository";
+import {
+  FoodSuggestions,
+  PROPOSALS_PER_DAY,
+  assertNamesAvailable,
+  type NameScope,
+} from "./food-suggestions";
 
 /** Side effects after a committed taxonomy change: derived data and caches. */
 export interface TaxonomyEffects {
@@ -38,8 +43,9 @@ export interface TaxonomyEffects {
   rebuildSearch(): Promise<void>;
   refreshTrending(categoryIds: string[]): Promise<void>;
   invalidate(categorySlugs: string[], productIds: string[]): Promise<void>;
+  // A suggested food was decided: products waiting on it continue.
+  foodDecided?(proposalId: string): Promise<void>;
 }
-const PROPOSALS_PER_DAY = 3;
 // Every featured category is still active (bound: IDs as JSON, their count).
 // The insert skips inactive ones, so this keeps the audit equal to the rows.
 const FEATURABLE =
@@ -62,13 +68,7 @@ function fenceParent(
     " AND EXISTS(SELECT 1 FROM categories WHERE id=? AND is_active=1) AND NOT EXISTS(WITH RECURSIVE up(id) AS (SELECT ? UNION SELECT c.parent_id FROM categories c JOIN up ON c.id=up.id WHERE c.parent_id IS NOT NULL) SELECT 1 FROM up WHERE id=?)";
   guard.values.push(parentId, parentId, categoryId);
 }
-/**
- * Who a category's name must differ from. Foods (rankable) share one namespace
- * with every food name and alias; an aisle or shelf only needs a name unique
- * among its siblings, so the Eggs aisle can hold an Eggs shelf and food.
- */
-export type NameScope =
-  { rankable: true } | { rankable: false; parentId: string | null };
+export type { NameScope };
 export const scopeFor = (
   isRankable: boolean,
   parentId: string | null,
@@ -135,28 +135,12 @@ export class TaxonomyService {
       throw new ApplicationError("NOT_FOUND", "Category not found.", 404);
     return category;
   }
-  private async assertNameAvailable(
+  private assertNameAvailable(
     names: string[],
     scope: NameScope,
     except?: string,
   ) {
-    const keys = new Set(names.map(categoryKey));
-    const taken = (await this.repository.names()).find(
-      (n) =>
-        n.id !== except &&
-        keys.has(categoryKey(n.value)) &&
-        (scope.rankable
-          ? n.isAlias === 1 || n.rankable === 1
-          : n.isAlias === 0 && n.parentId === scope.parentId),
-    );
-    if (taken)
-      throw new ApplicationError(
-        "CATEGORY_EXISTS",
-        scope.rankable
-          ? `“${taken.value}” already names a food${taken.active ? "" : " (retired)"}. Use or alias the existing food.`
-          : `“${taken.value}” already names a group here${taken.active ? "" : " (retired)"}. Choose another name.`,
-        409,
-      );
+    return assertNamesAvailable(this.repository, names, scope, except);
   }
   // Aisles and shelves are navigation, not search targets: no aliases.
   private assertGroupAliases(isRankable: boolean, aliases: unknown[]) {
@@ -164,16 +148,6 @@ export class TaxonomyService {
       throw new ApplicationError(
         "GROUP_ALIASES",
         "Aisles and shelves take no aliases or search terms. Add them to a food.",
-      );
-  }
-  // Category proposals choose a shelf: an active group two levels below Food.
-  private async assertShelf(parentId: string) {
-    const parent = await this.existing(parentId);
-    const ancestors = await this.repository.ancestors(parentId);
-    if (!parent.isActive || parent.isRankable || ancestors.length !== 2)
-      throw new ApplicationError(
-        "INVALID_SHELF",
-        "Choose the shelf the new food belongs on.",
       );
   }
   private async assertSlugAvailable(slug: string, owner?: string) {
@@ -247,26 +221,14 @@ export class TaxonomyService {
     );
     const prior = await this.repository.replay<{ id: string }>(receipt);
     if (prior) return prior;
-    const slug = categorySlug(input.name);
-    assertCategorySlug(slug);
-    // Deterministic quota and duplicate checks before any model call; the
-    // insert enforces the quota again.
-    const day = Math.floor(receipt.now / 86_400_000) * 86_400_000;
-    if (
-      (await this.repository.proposalsSince(actor.id, day)) >= PROPOSALS_PER_DAY
-    )
-      throw new ApplicationError(
-        "PROPOSAL_LIMIT",
-        "You’ve suggested the most foods allowed today. Try again tomorrow.",
-        429,
-      );
-    await this.assertNameAvailable([input.name, ...input.aliases], {
-      rankable: true,
+    // Deterministic quota, name, shelf and country checks before any model
+    // call; the insert enforces the quota again.
+    await new FoodSuggestions(this.repository, this.clock).check(actor, {
+      name: input.name,
+      shelfId: input.shelfId,
+      country: input.country,
+      aliases: input.aliases,
     });
-    await this.assertShelf(input.shelfId);
-    // Every proposal belongs to a country people can browse.
-    if (!(await this.repository.countryActive(input.country)))
-      throw invalidCountry();
     const id = this.newId();
     const automated = await this.decisions.evaluate({
       kind: "category_proposal",
@@ -324,6 +286,8 @@ export class TaxonomyService {
       suggestedSlug: categorySlug(proposal.name),
       parentId: proposal.parent_id,
       country: proposal.country,
+      // Products submitted with this food, decided after it.
+      waitingProducts: await this.repository.waitingProducts(id),
     };
   }
   /** Operator decision: create the category, alias an existing one, or reject. */
@@ -368,7 +332,7 @@ export class TaxonomyService {
         { proposal },
         { status: "rejected" },
       );
-      return this.repository.commit(
+      const result = await this.repository.commit(
         action,
         guard,
         (fence) => [
@@ -384,6 +348,8 @@ export class TaxonomyService {
         ],
         receipt,
       );
+      await this.foodDecided(id);
+      return result;
     }
     if (input.decision === "alias") {
       if (!input.aliasOf)
@@ -473,8 +439,16 @@ export class TaxonomyService {
         receipt,
       );
       await this.refreshed([target.slug]);
+      await this.foodDecided(id);
       return result;
     }
+    // A product waiting on this food needs it to be a ranked food.
+    if (!input.isRankable && (await this.repository.waitingProducts(id)).length)
+      throw new ApplicationError(
+        "FOOD_HAS_WAITING_PRODUCTS",
+        "A product is waiting on this food, so accept it as a ranked food or reject it.",
+        409,
+      );
     const slug = input.slug
       ? categorySlug(input.slug)
       : categorySlug(data.name);
@@ -536,7 +510,17 @@ export class TaxonomyService {
       receipt,
     );
     await this.refreshed([slug]);
+    await this.foodDecided(id);
     return { ...result, categoryId, slug };
+  }
+  // The decision is committed; continuing waiting products must not report
+  // it as failed. The hourly sweep finishes anything left waiting.
+  private async foodDecided(proposalId: string) {
+    try {
+      await this.effects.foodDecided?.(proposalId);
+    } catch {
+      console.error(JSON.stringify({ event: "food_continuation_failed" }));
+    }
   }
 
   // ---- Operator taxonomy management --------------------------------------

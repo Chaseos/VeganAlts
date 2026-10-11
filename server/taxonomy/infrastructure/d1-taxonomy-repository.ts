@@ -722,11 +722,24 @@ export class D1TaxonomyRepository {
       if (!(await this.countryActive(proposal.country))) throw invalidCountry();
       throw new ApplicationError(
         "PROPOSAL_LIMIT",
-        "Today's category proposal allowance is exhausted. Please try again tomorrow.",
+        "You’ve suggested the most foods allowed today. Try again tomorrow.",
         429,
       );
     }
     return { id: proposal.id };
+  }
+  /** Held submissions that suggested this food and still wait on it. */
+  async waitingProducts(proposalId: string) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT p.submission_id AS submissionId,json_extract(p.proposed_data,'$.brand') AS brand,json_extract(p.proposed_data,'$.name') AS name
+          FROM pending_submissions p JOIN submission_receipts s ON s.id=p.submission_id AND s.state='review'
+          WHERE p.category_proposal_id=? AND p.resolved_at IS NULL AND p.superseded_by IS NULL ORDER BY s.created_at LIMIT 20`,
+        )
+        .bind(proposalId)
+        .all<{ submissionId: string; brand: string; name: string }>()
+    ).results;
   }
   async countryActive(iso2: string) {
     return Boolean(
