@@ -87,6 +87,28 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
     await questions.getByRole("button", { name: "Save questions" }).click();
     await expect(page.getByRole("status")).toContainText("questions saved");
 
+    // Switching a food on in another country is reversible from the list.
+    await page.goto("/admin/taxonomy");
+    await page.getByRole("button", { name: `Edit ${name}` }).click();
+    const countries = page.getByRole("form", {
+      name: `Countries where ${name} is on`,
+    });
+    await countries.getByLabel("United Kingdom").check();
+    await countries
+      .getByRole("textbox", { name: "Reason" })
+      .fill("Sold in the United Kingdom too.");
+    await countries.getByRole("button", { name: "Save countries" }).click();
+    await expect(page.getByRole("status")).toContainText("countries saved");
+    const switched = page
+      .getByRole("region", { name: "Recent taxonomy actions" })
+      .getByRole("listitem")
+      .filter({ hasText: /countries/i })
+      .filter({ hasText: name })
+      .first();
+    await switched.getByRole("button", { name: "Reverse" }).click();
+    await expect(page.getByRole("status")).toContainText("Action reversed");
+    await expect(switched).toContainText("reversed");
+
     // Merge a second new category into it; the donor URL then redirects.
     await page.goto("/admin/taxonomy");
     const donorName = `Brats ${stamp}`;

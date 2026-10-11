@@ -15,12 +15,7 @@ import { ButtonLink } from "../components/ui/button";
 import { publicMetadata } from "../lib/metadata";
 import { formatCount, plural, shortDate } from "../lib/format";
 import type { SuggestedFood } from "../lib/instant-search";
-import {
-  foodPath,
-  homePath,
-  productPath,
-  useSiteChrome,
-} from "../lib/site-chrome";
+import { foodPath, homePath, productPath } from "../lib/site-chrome";
 import { useFoodHref } from "../lib/ranking-filters";
 import { useRememberedCountry } from "../lib/country-memory";
 import type { Route } from "./+types/home";
@@ -54,7 +49,6 @@ type Leader = Home["startWithThese"][number];
 
 // The country home (canvas: Home5, PHome5).
 export default function HomePage({ loaderData }: Route.ComponentProps) {
-  const { country } = useSiteChrome();
   useRememberedCountry(!loaderData.market || loaderData.market.code === "us");
   const [preview, setPreview] = useState<SuggestedFood | null>(null);
   const onPreview = useCallback(
@@ -64,7 +58,9 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
   if (!loaderData.catalog || !loaderData.market) return <ComingSoon />;
   const home = loaderData.catalog;
   const code = loaderData.market.code;
-  if (!country.hasRankings)
+  // Only a country without any products gets the first-product page; one
+  // whose products await ratings lists them under New and needs ratings.
+  if (home.counts.products === 0)
     return (
       <PageShell search={false}>
         <EmptyCountry name={loaderData.market.name} code={code} />

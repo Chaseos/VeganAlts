@@ -128,7 +128,7 @@ export class D1TaxonomyRepository {
           "SELECT m.id,m.donor_id AS donorId,m.survivor_id AS survivorId,m.state,m.created_at AS createdAt FROM category_merges m WHERE m.active=1 ORDER BY m.created_at DESC LIMIT 50",
         ),
         this.db.prepare(
-          "SELECT a.id,a.kind,a.target_id AS targetId,a.note,a.reversed_by AS reversedBy,a.created_at AS createdAt FROM moderation_actions a WHERE a.kind IN ('category_create','category_update','category_features','category_dimensions','category_merge','category_proposal_reject') ORDER BY a.created_at DESC LIMIT 20",
+          "SELECT a.id,a.kind,a.target_id AS targetId,a.note,a.reversed_by AS reversedBy,a.created_at AS createdAt FROM moderation_actions a WHERE a.kind IN ('category_create','category_update','category_features','category_countries','category_dimensions','category_merge','category_proposal_reject') ORDER BY a.created_at DESC LIMIT 20",
         ),
         this.db.prepare(
           "SELECT iso2,name FROM countries WHERE is_active=1 ORDER BY CASE WHEN iso2='US' THEN 0 ELSE 1 END,name",

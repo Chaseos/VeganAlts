@@ -606,11 +606,14 @@ export default function AdminTaxonomy({
                   defaultValue={features[i]?.categoryId ?? ""}
                 >
                   <option value="">Empty</option>
-                  {foods.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
+                  {/* A country features only foods that are on there. */}
+                  {foods
+                    .filter((c) => c.countries.includes(featureCountry))
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                 </select>
               </div>
             ))}
@@ -649,7 +652,11 @@ export default function AdminTaxonomy({
                   {a.reversedBy ? " · reversed" : ""}
                 </span>
                 {!a.reversedBy &&
-                  ["category_update", "category_features"].includes(a.kind) && (
+                  [
+                    "category_update",
+                    "category_features",
+                    "category_countries",
+                  ].includes(a.kind) && (
                     <button
                       type="button"
                       className="link-button"
