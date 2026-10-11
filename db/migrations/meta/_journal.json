@@ -134,6 +134,20 @@
       "when": 1791529800157,
       "tag": "0018_detail_scores",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1791683422362,
+      "tag": "0019_country_foods",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1791683498296,
+      "tag": "0020_quick_additions",
+      "breakpoints": true
     }
   ]
 }

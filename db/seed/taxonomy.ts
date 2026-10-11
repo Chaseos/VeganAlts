@@ -4,17 +4,27 @@ import { DEFAULT_DIMENSIONS } from "../../server/ratings/domain/details";
 // Production-safe taxonomy: real conventional foods and search aliases only.
 // No products, ratings, people or images. Reviewed before any production use.
 // Food → aisle → shelf → food (confirmed by the owner on 2026-10-09). Aisles
-// and shelves are non-rankable groups; a group whose natural slug belongs to
-// a food takes a suffix.
+// and shelves are non-rankable groups shared by every country; a group whose
+// natural slug belongs to a food takes a suffix. The starter shelves from
+// 2026-10-10 take one pre-emptively wherever a food could share the name,
+// because shelves have no page of their own.
 export const TAXONOMY_GROUPS = [
   { slug: "food", name: "Food", parent: null },
   { slug: "meat", name: "Meat", parent: "food" },
   { slug: "beef", name: "Beef", parent: "meat" },
   { slug: "chicken", name: "Chicken", parent: "meat" },
   { slug: "pork", name: "Pork", parent: "meat" },
+  { slug: "turkey-shelf", name: "Turkey", parent: "meat" },
+  { slug: "lamb-shelf", name: "Lamb", parent: "meat" },
+  { slug: "fish-and-seafood", name: "Fish and seafood", parent: "food" },
+  { slug: "fish-shelf", name: "Fish", parent: "fish-and-seafood" },
+  { slug: "shellfish-shelf", name: "Shellfish", parent: "fish-and-seafood" },
   { slug: "dairy", name: "Dairy", parent: "food" },
   { slug: "milk-shelf", name: "Milk", parent: "dairy" },
   { slug: "butter-shelf", name: "Butter", parent: "dairy" },
+  { slug: "cream-shelf", name: "Cream", parent: "dairy" },
+  { slug: "yogurt-shelf", name: "Yogurt", parent: "dairy" },
+  { slug: "ice-cream-shelf", name: "Ice cream", parent: "dairy" },
   { slug: "cheese", name: "Cheese", parent: "food" },
   { slug: "block-and-shredded", name: "Block and shredded", parent: "cheese" },
   {
@@ -22,6 +32,7 @@ export const TAXONOMY_GROUPS = [
     name: "Soft and spreadable",
     parent: "cheese",
   },
+  { slug: "hard-and-grated", name: "Hard and grated", parent: "cheese" },
   { slug: "eggs-aisle", name: "Eggs", parent: "food" },
   { slug: "eggs-shelf", name: "Eggs", parent: "eggs-aisle" },
 ] as const;
@@ -342,6 +353,16 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
       "c.is_rankable=1",
       DEFAULT_DIMENSIONS.map(({ key, label }) => [key, label] as const),
     ),
+  );
+  // Launch foods are on in every launch country. A food whose countries an
+  // operator has ever changed is skipped, so their choices are never undone.
+  statements.push(
+    `INSERT INTO category_countries(category_id,country_id,source,created_at)
+    SELECT c.id,co.id,'launch',${now} FROM categories c CROSS JOIN countries co
+    WHERE c.slug IN (${TAXONOMY_LEAVES.map((l) => quote(l.slug)).join(",")}) AND c.is_rankable=1
+    AND co.iso2 IN (${TAXONOMY_COUNTRIES.map((c) => quote(c.iso2)).join(",")})
+    AND NOT EXISTS(SELECT 1 FROM moderation_actions a WHERE a.kind='category_countries' AND a.target_id=c.id)
+    ON CONFLICT DO NOTHING;`,
   );
   // Features are seeded per country, only where none are configured yet.
   statements.push(
