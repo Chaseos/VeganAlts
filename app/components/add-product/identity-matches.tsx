@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Candidate } from "@server/community/domain/contracts";
 import { communityRequest } from "../../lib/community";
@@ -20,6 +20,7 @@ export function IdentityMatches({
   onExact: (match: Candidate | null) => void;
 }) {
   const [matches, setMatches] = useState<Candidate[]>([]);
+  const lastCountry = useRef(country);
   const ready = brand.trim().length >= 2 && name.trim().length >= 2;
   useEffect(() => {
     if (!ready) {
@@ -28,8 +29,11 @@ export function IdentityMatches({
       return;
     }
     // A different brand or name is no longer that exact match; the other
-    // suggestions stay until the new lookup answers.
-    setMatches((found) => found.filter((c) => !c.exact));
+    // suggestions stay until the new lookup answers. Another country's
+    // products never do.
+    const moved = lastCountry.current !== country;
+    lastCountry.current = country;
+    setMatches((found) => (moved ? [] : found.filter((c) => !c.exact)));
     onExact(null);
     let active = true;
     const timer = setTimeout(() => {

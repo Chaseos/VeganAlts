@@ -104,6 +104,8 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await expect(
       page.getByRole("complementary", { name: "Requested follow-up" }),
     ).toContainText("Please clarify");
+    // A reply stays in its submission's country.
+    await expect(page.getByLabel(/^Change country/)).toHaveCount(0);
     // Photos are files, so the front photo is chosen again.
     await page
       .getByLabel("Front of pack photo (required)")

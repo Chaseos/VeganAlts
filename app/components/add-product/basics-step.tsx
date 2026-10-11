@@ -76,39 +76,42 @@ export function BasicsStep({
         <span>
           Adding to <strong>{countryName}</strong>
         </span>
-        <Popover
-          summary="Change"
-          summaryLabel={`Change country (now ${countryName})`}
-          panelLabel="Countries"
-          className="va-add__country-menu"
-        >
-          {(close) => (
-            <ul className="va-menu-list va-country-list">
-              {countries.map((country) => {
-                const selected = country.iso2 === draft.country;
-                return (
-                  <li key={country.code}>
-                    <Link
-                      to={`?country=${country.code}`}
-                      replace
-                      aria-current={selected ? "true" : undefined}
-                      onClick={() => close()}
-                    >
-                      <span className="va-menu-check" aria-hidden="true">
-                        {selected && (
-                          <Icon name="check" size={16} strokeWidth={3} />
-                        )}
-                      </span>
-                      <span className="va-country-list__name">
-                        {country.name}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Popover>
+        {/* A reply to a follow-up stays in its submission's country. */}
+        {!draft.followUp && (
+          <Popover
+            summary="Change"
+            summaryLabel={`Change country (now ${countryName})`}
+            panelLabel="Countries"
+            className="va-add__country-menu"
+          >
+            {(close) => (
+              <ul className="va-menu-list va-country-list">
+                {countries.map((country) => {
+                  const selected = country.iso2 === draft.country;
+                  return (
+                    <li key={country.code}>
+                      <Link
+                        to={`?country=${country.code}`}
+                        replace
+                        aria-current={selected ? "true" : undefined}
+                        onClick={() => close()}
+                      >
+                        <span className="va-menu-check" aria-hidden="true">
+                          {selected && (
+                            <Icon name="check" size={16} strokeWidth={3} />
+                          )}
+                        </span>
+                        <span className="va-country-list__name">
+                          {country.name}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Popover>
+        )}
       </div>
       <FoodPicker
         id="food"
