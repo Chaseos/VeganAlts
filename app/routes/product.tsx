@@ -136,10 +136,14 @@ export default function Product({
   // shows after hydration and is cleared, so a reload doesn't repeat it.
   const location = useLocation(),
     navigate = useNavigate();
-  const [added, setAdded] = useState(false);
+  const [added, setAdded] = useState<{ rated: number | null } | null>(null);
   useEffect(() => {
-    if (!(location.state as { added?: boolean } | null)?.added) return;
-    setAdded(true);
+    const state = location.state as {
+      added?: boolean;
+      rated?: number | null;
+    } | null;
+    if (!state?.added) return;
+    setAdded({ rated: state.rated ?? null });
     void navigate(`${location.pathname}${location.search}${location.hash}`, {
       replace: true,
       state: null,
@@ -237,11 +241,18 @@ export default function Product({
             {added && (
               <Notice tone="success" title="Your product is live" role="status">
                 Thanks for adding it.{" "}
-                {food?.canRate && (
+                {added.rated ? (
                   <>
-                    Tried it? <a href="#scores-title">Rate it</a> so it joins
-                    the ranking.
+                    Your {added.rated}/5 rating is saved.{" "}
+                    <a href="#scores-title">Add detail scores</a> if you like.
                   </>
+                ) : (
+                  food?.canRate && (
+                    <>
+                      Tried it? <a href="#scores-title">Rate it</a> so it joins
+                      the ranking.
+                    </>
+                  )
                 )}
               </Notice>
             )}

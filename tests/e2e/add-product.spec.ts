@@ -1,7 +1,8 @@
 import { expect, test } from "./fixtures";
 import { accessible } from "./a11y";
 import { createBrowserSession } from "./session-fixture";
-import { chooseFood, fillBasics } from "./site";
+import { chooseFood, fillBasics, openOptional } from "./site";
+import { withLocalDb } from "./local-db";
 
 test.skip(
   Boolean(process.env.TEST_BASE_URL),
@@ -89,6 +90,25 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
   test.setTimeout(120000);
   const session = await createBrowserSession(),
     name = `Front only ${testInfo.project.name} ${Date.now()}`;
+  // A fictional store members report in the United States.
+  const store = {
+    id: `e2e-add-${testInfo.project.name}-${Date.now()}`,
+    name: `Corner Pantry ${testInfo.project.name} ${Date.now()}`,
+  };
+  await withLocalDb(async (db) => {
+    await db.batch([
+      db
+        .prepare(
+          "INSERT INTO retailers(id,canonical_name,normalized_name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+        )
+        .bind(store.id, store.name, store.id, store.id),
+      db
+        .prepare(
+          "INSERT INTO retailer_markets(retailer_id,country_id,is_active,created_at,updated_at) SELECT ?,id,1,1,1 FROM countries WHERE iso2='US'",
+        )
+        .bind(store.id),
+    ]);
+  });
   try {
     await context.addCookies([session.cookie]);
     await page.goto("/add-product?country=us&food=bacon");
@@ -116,11 +136,19 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
     await page.goBack();
     await expect(page.getByLabel("Product name (required)")).toHaveValue(name);
     await page.getByRole("button", { name: "Continue" }).click();
+    // Extras: a rating and a store, saved once the product is live.
+    await page.getByRole("button", { name: "4 Very close (4 of 5)" }).click();
+    await openOptional(page, "Where it’s sold");
+    await page.getByText(store.name, { exact: true }).click();
     await page
       .getByRole("button", { name: "Submit product", exact: true })
       .click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     await expect(page.getByText("Your product is live")).toBeVisible();
+    await expect(page.getByText("Your 4/5 rating is saved")).toBeVisible();
+    await expect(
+      page.locator("#retailers").getByText(store.name, { exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByText("Ingredients not checked yet").first(),
     ).toBeVisible();
@@ -130,6 +158,16 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
   } finally {
     await page.close();
     await session.dispose();
+    await withLocalDb((db) =>
+      db.batch(
+        [
+          "DELETE FROM retailer_confirmations WHERE retailer_id=?",
+          "DELETE FROM product_retailers WHERE retailer_id=?",
+          "DELETE FROM retailer_markets WHERE retailer_id=?",
+          "DELETE FROM retailers WHERE id=?",
+        ].map((sql) => db.prepare(sql).bind(store.id)),
+      ),
+    );
   }
 });
 

@@ -3,6 +3,8 @@ import {
   categorySearchStatements,
   productSearchStatements,
 } from "../../catalog/infrastructure/search-index";
+import { retailerConfirmationStatements } from "./contribution-repository";
+import type { AllergenDeclaration } from "../domain/allergens";
 import type {
   Actor,
   SubmissionInput,
@@ -28,6 +30,17 @@ export const RESTORED_RECEIPT_STATE = `CASE
   WHEN purpose='evidence' THEN CASE WHEN EXISTS(SELECT 1 FROM edit_proposals WHERE status='pending' AND json_extract(proposed_data,'$.evidenceReceiptId')=submission_receipts.id) THEN 'review' ELSE 'rejected' END
   WHEN EXISTS(SELECT 1 FROM pending_submissions WHERE submission_id=submission_receipts.id) THEN 'review'
   ELSE 'staging' END`;
+const EXTRAS = "submission-extras:";
+/** What a published submission still owes: its rating and declaration. */
+export interface PublicationExtrasMarker {
+  userId: string;
+  productId: string;
+  versionId: string;
+  categoryId: string | null;
+  rating: number | null;
+  allergens: AllergenDeclaration | null;
+  citedImageId: string | null;
+}
 export interface Publication {
   productId: string;
   slug: string;
@@ -283,6 +296,30 @@ export class SubmissionRepository {
         409,
       );
     }
+  }
+  async extras(receiptId: string) {
+    const row = await this.db
+      .prepare("SELECT cursor FROM community_recovery WHERE prefix=?")
+      .bind(`${EXTRAS}${receiptId}`)
+      .first<{ cursor: string }>();
+    return row ? (JSON.parse(row.cursor) as PublicationExtrasMarker) : null;
+  }
+  /** Receipts whose extras are still waiting, oldest first, for the sweep. */
+  async pendingExtras(limit = 20) {
+    return (
+      await this.db
+        .prepare(
+          "SELECT substr(prefix,?) AS id FROM community_recovery WHERE prefix LIKE ? ORDER BY prefix LIMIT ?",
+        )
+        .bind(EXTRAS.length + 1, `${EXTRAS}%`, limit)
+        .all<{ id: string }>()
+    ).results.map((row) => row.id);
+  }
+  async clearExtras(receiptId: string) {
+    await this.db
+      .prepare("DELETE FROM community_recovery WHERE prefix=?")
+      .bind(`${EXTRAS}${receiptId}`)
+      .run();
   }
   /** A suggested food's decision: its status, resolved food and note. */
   foodDecision(proposalId: string) {
@@ -630,6 +667,47 @@ export class SubmissionRepository {
               decision: "READY",
             }),
             now,
+            ...fence,
+          ),
+      );
+    // Stores chosen with the product: its contributor's "commonly found at".
+    for (const retailerId of input.retailerIds ?? [])
+      statements.push(
+        ...retailerConfirmationStatements(
+          this.db,
+          {
+            userId: receipt.user_id,
+            productId,
+            retailerId,
+            stance: "confirm",
+            now,
+          },
+          guard,
+          fence,
+        ),
+      );
+    // The contributor's rating and allergen declaration go through their own
+    // write paths right after publication; this marker keeps them until done.
+    if (input.rating || input.allergens)
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO community_recovery(prefix,cursor) SELECT ?,? WHERE ${guard} ON CONFLICT(prefix) DO UPDATE SET cursor=excluded.cursor`,
+          )
+          .bind(
+            `${EXTRAS}${receipt.id}`,
+            JSON.stringify({
+              userId: receipt.user_id,
+              productId,
+              versionId,
+              categoryId: input.categoryIds[0] ?? null,
+              rating: input.rating ?? null,
+              allergens: input.allergens ?? null,
+              citedImageId:
+                images.find((i) => i.slot === "ingredients")?.imageId ??
+                images.find((i) => i.slot === "nutrition")?.imageId ??
+                null,
+            } satisfies PublicationExtrasMarker),
             ...fence,
           ),
       );

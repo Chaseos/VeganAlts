@@ -45,6 +45,9 @@ export class SubmissionService {
     private readonly newId: () => string,
     private readonly clock = Date.now,
     private readonly foods: FoodChecks | null = null,
+    // Applies the contributor's rating and declaration once published.
+    private readonly afterPublish:
+      ((receiptId: string) => Promise<unknown>) | null = null,
   ) {}
   /**
    * Why a suggested food can't be added, as a contributor-facing reason, or
@@ -494,7 +497,7 @@ export class SubmissionService {
         receipt.planned_version_id,
         token,
       );
-      return await this.repository.publish(
+      const published = await this.repository.publish(
         actor,
         receipt,
         input,
@@ -508,6 +511,11 @@ export class SubmissionService {
         note,
         operation,
       );
+      // Publication is committed; its extras are retried hourly if this fails.
+      await this.afterPublish?.(receipt.id).catch(() =>
+        console.error(JSON.stringify({ event: "publication_extras_failed" })),
+      );
+      return published;
     } catch (error) {
       await this.repository.release(receipt.id, token, this.clock());
       if (

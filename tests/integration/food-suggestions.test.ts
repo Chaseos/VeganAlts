@@ -12,6 +12,8 @@ const testEnv = {
   ...env,
   APP_ENV: "local",
   MODERATION_PROVIDER: "fake",
+  RANKING_PRIOR_MEAN: "3.5",
+  RANKING_PRIOR_STRENGTH: "10",
 } as unknown as Cloudflare.Env;
 const photo = () =>
   Uint8Array.from(atob(env.TEST_IMAGES.jpeg), (c) => c.charCodeAt(0));
@@ -165,6 +167,14 @@ it("holds a product with its suggested food and publishes it once the food is ac
         .all<{ iso2: string }>()
     ).results.map((r) => r.iso2),
   ).toEqual(["GB"]);
+  // The rating given with the product is saved once it publishes.
+  expect(
+    await env.DB.prepare(
+      "SELECT r.overall_similarity FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=? AND r.user_id=?",
+    )
+      .bind(after!.productId, w.contributor.id)
+      .first("overall_similarity"),
+  ).toBe(4);
 });
 
 it("continues with an existing food on an alias, and asks for another on a rejection", async () => {
@@ -250,4 +260,81 @@ it("carries an undecided food through a follow-up and keeps the daily allowance"
     decision: "NEEDS_CHANGES",
     reasons: [expect.stringMatching(/most foods allowed today/)],
   });
+});
+
+it("applies the contributor's rating, store and allergen declaration once the product is live", async () => {
+  const w = await world();
+  const ranked = w.community;
+  const gb = (await env.DB.prepare(
+    "SELECT id FROM countries WHERE iso2='GB'",
+  ).first("id")) as string;
+  const store = `store-${tag()}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO retailers(id,canonical_name,normalized_name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+    ).bind(store, `Corner Shop ${store}`, store, store),
+    env.DB.prepare(
+      "INSERT INTO retailer_markets(retailer_id,country_id,is_active,created_at,updated_at) VALUES(?,?,1,1,1)",
+    ).bind(store, gb),
+  ]);
+  const input = submissionInput.parse({
+    name: `Rashers ${tag()}`,
+    brand: `Smoky ${tag()}`,
+    country: "GB",
+    categoryIds: [w.bacon],
+    imageSlots: ["front", "ingredients"],
+    noKnownAnimalIngredients: true,
+    rating: 4,
+    retailerIds: [store],
+    allergens: { status: "declared", contains: ["soy"], mayContain: [] },
+  });
+  const checked = await ranked.submissions.preflight(
+    w.contributor,
+    id(),
+    input,
+  );
+  for (const [slot, file] of [
+    ["front", env.TEST_IMAGES.jpeg],
+    ["ingredients", env.TEST_IMAGES.png],
+  ] as const)
+    await ranked.media.upload(w.contributor, {
+      receiptId: checked.receiptId!,
+      slot,
+      idempotencyKey: id(),
+      bytes: Uint8Array.from(atob(file), (c) => c.charCodeAt(0)),
+    });
+  const published = await ranked.submissions.finalize(
+    w.contributor,
+    checked.receiptId!,
+    input,
+  );
+  expect(published).toMatchObject({ decision: "READY" });
+  const productId = (published as { productId: string }).productId;
+  // The rating counts like any other, once.
+  expect(
+    await env.DB.prepare(
+      "SELECT r.overall_similarity AS score,r.is_counted AS counted,s.rating_count AS n FROM ratings r JOIN product_versions v ON v.id=r.product_version_id LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=r.category_id WHERE v.product_id=? AND r.user_id=?",
+    )
+      .bind(productId, w.contributor.id)
+      .all(),
+  ).toMatchObject({ results: [{ score: 4, counted: 1, n: 1 }] });
+  // The store is commonly found at, confirmed by the contributor.
+  expect(
+    await env.DB.prepare(
+      "SELECT status,confirmation_count AS n FROM product_retailers WHERE product_id=? AND retailer_id=?",
+    )
+      .bind(productId, store)
+      .first(),
+  ).toEqual({ status: "active", n: 1 });
+  // The declaration is an ordinary proposal citing the label photo (tier 2).
+  expect(
+    await env.DB.prepare(
+      "SELECT change_type AS kind,risk_tier AS tier,submitted_by AS user,json_extract(proposed_data,'$.citedImageId') IS NOT NULL AS cited FROM edit_proposals WHERE target_id=?",
+    )
+      .bind(productId)
+      .first(),
+  ).toEqual({ kind: "allergens", tier: 2, user: w.contributor.id, cited: 1 });
+  // Nothing is applied twice.
+  expect(await ranked.extras.apply(checked.receiptId!)).toBe(false);
+  expect(await ranked.extras.sweep()).toBe(0);
 });

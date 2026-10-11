@@ -15,6 +15,8 @@ import { SubmissionService } from "../application/submission-service";
 import { StagedMediaService } from "../application/staged-media-service";
 import { ContributionService } from "../application/contribution-service";
 import { ModerationService } from "../application/moderation-service";
+import { PublicationExtras } from "../application/publication-extras";
+import { ratingsService } from "../../ratings/infrastructure/composition";
 import {
   moderationDecisions,
   type ModerationEnv,
@@ -62,6 +64,7 @@ export function communityServices(
     newId,
     clock,
     foods,
+    (receiptId) => extras.apply(receiptId),
   );
   const contributionRepository = new ContributionRepository(env.DB, limits);
   const catalog = new CatalogDecisionRepository(repository),
@@ -81,21 +84,51 @@ export function communityServices(
     newId,
     clock,
   );
+  const contributions = new ContributionService(
+    contributionRepository,
+    lookup,
+    repository,
+    decisions,
+    media,
+    autoApply,
+    (proposalId) => moderation.autoAccept(proposalId),
+    newId,
+    clock,
+  );
+  // A product's rating and allergen declaration use their own write paths.
+  const extras: PublicationExtras = new PublicationExtras(receipts, {
+    account: async (userId) =>
+      (await env.DB.prepare(
+        "SELECT account_state FROM profiles WHERE user_id=?",
+      )
+        .bind(userId)
+        .first<string>("account_state")) ?? null,
+    rated: async (userId, versionId, categoryId) =>
+      Boolean(
+        await env.DB.prepare(
+          "SELECT 1 FROM ratings WHERE user_id=? AND product_version_id=? AND category_id=?",
+        )
+          .bind(userId, versionId, categoryId)
+          .first(),
+      ),
+    rate: async (userId, versionId, categoryId, score) => {
+      await ratingsService(env as Cloudflare.Env).rate(
+        { id: userId, accountState: "active" },
+        versionId,
+        categoryId,
+        score,
+      );
+    },
+    revision: async (productId) =>
+      (await repository.snapshot(productId)).revision,
+    propose: (actor, key, change) => contributions.propose(actor, key, change),
+  });
   return {
     lookup,
     media,
     submissions,
-    contributions: new ContributionService(
-      contributionRepository,
-      lookup,
-      repository,
-      decisions,
-      media,
-      autoApply,
-      (proposalId) => moderation.autoAccept(proposalId),
-      newId,
-      clock,
-    ),
+    contributions,
+    extras,
     moderation,
     repository,
     contributionRepository,

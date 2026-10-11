@@ -247,7 +247,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     if (outcome.kind === "published") {
       clearDraft(storage());
       await navigate(productPath(market.code, outcome.slug), {
-        state: { added: true },
+        state: { added: true, rated: draft.rating },
       });
     } else if (outcome.kind === "held") {
       clearDraft(storage());
