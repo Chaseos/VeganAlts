@@ -159,8 +159,8 @@ it("lists a suggested food only where it is on, and lets operators switch countr
   const alias = await service.propose(contributor, id(), {
     name: `Banger rolls ${s}`,
     shelfId: await shelf("pork"),
+    // The explanation is optional (milestone 6).
     country: "CA",
-    explanation: "The Canadian name for it.",
   });
   await service.decideProposal(operator, id(), alias.id, {
     decision: "alias",

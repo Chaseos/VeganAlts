@@ -73,7 +73,8 @@ export const categoryProposalInput = z
     // Category proposals choose the shelf the new food belongs on.
     shelfId: id,
     country: countryCode,
-    explanation: note,
+    // Optional since milestone 6; the shelf and name carry the suggestion.
+    explanation: z.string().trim().max(2000).optional(),
     exampleProducts: z.array(shortText).max(5).default([]),
     aliases: aliasList,
   })

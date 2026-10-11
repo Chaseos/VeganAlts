@@ -64,6 +64,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   // `?category=` with the food's ID).
   const food = query.get("food"),
     category = query.get("category");
+  // The Suggest a food page can hand over a new food with its shelf.
+  const newFood = query.get("newFood")?.trim().slice(0, 160) ?? "";
+  const shelf = query.get("shelf") ?? "";
   return {
     market,
     markets,
@@ -74,6 +77,17 @@ export async function loader({ request }: Route.LoaderArgs) {
     preselect:
       choices.foods.find((f) => f.slug === food || f.id === category)?.id ??
       null,
+    suggested:
+      newFood.length >= 2
+        ? {
+            name: newFood,
+            shelfId: choices.shelves
+              .flatMap((a) => a.shelves)
+              .some((s) => s.id === shelf)
+              ? shelf
+              : "",
+          }
+        : null,
     countryChosen: query.has("country") || Boolean(followUp),
     siteKey: env.TURNSTILE_SITE_KEY,
     followUp,
@@ -108,6 +122,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     allergens,
     options,
     preselect,
+    suggested,
     countryChosen,
     siteKey,
     followUp,
@@ -123,7 +138,11 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
         })
       : emptyDraft(
           market.iso2,
-          preselect ? { kind: "existing", id: preselect } : null,
+          suggested
+            ? { kind: "new", ...suggested, otherNames: [] }
+            : preselect
+              ? { kind: "existing", id: preselect }
+              : null,
         );
   const [draft, setDraft] = useState<ProductDraft>(initial);
   const [photos, setPhotos] = useState<Photos>({});
@@ -158,11 +177,20 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     if (!saved) return;
     const same =
       saved.country === market.iso2 &&
+      !suggested &&
       (!preselect ||
         (saved.food?.kind === "existing" && saved.food.id === preselect));
     if (same) setDraft(saved);
     else setRestored(saved);
-  }, [countryChosen, followUp, market, markets, navigate, preselect]);
+  }, [
+    countryChosen,
+    followUp,
+    market,
+    markets,
+    navigate,
+    preselect,
+    suggested,
+  ]);
   // The country comes from the page (and its food list from the loader).
   useEffect(() => {
     setDraft((d) =>

@@ -22,17 +22,17 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
       .getByRole("main")
       .getByRole("link", { name: "Suggest a food" })
       .click();
-    await expect(page.getByLabel("Conventional food")).toHaveValue(name);
-    await expect(page.getByLabel("Conventional food")).toBeEnabled();
-    // Category proposals choose the shelf the food belongs on.
+    await expect(page.getByLabel("Food name (required)")).toHaveValue(name);
+    await expect(page.getByLabel("Food name (required)")).toBeEnabled();
+    // A suggestion chooses the shelf the food belongs on; the note is optional.
     await page
-      .getByLabel("Aisle and shelf")
-      .selectOption({ label: "Meat · Pork" });
-    await page
-      .getByLabel("Why is a separate category needed?")
-      .fill("Plant-based bratwurst is sold widely and has no category yet.");
+      .getByLabel("Shelf (required)")
+      .selectOption({ label: "Meat › Pork" });
+    await expect(
+      page.getByRole("link", { name: "Add it with the product" }),
+    ).toHaveAttribute("href", /newFood=Bratwurst/);
     await accessible(page);
-    await page.getByRole("button", { name: "Send proposal" }).click();
+    await page.getByRole("button", { name: "Suggest food" }).click();
     await expect(page.getByRole("status")).toContainText("in review");
 
     await context.clearCookies();

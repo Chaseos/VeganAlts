@@ -237,7 +237,7 @@ export class TaxonomyService {
       state: {
         proposal: {
           name: input.name,
-          explanation: input.explanation,
+          explanation: input.explanation ?? "",
           aliases: input.aliases,
           exampleProducts: input.exampleProducts,
         },
@@ -261,7 +261,7 @@ export class TaxonomyService {
         name: input.name,
         parentId: input.shelfId,
         country: input.country,
-        explanation: input.explanation,
+        explanation: input.explanation ?? "",
         data: input,
         perDay: PROPOSALS_PER_DAY,
       },
