@@ -139,23 +139,34 @@ export class ModerationService {
     const clear =
       decision.decision === "READY" &&
       (!automated || automated.outcome === "READY" || unreadablePhoto);
-    if (
-      !(await this.receipts.resolveFood(
+    // Anything else to review goes to an operator with the decided food.
+    const handOver = (reasons: string[]) =>
+      this.receipts.resolveFood(
         waiting.id,
         waiting.revision,
         resolved,
-        decision.reasons,
-      ))
-    )
+        reasons,
+      );
+    if (!clear) {
+      await handOver(decision.reasons);
       return null;
-    if (!clear) return null;
-    const result = await this.submissions.publishAfterFood(
-      waiting.id,
-      resolved,
-      waiting.revision + 1,
-      unreadablePhoto,
-    );
-    return result ? { productId: result.productId } : null;
+    }
+    // Published straight from the decided details: until that succeeds the
+    // submission keeps its suggestion, so the hourly sweep finds it again
+    // after an unexpected failure. A refusal goes to an operator instead.
+    try {
+      const result = await this.submissions.publishAfterFood(
+        waiting.id,
+        resolved,
+        waiting.revision,
+        unreadablePhoto,
+      );
+      return result ? { productId: result.productId } : null;
+    } catch (error) {
+      if (!(error instanceof ApplicationError)) throw error;
+      await handOver([...decision.reasons, error.message]);
+      return null;
+    }
   }
   /** The hourly pass over decided foods that still have products waiting. */
   async sweepFoodDecisions() {

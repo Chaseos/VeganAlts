@@ -307,6 +307,35 @@ it("carries an undecided food through a follow-up and keeps the daily allowance"
   });
 });
 
+it("hands a product to an operator when it can't publish after its food is accepted", async () => {
+  const w = await world();
+  const { checked } = await submit(w, `Knackwurst ${tag()}`);
+  const proposalId = (await pending(checked.receiptId!))!.proposalId!;
+  // Its photo can no longer be published.
+  await env.DB.prepare(
+    "UPDATE staged_blobs SET state='failed' WHERE id IN (SELECT blob_id FROM submission_uploads WHERE submission_id=?)",
+  )
+    .bind(checked.receiptId)
+    .run();
+  const accepted = (await decide(w, proposalId, { decision: "accept" })) as {
+    categoryId: string;
+  };
+  const handed = await settle(async () => {
+    const row = await env.DB.prepare(
+      "SELECT s.state,p.proposed_data AS proposed,p.reasons FROM pending_submissions p JOIN submission_receipts s ON s.id=p.submission_id WHERE p.submission_id=?",
+    )
+      .bind(checked.receiptId)
+      .first<{ state: string; proposed: string; reasons: string }>();
+    expect(JSON.parse(row!.proposed).newFood).toBeUndefined();
+    return row!;
+  });
+  expect(handed.state).toBe("review");
+  expect(JSON.parse(handed.proposed).categoryIds).toEqual([
+    accepted.categoryId,
+  ]);
+  expect(JSON.parse(handed.reasons).join(" ")).toMatch(/photos/);
+});
+
 it("leaves no suggested food behind when the product can't be held", async () => {
   const w = await world();
   const input = submissionInput.parse({
