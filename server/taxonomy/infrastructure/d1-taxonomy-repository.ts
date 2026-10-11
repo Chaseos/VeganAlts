@@ -1434,15 +1434,19 @@ export class D1TaxonomyRepository {
         )
         .bind(S, merge.id, S, ...g.values),
       // Those links switched the survivor on in their products' countries;
-      // where it no longer has a visible product, it switches off again.
+      // where it no longer has a visible product, it switches off again. Only
+      // countries of products the merge linked (its ledger) qualify, so a
+      // switch an unrelated product made since stays.
       this.db
         .prepare(
           `DELETE FROM category_countries WHERE category_id=? AND source='product' AND created_at>=?
+          AND country_id IN (SELECT p.country_id FROM category_merge_moves m JOIN products p ON p.id=m.product_id
+            WHERE m.merge_id=? AND m.role='membership_added')
           AND NOT EXISTS(SELECT 1 FROM product_categories pc JOIN products p ON p.id=pc.product_id
             WHERE pc.category_id=category_countries.category_id AND p.country_id=category_countries.country_id AND p.lifecycle_status<>'hidden')
           AND ${g.sql}`,
         )
-        .bind(S, merge.created_at, ...g.values),
+        .bind(S, merge.created_at, merge.id, ...g.values),
       this.db
         .prepare(
           `UPDATE categories SET parent_id=?,revision=revision+1,updated_at=? WHERE parent_id=? AND id IN (SELECT value FROM json_each(?)) AND ${g.sql}`,

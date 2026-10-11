@@ -82,7 +82,18 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
     );
     await page.waitForTimeout(100);
     await page.goto("/add-product?country=us");
+    // A photo picked in the new form outlives setting the old draft aside.
+    await expect(
+      page.getByText("You have an unfinished product"),
+    ).toBeVisible();
+    await page
+      .getByLabel("Front of pack photo (required)")
+      .setInputFiles("tests/fixtures/small.jpg");
     await page.getByRole("button", { name: "Start a new one" }).click();
+    await page.getByLabel("Brand (required)").fill("Kept Photo");
+    await page.waitForTimeout(200);
+    await page.reload();
+    await expect(page.getByText("Selected: small.jpg")).toBeVisible();
     await fillBasics(page, {
       food: "Ground Beef",
       brand: "Beyond",

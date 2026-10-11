@@ -25,6 +25,7 @@ import { PREFERENCE_KEYS, readPreference } from "../lib/device-preferences";
 import { productPath } from "../lib/site-chrome";
 import {
   clearDraftPhotos,
+  pruneDraftPhotos,
   loadDraftPhotos,
   saveDraftPhoto,
 } from "../lib/draft-photos";
@@ -204,8 +205,9 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
       offering.current = true;
       setRestored(saved);
     }
-    // Photos only belong to the draft they were picked for.
-    else void clearDraftPhotos();
+    // Without a draft here, only stale photos go; another tab's draft keeps
+    // its own.
+    else void pruneDraftPhotos();
     setPhotosReady(true);
   }, [
     countryChosen,
@@ -240,9 +242,11 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     setPhotos((p) => ({ ...p, [slot]: file }));
     void saveDraftPhoto(draft.id, slot, file);
   };
-  const forget = () => {
+  // Forgets the saved draft and its photos; another draft's photos (one set
+  // aside, or another tab's) stay.
+  const forget = (draftId = draft.id) => {
     clearDraft(storage());
-    void clearDraftPhotos();
+    void clearDraftPhotos(draftId);
   };
   const onExact = useCallback((match: Candidate | null) => setExact(match), []);
   const basics = (): DraftErrors => ({
@@ -418,7 +422,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                 type="button"
                 className="button secondary small-button"
                 onClick={() => {
-                  forget();
+                  forget(restored.id);
                   offering.current = false;
                   setRestored(null);
                 }}

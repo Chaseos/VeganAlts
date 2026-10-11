@@ -101,8 +101,29 @@ export async function loadDraftPhotos(draftId: string, now = Date.now()) {
   return photos;
 }
 
-export function clearDraftPhotos() {
+// Removes stored photos the predicate picks; others (another tab's draft)
+// stay.
+function removePhotos(pick: (stored: StoredPhoto | undefined) => boolean) {
   return transaction("readwrite", (store) => {
-    store.clear();
+    const cursor = store.openCursor();
+    cursor.onsuccess = () => {
+      const row = cursor.result;
+      if (!row) return;
+      if (pick(row.value as StoredPhoto | undefined)) row.delete();
+      row.continue();
+    };
   });
+}
+
+/** Forgets one draft's photos. */
+export function clearDraftPhotos(draftId: string) {
+  return removePhotos((stored) => stored?.draftId === draftId);
+}
+
+/** Drops photos past the draft lifetime, or from before drafts had IDs. */
+export function pruneDraftPhotos(now = Date.now()) {
+  return removePhotos(
+    (stored) =>
+      !stored?.draftId || !stored.savedAt || now - stored.savedAt > DRAFT_TTL,
+  );
 }

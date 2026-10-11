@@ -361,8 +361,26 @@ it("switches the survivor off again where only the reversed merge put it", async
     note,
   });
   expect(await on(w.S)).toContain(w.f.otherCountryId);
+  // An unrelated survivor product, published in a third country and then
+  // hidden, made its own switch: reversing the merge leaves it.
+  const third = `third-${w.s}`,
+    P5 = `p5-${w.s}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO countries(id,iso2,name,created_at,updated_at) VALUES(?,?,?,1,1)",
+    ).bind(third, `T${w.s}`.slice(0, 12), "Third"),
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+    ).bind(P5, third, `Fifth ${w.s}`, P5),
+    env.DB.prepare(
+      "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
+    ).bind(P5, w.S),
+    env.DB.prepare(
+      "UPDATE products SET lifecycle_status='hidden' WHERE id=?",
+    ).bind(P5),
+  ]);
   await service.reverseMerge(operator, id(), merged.mergeId, note);
-  expect(await on(w.S)).toEqual([w.f.countryId]);
+  expect(await on(w.S)).toEqual([w.f.countryId, third].sort());
   expect(await on(w.D)).toContain(w.f.otherCountryId);
 });
 
