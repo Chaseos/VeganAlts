@@ -1,4 +1,16 @@
-import type { Classification } from "../domain/contracts";
+import type { Classification, PublicVeganStatus } from "../domain/contracts";
+
+// "Ingredients not checked yet" is a flag beside a placeholder status, never a
+// stored status (milestone 6). Every public read derives it with these, so an
+// unchecked formula never reads as Appears vegan.
+export function publicVeganStatus(
+  status: string,
+  ingredientsChecked: unknown,
+): PublicVeganStatus {
+  return ingredientsChecked === 0 ? "unchecked" : (status as PublicVeganStatus);
+}
+export const publicVeganStatusSql = (product = "p", version = "v") =>
+  `CASE WHEN EXISTS(SELECT 1 FROM formula_classifications uf WHERE uf.product_version_id=${version}.id AND uf.ingredients_checked=0) THEN 'unchecked' ELSE ${product}.vegan_status END`;
 
 import type {
   CommunityProductDetails,
@@ -17,7 +29,7 @@ export function communityProductStatements(
   return [
     db
       .prepare(
-        "SELECT vegan_status,manufacturer_label,evidence_data,certifications,reviewed_by FROM formula_classifications WHERE product_version_id=?",
+        "SELECT vegan_status,ingredients_checked,manufacturer_label,evidence_data,certifications,reviewed_by FROM formula_classifications WHERE product_version_id=?",
       )
       .bind(versionId),
     // Only active reports are public: uncertain or no-longer-carried rows stay
@@ -49,7 +61,10 @@ export function communityProductDetails(
   const f = classifications!.results[0];
   const classification: Classification | null = f
     ? {
-        veganStatus: f.vegan_status as Classification["veganStatus"],
+        veganStatus: publicVeganStatus(
+          String(f.vegan_status),
+          f.ingredients_checked,
+        ),
         manufacturerLabel:
           f.manufacturer_label as Classification["manufacturerLabel"],
         evidence: JSON.parse(

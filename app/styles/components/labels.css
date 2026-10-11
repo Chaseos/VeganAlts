@@ -217,6 +217,13 @@
   color: var(--va-ink);
 }
 
+/* Neutral: a fact still missing, never a warning about the product. */
+.va-status--unchecked {
+  border-color: var(--va-line-strong);
+  border-style: dashed;
+  color: var(--va-ink-2);
+}
+
 .va-status--review {
   padding-left: 7px;
   background: var(--va-warn-bg);

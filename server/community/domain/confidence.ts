@@ -45,6 +45,24 @@ export const established = (
  * products raise discontinuation and reintroduction to protected changes;
  * other tier 2 changes instead need more confirmations.
  */
+/**
+ * Checking a formula whose ingredients no one has confirmed against its own
+ * accepted ingredients or nutrition photo, as Appears vegan or Plant-based
+ * (MODERATION, milestone 6). Vegan and Under Review stay operator decisions.
+ */
+export function checksIngredients(
+  change: ProductChange,
+  snapshot: ProductSnapshot,
+) {
+  return (
+    change.kind === "classification" &&
+    snapshot.classification?.ingredientsChecked === false &&
+    (change.veganStatus === "appears_vegan" ||
+      change.veganStatus === "plant_based") &&
+    citedEvidence(snapshot).some((i) => i.id === change.citedImageId)
+  );
+}
+
 export function riskTier(
   change: ProductChange,
   snapshot: ProductSnapshot,
@@ -54,6 +72,7 @@ export function riskTier(
   const mature = established(snapshot, policy);
   switch (change.kind) {
     case "classification":
+      return checksIngredients(change, snapshot) ? 2 : 3;
     case "reformulation":
       return 3;
     case "relationships":
@@ -95,8 +114,10 @@ export function riskTier(
 }
 
 // Kinds automation may apply. Retailer availability has its own confirmation
-// counters; tier 3 is never automatic.
+// counters; tier 3 is never automatic, so only an ingredient check of an
+// unchecked formula qualifies among classification changes.
 const AUTOMATIC = new Set<ProductChange["kind"]>([
+  "classification",
   "alias",
   "source_url",
   "rename",

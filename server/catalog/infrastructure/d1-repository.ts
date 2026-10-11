@@ -29,6 +29,7 @@ import {
 import {
   communityProductDetails,
   communityProductStatements,
+  publicVeganStatusSql,
   readCanonicalRedirect,
 } from "../../community/infrastructure/public-read";
 
@@ -618,7 +619,7 @@ export class D1CatalogRepository implements CatalogRepository {
   ): Promise<ProductDetails | null> {
     const row = await this.db
       .prepare(
-        `SELECT ${identity},country.name AS country,p.vegan_status AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.lifecycle_status AS lifecycleStatus,p.data_notes AS dataNotes
+        `SELECT ${identity},country.name AS country,${publicVeganStatusSql()} AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.lifecycle_status AS lifecycleStatus,p.data_notes AS dataNotes
       FROM product_versions v ${productJoins} WHERE p.slug=? AND ${visible} AND ${versionId ? "v.id=?" : "v.is_current=1"}`,
       )
       .bind(countryId, slug, ...(versionId ? [versionId] : []))

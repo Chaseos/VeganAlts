@@ -379,7 +379,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                         aria-describedby="classification-help"
                       >
                         <option value="">
-                          Keep the provisional classification
+                          Keep what the evidence supports
                         </option>
                         <option value="appears_vegan">Appears vegan</option>
                         <option value="vegan">Vegan</option>
@@ -387,9 +387,10 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                         <option value="under_review">Under review</option>
                       </select>
                       <p id="classification-help" className="muted small">
-                        Required when the contributor could not confirm the
-                        ingredients. A chosen classification is recorded as
-                        operator-reviewed.
+                        Without a choice the product publishes with what the
+                        contributor’s evidence supports, or as “Ingredients not
+                        checked yet”. A chosen classification is recorded as
+                        operator-reviewed and marks the ingredients checked.
                       </p>
                     </>
                   )}

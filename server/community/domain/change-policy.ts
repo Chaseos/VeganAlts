@@ -156,12 +156,22 @@ export function planProductChange(
   const classification = (versionId: string): FormulaClassification => {
     if (!("veganStatus" in input))
       throw new Error("Classification requires formula fields.");
+    const cited =
+      input.kind === "classification" && input.citedImageId
+        ? [input.citedImageId]
+        : [];
     return {
       veganStatus: input.veganStatus,
       manufacturerLabel: input.manufacturerLabel,
-      evidence: input.evidence,
+      // A cited label photo is part of the classification's evidence.
+      evidence: {
+        ...input.evidence,
+        imageIds: [...new Set([...input.evidence.imageIds, ...cited])],
+      },
       certifications: input.certifications,
       reviewedBy: actorId,
+      // Any reviewed classification confirms the ingredients.
+      ingredientsChecked: true,
     };
   };
   switch (input.kind) {
@@ -216,6 +226,14 @@ export function planProductChange(
       break;
     }
     case "classification":
+      if (
+        input.citedImageId &&
+        !citedEvidence(snapshot).some((i) => i.id === input.citedImageId)
+      )
+        throw new ApplicationError(
+          "INVALID_EVIDENCE",
+          "Cite this formula’s accepted ingredients or nutrition photo.",
+        );
       before.classification = {
         versionId: snapshot.versionId,
         value: snapshot.classification,

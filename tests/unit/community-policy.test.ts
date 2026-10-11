@@ -6,7 +6,7 @@ import {
   normalizeName,
   productName,
   communityLimits,
-  provisionalStatus,
+  provisionalClassification,
 } from "../../server/community/domain/policy";
 import {
   changeInput,
@@ -51,10 +51,11 @@ it("distinguishes deterministic publication, actionable duplicates and manual re
   expect(
     decideSubmission({ ...input, specialtyFlavor: true }, []).decision,
   ).toBe("NEEDS_REVIEW");
+  // Unconfirmed ingredients publish as "not checked yet" (milestone 6).
   expect(
     decideSubmission({ ...input, noKnownAnimalIngredients: false }, [])
       .decision,
-  ).toBe("NEEDS_REVIEW");
+  ).toBe("READY");
   expect(
     decideSubmission(input, [
       {
@@ -245,23 +246,56 @@ it("refuses to restore a photo into a slot a newer photo holds", () => {
     ),
   ).not.toThrow();
 });
-it("never publishes an unconfirmed classification without an operator choice", () => {
-  expect(provisionalStatus(input)).toBe("appears_vegan");
+it("classifies by the evidence given, and more evidence never does worse", () => {
+  const unchecked = { veganStatus: "appears_vegan", ingredientsChecked: false };
+  const labels = ["vegan", "plant_based", "neither", "unknown"] as const;
+  const shapes = [
+    { imageSlots: ["front"] as const, ingredientUrl: undefined },
+    { imageSlots: ["front", "ingredients"] as const, ingredientUrl: undefined },
+    {
+      imageSlots: ["front"] as const,
+      ingredientUrl: "https://example.com/ingredients",
+    },
+  ];
+  // Rank: unchecked < plant-based < appears vegan.
+  const rank = (c: ReturnType<typeof provisionalClassification>) =>
+    !c.ingredientsChecked ? 0 : c.veganStatus === "plant_based" ? 1 : 2;
+  for (const manufacturerLabel of labels)
+    for (const noKnownAnimalIngredients of [false, true]) {
+      const facts = { manufacturerLabel, noKnownAnimalIngredients };
+      const none = provisionalClassification({ ...shapes[0]!, ...facts });
+      // No ingredient evidence is always "not checked yet".
+      expect(none).toEqual(unchecked);
+      for (const shape of shapes.slice(1)) {
+        const given = provisionalClassification({
+          ...shape,
+          imageSlots: [...shape.imageSlots],
+          ...facts,
+        });
+        expect(rank(given)).toBeGreaterThanOrEqual(rank(none));
+        expect(given).toEqual(
+          noKnownAnimalIngredients
+            ? { veganStatus: "appears_vegan", ingredientsChecked: true }
+            : manufacturerLabel === "plant_based"
+              ? { veganStatus: "plant_based", ingredientsChecked: true }
+              : unchecked,
+        );
+      }
+    }
+  // An unreadable ingredients photo counts only when a source backs it.
+  const photo = { ...input, imageSlots: ["front", "ingredients"] as const };
   expect(
-    provisionalStatus({
-      ...input,
-      noKnownAnimalIngredients: false,
-      manufacturerLabel: "plant_based",
-    }),
-  ).toBe("plant_based");
-  for (const manufacturerLabel of ["vegan", "neither", "unknown"] as const)
-    expect(
-      provisionalStatus({
-        ...input,
-        noKnownAnimalIngredients: false,
-        manufacturerLabel,
-      }),
-    ).toBeNull();
+    provisionalClassification(
+      { ...photo, imageSlots: [...photo.imageSlots], ingredientUrl: undefined },
+      { unreadablePhoto: true },
+    ),
+  ).toEqual(unchecked);
+  expect(
+    provisionalClassification(
+      { ...photo, imageSlots: [...photo.imageSlots] },
+      { unreadablePhoto: true },
+    ).ingredientsChecked,
+  ).toBe(true);
 });
 it("hides reviewer identities and non-public photos from contributors", () => {
   const view = contributorProduct(snapshot);

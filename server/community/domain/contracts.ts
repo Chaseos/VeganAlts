@@ -114,6 +114,9 @@ export type SubmissionIdentity = z.infer<typeof submissionIdentity> &
 export type Evidence = z.infer<typeof evidence>;
 export type Certification = z.infer<typeof certification>;
 export type VeganStatus = z.infer<typeof veganStatus>;
+// What readers see: a formula whose ingredients no one has confirmed reads as
+// "unchecked" (milestone 6). It is derived on read and never written.
+export type PublicVeganStatus = VeganStatus | "unchecked";
 export type ManufacturerLabel = z.infer<typeof manufacturerLabel>;
 export interface Actor {
   id: string;
@@ -150,7 +153,7 @@ export interface SubmissionReceipt {
   expires_at: number;
 }
 export interface Classification {
-  veganStatus: VeganStatus;
+  veganStatus: PublicVeganStatus;
   manufacturerLabel: ManufacturerLabel;
   evidence: Evidence;
   certifications: Certification[];
@@ -241,6 +244,9 @@ export const changeInput = z.discriminatedUnion("kind", [
       veganStatus,
       manufacturerLabel,
       certifications: z.array(certification).max(5).default([]),
+      // The formula's accepted ingredients or nutrition photo. Checking an
+      // unchecked formula against it is community-confirmable.
+      citedImageId: id.optional(),
     })
     .strict(),
   z

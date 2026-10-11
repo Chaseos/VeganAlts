@@ -234,6 +234,8 @@ export class ModerationService {
               },
               certifications: snapshot.classification?.certifications ?? [],
               reviewedBy: actor.id,
+              // Under Review is a reviewed state, never "not checked".
+              ingredientsChecked: true,
             },
           };
         } else {

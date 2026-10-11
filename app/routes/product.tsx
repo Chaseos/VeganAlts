@@ -219,6 +219,16 @@ export default function Product({
                 ratings are unavailable.
               </Notice>
             )}
+            {p.veganStatus === "unchecked" && p.formula.isCurrent && (
+              <Notice title="Ingredients not checked yet">
+                Whoever added this product didn’t include its ingredients. Have
+                the package?{" "}
+                <Link to={`/contribute/${p.id}?action=photo&slot=ingredients`}>
+                  Add an ingredients photo
+                </Link>{" "}
+                and another member can confirm it.
+              </Notice>
+            )}
             {p.veganStatus === "under_review" && (
               <Notice tone="warn">
                 An operator is assessing an ingredient concern. This formula is

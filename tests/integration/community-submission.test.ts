@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { expect, it, vi } from "vitest";
-import { catalogFixture } from "./fixtures";
+import { catalogFixture, testMarket } from "./fixtures";
+import { catalogService } from "../../server/catalog/infrastructure/composition";
 import { SubmissionService } from "../../server/community/application/submission-service";
 import { StagedMediaService } from "../../server/community/application/staged-media-service";
 import { SubmissionRepository } from "../../server/community/infrastructure/submission-repository";
@@ -457,44 +458,140 @@ it("replays a preflight key with the receipt's actual outcome", async () => {
   });
 });
 
-it("requires an operator classification before publishing unconfirmed ingredients", async () => {
+it("publishes unconfirmed ingredients as not checked yet, and an operator's choice checks them", async () => {
   const { f, repo, media, service, input, actor } = await setup();
   const admin = { ...f.users[1]!, administrator: true };
+  const classification = async (receiptId: string) =>
+    env.DB.prepare(
+      "SELECT vegan_status,ingredients_checked,reviewed_by FROM formula_classifications WHERE product_version_id=?",
+    )
+      .bind((await repo.get(receiptId))!.planned_version_id)
+      .first();
+  const publish = async (details: typeof input) => {
+    const checked = await service.preflight(actor, id(), details);
+    await media.upload(actor, {
+      receiptId: checked.receiptId!,
+      slot: "front",
+      idempotencyKey: id(),
+      bytes: photo(),
+    });
+    return {
+      checked,
+      result: await service.finalize(actor, checked.receiptId!, details),
+    };
+  };
+  // A source without "nothing animal-derived" publishes, unchecked.
   const unconfirmed = {
     ...input,
     name: `Unconfirmed ${tag()}`,
     noKnownAnimalIngredients: false,
     manufacturerLabel: "neither" as const,
   };
-  const checked = await service.preflight(actor, id(), unconfirmed);
-  expect(checked.decision).toBe("NEEDS_REVIEW");
-  await media.upload(actor, {
-    receiptId: checked.receiptId!,
-    slot: "front",
-    idempotencyKey: id(),
-    bytes: photo(),
+  const first = await publish(unconfirmed);
+  expect(first.checked.decision).toBe("READY");
+  expect(await classification(first.checked.receiptId!)).toEqual({
+    vegan_status: "appears_vegan",
+    ingredients_checked: 0,
+    reviewed_by: null,
   });
-  await service.finalize(actor, checked.receiptId!, unconfirmed);
-  await expect(
-    service.approve(admin, checked.receiptId!, unconfirmed, 0, "Reviewed."),
-  ).rejects.toMatchObject({ code: "CLASSIFICATION_REQUIRED" });
+  // Readers see "unchecked", never the placeholder status.
+  const product = await catalogService(env).product(
+    testMarket(f.countryId),
+    "slug" in first.result ? first.result.slug : "missing",
+    null,
+  );
+  expect(product.veganStatus).toBe("unchecked");
+  expect(product.classification?.veganStatus).toBe("unchecked");
+
+  // Held for another reason, an operator without a choice keeps it unchecked;
+  // a chosen classification is reviewed and checked.
+  const seasonal = {
+    ...unconfirmed,
+    name: `Seasonal ${tag()}`,
+    specialtyFlavor: true,
+  };
+  const second = await publish(seasonal);
+  expect(second.checked.decision).toBe("NEEDS_REVIEW");
   await service.approve(
     admin,
-    checked.receiptId!,
-    unconfirmed,
+    second.checked.receiptId!,
+    seasonal,
+    0,
+    "Reviewed the seasonal flavor.",
+  );
+  expect(await classification(second.checked.receiptId!)).toMatchObject({
+    ingredients_checked: 0,
+    reviewed_by: null,
+  });
+  const holiday = { ...seasonal, name: `Holiday ${tag()}` };
+  const third = await publish(holiday);
+  await service.approve(
+    admin,
+    third.checked.receiptId!,
+    holiday,
     0,
     "The operator verified the ingredient panel.",
     undefined,
     "appears_vegan",
   );
-  const receipt = (await repo.get(checked.receiptId!))!;
-  expect(
-    await env.DB.prepare(
-      "SELECT vegan_status,reviewed_by FROM formula_classifications WHERE product_version_id=?",
+  expect(await classification(third.checked.receiptId!)).toEqual({
+    vegan_status: "appears_vegan",
+    ingredients_checked: 1,
+    reviewed_by: admin.id,
+  });
+});
+
+it("lowers an unreadable ingredients photo to not checked yet instead of holding the product", async () => {
+  const { repo, media, input, actor } = await setup();
+  const service = new SubmissionService(
+    repo,
+    new CommunityLookupRepository(env.DB),
+    new StagedMediaRepository(env.DB, DEFAULT_LIMITS),
+    media,
+    moderationDecisions({
+      DB: env.DB,
+      APP_ENV: "local",
+      MODERATION_PROVIDER: "fake",
+    } as unknown as Cloudflare.Env),
+    id,
+  );
+  const classify = async (note: string) => {
+    const details = submissionInput.parse({
+      ...input,
+      name: `Panel ${tag()}`,
+      ingredientUrl: undefined,
+      imageSlots: ["front", "ingredients"],
+      statusBasis: note,
+    });
+    const checked = await service.preflight(actor, id(), details);
+    for (const [slot, bytes] of [
+      ["front", photo()],
+      [
+        "ingredients",
+        Uint8Array.from(atob(env.TEST_IMAGES.png), (c) => c.charCodeAt(0)),
+      ],
+    ] as const)
+      await media.upload(actor, {
+        receiptId: checked.receiptId!,
+        slot,
+        idempotencyKey: id(),
+        bytes,
+      });
+    const result = await service.finalize(actor, checked.receiptId!, details);
+    expect(result.decision).toBe("READY");
+    return env.DB.prepare(
+      "SELECT vegan_status AS status,ingredients_checked AS checked FROM formula_classifications WHERE product_version_id=?",
     )
-      .bind(receipt.planned_version_id)
-      .first(),
-  ).toEqual({ vegan_status: "appears_vegan", reviewed_by: admin.id });
+      .bind((await repo.get(checked.receiptId!))!.planned_version_id)
+      .first();
+  };
+  expect(await classify("The ingredient panel lists only plants.")).toEqual({
+    status: "appears_vegan",
+    checked: 1,
+  });
+  expect(
+    await classify("Blurry panel photo. [fake:evidence_quality=NONE]"),
+  ).toEqual({ status: "appears_vegan", checked: 0 });
 });
 
 it("checks large brands without a hard limit, ranks alias matches first and keeps the matched brand", async () => {

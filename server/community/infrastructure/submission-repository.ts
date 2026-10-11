@@ -306,7 +306,11 @@ export class SubmissionRepository {
     receipt: SubmissionReceipt,
     input: SubmissionInput,
     context: SubmissionContext,
-    classification: { veganStatus: VeganStatus; reviewedBy: string | null },
+    classification: {
+      veganStatus: VeganStatus;
+      ingredientsChecked: boolean;
+      reviewedBy: string | null;
+    },
     images: StagedAttachment[],
     token: string,
     newBrandId: string,
@@ -421,7 +425,7 @@ export class SubmissionRepository {
       ),
       this.db
         .prepare(
-          `INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,reviewed_by,updated_at) SELECT ?,?,?,?,?,? WHERE ${guard}`,
+          `INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,reviewed_by,ingredients_checked,updated_at) SELECT ?,?,?,?,?,?,? WHERE ${guard}`,
         )
         .bind(
           versionId,
@@ -435,6 +439,7 @@ export class SubmissionRepository {
             note: input.statusBasis,
           }),
           classification.reviewedBy,
+          classification.ingredientsChecked ? 1 : 0,
           now,
           ...fence,
         ),

@@ -12,7 +12,7 @@ import {
   administrator,
   decideSubmission,
   fingerprint,
-  provisionalStatus,
+  provisionalClassification,
 } from "../domain/policy";
 import { CommunityLookupRepository } from "../infrastructure/lookup-repository";
 import { SubmissionRepository } from "../infrastructure/submission-repository";
@@ -206,7 +206,16 @@ export class SubmissionService {
       userId: actor.id,
       ...(await this.decisionInput(receipt, input, context)),
     });
-    const outcome = combineDecisions(decision.decision, automated.outcome);
+    // An ingredients photo the check could not read lowers the classification
+    // to "Ingredients not checked yet" instead of holding the product.
+    const unreadablePhoto =
+      automated.outcome === "NEEDS_REVIEW" &&
+      automated.flags.length > 0 &&
+      automated.flags.every((flag) => flag === "ingredient_evidence");
+    const outcome = combineDecisions(
+      decision.decision,
+      unreadablePhoto ? "READY" : automated.outcome,
+    );
     if (outcome === "BLOCKED") {
       await this.repository.block(receipt.id, this.clock());
       return {
@@ -239,9 +248,8 @@ export class SubmissionService {
       );
       return { ...decision, decision: outcome, reasons, receiptId };
     }
-    // READY implies the contributor evidence supports a provisional status.
     return this.publish(actor, receipt, input, {
-      veganStatus: provisionalStatus(input)!,
+      ...provisionalClassification(input, { unreadablePhoto }),
       reviewedBy: null,
     });
   }
@@ -265,20 +273,18 @@ export class SubmissionService {
         409,
       );
     const input = submissionInput.parse(rawInput);
-    // Approval is the operator review of an unconfirmed classification; it
-    // must never fall back to a provisional status the evidence did not support.
-    const status = veganStatus ?? provisionalStatus(input);
-    if (!status)
-      throw new ApplicationError(
-        "CLASSIFICATION_REQUIRED",
-        "Choose the reviewed ingredient classification before publishing this submission.",
-      );
+    // An operator's chosen classification is reviewed; without one the
+    // product publishes with what the contributor's evidence supports, which
+    // is "Ingredients not checked yet" when it supports nothing.
+    const classification = veganStatus
+      ? { veganStatus, ingredientsChecked: true, reviewedBy: actor.id }
+      : { ...provisionalClassification(input), reviewedBy: null };
     await this.validateImages(receipt, input);
     return this.publish(
       actor,
       receipt,
       input,
-      { veganStatus: status, reviewedBy: veganStatus ? actor.id : null },
+      classification,
       expectedRevision,
       note,
       operation,
@@ -288,7 +294,11 @@ export class SubmissionService {
     actor: Actor,
     receipt: SubmissionReceipt,
     input: SubmissionInput,
-    classification: { veganStatus: VeganStatus; reviewedBy: string | null },
+    classification: {
+      veganStatus: VeganStatus;
+      ingredientsChecked: boolean;
+      reviewedBy: string | null;
+    },
     revision?: number,
     note?: string,
     operation?: ReceiptWrite,
@@ -367,7 +377,10 @@ export class SubmissionService {
       images,
       context: {
         slots: images.map((i) => i.slot),
-        ingredientPhotoRequired: !input.ingredientUrl,
+        // Only an ingredients photo without a source is checked as the
+        // product's ingredient evidence.
+        ingredientPhotoRequired:
+          input.imageSlots.includes("ingredients") && !input.ingredientUrl,
       },
     };
   }

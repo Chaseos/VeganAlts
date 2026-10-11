@@ -93,11 +93,44 @@ export function slug(value: string) {
       .slice(0, 75) || "product"
   );
 }
-// The classification contributor evidence supports without operator review.
-// Null means an operator must choose one before publication.
-export function provisionalStatus(input: SubmissionInput): VeganStatus | null {
-  if (input.noKnownAnimalIngredients) return "appears_vegan";
-  return input.manufacturerLabel === "plant_based" ? "plant_based" : null;
+export interface ProvisionalClassification {
+  veganStatus: VeganStatus;
+  // False: "Ingredients not checked yet". The status is then only the
+  // appears_vegan placeholder the database requires.
+  ingredientsChecked: boolean;
+}
+const UNCHECKED: ProvisionalClassification = {
+  veganStatus: "appears_vegan",
+  ingredientsChecked: false,
+};
+interface ClassificationFacts {
+  imageSlots: readonly string[];
+  ingredientUrl?: string;
+  noKnownAnimalIngredients?: boolean;
+  manufacturerLabel?: string;
+}
+/** An ingredients photo or a manufacturer ingredient source. */
+export const hasIngredientEvidence = (input: ClassificationFacts) =>
+  input.imageSlots.includes("ingredients") || Boolean(input.ingredientUrl);
+/**
+ * The classification contributor evidence supports without operator review
+ * (MODERATION, milestone 6). It is never "classification needed", and more
+ * evidence never produces a worse result than less. An ingredients photo the
+ * automated check could not read counts as no evidence unless a manufacturer
+ * source backs it.
+ */
+export function provisionalClassification(
+  input: ClassificationFacts,
+  { unreadablePhoto = false }: { unreadablePhoto?: boolean } = {},
+): ProvisionalClassification {
+  const evidence =
+    hasIngredientEvidence(input) && !(unreadablePhoto && !input.ingredientUrl);
+  if (!evidence) return UNCHECKED;
+  if (input.noKnownAnimalIngredients)
+    return { veganStatus: "appears_vegan", ingredientsChecked: true };
+  if (input.manufacturerLabel === "plant_based")
+    return { veganStatus: "plant_based", ingredientsChecked: true };
+  return UNCHECKED;
 }
 export function decideSubmission(
   input: SubmissionInput,
@@ -120,8 +153,6 @@ export function decideSubmission(
     reasons.push("A specialty flavor needs a category-eligibility review.");
   if (input.relatedProductId || input.productFamilyId)
     reasons.push("The proposed product relationship needs review.");
-  if (!provisionalStatus(input))
-    reasons.push("The ingredient classification needs review.");
   return {
     decision: reasons.length ? "NEEDS_REVIEW" : "READY",
     reasons,

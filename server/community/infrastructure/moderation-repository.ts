@@ -125,6 +125,7 @@ export class ModerationRepository {
             String(f.certifications),
           ) as FormulaClassification["certifications"],
           reviewedBy: f.reviewed_by as string | null,
+          ingredientsChecked: f.ingredients_checked !== 0,
         }
       : null;
     return {
