@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import type { QueueDecisionRepository } from "@server/community/infrastructure/queue-decision-repository";
 import { friendly, dateLabel } from "../lib/community";
+import { veganStatusLabel } from "./ui/badges";
 import {
   allergenDeclaration,
   describeDeclaration,
@@ -274,7 +275,12 @@ export function ContributionContent({
             <dt>Lifecycle</dt>
             <dd>{friendly(product.lifecycleStatus)}</dd>
             <dt>Platform classification</dt>
-            <dd>{friendly(product.veganStatus)}</dd>
+            <dd>
+              {/* An unchecked formula stores only a placeholder status. */}
+              {product.classification?.ingredientsChecked === false
+                ? veganStatusLabel("unchecked")
+                : friendly(product.veganStatus)}
+            </dd>
             <dt>Manufacturer wording</dt>
             <dd>{friendly(product.manufacturerLabel)}</dd>
             <dt>Allergens on file</dt>

@@ -172,6 +172,31 @@ it("lists a suggested food only where it is on, and lets operators switch countr
   expect(await foodsIn("ca")).toContain(slug);
 });
 
+it("shows a newly opened country the shared aisles to start from", async () => {
+  await env.DB.batch(
+    taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
+  );
+  // Opening a country switches no foods on there.
+  await env.DB.prepare(
+    "INSERT INTO countries(id,iso2,name,is_active,created_at,updated_at) VALUES(?,'DE','Germany',1,1,1)",
+  )
+    .bind(`country-${id()}`)
+    .run();
+  const catalog = catalogService(env);
+  const de = await catalog.market("de");
+  expect(await foodsIn("de")).toEqual([]);
+  const home = await catalog.home(de);
+  expect(home.counts.products).toBe(0);
+  expect(home.aisles.map((a) => a.slug)).toEqual(
+    expect.arrayContaining(["meat", "dairy"]),
+  );
+  expect(
+    home.aisles.flatMap((a) => a.shelves.flatMap((s) => s.foods)),
+  ).toContainEqual(
+    expect.objectContaining({ slug: "ground-beef", best: null }),
+  );
+});
+
 it("skips a shelf level that only repeats its aisle or food", async () => {
   await env.DB.batch(
     taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),

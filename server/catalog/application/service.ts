@@ -321,7 +321,15 @@ export class CatalogService {
         this.repository.productCount(market.id),
       ]);
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
-    const aisles = aisleTree(taxonomy.categories, counts);
+    const here = aisleTree(taxonomy.categories, counts);
+    // A newly opened country has no foods switched on yet: its home lists the
+    // shared aisles so people can add the first products there.
+    const aisles = here.length
+      ? here
+      : aisleTree(
+          taxonomy.categories.map((node) => ({ ...node, available: 1 })),
+          counts,
+        );
     const foods = aisles.flatMap((aisle) =>
       aisle.shelves.flatMap((shelf) => shelf.foods),
     );
