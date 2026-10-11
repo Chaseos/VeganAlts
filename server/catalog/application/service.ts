@@ -239,7 +239,12 @@ export class CatalogService {
   // A group category's place: Food itself, an aisle (its own page), a shelf
   // (its aisle with the shelf selected) or a deeper group (its aisle).
   async aisle(market: Market, slug: string) {
-    const taxonomy = await this.repository.taxonomy(market.id);
+    const [taxonomy, productCount] = await Promise.all([
+      this.repository.taxonomy(market.id),
+      this.repository.productCount(market.id),
+    ]);
+    // Like its home, a country without products shows the shared foods.
+    const shared = !productCount;
     const shape = taxonomyShape(taxonomy.categories);
     const node = [...shape.values()].find((item) => item.slug === slug);
     if (!node || node.isRankable)
@@ -268,7 +273,7 @@ export class CatalogService {
             (item) =>
               item.parentId === shelf.id &&
               !item.outsideDepth &&
-              item.available !== 0,
+              (shared || item.available !== 0),
           )
           .sort(byName),
       }))

@@ -323,13 +323,12 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
       forget();
       await navigate(productPath(market.code, outcome.slug), {
         // "Saved" only when the server confirms it, "follows" only when it
-        // will be retried; a rating that can never count says neither.
+        // will be retried; a rating that can never count, or an unknown
+        // outcome (a replayed publication), says neither.
         state: {
           added: true,
           rated: outcome.rating === "saved" ? draft.rating : null,
-          ratingPending:
-            Boolean(draft.rating) &&
-            (outcome.rating === "pending" || outcome.rating === null),
+          ratingPending: outcome.rating === "pending",
         },
       });
     } else if (outcome.kind === "held") {

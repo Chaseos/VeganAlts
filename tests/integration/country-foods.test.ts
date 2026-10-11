@@ -206,6 +206,11 @@ it("shows a newly opened country the shared aisles to start from", async () => {
       productCount: 0,
     }),
   );
+  // Its aisle pages list the same shared foods.
+  const meat = await catalog.aisle(de, "meat");
+  expect(
+    meat.kind === "aisle" && meat.shelves.flatMap((s) => s.foods).length,
+  ).toBeGreaterThan(1);
   // A first product without a rating switches its food on and counts.
   const beef = (await env.DB.prepare(
     "SELECT id FROM categories WHERE slug='ground-beef'",
