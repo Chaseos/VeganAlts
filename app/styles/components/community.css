@@ -637,3 +637,18 @@
   margin: 0;
   padding-left: 1.3em;
 }
+
+.photo-picker__chosen {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 0;
+}
+
+.photo-picker__chosen img {
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--va-line);
+  border-radius: 8px;
+  object-fit: cover;
+}

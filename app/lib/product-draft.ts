@@ -64,6 +64,9 @@ const draftSchema = z.object({
   followUp: z
     .object({ submissionId: z.string(), expectedRevision: z.number() })
     .optional(),
+  // The food a link chose when the draft began, so returning to that link
+  // continues the draft even after the food was changed.
+  startedFrom: z.string().optional(),
   savedAt: z.number(),
 });
 export type ProductDraft = z.infer<typeof draftSchema>;
@@ -91,6 +94,7 @@ export function emptyDraft(
       relationship: "",
       specialtyFlavor: false,
     },
+    ...(food?.kind === "existing" ? { startedFrom: food.id } : {}),
     savedAt: now,
   };
 }

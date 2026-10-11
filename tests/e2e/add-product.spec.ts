@@ -132,6 +132,17 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
       "Everything here is optional",
     );
     await accessible(page);
+    // A reload keeps the picked photo too (phones often reload after the
+    // camera), so step 2 stays open.
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "Add more (optional)" }),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/step=more/);
+    // The form is enabled once hydrated; Back before that races hydration.
+    await expect(
+      page.getByRole("button", { name: "Submit product", exact: true }),
+    ).toBeEnabled();
     // Back returns to the basics with everything kept.
     await page.goBack();
     await expect(page.getByLabel("Product name (required)")).toHaveValue(name);

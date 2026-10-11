@@ -123,8 +123,23 @@ export function PhotoPicker({
           {error}
         </p>
       )}
-      {file && <p className="small">Selected: {file.name}</p>}
+      {file && <ChosenPhoto file={file} />}
     </div>
+  );
+}
+// A thumbnail of a picked photo (a blob: URL, never uploaded until submit).
+function ChosenPhoto({ file }: { file: File }) {
+  const [preview, setPreview] = useState<string | null>(null);
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  return (
+    <p className="photo-picker__chosen">
+      {preview && <img src={preview} alt="" width={56} height={56} />}
+      <span className="small">Selected: {file.name}</span>
+    </p>
   );
 }
 import { useEffect, useState, type ReactNode } from "react";

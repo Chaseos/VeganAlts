@@ -56,7 +56,7 @@ export function responsePolicy(
     headers.set("Strict-Transport-Security", "max-age=31536000");
     headers.set(
       "Content-Security-Policy",
-      `default-src 'self'; script-src 'self' ${nonce ? `'nonce-${nonce}'` : ""} https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com https://*.cloudflareinsights.com https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self' https://accounts.google.com https://appleid.apple.com; upgrade-insecure-requests`,
+      `default-src 'self'; script-src 'self' ${nonce ? `'nonce-${nonce}'` : ""} https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://cloudflareinsights.com https://*.cloudflareinsights.com https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self' https://accounts.google.com https://appleid.apple.com; upgrade-insecure-requests`,
     );
   }
   if (environment !== "production")

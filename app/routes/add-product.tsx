@@ -24,6 +24,11 @@ import { useCommunityAction, type CommunityOptions } from "../lib/community";
 import { PREFERENCE_KEYS, readPreference } from "../lib/device-preferences";
 import { productPath } from "../lib/site-chrome";
 import {
+  clearDraftPhotos,
+  loadDraftPhotos,
+  saveDraftPhoto,
+} from "../lib/draft-photos";
+import {
   basicsErrors,
   clearDraft,
   emptyDraft,
@@ -146,6 +151,8 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
         );
   const [draft, setDraft] = useState<ProductDraft>(initial);
   const [photos, setPhotos] = useState<Photos>({});
+  // Photos come back from IndexedDB asynchronously after hydration.
+  const [photosReady, setPhotosReady] = useState(false);
   const [restored, setRestored] = useState<ProductDraft | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [shownErrors, setShownErrors] = useState<DraftErrors>({});
@@ -160,7 +167,6 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
   // that opened the page) and, without a chosen country, the remembered one.
   useEffect(() => {
     if (hydrated.current) return;
-    hydrated.current = true;
     if (!countryChosen) {
       const saved = readPreference(PREFERENCE_KEYS.country);
       if (
@@ -168,20 +174,32 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
         saved !== market.code &&
         markets.some((m) => m.code === saved)
       ) {
+        // The page reloads its data for that country; this runs again then.
         void navigate(`?country=${saved}`, { replace: true });
         return;
       }
     }
-    if (followUp) return;
-    const saved = loadDraft(storage());
-    if (!saved) return;
+    hydrated.current = true;
+    const saved = followUp ? null : loadDraft(storage());
     const same =
+      saved &&
       saved.country === market.iso2 &&
       !suggested &&
       (!preselect ||
+        saved.startedFrom === preselect ||
         (saved.food?.kind === "existing" && saved.food.id === preselect));
-    if (same) setDraft(saved);
-    else setRestored(saved);
+    if (saved && same) {
+      setDraft(saved);
+      void loadDraftPhotos().then((stored) => {
+        setPhotos((picked) => ({ ...stored, ...picked }));
+        setPhotosReady(true);
+      });
+      return;
+    }
+    if (saved) setRestored(saved);
+    // Photos only belong to the draft they were picked for.
+    else void clearDraftPhotos();
+    setPhotosReady(true);
   }, [
     countryChosen,
     followUp,
@@ -205,8 +223,14 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     (patch: Partial<ProductDraft>) => setDraft((d) => ({ ...d, ...patch })),
     [],
   );
-  const setPhoto = (slot: PhotoSlot, file: File | undefined) =>
+  const setPhoto = (slot: PhotoSlot, file: File | undefined) => {
     setPhotos((p) => ({ ...p, [slot]: file }));
+    void saveDraftPhoto(slot, file);
+  };
+  const forget = () => {
+    clearDraft(storage());
+    void clearDraftPhotos();
+  };
   const onExact = useCallback((match: Candidate | null) => setExact(match), []);
   const basics = (): DraftErrors => ({
     ...basicsErrors(draft, photos),
@@ -241,6 +265,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     : {};
   // Step 2 with missing basics (after a reload, photos are gone) returns to 1.
   useEffect(() => {
+    if (!photosReady) return;
     if (step === "more" && Object.keys(basicsErrors(draft, photos)).length) {
       const query = new URLSearchParams(params);
       query.delete("step");
@@ -248,8 +273,8 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
       setShownErrors(basicsErrors(draft, photos));
       setAttempt((n) => n + 1);
     }
-    // Only when arriving on step 2.
-  }, [step]);
+    // Only when arriving on step 2, once saved photos are back.
+  }, [step, photosReady]);
 
   const onContinue = () => {
     const found = basics();
@@ -273,12 +298,12 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     );
     if (!outcome) return;
     if (outcome.kind === "published") {
-      clearDraft(storage());
+      forget();
       await navigate(productPath(market.code, outcome.slug), {
         state: { added: true, rated: draft.rating },
       });
     } else if (outcome.kind === "held") {
-      clearDraft(storage());
+      forget();
       setHeld(outcome.receiptId);
       focusHeading();
     } else {
@@ -293,7 +318,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     }
   };
   const startOver = () => {
-    clearDraft(storage());
+    forget();
     setDraft(emptyDraft(market.iso2));
     setPhotos({});
     setHeld(null);
@@ -347,6 +372,9 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                 onClick={() => {
                   setDraft({ ...restored, country: market.iso2 });
                   setRestored(null);
+                  void loadDraftPhotos().then((stored) =>
+                    setPhotos((picked) => ({ ...stored, ...picked })),
+                  );
                 }}
               >
                 Continue it
@@ -355,7 +383,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                 type="button"
                 className="button secondary small-button"
                 onClick={() => {
-                  clearDraft(storage());
+                  forget();
                   setRestored(null);
                 }}
               >
