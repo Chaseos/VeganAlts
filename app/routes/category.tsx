@@ -30,7 +30,7 @@ import {
   itemList,
   publicMetadata,
 } from "../lib/metadata";
-import { COUNTRY_LAYOUT_ID } from "../lib/site-chrome";
+import { COUNTRY_LAYOUT_ID, useSiteChrome } from "../lib/site-chrome";
 import { hasFilters, readFilters } from "@server/catalog/domain/filters";
 import {
   foodPath,
@@ -164,14 +164,28 @@ export function meta({ loaderData, matches }: Route.MetaArgs) {
       : loaderData?.kind === "food"
         ? loaderData.category.slug
         : null;
+  // A food has versions only in the countries where it is on.
+  const versions =
+    loaderData?.kind === "food"
+      ? countries.filter((country) =>
+          loaderData.availability.countries.includes(country.code),
+        )
+      : countries;
   const alternates = slug
     ? countryAlternates(
         loaderData?.origin ?? "https://veganalts.com",
-        countries,
+        versions,
         (code) => foodPath(code, slug),
       )
     : [];
-  return [...pageMeta(loaderData), ...alternates];
+  // A food that is not on here invites the first product but isn't indexed.
+  const hidden =
+    loaderData?.kind === "food" &&
+    !loaderData.availability.here &&
+    !loaderData.staging
+      ? [{ name: "robots", content: "noindex" }]
+      : [];
+  return [...pageMeta(loaderData), ...alternates, ...hidden];
 }
 function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
   if (loaderData?.kind === "aisle")
@@ -212,7 +226,7 @@ function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
     ...publicMetadata(
       data
         ? `Best vegan alternatives to ${data.category.name.toLowerCase()}`
-        : "Category",
+        : "Food",
       `Compare vegan ${data?.category.name.toLowerCase() ?? "food"} alternatives, ranked by similarity with rating counts and formula details.`,
       // Filtered pages declare the unfiltered ranking canonical.
       data
@@ -255,7 +269,62 @@ function AislePage({ data }: { data: AisleData }) {
   );
 }
 
+/** A food that is not on in this country yet: invite its first product. */
+function NotHereYet({ data }: { data: FoodData }) {
+  const code = data.market.code;
+  const food = data.category.name;
+  const names = new Map(
+    useSiteChrome().countries.map((country) => [country.code, country.name]),
+  );
+  const elsewhere = data.availability.countries[0];
+  return (
+    <PageShell width="wide">
+      <div className="va-ranking__main">
+        <header className="va-ranking__head">
+          <Breadcrumb
+            items={[
+              { label: "All foods", to: homePath(code) },
+              { label: food },
+            ]}
+          />
+          <h1 className="va-ranking__title">
+            Vegan alternatives to {food.toLowerCase()}
+          </h1>
+        </header>
+        <EmptyState
+          title={`Not in ${data.market.name} yet`}
+          actions={
+            <>
+              <ButtonLink
+                to={`/add-product?country=${code}&food=${data.category.slug}`}
+              >
+                Add a product
+              </ButtonLink>
+              {elsewhere && (
+                <Link
+                  className="button secondary"
+                  to={foodPath(elsewhere, data.category.slug)}
+                >
+                  See it in {names.get(elsewhere) ?? elsewhere.toUpperCase()}
+                </Link>
+              )}
+            </>
+          }
+        >
+          Know a vegan {food.toLowerCase()} swap sold here? Add it and{" "}
+          {food.toLowerCase()} opens in {data.market.name}.
+        </EmptyState>
+      </div>
+    </PageShell>
+  );
+}
+
 function FoodRanking({ data }: { data: FoodData }) {
+  if (!data.availability.here) return <NotHereYet data={data} />;
+  return <FoodRankingList data={data} />;
+}
+
+function FoodRankingList({ data }: { data: FoodData }) {
   const code = data.market.code;
   const food = data.category.name;
   const filtered = hasFilters(data.filters);
@@ -326,7 +395,16 @@ function FoodRanking({ data }: { data: FoodData }) {
               items={[
                 { label: "All foods", to: homePath(code) },
                 ...(data.place.aisle
-                  ? [{ label: data.place.aisle.name, to: aislePath }]
+                  ? [
+                      {
+                        // "Eggs aisle / Eggs" rather than "Eggs / Eggs".
+                        label:
+                          data.place.aisle.name === food
+                            ? `${food} aisle`
+                            : data.place.aisle.name,
+                        to: aislePath,
+                      },
+                    ]
                   : []),
                 ...(data.place.shelf && data.place.aisle
                   ? [
@@ -457,7 +535,7 @@ function FoodRanking({ data }: { data: FoodData }) {
                 }
                 actions={
                   <ButtonLink
-                    to={`/add-product?category=${data.category.id}&country=${code}`}
+                    to={`/add-product?country=${code}&food=${data.category.slug}`}
                   >
                     Add a product
                   </ButtonLink>
@@ -552,9 +630,13 @@ function FoodRanking({ data }: { data: FoodData }) {
             Know a {food.toLowerCase()} swap that isn’t here?{" "}
             <Link
               className="va-link"
-              to={`/add-product?category=${data.category.id}&country=${code}`}
+              to={`/add-product?country=${code}&food=${data.category.slug}`}
             >
               Add a product
+            </Link>
+            . Replacing something else?{" "}
+            <Link className="va-link" to={`/propose-category?country=${code}`}>
+              Suggest a food
             </Link>
           </p>
         </div>
@@ -581,7 +663,7 @@ function FoodSidebar({
       </Link>
       {aisle.shelves.map((shelf) => (
         <div key={shelf.slug}>
-          <p className="va-overline">{shelf.name}</p>
+          {!shelf.silent && <p className="va-overline">{shelf.name}</p>}
           <ul>
             {shelf.foods.map((food) => (
               <li key={food.slug}>

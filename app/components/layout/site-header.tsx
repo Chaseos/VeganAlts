@@ -22,10 +22,13 @@ export function SiteHeader({
   aisles = true,
   phoneBack,
   phoneTitle,
+  countryMenu = true,
 }: {
   // Home carries its own hero search.
   search?: boolean;
   aisles?: boolean;
+  // Off where the page chooses its own country (Add a product).
+  countryMenu?: boolean;
   phoneBack?: PhoneBack;
   // Phone pages may place their H1 inside the kale band.
   phoneTitle?: ReactNode;
@@ -70,9 +73,11 @@ export function SiteHeader({
           </div>
         )}
         <div className="va-header__tools">
-          <span className="va-desktop-only">
-            <CountryMenu />
-          </span>
+          {countryMenu && (
+            <span className="va-desktop-only">
+              <CountryMenu />
+            </span>
+          )}
           <span className="va-desktop-only">
             <AppearanceMenu />
           </span>

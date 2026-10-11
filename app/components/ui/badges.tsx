@@ -29,6 +29,8 @@ const VEGAN_STATUS: Record<string, { label: string; tone: string }> = {
   appears_vegan: { label: "Appears vegan", tone: "appears" },
   plant_based: { label: "Plant-based", tone: "plant" },
   under_review: { label: "Under review", tone: "review" },
+  // Not a vegan status: no one has confirmed the ingredients (milestone 6).
+  unchecked: { label: "Ingredients not checked yet", tone: "unchecked" },
 };
 
 export const veganStatusLabel = (status: string) =>

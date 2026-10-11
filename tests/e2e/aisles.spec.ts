@@ -110,6 +110,22 @@ test("aisle pages render shelves on the server and shelves redirect into their a
   await expect(
     page.getByRole("main").getByRole("link", { name: "Suggest a food" }),
   ).toHaveAttribute("href", "/propose-category?country=us");
+  // Shelves that only repeat their food leave Dairy without a shelf rail.
+  await page.goto("/us/dairy");
+  await expect(page.getByRole("navigation", { name: "Shelves" })).toHaveCount(
+    0,
+  );
+  // A shelf that repeats its aisle is skipped in the crumbs (phones show a
+  // back link instead).
+  await page.goto("/us/eggs");
+  if (!isPhone(page)) {
+    const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
+    await expect(crumbs).toContainText("Eggs aisle");
+    await expect(crumbs.getByRole("link")).toHaveCount(2);
+  }
+  await expect(
+    page.getByRole("link", { name: "Suggest a food" }).last(),
+  ).toHaveAttribute("href", "/propose-category?country=us");
 });
 
 test("without JavaScript and on phones, aisles are links to their pages", async ({

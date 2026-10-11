@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { Link, redirect } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, redirect, useLocation, useNavigate } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   publicLoader,
@@ -93,7 +94,7 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
       p
         ? `${p.name}${p.formula.isCurrent ? "" : " · Formula history"}`
         : "Product",
-      `Explore ${p?.name ?? "this vegan alternative"}, its category scores, formula history and community experience.`,
+      `Explore ${p?.name ?? "this vegan alternative"}, its scores for each food, formula history and community experience.`,
       `${productPath(data?.market.code ?? "us", p?.slug ?? "")}${p && !p.formula.isCurrent ? `?version=${p.versionId}` : ""}`,
       origin,
       data?.staging ?? true,
@@ -131,6 +132,31 @@ export default function Product({
   loaderData: { product: p, comments, market },
 }: Route.ComponentProps) {
   const code = market.code;
+  // Navigation state from Add a product, never part of the cached page. It
+  // shows after hydration and is cleared, so a reload doesn't repeat it.
+  const location = useLocation(),
+    navigate = useNavigate();
+  const [added, setAdded] = useState<{
+    rated: number | null;
+    ratingPending: boolean;
+  } | null>(null);
+  useEffect(() => {
+    const state = location.state as {
+      added?: boolean;
+      rated?: number | null;
+      ratingPending?: boolean;
+    } | null;
+    if (!state?.added) return;
+    setAdded({
+      rated: state.rated ?? null,
+      ratingPending: state.ratingPending === true,
+    });
+    void navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: null,
+      preventScrollReset: true,
+    });
+  }, [location, navigate]);
   const food = p.categories.find((c) => c.slug === p.food) ?? null;
   const others = p.categories.filter((c) => c.isActive && c.id !== food?.id);
   const labels = Object.fromEntries(
@@ -158,7 +184,16 @@ export default function Product({
           items={[
             { label: "All foods", to: homePath(code) },
             ...(p.place?.aisle
-              ? [{ label: p.place.aisle.name, to: aislePath }]
+              ? [
+                  {
+                    // "Eggs aisle / Eggs" rather than "Eggs / Eggs".
+                    label:
+                      p.place.aisle.name === food?.name
+                        ? `${p.place.aisle.name} aisle`
+                        : p.place.aisle.name,
+                    to: aislePath,
+                  },
+                ]
               : []),
             ...(p.place?.shelf
               ? [
@@ -210,6 +245,55 @@ export default function Product({
                 ratings are unavailable.
               </Notice>
             )}
+            {added && (
+              <Notice tone="success" title="Your product is live" role="status">
+                Thanks for adding it.{" "}
+                {added.rated ? (
+                  <>
+                    Your {added.rated}/5 rating is saved.{" "}
+                    <a href="#scores-title">Add detail scores</a> if you like.
+                  </>
+                ) : added.ratingPending ? (
+                  <>Your rating will be saved in a moment.</>
+                ) : (
+                  food?.canRate && (
+                    <>
+                      Tried it? <a href="#scores-title">Rate it</a> so it joins
+                      the ranking.
+                    </>
+                  )
+                )}
+              </Notice>
+            )}
+            {p.veganStatus === "unchecked" &&
+              p.formula.isCurrent &&
+              // A label photo already on file only needs checking; without one,
+              // someone adds it first.
+              (p.images.some(
+                (i) => i.slot === "ingredients" || i.slot === "nutrition",
+              ) ? (
+                <Notice title="Ingredients not checked yet">
+                  No one has checked this product’s ingredients against its
+                  label photo yet.{" "}
+                  <Link
+                    to={`/contribute/${p.id}?action=change&kind=classification`}
+                  >
+                    Check the ingredients
+                  </Link>{" "}
+                  and another member can confirm it.
+                </Notice>
+              ) : (
+                <Notice title="Ingredients not checked yet">
+                  Whoever added this product didn’t include its ingredients.
+                  Have the package?{" "}
+                  <Link
+                    to={`/contribute/${p.id}?action=photo&slot=ingredients`}
+                  >
+                    Add an ingredients photo
+                  </Link>{" "}
+                  and another member can confirm it.
+                </Notice>
+              ))}
             {p.veganStatus === "under_review" && (
               <Notice tone="warn">
                 An operator is assessing an ingredient concern. This formula is

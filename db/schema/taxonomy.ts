@@ -148,3 +148,30 @@ export const categoryFeatures = sqliteTable(
     index("ix_category_features_order").on(t.countryId, t.position),
   ],
 );
+
+// A food (rankable leaf) is listed in a country only once it is switched on
+// there. Aisles and shelves are shared by every country (milestone 6).
+export const categoryCountries = sqliteTable(
+  "category_countries",
+  {
+    categoryId: text("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    countryId: text("country_id")
+      .notNull()
+      .references(() => countries.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    createdBy: text("created_by").references(() => profiles.userId, {
+      onDelete: "set null",
+    }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.categoryId, t.countryId] }),
+    index("ix_category_countries_country").on(t.countryId, t.categoryId),
+    check(
+      "ck_category_countries_source",
+      sql`${t.source} IN ('launch','proposal','product','operator')`,
+    ),
+  ],
+);

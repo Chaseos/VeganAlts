@@ -1,29 +1,49 @@
 import { env } from "cloudflare:workers";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { communityPageActor } from "@server/community/http/page";
 import { communityServices } from "@server/community/infrastructure/composition";
-import type {
-  Candidate,
-  SubmissionInput,
-  SubmissionDecision,
-} from "@server/community/domain/contracts";
-import type { ImageSlot } from "@server/media/domain/media";
-import { SiteShell } from "../components/catalog";
+import { catalogService } from "@server/catalog/infrastructure/composition";
+import type { Candidate } from "@server/community/domain/contracts";
+import { PageShell } from "../components/layout/page-shell";
+import { Notice } from "../components/ui/feedback";
 import {
-  CommunityFeedback,
   CommunityControls,
+  CommunityFeedback,
   GuidelinesNote,
-  PhotoPicker,
-  ManufacturerField,
 } from "../components/community-form";
 import {
-  useCommunityAction,
-  communityRequest,
-  type CommunityOptions,
-} from "../lib/community";
-import { CatalogSelect } from "../components/catalog-select";
-import { catalogService } from "@server/catalog/infrastructure/composition";
+  BASICS_FIELDS,
+  BasicsStep,
+} from "../components/add-product/basics-step";
+import { MORE_FIELDS, MoreStep } from "../components/add-product/more-step";
+import { ErrorSummary } from "../components/add-product/error-summary";
+import { InReview } from "../components/add-product/in-review";
+import { useSubmission } from "../components/add-product/use-submission";
+import { useCommunityAction, type CommunityOptions } from "../lib/community";
+import { PREFERENCE_KEYS, readPreference } from "../lib/device-preferences";
+import { productPath } from "../lib/site-chrome";
+import {
+  clearDraftPhotos,
+  pruneDraftPhotos,
+  loadDraftPhotos,
+  saveDraftPhoto,
+} from "../lib/draft-photos";
+import {
+  basicsErrors,
+  clearDraft,
+  draftKey,
+  emptyDraft,
+  extrasErrors,
+  forCountry,
+  fromSubmission,
+  loadDraft,
+  saveDraft,
+  toSubmission,
+  type DraftErrors,
+  type PhotoSlot,
+  type ProductDraft,
+} from "../lib/product-draft";
 import type { Route } from "./+types/add-product";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -31,24 +51,54 @@ export async function loader({ request }: Route.LoaderArgs) {
   const services = communityServices(env);
   const query = new URL(request.url).searchParams;
   const followUpId = query.get("followUp");
+  const followUp = followUpId
+    ? await services.submissions.revisionSource(actor, followUpId)
+    : null;
   // A product belongs to the country of the page it was added from.
   const catalog = catalogService(env);
   const markets = (await catalog.markets()).map((row) => row.market);
+  const wanted = (followUp?.input.country ?? query.get("country") ?? "")
+    .toLowerCase()
+    .trim();
   const market =
-    markets.find(
-      (m) => m.code === (query.get("country") ?? "us").toLowerCase(),
-    ) ?? markets[0]!;
+    markets.find((m) => m.code === wanted) ??
+    markets.find((m) => m.code === "us") ??
+    markets[0]!;
+  const [choices, options] = await Promise.all([
+    catalog.contributionChoices(market),
+    services.contributions.options(actor, "", market.iso2),
+  ]);
+  // A food page links here with its food chosen (`?food=`, or the older
+  // `?category=` with the food's ID).
+  const food = query.get("food"),
+    category = query.get("category");
+  // The Suggest a food page can hand over a new food with its shelf.
+  const newFood = query.get("newFood")?.trim().slice(0, 160) ?? "";
+  const shelf = query.get("shelf") ?? "";
   return {
     market,
     markets,
-    options: (await services.contributions.options(
-      actor,
-    )) as unknown as CommunityOptions,
+    foods: choices.foods,
+    shelves: choices.shelves,
+    allergens: choices.allergens,
+    options: options as unknown as CommunityOptions,
+    preselect:
+      choices.foods.find((f) => f.slug === food || f.id === category)?.id ??
+      null,
+    suggested:
+      newFood.length >= 2
+        ? {
+            name: newFood,
+            shelfId: choices.shelves
+              .flatMap((a) => a.shelves)
+              .some((s) => s.id === shelf)
+              ? shelf
+              : "",
+          }
+        : null,
+    countryChosen: query.has("country") || Boolean(followUp),
     siteKey: env.TURNSTILE_SITE_KEY,
-    category: query.get("category"),
-    followUp: followUpId
-      ? await services.submissions.revisionSource(actor, followUpId)
-      : null,
+    followUp,
   };
 }
 export function meta() {
@@ -57,542 +107,407 @@ export function meta() {
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
-export default function AddProduct({
-  loaderData: { options, siteKey, category, followUp, market, markets },
-}: Route.ComponentProps) {
-  const [step, setStep] = useState(1),
-    [name, setName] = useState(followUp?.input.name ?? ""),
-    [brand, setBrand] = useState(followUp?.input.brand ?? ""),
-    [categories, setCategories] = useState<string[]>(
-      followUp?.input.categoryIds ?? (category ? [category] : []),
-    ),
-    [candidates, setCandidates] = useState<Candidate[]>([]),
-    [countryCode, setCountryCode] = useState(
-      followUp?.input.country ?? market.iso2,
-    );
-  const [brandOptions, setBrandOptions] = useState(options.brands);
-  useEffect(() => {
-    let active = true;
-    const timer = setTimeout(() => {
-      void communityRequest<CommunityOptions>(
-        `community/options?q=${encodeURIComponent(brand)}`,
-      )
-        .then((value) => {
-          if (active) setBrandOptions(value.brands);
+
+type Photos = Partial<Record<PhotoSlot, File>>;
+const storage = () => {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Add a product (milestone 6): the basics, then optional details, then one
+ * submit. Step 2 is `?step=more`, so Back returns to the basics.
+ */
+export default function AddProduct({ loaderData }: Route.ComponentProps) {
+  const {
+    market,
+    markets,
+    foods,
+    shelves,
+    allergens,
+    options,
+    preselect,
+    suggested,
+    countryChosen,
+    siteKey,
+    followUp,
+  } = loaderData;
+  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const step = params.get("step") === "more" ? "more" : "basics";
+  const key = draftKey(followUp);
+  const initial = () =>
+    followUp
+      ? fromSubmission(followUp.input, {
+          submissionId: followUp.submissionId,
+          expectedRevision: followUp.expectedRevision,
         })
-        .catch(() => {
-          if (active) setBrandOptions(options.brands);
-        });
-    }, 250);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [brand, options.brands]);
-  const [files, setFiles] = useState<Partial<Record<ImageSlot, File>>>({}),
-    [ingredientUrl, setIngredientUrl] = useState(
-      followUp?.input.ingredientUrl ?? "",
-    ),
-    [details, setDetails] = useState<SubmissionInput | null>(
-      followUp?.input ?? null,
-    ),
-    [receipt, setReceipt] = useState<string | null>(null),
-    [result, setResult] = useState<string | null>(null);
-  const action = useCommunityAction(),
-    navigate = useNavigate(),
-    title = useRef<HTMLHeadingElement>(null),
-    key = useRef<string | null>(null),
-    uploaded = useRef(new Set<string>());
-  const go = (n: number) => {
-    action.clearError();
-    setStep(n);
-    requestAnimationFrame(() => title.current?.focus());
-  };
-  const identity = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await action.run(async () => {
-      const found = await action.request<Candidate[]>(
-        "submissions/check-identity",
-        { name, brand, country: countryCode, categoryIds: categories },
-      );
-      setCandidates(found);
-      go(2);
-    });
-  };
-  const evidence = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    if (!files.front || (!files.ingredients && !ingredientUrl)) {
-      void action.run(async () => {
-        throw new Error(
-          "Choose a front photo and add an ingredient-panel photo or manufacturer source.",
+      : emptyDraft(
+          market.iso2,
+          suggested
+            ? { kind: "new", ...suggested, otherNames: [] }
+            : preselect
+              ? { kind: "existing", id: preselect }
+              : null,
         );
+  const [draft, setDraft] = useState<ProductDraft>(initial);
+  const [photos, setPhotos] = useState<Photos>({});
+  // Photos come back from IndexedDB asynchronously after hydration.
+  const [photosReady, setPhotosReady] = useState(false);
+  const [restored, setRestored] = useState<ProductDraft | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [shownErrors, setShownErrors] = useState<DraftErrors>({});
+  const [exact, setExact] = useState<Candidate | null>(null);
+  const [held, setHeld] = useState<string | null>(null);
+  const action = useCommunityAction();
+  const submission = useSubmission(action);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const hydrated = useRef(false);
+  // A saved draft offered for restoring stays saved until the choice. A ref,
+  // because the autosave runs in the same flush that offers it.
+  const offering = useRef(false);
+
+  // After hydration: a saved draft (offered when it disagrees with the link
+  // that opened the page) and, without a chosen country, the remembered one.
+  useEffect(() => {
+    if (hydrated.current) return;
+    if (!countryChosen) {
+      const saved = readPreference(PREFERENCE_KEYS.country);
+      if (
+        saved &&
+        saved !== market.code &&
+        markets.some((m) => m.code === saved)
+      ) {
+        // The page reloads its data for that country; this runs again then.
+        void navigate(`?country=${saved}`, { replace: true });
+        return;
+      }
+    }
+    hydrated.current = true;
+    // A follow-up reply restores only its own draft, for the same request.
+    const stored = loadDraft(storage(), Date.now(), key);
+    const saved =
+      followUp &&
+      (stored?.followUp?.submissionId !== followUp.submissionId ||
+        stored.followUp.expectedRevision !== followUp.expectedRevision)
+        ? null
+        : stored;
+    const same =
+      saved &&
+      saved.country === market.iso2 &&
+      !suggested &&
+      (!preselect ||
+        saved.startedFrom === preselect ||
+        (saved.food?.kind === "existing" && saved.food.id === preselect));
+    if (saved && same) {
+      setDraft(saved);
+      void loadDraftPhotos(saved.id).then((stored) => {
+        setPhotos((picked) => ({ ...stored, ...picked }));
+        setPhotosReady(true);
       });
       return;
     }
-    const related = String(form.get("related") ?? ""),
-      family = String(form.get("family") ?? "");
-    setDetails({
-      name,
-      brand,
-      country: countryCode,
-      categoryIds: categories,
-      imageSlots: Object.keys(files).filter(
-        (slot) => files[slot as ImageSlot],
-      ) as ImageSlot[],
-      ...(ingredientUrl ? { ingredientUrl } : {}),
-      statusBasis: String(form.get("statusBasis")),
-      noKnownAnimalIngredients: form.get("noAnimal") === "on",
-      manufacturerLabel: String(
-        form.get("manufacturerLabel"),
-      ) as SubmissionInput["manufacturerLabel"],
-      specialtyFlavor: form.get("specialty") === "on",
-      ...(followUp
-        ? {
-            followUp: {
-              submissionId: followUp.submissionId,
-              expectedRevision: followUp.expectedRevision,
-            },
-          }
-        : {}),
-      ...(family ? { productFamilyId: family } : {}),
-      ...(related
-        ? {
-            relatedProductId: related,
-            relationship: String(
-              form.get("relationship"),
-            ) as SubmissionInput["relationship"],
-          }
-        : {}),
-    });
-    go(4);
+    if (saved) {
+      offering.current = true;
+      setRestored(saved);
+    }
+    // Without a draft here, only stale photos go; another tab's draft keeps
+    // its own.
+    else void pruneDraftPhotos();
+    setPhotosReady(true);
+  }, [
+    countryChosen,
+    followUp,
+    market,
+    markets,
+    navigate,
+    preselect,
+    suggested,
+  ]);
+  // The country comes from the page, and so do its stores and allergen list.
+  const offered = {
+    retailerIds: options.retailers.map((r) => r.id),
+    allergens: allergens.map((a) => a.key),
   };
-  const submit = () =>
-    action.run(async () => {
-      if (!details) return;
-      key.current ??= crypto.randomUUID();
-      let receiptId = receipt;
-      if (!receiptId) {
-        const checked = await action.request<
-          SubmissionDecision & { receiptId: string | null; slug?: string }
-        >("submissions/preflight", details, key.current);
-        // A retried key may already have been published.
-        if (checked.slug) {
-          await navigate(
-            `/${countryCode.toLowerCase()}/products/${checked.slug}`,
-          );
-          return;
+  useEffect(() => {
+    setDraft((d) =>
+      d.country === market.iso2 ? d : forCountry(d, market.iso2, offered),
+    );
+    // The offered lists arrive with the country's loader data.
+  }, [market.iso2]);
+  useEffect(() => {
+    if (hydrated.current && !held && !offering.current)
+      saveDraft(storage(), draft, Date.now(), key);
+  }, [draft, held, restored]);
+
+  const update = useCallback(
+    (patch: Partial<ProductDraft>) => setDraft((d) => ({ ...d, ...patch })),
+    [],
+  );
+  const setPhoto = (slot: PhotoSlot, file: File | undefined) => {
+    setPhotos((p) => ({ ...p, [slot]: file }));
+    void saveDraftPhoto(draft.id, slot, file);
+  };
+  // Forgets the saved draft and its photos; another draft's photos (one set
+  // aside, or another tab's) stay.
+  const forget = (draftId = draft.id) => {
+    clearDraft(storage(), key);
+    void clearDraftPhotos(draftId);
+  };
+  const onExact = useCallback((match: Candidate | null) => setExact(match), []);
+  const basics = (): DraftErrors => ({
+    ...basicsErrors(draft, photos),
+    ...(exact
+      ? {
+          duplicate:
+            "This product is already on VeganAlts. Rate it instead, or change the name if it’s a different flavor or formula.",
         }
-        if (checked.decision === "NEEDS_CHANGES" || !checked.receiptId) {
-          setCandidates(checked.candidates);
-          go(2);
-          throw new Error(checked.reasons.join(" "));
-        }
-        receiptId = checked.receiptId;
-        setReceipt(receiptId);
-      }
-      for (const slot of details.imageSlots)
-        if (!uploaded.current.has(slot)) {
-          const form = new FormData();
-          form.set("slot", slot);
-          form.set("image", files[slot]!);
-          await action.request(
-            `submissions/${receiptId}/uploads`,
-            form,
-            `${key.current}_${slot}`,
-          );
-          uploaded.current.add(slot);
-        }
-      const saved = await action.request<{
-        decision: string;
-        slug?: string;
-        reasons?: string[];
-      }>(`submissions/${receiptId}/finalize`, details, key.current);
-      if (saved.decision === "READY" && saved.slug) {
-        await navigate(`/${countryCode.toLowerCase()}/products/${saved.slug}`);
-        return;
-      }
-      if (saved.decision === "BLOCKED") {
-        // A blocked receipt is closed; any revision starts a fresh submission.
-        setReceipt(null);
-        key.current = null;
-        uploaded.current.clear();
-        throw new Error(
-          saved.reasons?.join(" ") || "This submission cannot be accepted.",
-        );
-      }
-      if (saved.decision === "NEEDS_CHANGES")
-        throw new Error(
-          `${saved.reasons?.join(" ") ?? "Review the product details."} Choose “Revise submission” to replace the photos.`,
-        );
-      setResult(receiptId);
-      go(5);
-    });
+      : {}),
+  });
+  const focusHeading = () =>
+    requestAnimationFrame(() => heading.current?.focus());
+  const goTo = (next: "basics" | "more") => {
+    const query = new URLSearchParams(params);
+    if (next === "more") query.set("step", "more");
+    else query.delete("step");
+    setParams(query, { preventScrollReset: true });
+    setShownErrors({});
+    action.clearError();
+    focusHeading();
+  };
+  // Live corrections once a step was attempted: fixed fields drop out. A
+  // refusal from the server (a duplicate, a food name already taken) stays
+  // until the next attempt, since nothing here can recheck it.
+  const errors = attempt
+    ? Object.fromEntries(
+        Object.keys(shownErrors).map((field) => {
+          const live = (step === "basics" ? basics() : extrasErrors(draft))[
+            field as keyof DraftErrors
+          ];
+          return [
+            field,
+            field === "duplicate" ? (live ?? shownErrors.duplicate) : live,
+          ];
+        }),
+      )
+    : {};
+  // Step 2 with missing basics (after a reload, photos are gone) returns to 1.
+  useEffect(() => {
+    if (!photosReady) return;
+    if (step === "more" && Object.keys(basicsErrors(draft, photos)).length) {
+      const query = new URLSearchParams(params);
+      query.delete("step");
+      setParams(query, { replace: true });
+      setShownErrors(basicsErrors(draft, photos));
+      setAttempt((n) => n + 1);
+    }
+    // Only when arriving on step 2, once saved photos are back.
+  }, [step, photosReady]);
+
+  const onContinue = () => {
+    const found = basics();
+    if (Object.keys(found).length) {
+      setShownErrors(found);
+      setAttempt((n) => n + 1);
+      return;
+    }
+    goTo("more");
+  };
+  const onSubmit = async () => {
+    const found = extrasErrors(draft);
+    if (Object.keys(found).length) {
+      setShownErrors(found);
+      setAttempt((n) => n + 1);
+      return;
+    }
+    const outcome = await submission.submit(
+      toSubmission(draft, photos),
+      photos,
+    );
+    if (!outcome) return;
+    if (outcome.kind === "published") {
+      forget();
+      await navigate(productPath(market.code, outcome.slug), {
+        // "Saved" only when the server confirms it, "follows" only when it
+        // will be retried; a rating that can never count, or an unknown
+        // outcome (a replayed publication), says neither.
+        state: {
+          added: true,
+          rated: outcome.rating === "saved" ? draft.rating : null,
+          ratingPending: outcome.rating === "pending",
+        },
+      });
+    } else if (outcome.kind === "held") {
+      forget();
+      setHeld(outcome.receiptId);
+      focusHeading();
+    } else {
+      // An exact duplicate was found after all: back to the basics.
+      goTo("basics");
+      setShownErrors({
+        duplicate:
+          outcome.reasons.join(" ") ||
+          "This product is already on VeganAlts. Rate it instead.",
+      });
+      setAttempt((n) => n + 1);
+    }
+  };
+  const startOver = () => {
+    forget();
+    setDraft(emptyDraft(market.iso2));
+    setPhotos({});
+    setHeld(null);
+    offering.current = false;
+    setRestored(null);
+    goTo("basics");
+  };
+  const title = held
+    ? "Thanks, your product is in review"
+    : step === "basics"
+      ? "The basics"
+      : "Add more (optional)";
   return (
-    <SiteShell compact>
+    <PageShell width="narrow" countryMenu={false}>
       <CommunityControls>
         <header className="page-heading">
           <p className="eyebrow">Grow the community catalog</p>
           <h1>Add a product</h1>
           <p>
-            A clear package photo and ingredient evidence help everyone find a
-            reliable alternative.
+            Tell us the basics first. Everything else is optional and can be
+            added later by anyone.
           </p>
           <GuidelinesNote />
         </header>
         {followUp && (
           <aside className="community-panel" aria-label="Requested follow-up">
-            <h2>Respond to the operator</h2>
+            <h2>Respond to the moderator</h2>
             <p>{followUp.note}</p>
             <p>
-              Update the details and attach the photos you want reviewed. Your
+              Update the details and add the photos you want reviewed again.
+              Your{" "}
               <Link
                 to={`/my-contributions/submission/${followUp.submissionId}`}
               >
-                {" "}
-                original submission and evidence
+                original submission
               </Link>{" "}
-              remain in your history. This response will return to manual
-              review.
+              stays in your history, and this response returns to review.
             </p>
           </aside>
         )}
-        <ol className="step-list" aria-label="Submission progress">
-          {["Identify", "Check matches", "Add evidence", "Review"].map(
-            (label, i) => (
-              <li
-                key={label}
-                aria-current={step === i + 1 ? "step" : undefined}
-              >
-                {i + 1}. {label}
-              </li>
-            ),
-          )}
-        </ol>
-        <section className="community-panel">
-          <h2 tabIndex={-1} ref={title}>
-            {
-              [
-                "",
-                "Identify your product",
-                "Check existing products",
-                "Show what’s on the package",
-                "Review your submission",
-                "Submitted for review",
-              ][step]
-            }
-          </h2>
-          {step === 1 && (
-            <form className="community-form" onSubmit={identity}>
-              <label htmlFor="product-name">Product name</label>
-              <input
-                id="product-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                minLength={2}
-                maxLength={160}
-              />
-              <p className="small muted">
-                Include the flavor or formula name. Package sizes share one
-                product.
-              </p>
-              <label htmlFor="brand-name">Brand</label>
-              <input
-                id="brand-name"
-                list="brand-options"
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-                required
-                minLength={2}
-                maxLength={160}
-              />
-              <datalist id="brand-options">
-                {brandOptions.map((b) => (
-                  <option key={b.id} value={b.name} />
-                ))}
-              </datalist>
-              <p className="small muted">
-                Select an existing brand when possible. A new brand is checked
-                with your submission.
-              </p>
-              <label htmlFor="country">Country</label>
-              <select
-                id="country"
-                value={countryCode}
-                onChange={(event) => setCountryCode(event.target.value)}
-              >
-                {markets.map((m) => (
-                  <option key={m.code} value={m.iso2}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-              <p className="small muted">
-                Where you buy it. Each country keeps its own rankings.
-              </p>
-              <fieldset>
-                <legend>What does it replace?</legend>
-                <p className="small muted">
-                  Choose up to five appropriate categories. Missing one?{" "}
-                  <Link to="/propose-category">Propose a category</Link>.
-                </p>
-                <div className="checkbox-grid">
-                  {options.categories.map((c) => (
-                    <label key={c.id}>
-                      <input
-                        type="checkbox"
-                        checked={categories.includes(c.id)}
-                        onChange={(e) =>
-                          setCategories(
-                            e.target.checked
-                              ? [...categories, c.id]
-                              : categories.filter((id) => id !== c.id),
-                          )
-                        }
-                      />
-                      {c.name}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
+        {restored && (
+          <Notice title="You have an unfinished product">
+            <p>
+              {restored.brand || restored.name
+                ? `${[restored.brand, restored.name].filter(Boolean).join(" · ")} is saved on this device.`
+                : "A product you started is saved on this device."}
+            </p>
+            <div className="button-row">
               <button
-                className="button"
-                disabled={
-                  action.busy || !categories.length || categories.length > 5
-                }
+                type="button"
+                className="button small-button"
+                onClick={() => {
+                  // A draft stays in its own country: the page follows it
+                  // there, with that country's foods, stores and allergens.
+                  setDraft(restored);
+                  offering.current = false;
+                  setRestored(null);
+                  // Only that draft's photos: any picked meanwhile belong
+                  // to the draft being set aside.
+                  void loadDraftPhotos(restored.id).then(setPhotos);
+                  if (restored.country !== market.iso2)
+                    void navigate(
+                      `?country=${restored.country.toLowerCase()}`,
+                      { replace: true },
+                    );
+                }}
               >
-                Check for matches →
+                Continue it
               </button>
-            </form>
-          )}
-          {step === 2 && (
-            <>
-              <p>
-                {candidates.length
-                  ? "These entries may already cover this product. Different package sizes use the same entry; distinct flavors and formulas stay separate."
-                  : "No likely matches found. Continue with ingredient evidence."}
-              </p>
-              <ul className="candidate-list">
-                {candidates.map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      to={`/${countryCode.toLowerCase()}/products/${c.slug}`}
-                    >
-                      {c.brand} · {c.name}
-                    </Link>
-                    <span>
-                      {c.exact ? "Existing product" : "Related entry"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <div className="button-row">
-                <button className="button secondary" onClick={() => go(1)}>
-                  Edit details
-                </button>
-                {!candidates.some((c) => c.exact) && (
-                  <button className="button" onClick={() => go(3)}>
-                    {candidates.length
-                      ? "This is a different product"
-                      : "Add evidence →"}
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-          {step === 3 && (
-            <form className="community-form" onSubmit={evidence}>
-              <p className="small muted">
-                JPEG, PNG or WebP. Up to 10 MiB and 40 megapixels each; three
-                photos total. Photos remain private until publication.
-              </p>
-              {(["front", "ingredients", "back"] as const).map((slot) => (
-                <PhotoPicker
-                  key={slot}
-                  slot={slot}
-                  file={files[slot]}
-                  required={slot === "front"}
-                  onChange={(file) =>
-                    setFiles((old) => ({ ...old, [slot]: file }))
-                  }
-                />
-              ))}
-              <label htmlFor="ingredient-source">
-                Manufacturer ingredient source{" "}
-                {files.ingredients
-                  ? "(optional)"
-                  : "(required without ingredient photo)"}
-              </label>
-              <input
-                id="ingredient-source"
-                type="url"
-                value={ingredientUrl}
-                onChange={(e) => setIngredientUrl(e.target.value)}
-                required={!files.ingredients}
-                maxLength={1000}
-                placeholder="https://"
-              />
-              <ManufacturerField value={details?.manufacturerLabel} />
-              <label htmlFor="status-basis">
-                What supports the ingredient classification?
-              </label>
-              <textarea
-                id="status-basis"
-                name="statusBasis"
-                required
-                minLength={8}
-                maxLength={2000}
-                rows={4}
-                defaultValue={details?.statusBasis}
-              />
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="noAnimal"
-                  defaultChecked={details?.noKnownAnimalIngredients ?? true}
-                />
-                I found no known animal-derived ingredients in this evidence.
-              </label>
-              <p className="small muted">
-                Automatic publication uses a provisional classification. “Vegan”
-                and certification claims require operator review.
-              </p>
-              <details>
-                <summary>Variants and related products (optional)</summary>
-                <CatalogSelect
-                  id="product-family"
-                  name="family"
-                  label="Product family"
-                  kind="families"
-                  options={options.families}
-                  defaultValue={details?.productFamilyId}
-                />
-                <CatalogSelect
-                  id="related-product"
-                  name="related"
-                  label="Related product"
-                  kind="products"
-                  options={options.products}
-                  defaultValue={details?.relatedProductId}
-                />
-                <label htmlFor="relationship">Relationship</label>
-                <select
-                  id="relationship"
-                  name="relationship"
-                  defaultValue={details?.relationship ?? "variant"}
-                >
-                  <option value="variant">Variant</option>
-                  <option value="specialty_flavor">Specialty flavor</option>
-                  <option value="companion">Companion</option>
-                  <option value="successor">Successor</option>
-                </select>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    name="specialty"
-                    defaultChecked={details?.specialtyFlavor}
-                  />
-                  Specialty flavor: review category eligibility.
-                </label>
-              </details>
-              <div className="button-row">
-                <button
-                  type="button"
-                  className="button secondary"
-                  onClick={() => go(2)}
-                >
-                  Back
-                </button>
-                <button className="button">Review submission →</button>
-              </div>
-            </form>
-          )}
-          {step === 4 && details && (
-            <>
-              <dl className="review-facts">
-                <dt>Product</dt>
-                <dd>
-                  {brand} · {name}
-                </dd>
-                <dt>Country</dt>
-                <dd>
-                  {markets.find((m) => m.iso2 === details.country)?.name ??
-                    details.country}
-                </dd>
-                <dt>Replaces</dt>
-                <dd>
-                  {options.categories
-                    .filter((c) => categories.includes(c.id))
-                    .map((c) => c.name)
-                    .join(", ")}
-                </dd>
-                <dt>Photos</dt>
-                <dd>{details.imageSlots.join(", ")}</dd>
-                <dt>Ingredient source</dt>
-                <dd>{ingredientUrl || "Uploaded ingredient panel"}</dd>
-                <dt>Evidence</dt>
-                <dd>{details.statusBasis}</dd>
-              </dl>
-              <p>
-                Clear submissions publish provisionally. Ambiguous identities,
-                ingredient concerns, and relationships go to an operator for
-                review.
-              </p>
-              {receipt && (
-                <p role="status">
-                  Submission saved. {uploaded.current.size} of{" "}
-                  {details.imageSlots.length} photos processed. Retry resumes
-                  this submission.
-                </p>
-              )}
-              <div className="button-row">
-                <button
-                  className="button secondary"
-                  disabled={action.busy}
-                  onClick={() => {
-                    setReceipt(null);
-                    key.current = null;
-                    uploaded.current.clear();
-                    go(3);
-                  }}
-                >
-                  {receipt ? "Revise submission" : "Edit evidence"}
-                </button>
-                <button
-                  className="button"
-                  disabled={
-                    action.busy || (action.challenge && !action.hasToken)
-                  }
-                  onClick={() => void submit()}
-                >
-                  {action.busy
-                    ? "Processing submission…"
-                    : receipt
-                      ? "Resume submission"
-                      : "Submit product"}
-                </button>
-              </div>
-            </>
-          )}
-          {step === 5 && result && (
-            <>
-              <p>
-                Your evidence is private while an operator reviews the
-                submission. You can check the outcome and any requested
-                corrections in My contributions.
-              </p>
-              <Link
-                className="button"
-                to={`/my-contributions/submission/${result}`}
+              <button
+                type="button"
+                className="button secondary small-button"
+                onClick={() => {
+                  forget(restored.id);
+                  offering.current = false;
+                  setRestored(null);
+                }}
               >
-                View submission receipt →
-              </Link>
+                Start a new one
+              </button>
+            </div>
+          </Notice>
+        )}
+        {!held && (
+          <ol className="step-list" aria-label="Steps">
+            <li aria-current={step === "basics" ? "step" : undefined}>
+              1. The basics
+            </li>
+            <li aria-current={step === "more" ? "step" : undefined}>
+              2. Add more (optional)
+            </li>
+          </ol>
+        )}
+        <section className="community-panel">
+          <h2 tabIndex={-1} ref={heading}>
+            {title}
+          </h2>
+          {held ? (
+            <InReview
+              receiptId={held}
+              countryName={market.name}
+              newFood={draft.food?.kind === "new" ? draft.food.name : null}
+              hasRating={Boolean(draft.rating)}
+              onAnother={startOver}
+            />
+          ) : (
+            <>
+              <ErrorSummary
+                errors={errors}
+                fieldIds={{ ...BASICS_FIELDS, ...MORE_FIELDS }}
+                attempt={attempt}
+              />
+              {step === "basics" ? (
+                <BasicsStep
+                  draft={draft}
+                  update={update}
+                  photos={photos}
+                  setPhoto={setPhoto}
+                  foods={foods}
+                  shelves={shelves}
+                  allowSuggest
+                  brands={options.brands}
+                  countries={markets}
+                  countryName={market.name}
+                  errors={errors}
+                  onExact={onExact}
+                  onContinue={onContinue}
+                  busy={action.busy}
+                />
+              ) : (
+                <MoreStep
+                  draft={draft}
+                  update={update}
+                  photos={photos}
+                  setPhoto={setPhoto}
+                  foods={foods}
+                  countryName={market.name}
+                  allergenList={allergens}
+                  options={options}
+                  errors={errors}
+                  onEdit={() => goTo("basics")}
+                  onSubmit={() => void onSubmit()}
+                  busy={action.busy}
+                  progress={submission.progress}
+                />
+              )}
             </>
           )}
           <CommunityFeedback action={action} siteKey={siteKey} />
         </section>
       </CommunityControls>
-    </SiteShell>
+    </PageShell>
   );
 }

@@ -12,6 +12,9 @@ export interface FormulaClassification {
   evidence: Evidence;
   certifications: Certification[];
   reviewedBy: string | null;
+  // False: "Ingredients not checked yet" (the status is a placeholder).
+  // Absent in actions recorded before milestone 6, which were all checked.
+  ingredientsChecked?: boolean;
 }
 export interface ProductSnapshot {
   id: string;
@@ -136,6 +139,7 @@ export function contributorProduct(
       evidence: classification.evidence,
       certifications: classification.certifications,
       reviewed: classification.reviewedBy !== null,
+      ingredientsChecked: classification.ingredientsChecked !== false,
     },
     images: images.filter((i) => ["accepted", "archived"].includes(i.state)),
   };

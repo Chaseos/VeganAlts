@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import type { QueueDecisionRepository } from "@server/community/infrastructure/queue-decision-repository";
 import { friendly, dateLabel } from "../lib/community";
+import { veganStatusLabel } from "./ui/badges";
 import {
   allergenDeclaration,
   describeDeclaration,
@@ -77,7 +78,7 @@ export function ProposalSummary({
       )}
       {Array.isArray(input.categoryIds) && (
         <p>
-          <strong>Replacement categories:</strong>{" "}
+          <strong>Foods it replaces:</strong>{" "}
           {input.categoryIds
             .map(String)
             .map((id) => labels[id] ?? id)
@@ -122,9 +123,7 @@ export function ProposalSummary({
               (entry: { categoryId: string; eligible: boolean }) => (
                 <li key={entry.categoryId}>
                   {labels[entry.categoryId] ?? entry.categoryId}:{" "}
-                  {entry.eligible
-                    ? "Eligible"
-                    : "Excluded from this category's ranking"}
+                  {entry.eligible ? "Eligible" : "Not ranked for this food"}
                 </li>
               ),
             )}
@@ -276,7 +275,12 @@ export function ContributionContent({
             <dt>Lifecycle</dt>
             <dd>{friendly(product.lifecycleStatus)}</dd>
             <dt>Platform classification</dt>
-            <dd>{friendly(product.veganStatus)}</dd>
+            <dd>
+              {/* An unchecked formula stores only a placeholder status. */}
+              {product.classification?.ingredientsChecked === false
+                ? veganStatusLabel("unchecked")
+                : friendly(product.veganStatus)}
+            </dd>
             <dt>Manufacturer wording</dt>
             <dd>{friendly(product.manufacturerLabel)}</dd>
             <dt>Allergens on file</dt>

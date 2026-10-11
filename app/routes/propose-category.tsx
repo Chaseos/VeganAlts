@@ -4,7 +4,8 @@ import { Link } from "react-router";
 import { communityPageActor } from "@server/community/http/page";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader } from "@server/catalog/http/loader";
-import { SiteShell } from "../components/catalog";
+import { PageShell } from "../components/layout/page-shell";
+import { ShelfSelect } from "../components/shelf-select";
 import {
   CommunityControls,
   CommunityFeedback,
@@ -42,113 +43,106 @@ const list = (value: FormDataEntryValue | null) =>
     .filter(Boolean);
 
 export default function ProposeCategory({
-  loaderData: { siteKey, market, aisles, shelf, name },
+  loaderData: { siteKey, market, aisles, shelf, name: initialName },
 }: Route.ComponentProps) {
   const action = useCommunityAction();
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [name, setName] = useState(initialName);
+  const [shelfId, setShelfId] = useState(
+    aisles
+      .flatMap((a) => a.shelves)
+      .find((s) => s.slug === shelf || s.id === shelf)?.id ?? "",
+  );
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const explanation = String(form.get("explanation") ?? "").trim();
     const done = await action.run(() =>
       action.request("category-proposals", {
-        name: form.get("name"),
-        shelfId: form.get("shelf"),
+        name,
+        shelfId,
         country: market.code,
-        explanation: form.get("explanation"),
-        exampleProducts: list(form.get("examples")).slice(0, 5),
+        ...(explanation ? { explanation } : {}),
         aliases: list(form.get("aliases")).slice(0, 10),
       }),
     );
-    if (done) setSaved(true);
+    if (done) setSaved(name.trim());
   }
+  // A product for the food can travel with it, reviewed together.
+  const withProduct = new URLSearchParams({ country: market.code });
+  if (name.trim()) withProduct.set("newFood", name.trim());
+  if (shelfId) withProduct.set("shelf", shelfId);
   return (
-    <SiteShell compact>
+    <PageShell width="narrow">
       <CommunityControls>
         <header className="page-heading">
-          <p className="eyebrow">{market.name} · Grow the aisles</p>
+          <p className="eyebrow">{market.name}</p>
           <h1>Suggest a food</h1>
           <p>
-            Foods name the conventional product people want to replace, such as
-            “Ground Beef” or “Cream Cheese”. Each one gets its own ranking. A
-            moderator checks every suggestion for near-duplicates and overly
-            narrow foods.
+            A food is the conventional product people want to replace, like
+            “Sausage rolls” or “Cream cheese”. It gets its own ranking. It opens
+            in {market.name} first; other countries get it when someone adds a
+            product there.
           </p>
           <GuidelinesNote />
         </header>
         {saved ? (
           <div className="community-panel" role="status">
-            <h2>Thanks, your proposal is in review.</h2>
+            <h2>Thanks, {saved} is in review.</h2>
             <p>
-              Track it in <Link to="/my-contributions">My contributions</Link>.
+              A moderator checks it for duplicates. Track it in{" "}
+              <Link to="/my-contributions">My contributions</Link>.
             </p>
           </div>
         ) : (
           <form className="community-form community-panel" onSubmit={submit}>
-            <label htmlFor="category-name">Conventional food</label>
+            <label htmlFor="category-name">Food name (required)</label>
             <input
               id="category-name"
               name="name"
               required
               minLength={2}
               maxLength={160}
-              defaultValue={name}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
-            <label htmlFor="shelf">Aisle and shelf</label>
-            <select
+            <ShelfSelect
               id="shelf"
-              name="shelf"
+              aisles={aisles}
+              value={shelfId}
+              onChange={setShelfId}
               required
-              defaultValue={
-                aisles.flatMap((a) => a.shelves).find((s) => s.slug === shelf)
-                  ?.id ?? ""
-              }
-              aria-describedby="shelf-help"
-            >
-              <option value="" disabled>
-                Choose where it belongs
-              </option>
-              {aisles.map((aisle) => (
-                <optgroup key={aisle.id} label={aisle.name}>
-                  {aisle.shelves.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {aisle.name} · {s.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <p id="shelf-help" className="field-hint">
-              Foods sit on a shelf in an aisle, the way a store is organized.
-            </p>
-            <label htmlFor="category-explanation">
-              Why is a separate category needed?
-            </label>
-            <textarea
-              id="category-explanation"
-              name="explanation"
-              required
-              minLength={8}
-              maxLength={2000}
-              rows={4}
             />
-            <label htmlFor="category-examples">
-              Example alternatives (optional, separated by commas)
-            </label>
-            <input id="category-examples" name="examples" maxLength={800} />
             <label htmlFor="category-aliases">
               Other names (optional, separated by commas)
             </label>
             <input id="category-aliases" name="aliases" maxLength={800} />
+            <label htmlFor="category-explanation">
+              Anything we should know? (optional)
+            </label>
+            <textarea
+              id="category-explanation"
+              name="explanation"
+              maxLength={2000}
+              rows={3}
+            />
             <button
               className="button"
               disabled={action.busy || (action.challenge && !action.hasToken)}
             >
-              {action.busy ? "Sending…" : "Send proposal"}
+              {action.busy ? "Sending…" : "Suggest food"}
             </button>
+            <p className="small">
+              Have a product for it?{" "}
+              <Link to={`/add-product?${withProduct}`}>
+                Add it with the product
+              </Link>{" "}
+              and both are reviewed together.
+            </p>
             <CommunityFeedback action={action} siteKey={siteKey} />
           </form>
         )}
       </CommunityControls>
-    </SiteShell>
+    </PageShell>
   );
 }

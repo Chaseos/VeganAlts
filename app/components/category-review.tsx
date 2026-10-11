@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useRevalidator } from "react-router";
+import { Link, useRevalidator } from "react-router";
 import type { TaxonomyService } from "@server/taxonomy/application/taxonomy-service";
 import { friendly, type CommunityAction } from "../lib/community";
 import { AutomatedChecks } from "./contribution-detail";
@@ -55,8 +55,37 @@ export function CategoryReview({
           <strong>Status: {friendly(detail.status)}</strong>
           {detail.resolutionNote && <p>{detail.resolutionNote}</p>}
         </div>
-        <h2>Proposed category: {proposed.name}</h2>
-        <p>{proposed.explanation}</p>
+        <h2>Suggested food: {proposed.name}</h2>
+        {detail.country && (
+          <p>
+            <strong>Country:</strong> {detail.country}
+          </p>
+        )}
+        {proposed.explanation && <p>{proposed.explanation}</p>}
+        {detail.waitingProducts.length > 0 && (
+          <div className="notice">
+            <strong className="notice-title">
+              {detail.waitingProducts.length === 1
+                ? "1 product is waiting on this food"
+                : `${detail.waitingProducts.length} products are waiting on this food`}
+            </strong>
+            <ul>
+              {detail.waitingProducts.map((product) => (
+                <li key={product.submissionId}>
+                  <Link
+                    to={`/admin/moderation/submission/${product.submissionId}`}
+                  >
+                    {product.brand} · {product.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <p className="small">
+              Accepting it, or adding it as another name, continues them;
+              rejecting it asks their contributors to choose an existing food.
+            </p>
+          </div>
+        )}
         {!!proposed.exampleProducts?.length && (
           <p>
             <strong>Examples:</strong> {proposed.exampleProducts.join(", ")}
@@ -68,9 +97,9 @@ export function CategoryReview({
           </p>
         )}
         <p className="small muted">
-          Check for near-duplicates and overly narrow categories. Accepting
-          creates a category; aliasing keeps one category findable by both
-          names.
+          Check for near-duplicates and overly narrow foods. Accepting creates a
+          food in this country; adding it as another name keeps one food
+          findable by both names and opens it here.
         </p>
         {checks && <AutomatedChecks checks={checks} />}
       </article>
@@ -86,9 +115,11 @@ export function CategoryReview({
                 setDecision(e.target.value as "accept" | "alias" | "reject")
               }
             >
-              <option value="accept">Create this category</option>
-              <option value="alias">Add as another name of a category</option>
-              <option value="reject">Reject proposal</option>
+              <option value="accept">Create this food</option>
+              <option value="alias">
+                Add as another name for an existing food
+              </option>
+              <option value="reject">Reject suggestion</option>
             </select>
             {decision === "accept" && (
               <>
@@ -120,7 +151,7 @@ export function CategoryReview({
             )}
             {decision === "alias" && (
               <>
-                <label htmlFor="category-alias-of">Existing category</label>
+                <label htmlFor="category-alias-of">Existing food</label>
                 <select id="category-alias-of" name="aliasOf" required>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -144,7 +175,7 @@ export function CategoryReview({
             </button>
           </form>
         ) : (
-          <p>This proposal has already been decided.</p>
+          <p>This suggestion has already been decided.</p>
         )}
       </aside>
     </div>

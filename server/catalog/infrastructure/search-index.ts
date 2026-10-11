@@ -5,17 +5,23 @@ const ancestry = `WITH RECURSIVE ancestry(leaf,id,name,parent_id) AS (
   UNION SELECT a.leaf,c.id,c.name,c.parent_id FROM ancestry a JOIN categories c ON c.id=a.parent_id WHERE c.is_active=1
 )`;
 
-export const SEARCH_INDEX_STATEMENTS = [
-  "DELETE FROM search_index",
-  // Foods only: aisles and shelves are navigation, reached through their
-  // foods' ancestry ("meat" finds every food in the Meat aisle). A food's
-  // title is its name in that country; its base name stays searchable.
+// Foods only: aisles and shelves are navigation, reached through their
+// foods' ancestry ("meat" finds every food in the Meat aisle). A food is
+// indexed only in the countries where it is on; its title is its name in that
+// country and its base name stays searchable.
+const categoryDocuments = (where: string) =>
   `${ancestry} INSERT INTO search_index(entity_type,entity_id,country_code,title,subtitle,aliases,body)
     SELECT 'category',c.id,country.iso2,
       COALESCE((SELECT alias FROM category_aliases d WHERE d.category_id=c.id AND d.country_id=country.id AND d.is_display_name=1),c.name),'Category',
       c.name || ' ' || COALESCE((SELECT group_concat(alias,' ') FROM category_aliases ca WHERE ca.category_id=c.id AND (ca.country_id IS NULL OR ca.country_id=country.id)),''),
       (SELECT group_concat(name,' ') FROM ancestry a WHERE a.leaf=c.id)
-    FROM categories c CROSS JOIN countries country WHERE c.is_active=1 AND c.is_rankable=1 AND country.is_active=1`,
+    FROM categories c JOIN category_countries cc ON cc.category_id=c.id
+    JOIN countries country ON country.id=cc.country_id AND country.is_active=1
+    WHERE c.is_active=1 AND c.is_rankable=1${where}`;
+
+export const SEARCH_INDEX_STATEMENTS = [
+  "DELETE FROM search_index",
+  categoryDocuments(""),
   `${ancestry} INSERT INTO search_index(entity_type,entity_id,country_code,title,subtitle,aliases,body)
     SELECT 'product',p.id,country.iso2,p.name,COALESCE(b.name,''),
       COALESCE((SELECT group_concat(alias,' ') FROM product_aliases pa WHERE pa.product_id=p.id),'') || ' ' ||
@@ -50,5 +56,26 @@ export function productSearchStatements(
         ),
       )
       .bind(productId, ...parameters),
+  ];
+}
+
+// Publishing a product can switch its foods on in its country; index any of
+// them that the country's search does not list yet, in the same batch.
+export function categorySearchStatements(
+  db: D1Database,
+  productId: string,
+  guard = "1",
+  parameters: (string | number)[] = [],
+) {
+  return [
+    db
+      .prepare(
+        categoryDocuments(
+          ` AND country.id=(SELECT country_id FROM products WHERE id=?)
+          AND c.id IN (SELECT category_id FROM product_categories WHERE product_id=?) AND (${guard})
+          AND NOT EXISTS(SELECT 1 FROM search_index s WHERE s.entity_type='category' AND s.entity_id=c.id AND s.country_code=country.iso2)`,
+        ),
+      )
+      .bind(productId, productId, ...parameters),
   ];
 }

@@ -193,8 +193,9 @@ it("validates filters against the country and never changes Top", async () => {
       "SELECT * FROM product_category_stats WHERE category_id=? ORDER BY product_version_id",
     )
       .bind(w.category)
-      .all(),
-  ).toEqual(before);
+      .all()
+      .then((r) => r.results),
+  ).toEqual(before.results);
 });
 
 it("keeps every country's catalog separate even when slugs repeat", async () => {

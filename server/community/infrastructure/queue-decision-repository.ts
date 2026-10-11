@@ -104,7 +104,10 @@ export class QueueDecisionRepository {
     if (kind === "submission") {
       const row = await this.db
         .prepare(
-          "SELECT s.*,p.proposed_data,p.reasons,p.revision,p.resolution_note,p.resolved_at,p.superseded_by,prior.submission_id AS previous_submission_id FROM submission_receipts s LEFT JOIN pending_submissions p ON p.submission_id=s.id LEFT JOIN pending_submissions prior ON prior.superseded_by=s.id WHERE s.id=? AND (s.user_id=? OR ?=1)",
+          `SELECT s.*,p.proposed_data,p.reasons,p.revision,p.resolution_note,p.resolved_at,p.superseded_by,prior.submission_id AS previous_submission_id,
+          cp.id AS food_id,cp.name AS food_name,cp.status AS food_status
+          FROM submission_receipts s LEFT JOIN pending_submissions p ON p.submission_id=s.id LEFT JOIN pending_submissions prior ON prior.superseded_by=s.id
+          LEFT JOIN category_proposals cp ON cp.id=p.category_proposal_id WHERE s.id=? AND (s.user_id=? OR ?=1)`,
         )
         .bind(id, actor.id, Number(actor.administrator))
         .first<
@@ -116,6 +119,9 @@ export class QueueDecisionRepository {
             resolved_at: number | null;
             superseded_by: string | null;
             previous_submission_id: string | null;
+            food_id: string | null;
+            food_name: string | null;
+            food_status: string | null;
           }
         >();
       if (!row)
@@ -138,6 +144,10 @@ export class QueueDecisionRepository {
           row.expires_at > Date.now(),
         revision: row.revision ?? 0,
         proposed,
+        // A food suggested with the product; it is decided first.
+        pendingFood: row.food_id
+          ? { id: row.food_id, name: row.food_name!, status: row.food_status! }
+          : null,
         referenceLabels: await this.referenceLabels(proposed, null),
         reasons: row.reasons ? (JSON.parse(row.reasons) as string[]) : [],
         resolutionNote: row.resolution_note,

@@ -9,12 +9,18 @@ import type {
   SubmissionDecision,
   VeganStatus,
 } from "./contracts";
+import {
+  needsClassificationReview,
+  type AllergenDeclaration,
+} from "./allergens";
 
 export const DAY = 86_400_000;
 export const LEASE = 5 * 60_000;
 export const DEFAULT_LIMITS = {
-  images: 3,
-  submissionBytes: 30 * 1024 * 1024,
+  // Four slots (front, ingredients, back, nutrition): the automated photo
+  // check accepts at most four images.
+  images: 4,
+  submissionBytes: 40 * 1024 * 1024,
   accountBytes: 100 * 1024 * 1024,
   submissionsPerDay: 5,
   // Evidence receipts for proposals have their own allowance.
@@ -42,7 +48,8 @@ export function communityLimits(value?: string): CommunityLimits {
   }
   return result;
 }
-// Application-owned account that records automated decisions (migration 0012).
+// Application-owned account that records automated decisions (created by the
+// baseline migration).
 export const SYSTEM_ACTOR_ID = "veganalts-system";
 export const SYSTEM_ACTOR: Actor = {
   id: SYSTEM_ACTOR_ID,
@@ -93,11 +100,64 @@ export function slug(value: string) {
       .slice(0, 75) || "product"
   );
 }
-// The classification contributor evidence supports without operator review.
-// Null means an operator must choose one before publication.
-export function provisionalStatus(input: SubmissionInput): VeganStatus | null {
-  if (input.noKnownAnimalIngredients) return "appears_vegan";
-  return input.manufacturerLabel === "plant_based" ? "plant_based" : null;
+export interface ProvisionalClassification {
+  veganStatus: VeganStatus;
+  // False: "Ingredients not checked yet". The status is then only the
+  // appears_vegan placeholder the database requires.
+  ingredientsChecked: boolean;
+}
+const UNCHECKED: ProvisionalClassification = {
+  veganStatus: "appears_vegan",
+  ingredientsChecked: false,
+};
+interface ClassificationFacts {
+  imageSlots: readonly string[];
+  ingredientUrl?: string;
+  noKnownAnimalIngredients?: boolean;
+  manufacturerLabel?: string;
+  allergens?: AllergenDeclaration;
+}
+/** An ingredients photo or a manufacturer ingredient source. */
+export const hasIngredientEvidence = (input: ClassificationFacts) =>
+  input.imageSlots.includes("ingredients") || Boolean(input.ingredientUrl);
+/**
+ * The classification contributor evidence supports without operator review
+ * (MODERATION, milestone 6). It is never "classification needed", and more
+ * evidence never produces a worse result than less. An ingredients photo the
+ * automated check could not read counts as no evidence unless a manufacturer
+ * source backs it.
+ */
+/**
+ * An automated check whose only concern is an ingredients photo it could not
+ * read. That lowers the classification to "Ingredients not checked yet"
+ * instead of holding the product.
+ */
+export function onlyUnreadablePhoto(
+  check: { outcome: string | null; flags: readonly string[] } | null,
+) {
+  return Boolean(
+    check &&
+    check.outcome === "NEEDS_REVIEW" &&
+    check.flags.length > 0 &&
+    check.flags.every((flag) => flag === "ingredient_evidence"),
+  );
+}
+export function provisionalClassification(
+  input: ClassificationFacts,
+  { unreadablePhoto = false }: { unreadablePhoto?: boolean } = {},
+): ProvisionalClassification {
+  const evidence =
+    hasIngredientEvidence(input) && !(unreadablePhoto && !input.ingredientUrl);
+  if (!evidence) return UNCHECKED;
+  // A label listing milk, egg, fish, crustacean or mollusc contradicts an
+  // animal-free classification, so only an operator's choice can set one.
+  if (input.allergens && needsClassificationReview(input.allergens))
+    return UNCHECKED;
+  if (input.noKnownAnimalIngredients)
+    return { veganStatus: "appears_vegan", ingredientsChecked: true };
+  if (input.manufacturerLabel === "plant_based")
+    return { veganStatus: "plant_based", ingredientsChecked: true };
+  return UNCHECKED;
 }
 export function decideSubmission(
   input: SubmissionInput,
@@ -117,11 +177,22 @@ export function decideSubmission(
   if (candidates.length)
     reasons.push("A related catalog entry needs an identity check.");
   if (input.specialtyFlavor)
-    reasons.push("A specialty flavor needs a category-eligibility review.");
+    reasons.push(
+      "A specialty flavor needs a review of which foods it's ranked for.",
+    );
   if (input.relatedProductId || input.productFamilyId)
     reasons.push("The proposed product relationship needs review.");
-  if (!provisionalStatus(input))
-    reasons.push("The ingredient classification needs review.");
+  // A label that lists milk, egg, fish, crustacean or mollusc contradicts an
+  // animal-free classification.
+  if (input.allergens && needsClassificationReview(input.allergens))
+    reasons.push(
+      "The label lists an animal-derived allergen, so the classification needs review.",
+    );
+  // A suggested food is decided by an operator before the product publishes.
+  if (input.newFood)
+    reasons.push(
+      `The suggested food “${input.newFood.name}” needs an operator decision.`,
+    );
   return {
     decision: reasons.length ? "NEEDS_REVIEW" : "READY",
     reasons,

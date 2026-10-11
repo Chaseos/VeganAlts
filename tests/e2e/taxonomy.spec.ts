@@ -22,17 +22,17 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
       .getByRole("main")
       .getByRole("link", { name: "Suggest a food" })
       .click();
-    await expect(page.getByLabel("Conventional food")).toHaveValue(name);
-    await expect(page.getByLabel("Conventional food")).toBeEnabled();
-    // Category proposals choose the shelf the food belongs on.
+    await expect(page.getByLabel("Food name (required)")).toHaveValue(name);
+    await expect(page.getByLabel("Food name (required)")).toBeEnabled();
+    // A suggestion chooses the shelf the food belongs on; the note is optional.
     await page
-      .getByLabel("Aisle and shelf")
-      .selectOption({ label: "Meat · Pork" });
-    await page
-      .getByLabel("Why is a separate category needed?")
-      .fill("Plant-based bratwurst is sold widely and has no category yet.");
+      .getByLabel("Shelf (required)")
+      .selectOption({ label: "Meat › Pork" });
+    await expect(
+      page.getByRole("link", { name: "Add it with the product" }),
+    ).toHaveAttribute("href", /newFood=Bratwurst/);
     await accessible(page);
-    await page.getByRole("button", { name: "Send proposal" }).click();
+    await page.getByRole("button", { name: "Suggest food" }).click();
     await expect(page.getByRole("status")).toContainText("in review");
 
     await context.clearCookies();
@@ -40,7 +40,7 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
     await page.goto("/admin/moderation?filter=high_risk");
     await page.getByRole("link", { name: new RegExp(name) }).click();
     await expect(
-      page.getByRole("heading", { name: `Proposed category: ${name}` }),
+      page.getByRole("heading", { name: `Suggested food: ${name}` }),
     ).toBeVisible();
     const slug = `bratwurst-${stamp}`;
     await page.getByLabel("Slug").fill(slug);
@@ -86,6 +86,28 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
       .fill("A bratwurst casing should snap.");
     await questions.getByRole("button", { name: "Save questions" }).click();
     await expect(page.getByRole("status")).toContainText("questions saved");
+
+    // Switching a food on in another country is reversible from the list.
+    await page.goto("/admin/taxonomy");
+    await page.getByRole("button", { name: `Edit ${name}` }).click();
+    const countries = page.getByRole("form", {
+      name: `Countries where ${name} is on`,
+    });
+    await countries.getByLabel("United Kingdom").check();
+    await countries
+      .getByRole("textbox", { name: "Reason" })
+      .fill("Sold in the United Kingdom too.");
+    await countries.getByRole("button", { name: "Save countries" }).click();
+    await expect(page.getByRole("status")).toContainText("countries saved");
+    const switched = page
+      .getByRole("region", { name: "Recent taxonomy actions" })
+      .getByRole("listitem")
+      .filter({ hasText: /countries/i })
+      .filter({ hasText: name })
+      .first();
+    await switched.getByRole("button", { name: "Reverse" }).click();
+    await expect(page.getByRole("status")).toContainText("Action reversed");
+    await expect(switched).toContainText("reversed");
 
     // Merge a second new category into it; the donor URL then redirects.
     await page.goto("/admin/taxonomy");

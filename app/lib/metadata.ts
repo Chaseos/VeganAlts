@@ -84,7 +84,15 @@ export function countryAlternates(
       tagName: "link",
       rel: "alternate",
       hrefLang: "x-default",
-      href: new URL(path("us"), origin).href,
+      // The United States, or the first country where the page exists.
+      href: new URL(
+        path(
+          countries.some((country) => country.code === "us")
+            ? "us"
+            : countries[0]!.code,
+        ),
+        origin,
+      ).href,
     },
   ];
 }

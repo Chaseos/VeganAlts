@@ -59,6 +59,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       )?.market.name ?? product.countryCode.toUpperCase(),
     siteKey: env.TURNSTILE_SITE_KEY,
     initialAction: query.get("action") ?? "change",
+    // "Check the ingredients" opens the classification change directly.
+    initialKind:
+      query.get("kind") === "classification"
+        ? ("classification" as const)
+        : null,
     initialSlot: imageSlot.safeParse(query.get("slot")).data ?? "front",
     image: image && product.images.some((i) => i.id === image) ? image : null,
     administrator: actor.administrator,
@@ -88,7 +93,7 @@ const labels = {
   packaging: "Packaging update",
   discontinue: "Discontinued product",
   reintroduce: "Reintroduced product",
-  relationships: "Family, variants and category eligibility",
+  relationships: "Family, variants and which foods it’s ranked for",
   retailer_status: "Retailer availability concern",
   allergens: "Allergens on the label",
 };
@@ -102,10 +107,20 @@ export default function Contribute({
     image,
     administrator,
     initialSlot,
+    initialKind,
   },
 }: Route.ComponentProps) {
+  // No one has confirmed this formula's ingredients yet (milestone 6).
+  const unchecked = product.classification?.ingredientsChecked === false;
+  // The current formula's accepted label photos a check can cite.
+  const labelPhotos = product.images.filter(
+    (i) =>
+      i.versionId === product.versionId &&
+      i.state === "accepted" &&
+      (i.slot === "ingredients" || i.slot === "nutrition"),
+  );
   const [tab, setTab] = useState(initialAction),
-    [kind, setKind] = useState<ProductChange["kind"]>("rename"),
+    [kind, setKind] = useState<ProductChange["kind"]>(initialKind ?? "rename"),
     [newRetailer, setNewRetailer] = useState(false),
     [query, setQuery] = useState(""),
     [retailers, setRetailers] = useState(options.retailers),
@@ -225,6 +240,9 @@ export default function Contribute({
         details = {
           veganStatus: form.get("veganStatus"),
           manufacturerLabel: form.get("manufacturerLabel"),
+          ...(kind === "classification" && form.get("citedImageId")
+            ? { citedImageId: form.get("citedImageId") }
+            : {}),
           certifications: form.get("certificationName")
             ? [
                 {
@@ -314,11 +332,28 @@ export default function Contribute({
         </nav>
         <section className="community-panel">
           {tab === "photo" && (
-            <PhotoProposalForm
-              product={product}
-              initialSlot={initialSlot}
-              action={action}
-            />
+            <>
+              <PhotoProposalForm
+                product={product}
+                initialSlot={initialSlot}
+                action={action}
+              />
+              {unchecked && labelPhotos.length > 0 && (
+                <p className="small">
+                  The ingredients photo is here but no one has checked it yet.{" "}
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => {
+                      setKind("classification");
+                      setTab("change");
+                    }}
+                  >
+                    Check the ingredients
+                  </button>
+                </p>
+              )}
+            </>
           )}
           {tab === "report" && (
             <form className="community-form" onSubmit={saveReport}>
@@ -483,10 +518,19 @@ export default function Contribute({
               >
                 {kinds.map((k) => (
                   <option key={k} value={k}>
-                    {labels[k]}
+                    {k === "classification" && unchecked
+                      ? "Check the ingredients"
+                      : labels[k]}
                   </option>
                 ))}
               </select>
+              {kind === "classification" && unchecked && (
+                <p className="notice">
+                  Ingredients not checked yet. Choose the ingredients photo you
+                  checked and what it shows. Another member confirms it, and any
+                  disagreement goes to a moderator.
+                </p>
+              )}
               {kind === "reformulation" && (
                 <p className="notice">
                   A material ingredient or formula change starts a new current
@@ -560,6 +604,39 @@ export default function Contribute({
                     </option>
                   </select>
                   <ManufacturerField value={product.manufacturerLabel} />
+                  {kind === "classification" &&
+                    unchecked &&
+                    (labelPhotos.length ? (
+                      <fieldset>
+                        <legend>The photo you checked</legend>
+                        {labelPhotos.map((photo, index) => (
+                          <label className="checkbox-label" key={photo.id}>
+                            <input
+                              type="radio"
+                              name="citedImageId"
+                              value={photo.id}
+                              defaultChecked={index === 0}
+                            />
+                            {photo.slot === "ingredients"
+                              ? "Ingredients photo"
+                              : "Nutrition and allergens photo"}
+                          </label>
+                        ))}
+                      </fieldset>
+                    ) : (
+                      <p className="small muted">
+                        This product has no ingredients photo yet.{" "}
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => setTab("photo")}
+                        >
+                          Add one first
+                        </button>{" "}
+                        so another member can confirm your check; without it a
+                        moderator reviews it.
+                      </p>
+                    ))}
                   <fieldset>
                     <legend>Third-party certification (optional)</legend>
                     <label htmlFor="certification-name">
@@ -613,7 +690,7 @@ export default function Contribute({
                     <option value="successor">Successor</option>
                   </select>
                   <fieldset>
-                    <legend>Eligible replacement categories</legend>
+                    <legend>Ranked for these foods</legend>
                     {product.categories.map((c) => (
                       <label className="checkbox-label" key={c.categoryId}>
                         <input
@@ -627,8 +704,8 @@ export default function Contribute({
                       </label>
                     ))}
                     <p className="small muted">
-                      Exclude specialty flavors from base categories where they
-                      would be misleading. Existing ratings remain preserved.
+                      Leave specialty flavors out of foods where ranking them
+                      would mislead. Existing ratings are kept.
                     </p>
                   </fieldset>
                 </>

@@ -13,6 +13,68 @@ import {
 } from "../domain/allergens";
 import { SYSTEM_ACTOR_ID } from "../domain/policy";
 
+/**
+ * One contributor's "commonly found at" stance for a product and store, and
+ * the counts derived from every stance. Shared by retailer confirmations and
+ * by stores chosen when a product is added (inside its publication batch).
+ */
+export function retailerConfirmationStatements(
+  db: D1Database,
+  change: {
+    userId: string;
+    productId: string;
+    retailerId: string;
+    stance: "confirm" | "not_current";
+    now: number;
+  },
+  guard: string,
+  fence: unknown[],
+) {
+  const { userId, productId, retailerId, stance, now } = change;
+  return [
+    db
+      .prepare(
+        `INSERT INTO product_retailers(product_id,retailer_id,created_at,updated_at) SELECT ?,?,?,? WHERE ${guard}
+        AND EXISTS(SELECT 1 FROM products p JOIN retailer_markets m ON m.country_id=p.country_id WHERE p.id=? AND m.retailer_id=? AND m.is_active=1)
+        ON CONFLICT DO NOTHING`,
+      )
+      .bind(productId, retailerId, now, now, ...fence, productId, retailerId),
+    db
+      .prepare(
+        `INSERT INTO retailer_confirmations(user_id,product_id,retailer_id,stance,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${guard}
+        AND EXISTS(SELECT 1 FROM product_retailers WHERE product_id=? AND retailer_id=?)
+        ON CONFLICT(user_id,product_id,retailer_id) DO UPDATE SET stance=excluded.stance,updated_at=excluded.updated_at`,
+      )
+      .bind(
+        userId,
+        productId,
+        retailerId,
+        stance,
+        now,
+        now,
+        ...fence,
+        productId,
+        retailerId,
+      ),
+    db
+      .prepare(
+        `UPDATE product_retailers SET confirmation_count=(SELECT COUNT(*) FROM retailer_confirmations WHERE product_id=? AND retailer_id=? AND stance='confirm'),disagreement_count=(SELECT COUNT(*) FROM retailer_confirmations WHERE product_id=? AND retailer_id=? AND stance='not_current'),last_confirmed_at=(SELECT MAX(updated_at) FROM retailer_confirmations WHERE product_id=? AND retailer_id=? AND stance='confirm'),updated_at=? WHERE product_id=? AND retailer_id=? AND ${guard}`,
+      )
+      .bind(
+        productId,
+        retailerId,
+        productId,
+        retailerId,
+        productId,
+        retailerId,
+        now,
+        productId,
+        retailerId,
+        ...fence,
+      ),
+  ];
+}
+
 export class ContributionRepository {
   constructor(
     private readonly db: D1Database,
@@ -509,40 +571,12 @@ export class ContributionRepository {
             retailerId,
             actor.id,
           ),
-        this.db
-          .prepare(
-            `INSERT INTO product_retailers(product_id,retailer_id,created_at,updated_at) SELECT ?,?,?,? WHERE ${guard} ON CONFLICT DO NOTHING`,
-          )
-          .bind(productId, retailerId, receipt.now, receipt.now, ...fence),
-        this.db
-          .prepare(
-            `INSERT INTO retailer_confirmations(user_id,product_id,retailer_id,stance,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${guard} ON CONFLICT(user_id,product_id,retailer_id) DO UPDATE SET stance=excluded.stance,updated_at=excluded.updated_at`,
-          )
-          .bind(
-            actor.id,
-            productId,
-            retailerId,
-            stance,
-            receipt.now,
-            receipt.now,
-            ...fence,
-          ),
-        this.db
-          .prepare(
-            `UPDATE product_retailers SET confirmation_count=(SELECT COUNT(*) FROM retailer_confirmations WHERE product_id=? AND retailer_id=? AND stance='confirm'),disagreement_count=(SELECT COUNT(*) FROM retailer_confirmations WHERE product_id=? AND retailer_id=? AND stance='not_current'),last_confirmed_at=(SELECT MAX(updated_at) FROM retailer_confirmations WHERE product_id=? AND retailer_id=? AND stance='confirm'),updated_at=? WHERE product_id=? AND retailer_id=? AND ${guard}`,
-          )
-          .bind(
-            productId,
-            retailerId,
-            productId,
-            retailerId,
-            productId,
-            retailerId,
-            receipt.now,
-            productId,
-            retailerId,
-            ...fence,
-          ),
+        ...retailerConfirmationStatements(
+          this.db,
+          { userId: actor.id, productId, retailerId, stance, now: receipt.now },
+          guard,
+          fence,
+        ),
         // Queue evidence without changing operator-owned availability status.
         this.db
           .prepare(

@@ -29,7 +29,7 @@ export async function invalidateCommunityProduct(
     }
     // Purge only photos whose visibility this action changed. Hiding or
     // restoring a product changes every photo's public availability.
-    const [categories, images, related] = await db.batch<{
+    const [categories, images, related, switched] = await db.batch<{
       slug: string;
       id: string;
       country: string;
@@ -64,6 +64,15 @@ export async function invalidateCommunityProduct(
           OR (p.product_family_id IS NOT NULL AND p.product_family_id IN (SELECT product_family_id FROM products WHERE id=? UNION SELECT json_extract(before_data,'$.familyId') FROM prior))`,
         )
         .bind(actionId ?? null, productId, productId, productId),
+      // Foods this product just switched on in its country: the aisle bar on
+      // every page there changes. A recent row is enough; an extra purge only
+      // costs a cache miss.
+      db
+        .prepare(
+          `SELECT c.slug FROM category_countries cc JOIN categories c ON c.id=cc.category_id JOIN products p ON p.id=? AND p.country_id=cc.country_id
+          WHERE cc.source='product' AND cc.created_at>=? AND cc.category_id IN (SELECT category_id FROM product_categories WHERE product_id=p.id)`,
+        )
+        .bind(productId, Date.now() - 5 * 60_000),
     ]);
     scheduleCatalogInvalidation([
       {
@@ -78,6 +87,10 @@ export async function invalidateCommunityProduct(
         kind: "product" as const,
         slug: p.slug,
         country: p.country,
+      })),
+      ...switched!.results.map((c) => ({
+        kind: "category" as const,
+        slug: c.slug,
       })),
     ]);
   } catch {

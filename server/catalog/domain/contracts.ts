@@ -10,6 +10,8 @@ export interface CategorySummary {
   parentId: string | null;
   isRankable: number;
   productCount: number;
+  // 1 when the category is a group or a food switched on in the country.
+  available: number;
 }
 
 export interface ProductSummary {
@@ -157,7 +159,7 @@ export interface CatalogRepository {
   }>;
   categories(countryId: string, parentId?: string): Promise<CategorySummary[]>;
   sitemap(): Promise<{
-    categories: { slug: string; updatedAt: number }[];
+    categories: { slug: string; updatedAt: number; country: string }[];
     products: { slug: string; updatedAt: number; country: string }[];
   }>;
   trending(
@@ -178,6 +180,10 @@ export interface CatalogRepository {
   featuredCategories(countryId: string): Promise<CategorySummary[]>;
   categoryRedirect(slug: string): Promise<string | null>;
   category(countryId: string, slug: string): Promise<CategorySummary | null>;
+  foodCountries(categoryId: string): Promise<string[]>;
+  foodAliases(
+    countryId: string,
+  ): Promise<{ categoryId: string; alias: string }[]>;
   rankings(
     countryId: string,
     categoryId: string,

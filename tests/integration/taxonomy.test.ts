@@ -320,6 +320,116 @@ it("re-derives Trending activity when a merge and its reversal move older rating
   expect(await daily(w.S)).toBe(0);
 });
 
+it("switches the survivor off again where only the reversed merge put it", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  // A donor product in another country, where the survivor isn't on.
+  const P4 = `p4-${w.s}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+    ).bind(P4, w.f.otherCountryId, `Fourth ${w.s}`, P4),
+    env.DB.prepare(
+      "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
+    ).bind(`v4-${w.s}`, P4),
+    env.DB.prepare(
+      "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
+    ).bind(P4, w.D),
+  ]);
+  const on = async (category: string) =>
+    (
+      await env.DB.prepare(
+        "SELECT country_id AS id FROM category_countries WHERE category_id=? ORDER BY country_id",
+      )
+        .bind(category)
+        .all<{ id: string }>()
+    ).results.map((r) => r.id);
+  expect(await on(w.S)).toEqual([w.f.countryId]);
+  const service = taxonomy();
+  const tree = await service.tree(operator);
+  const revision = (cid: string) =>
+    tree.categories.find((c) => c.id === cid)!.revision;
+  const merged = await service.merge(operator, id(), {
+    donorId: w.D,
+    survivorId: w.S,
+    donorRevision: revision(w.D),
+    survivorRevision: revision(w.S),
+    note,
+  });
+  expect(await on(w.S)).toContain(w.f.otherCountryId);
+  // An unrelated survivor product, published in a third country and then
+  // hidden, made its own switch: reversing the merge leaves it.
+  const third = `third-${w.s}`,
+    P5 = `p5-${w.s}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO countries(id,iso2,name,created_at,updated_at) VALUES(?,?,?,1,1)",
+    ).bind(third, `T${w.s}`.slice(0, 12), "Third"),
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+    ).bind(P5, third, `Fifth ${w.s}`, P5),
+    env.DB.prepare(
+      "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
+    ).bind(P5, w.S),
+    env.DB.prepare(
+      "UPDATE products SET lifecycle_status='hidden' WHERE id=?",
+    ).bind(P5),
+  ]);
+  await service.reverseMerge(operator, id(), merged.mergeId, note);
+  expect(await on(w.S)).toEqual([w.f.countryId, third].sort());
+  expect(await on(w.D)).toContain(w.f.otherCountryId);
+});
+
+it("keeps a transferred homepage feature available and closes it again on reversal", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  // The donor is featured in a country where the survivor isn't on.
+  await env.DB.prepare(
+    "INSERT INTO category_features(country_id,category_id,position,updated_at) VALUES(?,?,1,1)",
+  )
+    .bind(w.f.otherCountryId, w.D)
+    .run();
+  const on = async (category: string) =>
+    (
+      await env.DB.prepare(
+        "SELECT country_id AS id FROM category_countries WHERE category_id=? ORDER BY country_id",
+      )
+        .bind(category)
+        .all<{ id: string }>()
+    ).results.map((r) => r.id);
+  expect(await on(w.S)).toEqual([w.f.countryId]);
+  const service = taxonomy();
+  const tree = await service.tree(operator);
+  const revision = (cid: string) =>
+    tree.categories.find((c) => c.id === cid)!.revision;
+  const merged = await service.merge(operator, id(), {
+    donorId: w.D,
+    survivorId: w.S,
+    donorRevision: revision(w.D),
+    survivorRevision: revision(w.S),
+    note,
+  });
+  // The feature now names the survivor, which is on there to show it.
+  expect(
+    await env.DB.prepare(
+      "SELECT category_id FROM category_features WHERE country_id=?",
+    )
+      .bind(w.f.otherCountryId)
+      .first("category_id"),
+  ).toBe(w.S);
+  expect(await on(w.S)).toContain(w.f.otherCountryId);
+  await service.reverseMerge(operator, id(), merged.mergeId, note);
+  expect(await on(w.S)).toEqual([w.f.countryId]);
+});
+
 it("validates slugs and names, redirects renamed slugs and reverses taxonomy edits", async () => {
   const w = await world();
   const operator = {
@@ -941,6 +1051,22 @@ it("lets aisles and shelves share a food's name but keeps foods and aliases uniq
   await env.DB.prepare("UPDATE countries SET iso2='ZX' WHERE id=?")
     .bind(w.f.otherCountryId)
     .run();
+  // A country features only foods that are on there.
+  await expect(
+    service.setFeatures(operator, id(), {
+      categoryIds: [w.S],
+      country: "ZX",
+      note,
+    }),
+  ).rejects.toMatchObject({ code: "INVALID_FEATURES" });
+  const food = (await service.tree(operator)).categories.find(
+    (c) => c.id === w.S,
+  )!;
+  await service.setCountries(operator, id(), w.S, {
+    expectedRevision: food.revision,
+    countries: ["US", "ZX"],
+    note,
+  });
   await service.setFeatures(operator, id(), {
     categoryIds: [w.S],
     country: "ZX",

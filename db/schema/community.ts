@@ -18,6 +18,7 @@ import {
   productVersions,
   reports,
 } from "./app";
+import { categoryProposals } from "./taxonomy";
 
 export const brandAliases = sqliteTable("brand_aliases", {
   normalizedName: text("normalized_name").primaryKey(),
@@ -61,6 +62,9 @@ export const formulaClassifications = sqliteTable(
     manufacturerLabel: text("manufacturer_label").notNull(),
     evidenceData: text("evidence_data").notNull(),
     certifications: text("certifications").notNull().default("[]"),
+    // 0 = "Ingredients not checked yet" (milestone 6). The stored status is
+    // then only the appears_vegan placeholder; reads derive "unchecked".
+    ingredientsChecked: integer("ingredients_checked").notNull().default(1),
     reviewedBy: text("reviewed_by").references(() => profiles.userId, {
       onDelete: "set null",
     }),
@@ -78,6 +82,10 @@ export const formulaClassifications = sqliteTable(
     check(
       "ck_formula_classification_json",
       sql`json_valid(${t.evidenceData}) AND json_valid(${t.certifications})`,
+    ),
+    check(
+      "ck_formula_ingredients_checked",
+      sql`${t.ingredientsChecked} IN (0,1) AND (${t.ingredientsChecked}=1 OR ${t.veganStatus}='appears_vegan')`,
     ),
   ],
 );
@@ -136,9 +144,17 @@ export const pendingSubmissions = sqliteTable(
         onDelete: "restrict",
       },
     ),
+    // A food suggested inside the submission; it is decided first.
+    categoryProposalId: text("category_proposal_id").references(
+      () => categoryProposals.id,
+      { onDelete: "restrict" },
+    ),
   },
   (t) => [
     uniqueIndex("ux_pending_superseded_by").on(t.supersededBy),
+    index("ix_pending_submissions_proposal")
+      .on(t.categoryProposalId)
+      .where(sql`${t.categoryProposalId} IS NOT NULL`),
     check(
       "ck_pending_payload_json",
       sql`json_valid(${t.proposedData}) AND json_valid(${t.reasons})`,

@@ -16,18 +16,20 @@ export async function loader() {
   requireCatalogPreview(env);
   const entries = await catalogService(env).sitemap();
   const origin = env.APP_URL;
-  // Every food and aisle has a page in every active country.
+  // Foods are listed in the countries where they are on, and aisles in the
+  // countries that hold one of their foods.
+  const open = new Set(entries.countries);
   const urls = [
     ...entries.countries.map((code) => ({
       path: homePath(code),
       updatedAt: null as number | null,
     })),
-    ...entries.countries.flatMap((code) =>
-      entries.categories.map((c) => ({
-        path: foodPath(code, c.slug),
+    ...entries.categories
+      .filter((c) => open.has(c.country))
+      .map((c) => ({
+        path: foodPath(c.country, c.slug),
         updatedAt: c.updatedAt,
       })),
-    ),
     ...entries.products.map((p) => ({
       path: productPath(p.country, p.slug),
       updatedAt: p.updatedAt,

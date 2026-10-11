@@ -34,6 +34,10 @@ it("delivers fresh CSP nonces from one cached template without blessing untruste
     expect(result.headers.get("Content-Security-Policy")).not.toContain(
       "'unsafe-inline'",
     );
+    // Picked photos preview locally from blob: URLs; nothing else is allowed.
+    expect(result.headers.get("Content-Security-Policy")).toContain(
+      "img-src 'self' data: blob:;",
+    );
     for (const header of [
       "X-Template-Nonce",
       "Cache-Tag",

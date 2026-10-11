@@ -189,6 +189,46 @@ describe("automatic acceptance", () => {
   });
 });
 
+describe("ingredient checks", () => {
+  const unchecked = {
+    versionId: "v1",
+    classification: {
+      veganStatus: "appears_vegan",
+      manufacturerLabel: "unknown",
+      certifications: [],
+      ingredientsChecked: false,
+    },
+    images: [
+      { id: "panel", versionId: "v1", slot: "ingredients", state: "accepted" },
+    ],
+  } as unknown as ProductSnapshot;
+  const check = (fields: Record<string, unknown> = {}) =>
+    change({
+      kind: "classification",
+      veganStatus: "appears_vegan",
+      manufacturerLabel: "unknown",
+      citedImageId: "panel",
+      ...fields,
+    });
+  it("are community-confirmable only when they change nothing but the check", () => {
+    expect(riskTier(check(), unchecked, policy)).toBe(2);
+    expect(
+      riskTier(check({ manufacturerLabel: "vegan" }), unchecked, policy),
+    ).toBe(3);
+    expect(
+      riskTier(
+        check({
+          certifications: [
+            { name: "Certified Vegan", sourceUrl: "https://cert.example/p" },
+          ],
+        }),
+        unchecked,
+        policy,
+      ),
+    ).toBe(3);
+  });
+});
+
 describe("allergen declarations", () => {
   const labelled = {
     versionId: "v1",

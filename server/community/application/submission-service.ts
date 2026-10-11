@@ -12,7 +12,9 @@ import {
   administrator,
   decideSubmission,
   fingerprint,
-  provisionalStatus,
+  onlyUnreadablePhoto,
+  provisionalClassification,
+  SYSTEM_ACTOR,
 } from "../domain/policy";
 import { CommunityLookupRepository } from "../infrastructure/lookup-repository";
 import { SubmissionRepository } from "../infrastructure/submission-repository";
@@ -22,6 +24,17 @@ import type { ReceiptWrite } from "../infrastructure/receipts";
 import type { SubmissionContext } from "../infrastructure/lookup-repository";
 import type { ModerationDecisionService } from "../../moderation/application/decision-service";
 import { combineDecisions } from "../../moderation/domain/decisions";
+import type { RatingOutcome } from "./publication-extras";
+import { categoryKey } from "../../taxonomy/domain/taxonomy";
+
+/** The deterministic checks a suggested food passes (the taxonomy module). */
+export interface FoodChecks {
+  readonly perDay: number;
+  check(
+    actor: Actor,
+    food: { name: string; shelfId: string; country: string; aliases: string[] },
+  ): Promise<void>;
+}
 
 export class SubmissionService {
   constructor(
@@ -32,7 +45,59 @@ export class SubmissionService {
     private readonly decisions: ModerationDecisionService,
     private readonly newId: () => string,
     private readonly clock = Date.now,
+    private readonly foods: FoodChecks | null = null,
+    // Applies the contributor's rating and declaration once published, and
+    // says what became of the rating.
+    private readonly afterPublish:
+      ((receiptId: string) => Promise<{ rating: RatingOutcome }>) | null = null,
   ) {}
+  /**
+   * Why a suggested food can't be added, as a contributor-facing reason, or
+   * null when it can (or a follow-up carries an undecided one forward).
+   */
+  private async foodProblem(actor: Actor, input: SubmissionInput) {
+    const food = input.newFood;
+    if (!food) return { problem: null, carry: null };
+    if (input.followUp) {
+      const earlier = await this.repository.pendingFood(
+        input.followUp.submissionId,
+      );
+      if (
+        earlier &&
+        categoryKey(earlier.name) === categoryKey(food.name) &&
+        earlier.shelfId === food.shelfId
+      ) {
+        if (earlier.status === "pending")
+          return { problem: null, carry: earlier.id };
+        return {
+          problem:
+            earlier.status === "rejected"
+              ? `The food “${earlier.name}” wasn’t added. Choose an existing food.`
+              : `“${earlier.name}” is listed now. Choose it from the foods.`,
+          carry: null,
+        };
+      }
+    }
+    if (!this.foods)
+      throw new ApplicationError(
+        "FOOD_SUGGESTIONS_UNAVAILABLE",
+        "Suggesting a food is unavailable right now. Choose an existing food.",
+        503,
+      );
+    try {
+      await this.foods.check(actor, {
+        name: food.name,
+        shelfId: food.shelfId,
+        country: input.country,
+        aliases: food.aliases ?? [],
+      });
+      return { problem: null, carry: null };
+    } catch (error) {
+      if (error instanceof ApplicationError)
+        return { problem: error.message, carry: null };
+      throw error;
+    }
+  }
   async preflight(actor: Actor, key: string, input: SubmissionInput) {
     active(actor);
     const prior = await this.repository.byKey(actor.id, key);
@@ -56,6 +121,14 @@ export class SubmissionService {
     );
     if (decision.decision === "NEEDS_CHANGES")
       return { ...decision, receiptId: null };
+    const food = await this.foodProblem(actor, input);
+    if (food.problem)
+      return {
+        ...decision,
+        decision: "NEEDS_CHANGES" as const,
+        reasons: [food.problem],
+        receiptId: null,
+      };
     const receipt = await this.repository.reserve(
       actor.id,
       key,
@@ -112,6 +185,22 @@ export class SubmissionService {
   async checkIdentity(actor: Actor, input: SubmissionIdentity) {
     active(actor);
     return this.lookup.candidates(input, await this.lookup.context(input));
+  }
+  /**
+   * "Is it one of these?" while someone types. Read-only; a name that is
+   * only a package size simply has no matches yet.
+   */
+  async identityMatches(actor: Actor, input: SubmissionIdentity) {
+    try {
+      return await this.checkIdentity(actor, input);
+    } catch (error) {
+      if (
+        error instanceof ApplicationError &&
+        error.code === "INVALID_IDENTITY"
+      )
+        return [];
+      throw error;
+    }
   }
   async evidenceReceipt(actor: Actor, key: string, productId: string) {
     active(actor);
@@ -198,6 +287,48 @@ export class SubmissionService {
     if (decision.decision === "NEEDS_CHANGES")
       return { ...decision, receiptId };
     await this.validateImages(receipt, input);
+    // A suggested food is checked again (names and allowances move) and
+    // assessed on its own before it is held with the product.
+    const food = await this.foodProblem(actor, input);
+    if (food.problem)
+      return {
+        ...decision,
+        decision: "NEEDS_CHANGES" as const,
+        reasons: [food.problem],
+        receiptId,
+      };
+    const proposalId = food.carry ?? `${receipt.id}_food`;
+    if (input.newFood && !food.carry) {
+      const suggestion = await this.decisions.evaluate({
+        kind: "category_proposal",
+        subject: { type: "category_proposal", id: proposalId },
+        userId: actor.id,
+        state: {
+          proposal: {
+            name: input.newFood.name,
+            explanation: input.statusBasis ?? "",
+            aliases: input.newFood.aliases ?? [],
+            exampleProducts: [`${input.brand} ${input.name}`],
+          },
+        },
+      });
+      if (suggestion.outcome === "BLOCKED") {
+        await this.repository.block(receipt.id, this.clock());
+        return {
+          ...decision,
+          decision: "BLOCKED" as const,
+          reasons: suggestion.reasons,
+          receiptId,
+        };
+      }
+      if (suggestion.outcome === "NEEDS_CHANGES")
+        return {
+          ...decision,
+          decision: "NEEDS_CHANGES" as const,
+          reasons: suggestion.reasons,
+          receiptId,
+        };
+    }
     // Automated evidence checks run only after every deterministic gate and
     // can only make the decision more restrictive.
     const automated = await this.decisions.evaluate({
@@ -206,7 +337,13 @@ export class SubmissionService {
       userId: actor.id,
       ...(await this.decisionInput(receipt, input, context)),
     });
-    const outcome = combineDecisions(decision.decision, automated.outcome);
+    // An ingredients photo the check could not read lowers the classification
+    // to "Ingredients not checked yet" instead of holding the product.
+    const unreadablePhoto = onlyUnreadablePhoto(automated);
+    const outcome = combineDecisions(
+      decision.decision,
+      unreadablePhoto ? "READY" : automated.outcome,
+    );
     if (outcome === "BLOCKED") {
       await this.repository.block(receipt.id, this.clock());
       return {
@@ -236,12 +373,18 @@ export class SubmissionService {
         reasons,
         this.clock(),
         this.newId(),
+        input.newFood
+          ? {
+              proposalId,
+              create: !food.carry,
+              perDay: this.foods?.perDay ?? 0,
+            }
+          : undefined,
       );
       return { ...decision, decision: outcome, reasons, receiptId };
     }
-    // READY implies the contributor evidence supports a provisional status.
     return this.publish(actor, receipt, input, {
-      veganStatus: provisionalStatus(input)!,
+      ...provisionalClassification(input, { unreadablePhoto }),
       reviewedBy: null,
     });
   }
@@ -265,30 +408,80 @@ export class SubmissionService {
         409,
       );
     const input = submissionInput.parse(rawInput);
-    // Approval is the operator review of an unconfirmed classification; it
-    // must never fall back to a provisional status the evidence did not support.
-    const status = veganStatus ?? provisionalStatus(input);
-    if (!status)
+    // The suggested food is decided first; its decision rewrites the details.
+    if (input.newFood)
       throw new ApplicationError(
-        "CLASSIFICATION_REQUIRED",
-        "Choose the reviewed ingredient classification before publishing this submission.",
+        "FOOD_PENDING",
+        `Decide the suggested food “${input.newFood.name}” first. The product continues once it is decided.`,
+        409,
       );
+    // An operator's chosen classification is reviewed; without one the
+    // product publishes with what the contributor's evidence supports, which
+    // is "Ingredients not checked yet" when it supports nothing (or only a
+    // photo the automated check could not read).
+    const classification = veganStatus
+      ? { veganStatus, ingredientsChecked: true, reviewedBy: actor.id }
+      : {
+          ...provisionalClassification(input, {
+            unreadablePhoto: onlyUnreadablePhoto(
+              await this.decisions.latestCheck("submission", receipt.id),
+            ),
+          }),
+          reviewedBy: null,
+        };
     await this.validateImages(receipt, input);
     return this.publish(
       actor,
       receipt,
       input,
-      { veganStatus: status, reviewedBy: veganStatus ? actor.id : null },
+      classification,
       expectedRevision,
       note,
       operation,
+    );
+  }
+  /** The deterministic decision for details as they stand now. */
+  async recheck(input: SubmissionInput) {
+    const context = await this.lookup.context(input);
+    return decideSubmission(
+      input,
+      await this.lookup.candidates(input, context),
+    );
+  }
+  /**
+   * Publishes a held submission whose suggested food was accepted and which
+   * needs nothing else reviewed, as the audited system account.
+   */
+  async publishAfterFood(
+    receiptId: string,
+    input: SubmissionInput,
+    revision: number,
+    unreadablePhoto: boolean,
+  ) {
+    const receipt = await this.repository.get(receiptId);
+    if (!receipt || receipt.state !== "review") return null;
+    await this.validateImages(receipt, input);
+    return this.publish(
+      SYSTEM_ACTOR,
+      receipt,
+      input,
+      {
+        ...provisionalClassification(input, { unreadablePhoto }),
+        reviewedBy: null,
+      },
+      revision,
+      "Published after its suggested food was accepted.",
     );
   }
   private async publish(
     actor: Actor,
     receipt: SubmissionReceipt,
     input: SubmissionInput,
-    classification: { veganStatus: VeganStatus; reviewedBy: string | null },
+    classification: {
+      veganStatus: VeganStatus;
+      ingredientsChecked: boolean;
+      reviewedBy: string | null;
+    },
     revision?: number,
     note?: string,
     operation?: ReceiptWrite,
@@ -315,7 +508,7 @@ export class SubmissionService {
         receipt.planned_version_id,
         token,
       );
-      return await this.repository.publish(
+      const published = await this.repository.publish(
         actor,
         receipt,
         input,
@@ -329,6 +522,16 @@ export class SubmissionService {
         note,
         operation,
       );
+      // Publication is committed; its extras are retried hourly if this fails.
+      const extras = await this.afterPublish?.(receipt.id).catch(() => {
+        console.error(JSON.stringify({ event: "publication_extras_failed" }));
+        return null;
+      });
+      // Only a submission with a rating says what became of it; a replayed
+      // publication leaves it out.
+      return input.rating
+        ? { ...published, rating: extras?.rating ?? ("pending" as const) }
+        : published;
     } catch (error) {
       await this.repository.release(receipt.id, token, this.clock());
       if (
@@ -355,9 +558,13 @@ export class SubmissionService {
           brand: context.brandName,
           name: input.name,
           country: input.country,
-          categories: await this.lookup.categoryNames(input.categoryIds),
-          manufacturerLabel: input.manufacturerLabel,
-          contributorNote: input.statusBasis,
+          // A suggested food is judged by its name, like the listed ones.
+          categories: [
+            ...(await this.lookup.categoryNames(input.categoryIds)),
+            ...(input.newFood ? [input.newFood.name] : []),
+          ],
+          manufacturerLabel: input.manufacturerLabel ?? "unknown",
+          contributorNote: input.statusBasis ?? "",
         },
         images: images.map((i, index) => ({
           position: index + 1,
@@ -367,7 +574,10 @@ export class SubmissionService {
       images,
       context: {
         slots: images.map((i) => i.slot),
-        ingredientPhotoRequired: !input.ingredientUrl,
+        // Only an ingredients photo without a source is checked as the
+        // product's ingredient evidence.
+        ingredientPhotoRequired:
+          input.imageSlots.includes("ingredients") && !input.ingredientUrl,
       },
     };
   }
@@ -391,12 +601,11 @@ export class SubmissionService {
       images.some(
         (i) => i.state !== "complete" || !input.imageSlots.includes(i.slot),
       ) ||
-      !images.some((i) => i.slot === "front") ||
-      (!input.ingredientUrl && !images.some((i) => i.slot === "ingredients"))
+      !images.some((i) => i.slot === "front")
     )
       throw new ApplicationError(
         "EVIDENCE_REQUIRED",
-        "Finish the front photo and ingredient evidence uploads before submitting.",
+        "Finish uploading the photos before submitting.",
         409,
       );
   }

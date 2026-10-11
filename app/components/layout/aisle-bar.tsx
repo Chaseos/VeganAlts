@@ -157,6 +157,7 @@ function AisleMenuItem({
                   shelves: aisle.shelves.map((shelf) => ({
                     slug: shelf.slug,
                     name: shelf.name,
+                    silent: shelf.silent,
                     foods: shelf.foods.map((food) => ({
                       ...food,
                       rankedCount: 0,

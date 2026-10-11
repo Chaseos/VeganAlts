@@ -10,12 +10,12 @@ import {
   categoryDecision,
   categoryKey,
   categoryProposalInput,
+  countriesInput,
   storedCategoryProposal,
   categorySlug,
   createCategoryInput,
   dimensionsInput,
   featuresInput,
-  invalidCountry,
   MAX_ACTIVE_DIMENSIONS,
   mergeInput,
   planCategoryUpdate,
@@ -30,6 +30,12 @@ import type {
   D1TaxonomyRepository,
   MergeRecord,
 } from "../infrastructure/d1-taxonomy-repository";
+import {
+  FoodSuggestions,
+  PROPOSALS_PER_DAY,
+  assertNamesAvailable,
+  type NameScope,
+} from "./food-suggestions";
 
 /** Side effects after a committed taxonomy change: derived data and caches. */
 export interface TaxonomyEffects {
@@ -37,8 +43,9 @@ export interface TaxonomyEffects {
   rebuildSearch(): Promise<void>;
   refreshTrending(categoryIds: string[]): Promise<void>;
   invalidate(categorySlugs: string[], productIds: string[]): Promise<void>;
+  // A suggested food was decided: products waiting on it continue.
+  foodDecided?(proposalId: string): Promise<void>;
 }
-const PROPOSALS_PER_DAY = 3;
 // Every featured category is still active (bound: IDs as JSON, their count).
 // The insert skips inactive ones, so this keeps the audit equal to the rows.
 const FEATURABLE =
@@ -61,13 +68,7 @@ function fenceParent(
     " AND EXISTS(SELECT 1 FROM categories WHERE id=? AND is_active=1) AND NOT EXISTS(WITH RECURSIVE up(id) AS (SELECT ? UNION SELECT c.parent_id FROM categories c JOIN up ON c.id=up.id WHERE c.parent_id IS NOT NULL) SELECT 1 FROM up WHERE id=?)";
   guard.values.push(parentId, parentId, categoryId);
 }
-/**
- * Who a category's name must differ from. Foods (rankable) share one namespace
- * with every food name and alias; an aisle or shelf only needs a name unique
- * among its siblings, so the Eggs aisle can hold an Eggs shelf and food.
- */
-export type NameScope =
-  { rankable: true } | { rankable: false; parentId: string | null };
+export type { NameScope };
 export const scopeFor = (
   isRankable: boolean,
   parentId: string | null,
@@ -134,28 +135,12 @@ export class TaxonomyService {
       throw new ApplicationError("NOT_FOUND", "Category not found.", 404);
     return category;
   }
-  private async assertNameAvailable(
+  private assertNameAvailable(
     names: string[],
     scope: NameScope,
     except?: string,
   ) {
-    const keys = new Set(names.map(categoryKey));
-    const taken = (await this.repository.names()).find(
-      (n) =>
-        n.id !== except &&
-        keys.has(categoryKey(n.value)) &&
-        (scope.rankable
-          ? n.isAlias === 1 || n.rankable === 1
-          : n.isAlias === 0 && n.parentId === scope.parentId),
-    );
-    if (taken)
-      throw new ApplicationError(
-        "CATEGORY_EXISTS",
-        scope.rankable
-          ? `“${taken.value}” already names a food${taken.active ? "" : " (retired)"}. Use or alias the existing food.`
-          : `“${taken.value}” already names a group here${taken.active ? "" : " (retired)"}. Choose another name.`,
-        409,
-      );
+    return assertNamesAvailable(this.repository, names, scope, except);
   }
   // Aisles and shelves are navigation, not search targets: no aliases.
   private assertGroupAliases(isRankable: boolean, aliases: unknown[]) {
@@ -163,16 +148,6 @@ export class TaxonomyService {
       throw new ApplicationError(
         "GROUP_ALIASES",
         "Aisles and shelves take no aliases or search terms. Add them to a food.",
-      );
-  }
-  // Category proposals choose a shelf: an active group two levels below Food.
-  private async assertShelf(parentId: string) {
-    const parent = await this.existing(parentId);
-    const ancestors = await this.repository.ancestors(parentId);
-    if (!parent.isActive || parent.isRankable || ancestors.length !== 2)
-      throw new ApplicationError(
-        "INVALID_SHELF",
-        "Choose the shelf the new food belongs on.",
       );
   }
   private async assertSlugAvailable(slug: string, owner?: string) {
@@ -246,26 +221,14 @@ export class TaxonomyService {
     );
     const prior = await this.repository.replay<{ id: string }>(receipt);
     if (prior) return prior;
-    const slug = categorySlug(input.name);
-    assertCategorySlug(slug);
-    // Deterministic quota and duplicate checks before any model call; the
-    // insert enforces the quota again.
-    const day = Math.floor(receipt.now / 86_400_000) * 86_400_000;
-    if (
-      (await this.repository.proposalsSince(actor.id, day)) >= PROPOSALS_PER_DAY
-    )
-      throw new ApplicationError(
-        "PROPOSAL_LIMIT",
-        "Today's category proposal allowance is exhausted. Please try again tomorrow.",
-        429,
-      );
-    await this.assertNameAvailable([input.name, ...input.aliases], {
-      rankable: true,
+    // Deterministic quota, name, shelf and country checks before any model
+    // call; the insert enforces the quota again.
+    await new FoodSuggestions(this.repository, this.clock).check(actor, {
+      name: input.name,
+      shelfId: input.shelfId,
+      country: input.country,
+      aliases: input.aliases,
     });
-    await this.assertShelf(input.shelfId);
-    // Every proposal belongs to a country people can browse.
-    if (!(await this.repository.countryActive(input.country)))
-      throw invalidCountry();
     const id = this.newId();
     const automated = await this.decisions.evaluate({
       kind: "category_proposal",
@@ -274,7 +237,7 @@ export class TaxonomyService {
       state: {
         proposal: {
           name: input.name,
-          explanation: input.explanation,
+          explanation: input.explanation ?? "",
           aliases: input.aliases,
           exampleProducts: input.exampleProducts,
         },
@@ -288,7 +251,7 @@ export class TaxonomyService {
         automated.outcome === "BLOCKED"
           ? "PROPOSAL_BLOCKED"
           : "PROPOSAL_NEEDS_CHANGES",
-        automated.reasons.join(" ") || "Check the proposed category.",
+        automated.reasons.join(" ") || "Check the suggested food.",
         422,
       );
     return this.repository.createProposal(
@@ -298,7 +261,7 @@ export class TaxonomyService {
         name: input.name,
         parentId: input.shelfId,
         country: input.country,
-        explanation: input.explanation,
+        explanation: input.explanation ?? "",
         data: input,
         perDay: PROPOSALS_PER_DAY,
       },
@@ -322,6 +285,9 @@ export class TaxonomyService {
       resolutionNote: proposal.resolution_note,
       suggestedSlug: categorySlug(proposal.name),
       parentId: proposal.parent_id,
+      country: proposal.country,
+      // Products submitted with this food, decided after it.
+      waitingProducts: await this.repository.waitingProducts(id),
     };
   }
   /** Operator decision: create the category, alias an existing one, or reject. */
@@ -366,7 +332,7 @@ export class TaxonomyService {
         { proposal },
         { status: "rejected" },
       );
-      return this.repository.commit(
+      const result = await this.repository.commit(
         action,
         guard,
         (fence) => [
@@ -382,6 +348,8 @@ export class TaxonomyService {
         ],
         receipt,
       );
+      await this.foodDecided(id);
+      return result;
     }
     if (input.decision === "alias") {
       if (!input.aliasOf)
@@ -422,13 +390,25 @@ export class TaxonomyService {
           ) === i && categoryKey(a.alias) !== categoryKey(target.name),
       );
       const plan = planCategoryUpdate(target, { aliases: deduped });
+      // The existing food opens in the country that asked for it; the action
+      // records that so its reversal closes it again.
+      const opened =
+        proposal.country_id &&
+        !(await this.repository.countriesOf(target.id)).some(
+          (c) => c.id === proposal.country_id,
+        )
+          ? [proposal.country_id]
+          : [];
       const action = this.action(
         actor,
         "category_update",
         target.id,
         input.note,
         plan.before,
-        plan.after,
+        {
+          ...plan.after,
+          ...(opened.length ? { countriesOpened: opened } : {}),
+        },
       );
       guard.sql +=
         " AND EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)";
@@ -453,12 +433,26 @@ export class TaxonomyService {
             now,
             fence,
           ),
+          ...this.repository.countryStatements(
+            target.id,
+            { add: opened, remove: [], source: "proposal", actorId: actor.id },
+            now,
+            fence,
+          ),
         ],
         receipt,
       );
       await this.refreshed([target.slug]);
+      await this.foodDecided(id);
       return result;
     }
+    // A product waiting on this food needs it to be a ranked food.
+    if (!input.isRankable && (await this.repository.waitingProducts(id)).length)
+      throw new ApplicationError(
+        "FOOD_HAS_WAITING_PRODUCTS",
+        "A product is waiting on this food, so accept it as a ranked food or reject it.",
+        409,
+      );
     const slug = input.slug
       ? categorySlug(input.slug)
       : categorySlug(data.name);
@@ -493,7 +487,20 @@ export class TaxonomyService {
       action,
       guard,
       (fence) => [
-        ...this.repository.createStatements(categoryId, created, now, fence),
+        // An accepted food starts in the country it was suggested from.
+        ...this.repository.createStatements(
+          categoryId,
+          created,
+          now,
+          fence,
+          proposal.country_id
+            ? {
+                ids: [proposal.country_id],
+                source: "proposal",
+                actorId: actor.id,
+              }
+            : undefined,
+        ),
         this.repository.resolveProposalStatement(
           id,
           "accepted",
@@ -507,7 +514,17 @@ export class TaxonomyService {
       receipt,
     );
     await this.refreshed([slug]);
+    await this.foodDecided(id);
     return { ...result, categoryId, slug };
+  }
+  // The decision is committed; continuing waiting products must not report
+  // it as failed. The hourly sweep finishes anything left waiting.
+  private async foodDecided(proposalId: string) {
+    try {
+      await this.effects.foodDecided?.(proposalId);
+    } catch {
+      console.error(JSON.stringify({ event: "food_continuation_failed" }));
+    }
   }
 
   // ---- Operator taxonomy management --------------------------------------
@@ -530,6 +547,9 @@ export class TaxonomyService {
     this.assertGroupAliases(input.isRankable, input.aliases);
     await this.assertNameAvailable([input.name, ...input.aliases], scope);
     await this.assertParent(null, input.parentId);
+    // An operator's new food starts in every active country unless they
+    // choose some.
+    const countryIds = await this.activeCountryIds(input.countries);
     const id = this.newId();
     const created = {
       name: input.name,
@@ -544,7 +564,12 @@ export class TaxonomyService {
     const result = await this.repository.commit(
       this.action(actor, "category_create", id, input.note, {}, created),
       guard,
-      (fence) => this.repository.createStatements(id, created, now, fence),
+      (fence) =>
+        this.repository.createStatements(id, created, now, fence, {
+          ids: countryIds,
+          source: "operator",
+          actorId: actor.id,
+        }),
       receipt,
     );
     await this.refreshed([slug]);
@@ -635,6 +660,19 @@ export class TaxonomyService {
     ];
     if (added.length) await this.assertNameAvailable(added, scope, id);
     if (next.parentId !== undefined) await this.assertParent(id, next.parentId);
+    // A food with products stays a food; without, its countries go with it
+    // and are recorded so a reversal restores exactly those.
+    const removed: string[] = [];
+    if (next.isRankable === false && current.isRankable) {
+      removed.push(...(await this.repository.countriesOf(id)).map((c) => c.id));
+      if ((await this.repository.countriesInUse(id, removed)).length)
+        throw new ApplicationError(
+          "FOOD_HAS_PRODUCTS",
+          "This food has products, so it stays a food.",
+          409,
+        );
+      await this.assertNotFeatured(id, removed);
+    }
     if (next.aliases) next.aliases = await this.countryIds(next.aliases);
     const plan = planCategoryUpdate(current, next);
     const guard = {
@@ -644,14 +682,10 @@ export class TaxonomyService {
     fenceNames(guard, added, id, scope);
     fenceParent(guard, id, next.parentId);
     const result = await this.repository.commit(
-      this.action(
-        actor,
-        "category_update",
-        id,
-        input.note,
-        plan.before,
-        plan.after,
-      ),
+      this.action(actor, "category_update", id, input.note, plan.before, {
+        ...plan.after,
+        ...(removed.length ? { countriesRemoved: removed } : {}),
+      }),
       guard,
       (fence) =>
         this.repository.categoryStatements(id, current, plan.after, now, fence),
@@ -680,6 +714,110 @@ export class TaxonomyService {
         );
       return { ...a, countryId };
     });
+  }
+  // A homepage feature needs its food on in that country: change the
+  // features before switching it off there.
+  private async assertNotFeatured(categoryId: string, countryIds: string[]) {
+    const featured = countryIds.length
+      ? await this.repository.featuredIn(categoryId, countryIds)
+      : [];
+    if (featured.length)
+      throw new ApplicationError(
+        "FOOD_FEATURED",
+        `This food is featured on the ${featured.map((c) => c.iso2).join(", ")} homepage. Change those features first.`,
+        409,
+      );
+  }
+  /** Active countries' IDs for these ISO codes, or every active country. */
+  private async activeCountryIds(codes?: string[]) {
+    const wanted =
+      codes ?? (await this.repository.tree()).countries.map((c) => c.iso2);
+    const ids = await this.repository.countryIdsByIso(wanted);
+    if (codes && ids.size !== new Set(codes.map((c) => c.toUpperCase())).size)
+      throw new ApplicationError(
+        "INVALID_COUNTRY",
+        "Choose only active countries.",
+      );
+    return [...ids.values()];
+  }
+  /**
+   * Replaces the countries where a food is switched on. A food stays on
+   * wherever it has a visible product; inactive countries are left alone.
+   */
+  async setCountries(actor: Actor, key: string, id: string, raw: unknown) {
+    administrator(actor);
+    const input = countriesInput.parse(raw);
+    const now = this.clock(),
+      receipt = await receiptWrite(
+        actor.id,
+        "category-countries",
+        key,
+        { id, ...input },
+        now,
+      );
+    const prior = await this.repository.replay<{ actionId: string }>(receipt);
+    if (prior) return prior;
+    const category = await this.existing(id);
+    if (category.revision !== input.expectedRevision)
+      throw new ApplicationError(
+        "STALE_CATEGORY",
+        "This food changed. Refresh before choosing its countries.",
+        409,
+      );
+    if (!category.isRankable)
+      throw new ApplicationError(
+        "INVALID_COUNTRIES",
+        "Aisles and shelves appear in every country. Choose countries for a food.",
+      );
+    const wanted = await this.activeCountryIds(input.countries);
+    const current = await this.repository.countriesOf(id);
+    const remove = current
+      .filter((c) => !wanted.includes(c.id))
+      .map((c) => c.id);
+    const add = wanted.filter((w) => !current.some((c) => c.id === w));
+    const inUse = remove.length
+      ? await this.repository.countriesInUse(id, remove)
+      : [];
+    if (inUse.length)
+      throw new ApplicationError(
+        "FOOD_HAS_PRODUCTS",
+        `This food has products in ${current
+          .filter((c) => inUse.includes(c.id))
+          .map((c) => c.iso2)
+          .join(", ")}, so it stays on there.`,
+        409,
+      );
+    await this.assertNotFeatured(id, remove);
+    const before = current.map((c) => c.iso2).sort();
+    const after = [
+      ...new Set(input.countries.map((c) => c.toUpperCase())),
+    ].sort();
+    const result = await this.repository.commit(
+      this.action(
+        actor,
+        "category_countries",
+        id,
+        input.note,
+        { countries: before },
+        { countries: after },
+      ),
+      {
+        sql: "EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)",
+        values: [id, category.revision],
+      },
+      (fence) => [
+        ...this.repository.countryStatements(
+          id,
+          { add, remove, source: "operator", actorId: actor.id },
+          now,
+          fence,
+        ),
+        this.repository.bumpRevisionStatement(id, now, fence),
+      ],
+      receipt,
+    );
+    await this.refreshed([category.slug]);
+    return result;
   }
   async setFeatures(actor: Actor, key: string, raw: unknown) {
     administrator(actor);
@@ -715,6 +853,16 @@ export class TaxonomyService {
       throw new ApplicationError(
         "INVALID_COUNTRY",
         "Choose an active country for homepage features.",
+      );
+    // A country features only foods that are on there.
+    if (
+      (await this.repository.availableCount(input.categoryIds, countryId)) !==
+      input.categoryIds.length
+    )
+      throw new ApplicationError(
+        "INVALID_FEATURES",
+        "Feature only foods that are on in this country.",
+        409,
       );
     const before = await this.repository.features(countryId);
     const result = await this.repository.commit(
@@ -835,9 +983,12 @@ export class TaxonomyService {
     if (
       !original ||
       original.reversed_by ||
-      !["category_update", "category_features", "category_dimensions"].includes(
-        original.kind,
-      )
+      ![
+        "category_update",
+        "category_features",
+        "category_dimensions",
+        "category_countries",
+      ].includes(original.kind)
     )
       throw new ApplicationError(
         "INVALID_REVERSAL",
@@ -846,10 +997,12 @@ export class TaxonomyService {
     const before = JSON.parse(original.before_data) as CategoryPatch & {
       features?: string[];
       dimensions?: DimensionState[];
+      countries?: string[];
     };
     const after = JSON.parse(original.after_data) as CategoryPatch & {
       features?: string[];
       dimensions?: DimensionState[];
+      countries?: string[];
     };
     const action = this.action(
       actor,
@@ -887,12 +1040,25 @@ export class TaxonomyService {
           "A previously featured category was retired. Choose new features instead.",
           409,
         );
+      // A country features only foods that are on there.
+      if (
+        (await this.repository.availableCount(restored, countryId)) !==
+        restored.length
+      )
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "A previously featured food is no longer on in this country. Switch it on there or choose new features.",
+          409,
+        );
       const result = await this.repository.commit(
         action,
         {
-          sql: `${reversed.sql} AND ${FEATURABLE}`,
+          sql: `${reversed.sql} AND ${FEATURABLE} AND (SELECT COUNT(*) FROM category_countries WHERE country_id=? AND category_id IN (SELECT value FROM json_each(?)))=?`,
           values: [
             ...reversed.values,
+            JSON.stringify(restored),
+            restored.length,
+            countryId,
             JSON.stringify(restored),
             restored.length,
           ],
@@ -909,6 +1075,65 @@ export class TaxonomyService {
         receipt,
       );
       await this.effects.invalidate([], []);
+      return result;
+    }
+    if (original.kind === "category_countries") {
+      const category = await this.existing(original.target_id);
+      if (!category.isRankable)
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "This food is now an aisle or shelf. Reverse that change first.",
+          409,
+        );
+      const current = await this.repository.countriesOf(category.id);
+      if (
+        JSON.stringify(current.map((c) => c.iso2).sort()) !==
+        JSON.stringify(after.countries)
+      )
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "This food's countries changed since this action. Review the newer change first.",
+          409,
+        );
+      const restore = await this.repository.countryIdsByIso(
+        before.countries ?? [],
+      );
+      const remove = current
+        .filter((c) => !restore.has(c.iso2))
+        .map((c) => c.id);
+      if ((await this.repository.countriesInUse(category.id, remove)).length)
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "This food now has products in a country the action added, so it stays on there.",
+          409,
+        );
+      await this.assertNotFeatured(category.id, remove);
+      const result = await this.repository.commit(
+        action,
+        {
+          sql: `${reversed.sql} AND EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)`,
+          values: [...reversed.values, category.id, category.revision],
+        },
+        (fence) => [
+          ...this.repository.countryStatements(
+            category.id,
+            {
+              add: [...restore.values()].filter(
+                (id) => !current.some((c) => c.id === id),
+              ),
+              remove,
+              source: "operator",
+              actorId: actor.id,
+            },
+            now,
+            fence,
+          ),
+          this.repository.bumpRevisionStatement(category.id, now, fence),
+          this.reversedStatement(actionId, action.id, fence),
+        ],
+        receipt,
+      );
+      await this.refreshed([category.slug]);
       return result;
     }
     if (original.kind === "category_dimensions") {
@@ -955,7 +1180,23 @@ export class TaxonomyService {
       return result;
     }
     const current = await this.existing(original.target_id);
-    for (const [field, value] of Object.entries(after))
+    // An alias decision may also have opened the food in a country; that
+    // closes again unless products arrived there since.
+    // A reversed demotion restores the countries the food had.
+    const {
+      countriesOpened = [],
+      countriesRemoved,
+      ...fields
+    } = after as typeof after & {
+      countriesOpened?: string[];
+      countriesRemoved?: string[];
+    };
+    const closing = countriesOpened.length
+      ? await this.repository
+          .countriesInUse(current.id, countriesOpened)
+          .then((inUse) => countriesOpened.filter((c) => !inUse.includes(c)))
+      : [];
+    for (const [field, value] of Object.entries(fields))
       if (
         JSON.stringify(
           field === "aliases"
@@ -1017,6 +1258,13 @@ export class TaxonomyService {
           current.id,
           current,
           before,
+          now,
+          fence,
+          countriesRemoved,
+        ),
+        ...this.repository.countryStatements(
+          current.id,
+          { add: [], remove: closing, source: "operator", actorId: actor.id },
           now,
           fence,
         ),

@@ -309,6 +309,17 @@ export class D1RatingsRepository implements RatingsRepository {
     }
   }
 
+  /** Whether a member already rated a formula for a food. */
+  async hasRated(userId: string, versionId: string, categoryId: string) {
+    return Boolean(
+      await this.db
+        .prepare(
+          "SELECT 1 FROM ratings WHERE user_id=? AND product_version_id=? AND category_id=?",
+        )
+        .bind(userId, versionId, categoryId)
+        .first(),
+    );
+  }
   async listVersionIds(after: string | null, limit: number) {
     const result = await this.db
       .prepare(

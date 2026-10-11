@@ -11,6 +11,7 @@ import { planProductChange, proposalBaseline } from "../domain/change-policy";
 import { describeChange } from "../domain/change-summary";
 import { contributorProduct } from "../domain/moderation";
 import {
+  checksIngredients,
   confidence,
   riskTier,
   type AutoApplyPolicy,
@@ -135,12 +136,16 @@ export class ContributionService {
         ? await this.media.referenceImage(input.productId)
         : null;
     const automated = await this.decisions.evaluate({
+      // Checking unchecked ingredients cites an already accepted label photo,
+      // so its evidence is assessed like an allergen declaration's.
       kind:
         input.kind === "photo"
           ? "image"
-          : ["classification", "reformulation"].includes(input.kind)
-            ? "formula_evidence"
-            : "edit_proposal",
+          : checksIngredients(input, snapshot)
+            ? "edit_proposal"
+            : ["classification", "reformulation"].includes(input.kind)
+              ? "formula_evidence"
+              : "edit_proposal",
       subject: { type: "edit_proposal", id },
       userId: actor.id,
       state: {

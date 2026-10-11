@@ -126,6 +126,8 @@ describe("taxonomy shape", () => {
         id: "beef",
         slug: "beef",
         name: "beef",
+        // The aisle's only placeable shelf is not shown as its own level.
+        silent: true,
         foods: [
           {
             id: "ground-beef",

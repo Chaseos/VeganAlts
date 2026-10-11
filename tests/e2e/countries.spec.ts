@@ -1,7 +1,13 @@
 import { expect, test } from "./fixtures";
 import { accessible } from "./a11y";
-import { chooseCountry, openAccountLink } from "./site";
+import {
+  chooseCountry,
+  fillBasics,
+  openAccountLink,
+  openOptional,
+} from "./site";
 import { createBrowserSession } from "./session-fixture";
+import { withLocalDb } from "./local-db";
 
 test("switching country keeps the food, remembers the choice and invites the first products", async ({
   page,
@@ -30,6 +36,13 @@ test("switching country keeps the food, remembers the choice and invites the fir
   await expect(
     page.getByRole("link", { name: "Add the first product" }),
   ).toHaveAttribute("href", "/add-product?country=ca");
+  // The shared aisles are listed so people there can add a food's first product.
+  await expect(
+    page.getByRole("heading", { name: "Browse every food" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Be the first to add one").first(),
+  ).toBeAttached();
   await accessible(page);
 
   // "/" sends a returning visitor to the remembered country after hydration.
@@ -39,6 +52,52 @@ test("switching country keeps the food, remembers the choice and invites the fir
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
+});
+
+test("a food that is not on in a country invites its first product there", async ({
+  page,
+  request,
+}) => {
+  // Bacon has no New Zealand products, so it can be switched off there.
+  const off = (db: D1Database) =>
+    db
+      .prepare(
+        "DELETE FROM category_countries WHERE category_id=(SELECT id FROM categories WHERE slug='bacon') AND country_id=(SELECT id FROM countries WHERE iso2='NZ')",
+      )
+      .run();
+  await withLocalDb(off);
+  try {
+    await page.goto("/nz/bacon");
+    await expect(
+      page.getByRole("heading", { name: "Not in New Zealand yet" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "See it in United States" }),
+    ).toHaveAttribute("href", "/us/bacon");
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+      "content",
+      /noindex/,
+    );
+    await accessible(page);
+    const api = await request.get("/api/v1/categories/bacon?country=NZ");
+    expect((await api.json()).data.availability).toMatchObject({
+      here: false,
+    });
+    // It is left out of New Zealand's aisles.
+    const chrome = await request.get("/api/v1/categories/bacon?country=US");
+    expect((await chrome.json()).data.availability).toMatchObject({
+      here: true,
+      countries: expect.not.arrayContaining(["nz"]),
+    });
+  } finally {
+    await withLocalDb((db) =>
+      db
+        .prepare(
+          "INSERT INTO category_countries(category_id,country_id,source,created_at) SELECT c.id,co.id,'launch',1 FROM categories c,countries co WHERE c.slug='bacon' AND co.iso2='NZ' ON CONFLICT DO NOTHING",
+        )
+        .run(),
+    );
+  }
 });
 
 test("only active countries route; the United States home lives at /", async ({
@@ -79,39 +138,32 @@ test("a product added from Ireland is published, rated and ranked in Ireland onl
     await page.goto("/ie/beef-burgers");
     await openAccountLink(page, "Add a product");
     await expect(page).toHaveURL(/\/add-product\?country=ie$/);
-    await expect(
-      page.getByRole("main").getByRole("combobox", { name: "Country" }),
-    ).toHaveValue("IE");
-    await page.getByLabel("Product name", { exact: true }).fill(name);
-    await page
-      .getByLabel("Brand", { exact: true })
-      .fill(`Maple Farms ${Date.now()}`);
-    await page.getByLabel("Beef Burgers", { exact: true }).check();
-    await page.getByRole("button", { name: "Check for matches" }).click();
-    await page.getByRole("button", { name: "Add evidence" }).click();
-    await page
-      .getByLabel("Front photo (required)")
-      .setInputFiles("tests/fixtures/small.jpg");
-    await page
-      .getByLabel(/Manufacturer ingredient source/)
-      .fill("https://example.com/maple-ingredients");
-    await page
-      .getByLabel("What supports the ingredient classification?")
-      .fill("The manufacturer ingredient list contains only plants.");
-    await page.getByRole("button", { name: "Review submission" }).click();
+    await expect(page.getByRole("main")).toContainText("Adding to Ireland");
+    await fillBasics(page, {
+      food: "Beef Burgers",
+      brand: `Maple Farms ${Date.now()}`,
+      name,
+    });
+    await page.getByRole("button", { name: "Continue" }).click();
     await expect(
       page.getByRole("definition").filter({ hasText: /^Ireland$/ }),
     ).toBeVisible();
+    await openOptional(page, "Ingredients");
+    await page
+      .getByLabel(/Link to the ingredients/)
+      .fill("https://example.com/maple-ingredients");
+    await page.getByLabel(/I checked the ingredients/).check();
     await page
       .getByRole("button", { name: "Submit product", exact: true })
       .click();
     // A clear submission publishes at once; anything else waits for review.
-    const receipt = page.getByRole("link", { name: "View submission receipt" });
+    const receipt = page.getByRole("link", { name: "View your submission" });
     await expect(
       page.getByRole("heading", { level: 1, name }).or(receipt),
     ).toBeVisible();
     if (await receipt.isVisible()) {
       await receipt.click();
+      await expect(page).toHaveURL(/\/my-contributions\/submission\//);
       const receiptId = new URL(page.url()).pathname.split("/").at(-1)!;
       await context.clearCookies();
       await context.addCookies([operator.cookie]);

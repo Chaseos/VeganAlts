@@ -575,6 +575,85 @@ it("accepts a confirmed allergen declaration that cites the label photo, reversi
   expect(await provenance()).toEqual(original);
 });
 
+it("checks an unchecked formula's ingredients by community confirmation, reversibly", async () => {
+  const { f, services, confirmer, admin, propose } = await fixture();
+  const panel = await labelled(f);
+  await env.DB.prepare(
+    "INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,ingredients_checked,updated_at) VALUES(?,'appears_vegan','unknown',?,0,1)",
+  )
+    .bind(
+      f.versionId,
+      JSON.stringify({ urls: [], imageIds: [], note: "Front photo only." }),
+    )
+    .run();
+  const checked = () =>
+    env.DB.prepare(
+      "SELECT vegan_status AS status,ingredients_checked AS checked FROM formula_classifications WHERE product_version_id=?",
+    )
+      .bind(f.versionId)
+      .first();
+  const tier = async (fields: Record<string, unknown>) =>
+    (
+      (await services.repository.proposal(
+        (await propose(fields)).id,
+      )) as unknown as { risk_tier: number }
+    ).risk_tier;
+  // Vegan, or a check without the label photo, stays with operators.
+  expect(
+    await tier({
+      kind: "classification",
+      veganStatus: "vegan",
+      manufacturerLabel: "vegan",
+      citedImageId: panel,
+    }),
+  ).toBe(3);
+  expect(
+    await tier({
+      kind: "classification",
+      veganStatus: "plant_based",
+      manufacturerLabel: "plant_based",
+    }),
+  ).toBe(3);
+  await expect(
+    propose({
+      kind: "classification",
+      veganStatus: "appears_vegan",
+      manufacturerLabel: "unknown",
+      citedImageId: "not-a-label-photo",
+    }),
+  ).rejects.toMatchObject({ code: "INVALID_EVIDENCE" });
+  const proposal = await propose(
+    {
+      kind: "classification",
+      veganStatus: "appears_vegan",
+      manufacturerLabel: "unknown",
+      citedImageId: panel,
+    },
+    "The ingredients photo lists no animal-derived ingredients.",
+  );
+  expect(await services.repository.proposal(proposal.id)).toMatchObject({
+    risk_tier: 2,
+  });
+  await services.contributions.respond(confirmer, id(), proposal.id, {
+    stance: "confirm",
+  });
+  expect(await services.moderation.autoAccept(proposal.id)).toMatchObject({
+    applied: true,
+  });
+  expect(await checked()).toEqual({ status: "appears_vegan", checked: 1 });
+  const action = await env.DB.prepare(
+    "SELECT id FROM moderation_actions WHERE target_id=? AND kind='proposal_accept'",
+  )
+    .bind(proposal.id)
+    .first<string>("id");
+  await services.moderation.reverse(admin, id(), action!, {
+    expectedRevision: (await services.repository.snapshot(f.productId))
+      .revision,
+    note: "Reversed: the photo shows a different formula.",
+  });
+  expect(await checked()).toEqual({ status: "appears_vegan", checked: 0 });
+});
+
 it("keeps a declaration that contradicts the classification with operators and opens a review", async () => {
   const { f, services, confirmer, second, third, propose } = await fixture();
   const panel = await labelled(f);

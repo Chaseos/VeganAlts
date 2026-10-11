@@ -27,6 +27,8 @@ export interface AisleFood {
 export interface AisleShelf {
   slug: string;
   name: string;
+  // Not shown as its own level: it only repeats its aisle or food.
+  silent?: boolean;
   foods: AisleFood[];
 }
 export interface AisleData {
@@ -98,7 +100,9 @@ export function FoodCard({
       {food.top.length > 0 && food.top.length < 3 && (
         <p className="va-food-card__more">
           Know another?{" "}
-          <Link to={`/add-product?country=${country}`}>Add it.</Link>
+          <Link to={`/add-product?country=${country}&food=${food.slug}`}>
+            Add it.
+          </Link>
         </p>
       )}
     </article>
@@ -128,7 +132,11 @@ export function AislePanel({
   const [query, setQuery] = useState("");
   const Heading = headingLevel === 1 ? "h1" : "h2";
   const foods = data.shelves.flatMap((s) =>
-    s.foods.map((food) => ({ ...food, shelf: s.name, shelfSlug: s.slug })),
+    s.foods.map((food) => ({
+      ...food,
+      shelf: s.silent ? undefined : s.name,
+      shelfSlug: s.slug,
+    })),
   );
   const ranked = foods.reduce((sum, food) => sum + food.rankedCount, 0);
   const lower = query.trim().toLowerCase();
@@ -141,7 +149,9 @@ export function AislePanel({
           `${p.name} ${p.brand ?? ""}`.toLowerCase().includes(lower),
         )),
   );
-  const single = data.shelves.length <= 1;
+  // The shelf rail appears only when at least two shelves are real levels.
+  const named = data.shelves.filter((s) => !s.silent);
+  const single = named.length < 2;
   const aisleName = data.aisle.name.toLowerCase();
   const shelfOptions = [
     { slug: null, name: `All ${aisleName}`, count: foods.length },
@@ -161,8 +171,8 @@ export function AislePanel({
           <Heading className="va-aisle__name">{data.aisle.name}</Heading>
           <p className="va-small va-muted">
             {plural(foods.length, "food")}
-            {data.shelves.length > 1
-              ? ` on ${plural(data.shelves.length, "shelf", "shelves")}`
+            {named.length > 1
+              ? ` on ${plural(named.length, "shelf", "shelves")}`
               : ""}{" "}
             {loading ? "" : ` · ${plural(ranked, "ranked product")}`} · top 3
             for each

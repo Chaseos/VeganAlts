@@ -52,31 +52,46 @@ export const evidence = z
 export const certification = z
   .object({ name: shortText, sourceUrl: evidenceUrl })
   .strict();
+// A food suggested inside a submission (milestone 6): its shelf and any other
+// names. It is decided by an operator before the product publishes.
+export const newFood = z
+  .object({
+    name: shortText,
+    shelfId: id,
+    aliases: z.array(shortText).max(10).optional(),
+  })
+  .strict();
+const unique = <T>(a: T[]) => new Set(a).size === a.length;
+// Milestone 6: name, brand, country, a food and a front photo are required;
+// everything else is optional. New fields have no defaults, so an earlier
+// payload normalizes (and fingerprints) exactly as before.
 export const submissionInput = z
   .object({
     name: shortText,
     brand: shortText,
     country: countryCode,
-    categoryIds: z
-      .array(id)
-      .min(1)
-      .max(5)
-      .refine(
-        (a) => new Set(a).size === a.length,
-        "Choose each category once.",
-      ),
+    categoryIds: z.array(id).max(5).refine(unique, "Choose each food once."),
+    newFood: newFood.optional(),
     imageSlots: z
       .array(imageSlot)
       .min(1)
-      .max(3)
+      .max(4)
       .refine(
-        (a) => a.includes("front") && new Set(a).size === a.length,
+        (a) => a.includes("front") && unique(a),
         "Choose one front photo and no duplicate slots.",
       ),
     ingredientUrl: evidenceUrl.optional(),
-    statusBasis: note,
-    noKnownAnimalIngredients: z.boolean(),
-    manufacturerLabel,
+    statusBasis: z.string().trim().max(2000).optional(),
+    noKnownAnimalIngredients: z.boolean().optional(),
+    manufacturerLabel: manufacturerLabel.optional(),
+    // Applied once the product is published (the rating to its primary food).
+    rating: z.number().int().min(1).max(5).optional(),
+    retailerIds: z
+      .array(id)
+      .max(10)
+      .refine(unique, "Choose each store once.")
+      .optional(),
+    allergens: allergenDeclaration.optional(),
     productFamilyId: id.optional(),
     relatedProductId: id.optional(),
     relationship: z
@@ -92,10 +107,10 @@ export const submissionInput = z
       .optional(),
   })
   .strict()
-  .refine(
-    (v) => v.imageSlots.includes("ingredients") || Boolean(v.ingredientUrl),
-    "Add an ingredient-panel photo or a manufacturer ingredient source.",
-  )
+  .refine((v) => {
+    const foods = v.categoryIds.length + (v.newFood ? 1 : 0);
+    return foods >= 1 && foods <= 5;
+  }, "Choose the food it replaces (up to five foods).")
   .refine(
     (v) => Boolean(v.relatedProductId) === Boolean(v.relationship),
     "Choose both a related product and relationship.",
@@ -106,14 +121,18 @@ export const submissionIdentity = z
     name: shortText,
     brand: shortText,
     country: countryCode,
-    categoryIds: z.array(id).min(1).max(5),
+    // Duplicate matching ignores foods; they may still be undecided.
+    categoryIds: z.array(id).max(5).default([]),
   })
   .strict();
 export type SubmissionIdentity = z.infer<typeof submissionIdentity> &
-  Pick<SubmissionInput, "productFamilyId" | "relatedProductId">;
+  Pick<SubmissionInput, "productFamilyId" | "relatedProductId" | "retailerIds">;
 export type Evidence = z.infer<typeof evidence>;
 export type Certification = z.infer<typeof certification>;
 export type VeganStatus = z.infer<typeof veganStatus>;
+// What readers see: a formula whose ingredients no one has confirmed reads as
+// "unchecked" (milestone 6). It is derived on read and never written.
+export type PublicVeganStatus = VeganStatus | "unchecked";
 export type ManufacturerLabel = z.infer<typeof manufacturerLabel>;
 export interface Actor {
   id: string;
@@ -150,7 +169,7 @@ export interface SubmissionReceipt {
   expires_at: number;
 }
 export interface Classification {
-  veganStatus: VeganStatus;
+  veganStatus: PublicVeganStatus;
   manufacturerLabel: ManufacturerLabel;
   evidence: Evidence;
   certifications: Certification[];
@@ -241,6 +260,9 @@ export const changeInput = z.discriminatedUnion("kind", [
       veganStatus,
       manufacturerLabel,
       certifications: z.array(certification).max(5).default([]),
+      // The formula's accepted ingredients or nutrition photo. Checking an
+      // unchecked formula against it is community-confirmable.
+      citedImageId: id.optional(),
     })
     .strict(),
   z

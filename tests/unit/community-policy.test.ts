@@ -6,7 +6,7 @@ import {
   normalizeName,
   productName,
   communityLimits,
-  provisionalStatus,
+  provisionalClassification,
 } from "../../server/community/domain/policy";
 import {
   changeInput,
@@ -51,10 +51,11 @@ it("distinguishes deterministic publication, actionable duplicates and manual re
   expect(
     decideSubmission({ ...input, specialtyFlavor: true }, []).decision,
   ).toBe("NEEDS_REVIEW");
+  // Unconfirmed ingredients publish as "not checked yet" (milestone 6).
   expect(
     decideSubmission({ ...input, noKnownAnimalIngredients: false }, [])
       .decision,
-  ).toBe("NEEDS_REVIEW");
+  ).toBe("READY");
   expect(
     decideSubmission(input, [
       {
@@ -67,9 +68,94 @@ it("distinguishes deterministic publication, actionable duplicates and manual re
       },
     ]).decision,
   ).toBe("NEEDS_CHANGES");
+  // A label listing an animal-derived allergen contradicts the
+  // classification; a cross-contact statement does not.
+  expect(
+    decideSubmission(
+      {
+        ...input,
+        allergens: { status: "declared", contains: ["milk"], mayContain: [] },
+      },
+      [],
+    ).decision,
+  ).toBe("NEEDS_REVIEW");
+  expect(
+    decideSubmission(
+      {
+        ...input,
+        allergens: { status: "declared", contains: [], mayContain: ["milk"] },
+      },
+      [],
+    ).decision,
+  ).toBe("READY");
+  // A suggested food waits for an operator.
+  expect(
+    decideSubmission(
+      { ...input, newFood: { name: "Bratwurst", shelfId: "pork" } },
+      [],
+    ).decision,
+  ).toBe("NEEDS_REVIEW");
+});
+it("requires only a name, brand, country, food and front photo", () => {
+  const minimal = {
+    name: "Burger",
+    brand: "Garden",
+    country: "US",
+    categoryIds: ["burger"],
+    imageSlots: ["front"],
+  };
+  expect(submissionInput.safeParse(minimal).success).toBe(true);
+  // Ingredient evidence and the classification note are optional.
   expect(
     submissionInput.safeParse({ ...input, ingredientUrl: undefined }).success,
+  ).toBe(true);
+  // A food is required: an existing one or a suggested one, five at most.
+  expect(
+    submissionInput.safeParse({ ...minimal, categoryIds: [] }).success,
   ).toBe(false);
+  expect(
+    submissionInput.safeParse({
+      ...minimal,
+      categoryIds: [],
+      newFood: { name: "Bratwurst", shelfId: "pork" },
+    }).success,
+  ).toBe(true);
+  expect(
+    submissionInput.safeParse({
+      ...minimal,
+      categoryIds: ["a", "b", "c", "d", "e"],
+      newFood: { name: "Bratwurst", shelfId: "pork" },
+    }).success,
+  ).toBe(false);
+  // A front photo is required, and four photos at most.
+  expect(
+    submissionInput.safeParse({ ...minimal, imageSlots: ["ingredients"] })
+      .success,
+  ).toBe(false);
+  expect(
+    submissionInput.safeParse({
+      ...minimal,
+      imageSlots: ["front", "ingredients", "back", "nutrition"],
+    }).success,
+  ).toBe(true);
+  expect(
+    submissionInput.safeParse({
+      ...minimal,
+      imageSlots: ["front", "ingredients", "back", "nutrition", "prepared"],
+    }).success,
+  ).toBe(false);
+  // Extras are optional and bounded.
+  expect(
+    submissionInput.safeParse({
+      ...minimal,
+      rating: 4,
+      retailerIds: ["store"],
+      allergens: { status: "none_declared" },
+    }).success,
+  ).toBe(true);
+  expect(submissionInput.safeParse({ ...minimal, rating: 6 }).success).toBe(
+    false,
+  );
 });
 it("retains approximate date precision and rejects invented or malformed dates", () => {
   expect(effectiveDate("2026")).toMatchObject({
@@ -245,23 +331,74 @@ it("refuses to restore a photo into a slot a newer photo holds", () => {
     ),
   ).not.toThrow();
 });
-it("never publishes an unconfirmed classification without an operator choice", () => {
-  expect(provisionalStatus(input)).toBe("appears_vegan");
+it("classifies by the evidence given, and more evidence never does worse", () => {
+  const unchecked = { veganStatus: "appears_vegan", ingredientsChecked: false };
+  const labels = ["vegan", "plant_based", "neither", "unknown"] as const;
+  const shapes = [
+    { imageSlots: ["front"] as const, ingredientUrl: undefined },
+    { imageSlots: ["front", "ingredients"] as const, ingredientUrl: undefined },
+    {
+      imageSlots: ["front"] as const,
+      ingredientUrl: "https://example.com/ingredients",
+    },
+  ];
+  // Rank: unchecked < plant-based < appears vegan.
+  const rank = (c: ReturnType<typeof provisionalClassification>) =>
+    !c.ingredientsChecked ? 0 : c.veganStatus === "plant_based" ? 1 : 2;
+  for (const manufacturerLabel of labels)
+    for (const noKnownAnimalIngredients of [false, true]) {
+      const facts = { manufacturerLabel, noKnownAnimalIngredients };
+      const none = provisionalClassification({ ...shapes[0]!, ...facts });
+      // No ingredient evidence is always "not checked yet".
+      expect(none).toEqual(unchecked);
+      for (const shape of shapes.slice(1)) {
+        const given = provisionalClassification({
+          ...shape,
+          imageSlots: [...shape.imageSlots],
+          ...facts,
+        });
+        expect(rank(given)).toBeGreaterThanOrEqual(rank(none));
+        expect(given).toEqual(
+          noKnownAnimalIngredients
+            ? { veganStatus: "appears_vegan", ingredientsChecked: true }
+            : manufacturerLabel === "plant_based"
+              ? { veganStatus: "plant_based", ingredientsChecked: true }
+              : unchecked,
+        );
+      }
+    }
+  // A label listing an animal-derived allergen leaves the classification to
+  // an operator; a cross-contact statement does not.
+  const evidence = {
+    imageSlots: ["front", "ingredients"],
+    noKnownAnimalIngredients: true,
+  };
   expect(
-    provisionalStatus({
-      ...input,
-      noKnownAnimalIngredients: false,
-      manufacturerLabel: "plant_based",
+    provisionalClassification({
+      ...evidence,
+      allergens: { status: "declared", contains: ["egg"], mayContain: [] },
     }),
-  ).toBe("plant_based");
-  for (const manufacturerLabel of ["vegan", "neither", "unknown"] as const)
-    expect(
-      provisionalStatus({
-        ...input,
-        noKnownAnimalIngredients: false,
-        manufacturerLabel,
-      }),
-    ).toBeNull();
+  ).toEqual(unchecked);
+  expect(
+    provisionalClassification({
+      ...evidence,
+      allergens: { status: "declared", contains: [], mayContain: ["egg"] },
+    }),
+  ).toEqual({ veganStatus: "appears_vegan", ingredientsChecked: true });
+  // An unreadable ingredients photo counts only when a source backs it.
+  const photo = { ...input, imageSlots: ["front", "ingredients"] as const };
+  expect(
+    provisionalClassification(
+      { ...photo, imageSlots: [...photo.imageSlots], ingredientUrl: undefined },
+      { unreadablePhoto: true },
+    ),
+  ).toEqual(unchecked);
+  expect(
+    provisionalClassification(
+      { ...photo, imageSlots: [...photo.imageSlots] },
+      { unreadablePhoto: true },
+    ).ingredientsChecked,
+  ).toBe(true);
 });
 it("hides reviewer identities and non-public photos from contributors", () => {
   const view = contributorProduct(snapshot);

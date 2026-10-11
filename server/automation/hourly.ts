@@ -39,5 +39,15 @@ export async function runAutomation(env: Cloudflare.Env) {
   await step("continuedMerges", () =>
     taxonomyServices(env).continueInterrupted(),
   );
+  await step("appliedSubmissionExtras", () =>
+    communityServices(env).extras.sweep(),
+  );
+  await step("continuedFoodSubmissions", async () => {
+    const published =
+      await communityServices(env).moderation.sweepFoodDecisions();
+    for (const { productId } of published)
+      await invalidateCommunityProduct(env.DB, productId);
+    return published.length;
+  });
   return { ...summary, failed };
 }

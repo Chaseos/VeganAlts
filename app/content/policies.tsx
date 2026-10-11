@@ -36,7 +36,7 @@ export const POLICIES: Record<string, Policy> = {
           </li>
           <li>
             <strong>Contributions:</strong> ratings, comments and votes,
-            reports, proposed changes, category proposals and the photos and
+            reports, proposed changes, food suggestions and the photos and
             sources you submit. Your individual ratings stay private; profiles
             show only counts.
           </li>

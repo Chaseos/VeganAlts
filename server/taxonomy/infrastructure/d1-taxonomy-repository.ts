@@ -50,6 +50,8 @@ export interface FinalizeData {
     position: number;
     survivorFeatured: boolean;
   }[];
+  // Countries the survivor was switched on in to keep a transferred feature.
+  featureCountries?: string[];
 }
 interface PageRating {
   id: string;
@@ -117,7 +119,8 @@ export class D1TaxonomyRepository {
           `SELECT c.id,c.name,c.slug,c.parent_id AS parentId,c.is_rankable AS isRankable,c.is_active AS isActive,c.revision,
         (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id=c.id) AS productCount,
         (SELECT json_group_array(json_object('alias',a.alias,'country',co.iso2,'displayName',json(CASE WHEN a.is_display_name=1 THEN 'true' ELSE 'false' END))) FROM category_aliases a LEFT JOIN countries co ON co.id=a.country_id WHERE a.category_id=c.id) AS aliases,
-        (SELECT json_group_array(json_object('key',d.key,'label',d.label,'description',d.description,'active',json(CASE WHEN d.is_active=1 THEN 'true' ELSE 'false' END))) FROM (SELECT * FROM category_rating_dimensions WHERE category_id=c.id ORDER BY sort_order,key) d) AS dimensions
+        (SELECT json_group_array(json_object('key',d.key,'label',d.label,'description',d.description,'active',json(CASE WHEN d.is_active=1 THEN 'true' ELSE 'false' END))) FROM (SELECT * FROM category_rating_dimensions WHERE category_id=c.id ORDER BY sort_order,key) d) AS dimensions,
+        (SELECT json_group_array(co.iso2) FROM (SELECT co.iso2 FROM category_countries cc JOIN countries co ON co.id=cc.country_id WHERE cc.category_id=c.id ORDER BY co.iso2) co) AS countries
         FROM categories c ORDER BY c.is_active DESC,c.name LIMIT 1000`,
         ),
         this.db.prepare(
@@ -127,7 +130,7 @@ export class D1TaxonomyRepository {
           "SELECT m.id,m.donor_id AS donorId,m.survivor_id AS survivorId,m.state,m.created_at AS createdAt FROM category_merges m WHERE m.active=1 ORDER BY m.created_at DESC LIMIT 50",
         ),
         this.db.prepare(
-          "SELECT a.id,a.kind,a.target_id AS targetId,a.note,a.reversed_by AS reversedBy,a.created_at AS createdAt FROM moderation_actions a WHERE a.kind IN ('category_create','category_update','category_features','category_dimensions','category_merge','category_proposal_reject') ORDER BY a.created_at DESC LIMIT 20",
+          "SELECT a.id,a.kind,a.target_id AS targetId,a.note,a.reversed_by AS reversedBy,a.created_at AS createdAt FROM moderation_actions a WHERE a.kind IN ('category_create','category_update','category_features','category_countries','category_dimensions','category_merge','category_proposal_reject') ORDER BY a.created_at DESC LIMIT 20",
         ),
         this.db.prepare(
           "SELECT iso2,name FROM countries WHERE is_active=1 ORDER BY CASE WHEN iso2='US' THEN 0 ELSE 1 END,name",
@@ -146,10 +149,13 @@ export class D1TaxonomyRepository {
           productCount: number;
           aliases: string;
           dimensions: string;
+          countries: string;
         }[]
       ).map((c) => ({
         ...c,
         dimensions: JSON.parse(c.dimensions) as DimensionState[],
+        // Countries where a food is switched on (groups have none).
+        countries: JSON.parse(c.countries) as string[],
         // Scope travels with each alias so an edit can preserve it.
         aliases: JSON.parse(c.aliases) as {
           alias: string;
@@ -228,6 +234,8 @@ export class D1TaxonomyRepository {
     patch: CategoryPatch,
     now: number,
     fence: DecisionGuard,
+    // A reversed demotion restores the food's own countries (IDs).
+    restoreCountries?: string[],
   ) {
     const { sql, values } = fence;
     const statements = [
@@ -283,9 +291,138 @@ export class D1TaxonomyRepository {
             ),
         ),
       );
-    if (patch.isRankable && !current.isRankable)
-      statements.push(...this.defaultDimensionStatements(id, now, fence));
+    // Aisles and shelves are never country-scoped. Rows a visible product
+    // still needs are refused before this; the guard keeps the trigger quiet.
+    if (patch.isRankable === false && current.isRankable)
+      statements.push(
+        this.db
+          .prepare(
+            `DELETE FROM category_countries WHERE category_id=? AND ${sql}
+            AND NOT EXISTS(SELECT 1 FROM product_categories pc JOIN products p ON p.id=pc.product_id
+              WHERE pc.category_id=category_countries.category_id AND p.country_id=category_countries.country_id AND p.lifecycle_status<>'hidden')`,
+          )
+          .bind(id, ...values),
+      );
+    if (patch.isRankable && !current.isRankable && restoreCountries)
+      statements.push(
+        ...this.defaultDimensionStatements(id, now, fence),
+        ...this.countryStatements(
+          id,
+          {
+            add: restoreCountries,
+            remove: [],
+            source: "operator",
+            actorId: null,
+          },
+          now,
+          fence,
+        ),
+      );
+    else if (patch.isRankable && !current.isRankable)
+      statements.push(
+        ...this.defaultDimensionStatements(id, now, fence),
+        // A group that becomes a food starts on in every active country.
+        this.db
+          .prepare(
+            `INSERT INTO category_countries(category_id,country_id,source,created_at)
+            SELECT ?,co.id,'operator',? FROM countries co WHERE co.is_active=1 AND ${sql}
+            AND NOT EXISTS(SELECT 1 FROM category_countries WHERE category_id=?)`,
+          )
+          .bind(id, now, ...values, id),
+      );
     return statements;
+  }
+  /**
+   * Switches a food on in some countries and off in others. The delete
+   * trigger refuses a country where the food has a visible product.
+   */
+  countryStatements(
+    categoryId: string,
+    change: {
+      add: string[];
+      remove: string[];
+      source: "proposal" | "operator";
+      actorId: string | null;
+    },
+    now: number,
+    fence: DecisionGuard,
+  ) {
+    return [
+      ...change.remove.map((countryId) =>
+        this.db
+          .prepare(
+            `DELETE FROM category_countries WHERE category_id=? AND country_id=? AND ${fence.sql}`,
+          )
+          .bind(categoryId, countryId, ...fence.values),
+      ),
+      ...change.add.map((countryId) =>
+        this.db
+          .prepare(
+            `INSERT INTO category_countries(category_id,country_id,source,created_by,created_at)
+            SELECT c.id,co.id,?,?,? FROM categories c JOIN countries co ON co.id=?
+            WHERE c.id=? AND c.is_rankable=1 AND ${fence.sql}
+            AND NOT EXISTS(SELECT 1 FROM category_countries WHERE category_id=c.id AND country_id=co.id)`,
+          )
+          .bind(
+            change.source,
+            change.actorId,
+            now,
+            countryId,
+            categoryId,
+            ...fence.values,
+          ),
+      ),
+    ];
+  }
+  bumpRevisionStatement(categoryId: string, now: number, fence: DecisionGuard) {
+    return this.db
+      .prepare(
+        `UPDATE categories SET revision=revision+1,updated_at=? WHERE id=? AND ${fence.sql}`,
+      )
+      .bind(now, categoryId, ...fence.values);
+  }
+  /** Active countries where a food is on, as IDs and ISO codes. */
+  async countriesOf(categoryId: string) {
+    return (
+      await this.db
+        .prepare(
+          "SELECT co.id,co.iso2 FROM category_countries cc JOIN countries co ON co.id=cc.country_id AND co.is_active=1 WHERE cc.category_id=? ORDER BY co.iso2",
+        )
+        .bind(categoryId)
+        .all<{ id: string; iso2: string }>()
+    ).results;
+  }
+  /** Which of these countries hold a visible product of the food. */
+  async countriesInUse(categoryId: string, countryIds: string[]) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT DISTINCT p.country_id AS id FROM product_categories pc JOIN products p ON p.id=pc.product_id
+          WHERE pc.category_id=? AND p.lifecycle_status<>'hidden' AND p.country_id IN (SELECT value FROM json_each(?))`,
+        )
+        .bind(categoryId, JSON.stringify(countryIds))
+        .all<{ id: string }>()
+    ).results.map((r) => r.id);
+  }
+  /** Which of these countries feature the food on their homepage. */
+  async featuredIn(categoryId: string, countryIds: string[]) {
+    return (
+      await this.db
+        .prepare(
+          "SELECT f.country_id AS id,co.iso2 FROM category_features f JOIN countries co ON co.id=f.country_id WHERE f.category_id=? AND f.country_id IN (SELECT value FROM json_each(?))",
+        )
+        .bind(categoryId, JSON.stringify(countryIds))
+        .all<{ id: string; iso2: string }>()
+    ).results;
+  }
+  /** How many of these foods are on in a country. */
+  async availableCount(categoryIds: string[], countryId: string) {
+    return (await this.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM category_countries WHERE country_id=? AND category_id IN (SELECT value FROM json_each(?))",
+      )
+      .bind(countryId, JSON.stringify(categoryIds))
+      .first<number>("n"))!;
   }
   createStatements(
     id: string,
@@ -298,6 +435,12 @@ export class D1TaxonomyRepository {
     },
     now: number,
     fence: DecisionGuard,
+    // Where a new food is switched on (country IDs). Groups ignore it.
+    countries?: {
+      ids: string[];
+      source: "proposal" | "operator";
+      actorId: string | null;
+    },
   ) {
     return [
       this.db
@@ -323,6 +466,19 @@ export class D1TaxonomyRepository {
       ),
       ...(input.isRankable
         ? this.defaultDimensionStatements(id, now, fence)
+        : []),
+      ...(input.isRankable && countries
+        ? this.countryStatements(
+            id,
+            {
+              add: countries.ids,
+              remove: [],
+              source: countries.source,
+              actorId: countries.actorId,
+            },
+            now,
+            fence,
+          )
         : []),
     ];
   }
@@ -608,11 +764,24 @@ export class D1TaxonomyRepository {
       if (!(await this.countryActive(proposal.country))) throw invalidCountry();
       throw new ApplicationError(
         "PROPOSAL_LIMIT",
-        "Today's category proposal allowance is exhausted. Please try again tomorrow.",
+        "You’ve suggested the most foods allowed today. Try again tomorrow.",
         429,
       );
     }
     return { id: proposal.id };
+  }
+  /** Held submissions that suggested this food and still wait on it. */
+  async waitingProducts(proposalId: string) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT p.submission_id AS submissionId,json_extract(p.proposed_data,'$.brand') AS brand,json_extract(p.proposed_data,'$.name') AS name
+          FROM pending_submissions p JOIN submission_receipts s ON s.id=p.submission_id AND s.state='review'
+          WHERE p.category_proposal_id=? AND p.resolved_at IS NULL AND p.superseded_by IS NULL ORDER BY s.created_at LIMIT 20`,
+        )
+        .bind(proposalId)
+        .all<{ submissionId: string; brand: string; name: string }>()
+    ).results;
   }
   async countryActive(iso2: string) {
     return Boolean(
@@ -624,13 +793,17 @@ export class D1TaxonomyRepository {
   }
   proposal(id: string) {
     return this.db
-      .prepare("SELECT * FROM category_proposals WHERE id=?")
+      .prepare(
+        "SELECT p.*,co.iso2 AS country FROM category_proposals p LEFT JOIN countries co ON co.id=p.country_id WHERE p.id=?",
+      )
       .bind(id)
       .first<{
         id: string;
         submitted_by: string;
         name: string;
         parent_id: string | null;
+        country_id: string | null;
+        country: string | null;
         explanation: string;
         proposed_data: string;
         status: string;
@@ -1010,10 +1183,16 @@ export class D1TaxonomyRepository {
       ...donor.aliases.map((a) => ({ alias: a.alias, countryId: a.countryId })),
     ];
     const aliasIds = aliases.map(() => this.newId());
+    // A feature moving to the survivor needs it on in that country.
+    const survivorOn = new Set((await this.countriesOf(S)).map((c) => c.id));
+    const featureCountries = features
+      .filter((f) => !f.survivorFeatured && !survivorOn.has(f.countryId))
+      .map((f) => f.countryId);
     const data: FinalizeData = {
       children: (children!.results as { id: string }[]).map((c) => c.id),
       aliasIds,
       features,
+      ...(featureCountries.length ? { featureCountries } : {}),
     };
     const token = this.newId(),
       g = this.owned(merge.id, token);
@@ -1078,6 +1257,17 @@ export class D1TaxonomyRepository {
                 `UPDATE category_features SET category_id=?,updated_at=? WHERE category_id=? AND country_id=? AND ${g.sql}`,
               )
               .bind(S, now, D, f.countryId, ...g.values),
+      ),
+      ...this.countryStatements(
+        S,
+        {
+          add: featureCountries,
+          remove: [],
+          source: "operator",
+          actorId: null,
+        },
+        now,
+        g,
       ),
       // Statements fenced on the page token run before the state change
       // below clears it.
@@ -1273,6 +1463,20 @@ export class D1TaxonomyRepository {
           AND NOT EXISTS(SELECT 1 FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=product_categories.product_id AND r.category_id=?) AND ${g.sql}`,
         )
         .bind(S, merge.id, S, ...g.values),
+      // Those links switched the survivor on in their products' countries;
+      // where it no longer has a visible product, it switches off again. Only
+      // countries of products the merge linked (its ledger) qualify, so a
+      // switch an unrelated product made since stays.
+      this.db
+        .prepare(
+          `DELETE FROM category_countries WHERE category_id=? AND source='product' AND created_at>=?
+          AND country_id IN (SELECT p.country_id FROM category_merge_moves m JOIN products p ON p.id=m.product_id
+            WHERE m.merge_id=? AND m.role='membership_added')
+          AND NOT EXISTS(SELECT 1 FROM product_categories pc JOIN products p ON p.id=pc.product_id
+            WHERE pc.category_id=category_countries.category_id AND p.country_id=category_countries.country_id AND p.lifecycle_status<>'hidden')
+          AND ${g.sql}`,
+        )
+        .bind(S, merge.created_at, merge.id, ...g.values),
       this.db
         .prepare(
           `UPDATE categories SET parent_id=?,revision=revision+1,updated_at=? WHERE parent_id=? AND id IN (SELECT value FROM json_each(?)) AND ${g.sql}`,
@@ -1283,6 +1487,16 @@ export class D1TaxonomyRepository {
           `DELETE FROM category_aliases WHERE id IN (SELECT value FROM json_each(?)) AND ${g.sql}`,
         )
         .bind(JSON.stringify(data.aliasIds ?? []), ...g.values),
+      // Countries opened only for a transferred feature close again where
+      // the survivor has no visible product.
+      this.db
+        .prepare(
+          `DELETE FROM category_countries WHERE category_id=? AND country_id IN (SELECT value FROM json_each(?))
+          AND NOT EXISTS(SELECT 1 FROM product_categories pc JOIN products p ON p.id=pc.product_id
+            WHERE pc.category_id=category_countries.category_id AND p.country_id=category_countries.country_id AND p.lifecycle_status<>'hidden')
+          AND ${g.sql}`,
+        )
+        .bind(S, JSON.stringify(data.featureCountries ?? []), ...g.values),
       ...(
         data.features ??
         // A milestone 4 merge recorded the United States feature only.

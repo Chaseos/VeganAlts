@@ -11,6 +11,8 @@ export function CatalogSelect({
   defaultValue = "",
   required = false,
   excludeId,
+  country,
+  onChange,
 }: {
   id: string;
   name: string;
@@ -20,6 +22,9 @@ export function CatalogSelect({
   defaultValue?: string;
   required?: boolean;
   excludeId?: string;
+  // Products are searched in this country only (relationships stay local).
+  country?: string;
+  onChange?: (id: string) => void;
 }) {
   const [query, setQuery] = useState(""),
     [found, setFound] = useState(options),
@@ -28,15 +33,36 @@ export function CatalogSelect({
         (defaultValue ? { id: defaultValue, name: "Current selection" } : null),
     ),
     [error, setError] = useState("");
+  // A choice that changes from outside (a draft restored after mount, or
+  // cleared by a country change) replaces what is shown.
+  useEffect(() => {
+    setSelected((current) =>
+      current?.id === defaultValue
+        ? current
+        : (options.find((o) => o.id === defaultValue) ??
+          (defaultValue
+            ? { id: defaultValue, name: "Current selection" }
+            : null)),
+    );
+    // Only the outside value matters; options change with every search.
+  }, [defaultValue]);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
       void communityRequest<CommunityOptions>(
-        `community/options?q=${encodeURIComponent(query)}`,
+        `community/options?q=${encodeURIComponent(query)}${country ? `&country=${country}` : ""}`,
       )
         .then((value) => {
           if (active) {
-            setFound(value[kind]);
+            setFound(
+              kind === "products" && country
+                ? value.products.filter(
+                    (p) =>
+                      (p as { country?: string }).country?.toUpperCase() ===
+                      country.toUpperCase(),
+                  )
+                : value[kind],
+            );
             setError("");
           }
         })
@@ -49,7 +75,7 @@ export function CatalogSelect({
       active = false;
       clearTimeout(timer);
     };
-  }, [query, kind]);
+  }, [query, kind, country]);
   const choices = [
     ...(selected ? [selected] : []),
     ...found.filter((o) => o.id !== selected?.id && o.id !== excludeId),
@@ -71,9 +97,10 @@ export function CatalogSelect({
         name={name}
         value={selected?.id ?? ""}
         required={required}
-        onChange={(e) =>
-          setSelected(choices.find((o) => o.id === e.target.value) ?? null)
-        }
+        onChange={(e) => {
+          setSelected(choices.find((o) => o.id === e.target.value) ?? null);
+          onChange?.(e.target.value);
+        }}
       >
         <option value="">
           {required ? "Choose a product" : "None selected"}

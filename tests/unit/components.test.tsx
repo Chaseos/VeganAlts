@@ -81,6 +81,9 @@ describe("shared presentation components", () => {
     expect(html(<VeganStatusChip status="under_review" />)).toContain(
       "Under review",
     );
+    expect(html(<VeganStatusChip status="unchecked" />)).toContain(
+      "Ingredients not checked yet",
+    );
     expect(html(<VeganStatusChip status="unknown" />)).toBe("");
   });
 

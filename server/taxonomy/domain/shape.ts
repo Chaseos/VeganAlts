@@ -1,3 +1,5 @@
+import { silentShelf } from "./display";
+
 // Food → aisle → shelf → food. Depth is derived from parent links, never
 // stored: the root is depth 0, aisles 1, shelves 2 and rankable foods 3.
 export interface TaxonomyNode {
@@ -6,6 +8,8 @@ export interface TaxonomyNode {
   name: string;
   parentId: string | null;
   isRankable: number;
+  // 0 for a food that is not switched on in the country being shaped.
+  available?: number;
 }
 
 export interface ShapedNode extends TaxonomyNode {
@@ -56,6 +60,8 @@ export interface AisleShelf {
   id: string;
   slug: string;
   name: string;
+  // Navigation skips a shelf that only repeats its aisle or food.
+  silent: boolean;
   foods: AisleFood[];
 }
 export interface Aisle {
@@ -66,7 +72,8 @@ export interface Aisle {
 }
 
 // The navigable tree: aisles with their shelves and foods, in name order.
-// Aisles and shelves without a placeable food are omitted.
+// Foods not on in the country are left out, and so are aisles and shelves
+// without a placeable food.
 export function aisleTree(
   nodes: TaxonomyNode[],
   counts: Map<string, { productCount: number; rankedCount: number }>,
@@ -81,18 +88,18 @@ export function aisleTree(
   return [...shaped.values()]
     .filter((node) => node.depth === 1 && !node.isRankable)
     .sort(byName)
-    .map((aisle) => ({
-      id: aisle.id,
-      slug: aisle.slug,
-      name: aisle.name,
-      shelves: children(aisle.id)
+    .map((aisle) => {
+      const shelves = children(aisle.id)
         .filter((shelf) => !shelf.isRankable)
         .map((shelf) => ({
           id: shelf.id,
           slug: shelf.slug,
           name: shelf.name,
           foods: children(shelf.id)
-            .filter((food) => food.isRankable && !food.outsideDepth)
+            .filter(
+              (food) =>
+                food.isRankable && !food.outsideDepth && food.available !== 0,
+            )
             .map((food) => ({
               id: food.id,
               slug: food.slug,
@@ -101,7 +108,16 @@ export function aisleTree(
               rankedCount: counts.get(food.id)?.rankedCount ?? 0,
             })),
         }))
-        .filter((shelf) => shelf.foods.length > 0),
-    }))
+        .filter((shelf) => shelf.foods.length > 0);
+      return {
+        id: aisle.id,
+        slug: aisle.slug,
+        name: aisle.name,
+        shelves: shelves.map((shelf) => ({
+          ...shelf,
+          silent: silentShelf(aisle, shelf, shelf.foods, shelves.length),
+        })),
+      };
+    })
     .filter((aisle) => aisle.shelves.length > 0);
 }

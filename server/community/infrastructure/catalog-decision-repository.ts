@@ -1,6 +1,9 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import { ACTIVE_RESPONSES } from "./moderation-repository";
-import { productSearchStatements } from "../../catalog/infrastructure/search-index";
+import {
+  categorySearchStatements,
+  productSearchStatements,
+} from "../../catalog/infrastructure/search-index";
 import type {
   Actor,
   ProductChange,
@@ -241,8 +244,8 @@ export class CatalogDecisionRepository {
         statements.push(
           this.db
             .prepare(
-              `INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,certifications,reviewed_by,updated_at) SELECT ?,?,?,?,?,?,? WHERE ${sql}
-        ON CONFLICT(product_version_id) DO UPDATE SET vegan_status=excluded.vegan_status,manufacturer_label=excluded.manufacturer_label,evidence_data=excluded.evidence_data,certifications=excluded.certifications,reviewed_by=excluded.reviewed_by,updated_at=excluded.updated_at`,
+              `INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,certifications,reviewed_by,ingredients_checked,updated_at) SELECT ?,?,?,?,?,?,?,? WHERE ${sql}
+        ON CONFLICT(product_version_id) DO UPDATE SET vegan_status=excluded.vegan_status,manufacturer_label=excluded.manufacturer_label,evidence_data=excluded.evidence_data,certifications=excluded.certifications,reviewed_by=excluded.reviewed_by,ingredients_checked=excluded.ingredients_checked,updated_at=excluded.updated_at`,
             )
             .bind(
               patch.classification.versionId,
@@ -251,6 +254,8 @@ export class CatalogDecisionRepository {
               JSON.stringify(c.evidence),
               JSON.stringify(c.certifications),
               c.reviewedBy,
+              // Restoring an earlier value keeps its flag exactly.
+              c.ingredientsChecked === false ? 0 : 1,
               now,
               ...values,
             ),
@@ -535,6 +540,13 @@ export class CatalogDecisionRepository {
     )
       statements.push(
         ...productSearchStatements(
+          this.db,
+          snapshot.id,
+          sql,
+          values.filter((v): v is string | number => v !== null),
+        ),
+        // An added food, or a restored product, can switch a food on here.
+        ...categorySearchStatements(
           this.db,
           snapshot.id,
           sql,

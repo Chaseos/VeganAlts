@@ -14,30 +14,13 @@ Use Node 24 LTS and the committed npm lockfile. Wrangler authentication is requi
 
 ## Database ordering and seeds
 
-`db/0001_app_baseline.sql` remains a design reference. Only `db/migrations/` is executable migration history:
+`db/0001_app_baseline.sql` remains a design reference. Only `db/migrations/` is executable migration history, and it starts at version 1:
 
-1. `0000_auth.sql` — generated Better Auth tables.
-2. `0001_application.sql` — application baseline and search support.
-3. `0002_operational_state.sql` — formula revisions, upload/attempt state, evidence derivatives.
-4. `0003_integrity_and_search.sql` — reviewed integrity/search triggers.
-5. `0004_media_lookup_indexes.sql` — derivative-key and recovery lookup indexes.
-6. `0005_core_ranking_reads.sql` — private rating cursor index.
-7. `0006_community_catalog.sql` — community receipts, identities, evidence, moderation and duplicate history.
-8. `0007_staged_byte_accounting.sql` — per-upload staged byte accounting.
-9. `0008_submission_followups.sql` — durable links between an original submission and its revised receipt.
-10. `0009_proposal_baselines.sql` — the catalog facts each proposal was drafted against.
-11. `0010_moderation_decisions.sql` — automated decision records, budgets and leases.
-12. `0011_comment_votes.sql` — comment rebuild with usefulness votes. It refuses to run unless the old comment tables are empty; the `db:migrate:*` preflight checks this first.
-13. `0012_system_actor.sql` — the `veganalts-system` account used for audited automatic decisions. It has no sign-in method.
-14. `0013_proposal_confidence.sql` — proposal response counts and confidence.
-15. `0014_category_taxonomy.sql` — category proposals, slug history, transfer-merge ledgers and homepage features.
-16. `0015_trending_reads.sql` — the Trending read model and New/Trending indexes.
+1. `0001_initial.sql` — the complete schema (Better Auth tables, catalog, ratings, community, moderation, taxonomy, per-country foods, search and their triggers), the `veganalts-system` account used for audited automatic decisions (it has no sign-in method) and the shared allergen list.
 
-Check exact filenames in the directory before operating. Applied migrations are append-only. Generate future schema changes with `npm run db:generate`, inspect generated SQL, and add reviewed custom SQL for unsupported constructs. Better Auth schema generation uses `npm run auth:schema`; diff its output before creating any migration. Never run the reference baseline in addition to the migration history.
+Before the first release, the owner folded the pre-release migrations (`0000`–`0020`) into this baseline (2026-10-10). Every database is created from it, never upgraded from the old history; the legacy upgrade preflights were removed with it. A database still carrying the old history is reset with `npm run db:reset:<env>` (below) and migrated again.
 
-Use the `npm run db:migrate:*` commands below, which run the legacy-report preflight before Wrangler applies migrations. Do not apply `0006` directly to an older database: duplicate active reports from earlier releases would prevent its unique index from being created. Before that upgrade, capture a recovery reference and pause legacy report writers until the migration completes. The preflight archives duplicates without deleting rows, combines notes on the earliest active report, retains reviewing priority, and records original fields under `audit_log.action='legacy_report_deduplication'`. It prints counts only. A failed or interrupted run can be repeated; completed groups are skipped. Already-upgraded databases and fresh installations need no normalization. For recovery, inspect the recorded audit privately or use the pre-upgrade recovery reference; do not reopen duplicate reports while the unique constraint is in place.
-
-After a successful apply, the same commands recompute legacy brand/retailer normalized names and product identity keys with the application normalization (`db/upgrades/catalog-identity.ts`). It prints counts of corrected names, keys and conflicts only, and is safe to repeat. A non-zero conflict count names legacy brands or retailers whose corrected keys collide; consolidate them deliberately rather than editing keys by hand.
+Check exact filenames in the directory before operating. Migrations are append-only from version 1 on. Generate future schema changes with `npm run db:generate`, inspect generated SQL, and add reviewed custom SQL for unsupported constructs. Better Auth schema generation uses `npm run auth:schema`; diff its output before creating any migration. Never run the reference baseline in addition to the migration history.
 
 ```sh
 npm run db:migrate:local
@@ -46,6 +29,15 @@ npm run db:migrate:staging
 npm run db:seed:staging
 npm run db:seed-images:staging
 npx wrangler d1 execute DB --remote --config wrangler.jsonc --env staging --command 'PRAGMA foreign_key_check'
+```
+
+To recreate a remote database from version 1 (for example one still carrying the pre-release history), stop writers, then reset, migrate and seed it. The reset prints the database's current Time Travel bookmark before dropping every table, trigger and the migration ledger in one transaction; `npx wrangler d1 time-travel restore <database> --bookmark=<bookmark>` returns to it within the retention window. R2 objects are not touched. Never seed production with the demo catalog.
+
+```sh
+npm run db:reset:staging -- --confirm-reset=veganalts-staging
+npm run db:migrate:staging
+npm run db:seed:staging
+npm run db:seed-images:staging
 ```
 
 The approved milestone 2 seed uses deterministic IDs for 31 products, ten categories, 28 explicitly labeled demo tasters and sample contributions. Re-running it inserts missing fixtures and updates only approved development classification/notice fields and the old development formula label. It preserves real accounts/contributions, formula transitions and historical verification records, and rebuilds aggregates and FTS after seeding. Demo images use stable upload keys through the normal processing pipeline, so completed retries do not transform again. Every catalog record is development-only; images/formula history/sample ratings are illustrative, not verified manufacturer claims or organic community feedback. Never seed production. Product names/source references are in `db/seed/catalog.ts`; verify labels and market/formula data before promoting records into a public catalog.
