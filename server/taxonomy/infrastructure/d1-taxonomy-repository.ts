@@ -1404,6 +1404,16 @@ export class D1TaxonomyRepository {
           AND NOT EXISTS(SELECT 1 FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=product_categories.product_id AND r.category_id=?) AND ${g.sql}`,
         )
         .bind(S, merge.id, S, ...g.values),
+      // Those links switched the survivor on in their products' countries;
+      // where it no longer has a visible product, it switches off again.
+      this.db
+        .prepare(
+          `DELETE FROM category_countries WHERE category_id=? AND source='product' AND created_at>=?
+          AND NOT EXISTS(SELECT 1 FROM product_categories pc JOIN products p ON p.id=pc.product_id
+            WHERE pc.category_id=category_countries.category_id AND p.country_id=category_countries.country_id AND p.lifecycle_status<>'hidden')
+          AND ${g.sql}`,
+        )
+        .bind(S, merge.created_at, ...g.values),
       this.db
         .prepare(
           `UPDATE categories SET parent_id=?,revision=revision+1,updated_at=? WHERE parent_id=? AND id IN (SELECT value FROM json_each(?)) AND ${g.sql}`,

@@ -63,7 +63,14 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
     // An exact duplicate is pointed out before anything is sent.
     await page.getByLabel("Brand (required)").fill("Beyond");
     await page.getByLabel("Product name (required)").fill("Beyond Beef");
+    await page.waitForTimeout(100);
     await page.goto("/add-product?country=us");
+    // The unfinished product stays saved until a choice is made.
+    await expect(
+      page.getByText("You have an unfinished product"),
+    ).toBeVisible();
+    await page.reload();
+    await expect(page.getByText("Beyond · Beyond Beef is saved")).toBeVisible();
     await page.getByRole("button", { name: "Start a new one" }).click();
     await fillBasics(page, {
       food: "Ground Beef",

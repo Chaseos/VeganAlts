@@ -51,8 +51,11 @@ interface StoredPhoto {
   file: File;
   // The draft the photo was picked for; another draft never receives it.
   draftId: string;
+  slot: PhotoSlot;
   savedAt: number;
 }
+// Keyed by draft and slot, so one draft's photo never replaces another's.
+const photoKey = (draftId: string, slot: PhotoSlot) => `${draftId}:${slot}`;
 
 export function saveDraftPhoto(
   draftId: string,
@@ -62,10 +65,10 @@ export function saveDraftPhoto(
   return transaction("readwrite", (store) => {
     if (file)
       store.put(
-        { file, draftId, savedAt: Date.now() } satisfies StoredPhoto,
-        slot,
+        { file, draftId, slot, savedAt: Date.now() } satisfies StoredPhoto,
+        photoKey(draftId, slot),
       );
-    else store.delete(slot);
+    else store.delete(photoKey(draftId, slot));
   });
 }
 
@@ -86,7 +89,7 @@ export async function loadDraftPhotos(draftId: string, now = Date.now()) {
           stored.draftId === draftId &&
           now - stored.savedAt <= DRAFT_TTL
         )
-          photos[row.key as PhotoSlot] = stored.file;
+          photos[stored.slot] = stored.file;
         row.continue();
       };
       tx.oncomplete = tx.onerror = tx.onabort = () => resolve();

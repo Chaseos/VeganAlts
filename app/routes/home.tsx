@@ -365,7 +365,12 @@ function AisleFoods({
                   country={country}
                   food={food}
                   best={food.best}
-                  missing={empty ? "Be the first to add one" : undefined}
+                  // A food with an unrated product isn't waiting for one.
+                  missing={
+                    empty && !food.productCount
+                      ? "Be the first to add one"
+                      : undefined
+                  }
                 />
               </li>
             ))}

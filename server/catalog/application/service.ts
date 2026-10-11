@@ -373,6 +373,7 @@ export class CatalogService {
               slug: food.slug,
               name: food.name,
               best: top && leaderProduct(top),
+              productCount: food.productCount,
             };
           }),
         })),

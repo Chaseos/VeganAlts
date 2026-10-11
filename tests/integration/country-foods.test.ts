@@ -193,8 +193,38 @@ it("shows a newly opened country the shared aisles to start from", async () => {
   expect(
     home.aisles.flatMap((a) => a.shelves.flatMap((s) => s.foods)),
   ).toContainEqual(
-    expect.objectContaining({ slug: "ground-beef", best: null }),
+    expect.objectContaining({
+      slug: "ground-beef",
+      best: null,
+      productCount: 0,
+    }),
   );
+  // A first product without a rating switches its food on and counts.
+  const beef = (await env.DB.prepare(
+    "SELECT id FROM categories WHERE slug='ground-beef'",
+  ).first("id")) as string;
+  const product = `de-product-${id()}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+    ).bind(product, de.id, "Erstes Hack", product),
+    env.DB.prepare(
+      "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
+    ).bind(`${product}-v`, product),
+    env.DB.prepare(
+      "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
+    ).bind(product, beef),
+  ]);
+  const started = await catalog.home(de);
+  expect(
+    started.aisles.flatMap((a) => a.shelves.flatMap((s) => s.foods)),
+  ).toEqual([
+    expect.objectContaining({
+      slug: "ground-beef",
+      best: null,
+      productCount: 1,
+    }),
+  ]);
 });
 
 it("skips a shelf level that only repeats its aisle or food", async () => {

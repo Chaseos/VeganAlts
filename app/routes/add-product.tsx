@@ -163,6 +163,9 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
   const submission = useSubmission(action);
   const heading = useRef<HTMLHeadingElement>(null);
   const hydrated = useRef(false);
+  // A saved draft offered for restoring stays saved until the choice. A ref,
+  // because the autosave runs in the same flush that offers it.
+  const offering = useRef(false);
 
   // After hydration: a saved draft (offered when it disagrees with the link
   // that opened the page) and, without a chosen country, the remembered one.
@@ -197,7 +200,10 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
       });
       return;
     }
-    if (saved) setRestored(saved);
+    if (saved) {
+      offering.current = true;
+      setRestored(saved);
+    }
     // Photos only belong to the draft they were picked for.
     else void clearDraftPhotos();
     setPhotosReady(true);
@@ -222,8 +228,9 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     // The offered lists arrive with the country's loader data.
   }, [market.iso2]);
   useEffect(() => {
-    if (hydrated.current && !held) saveDraft(storage(), draft);
-  }, [draft, held]);
+    if (hydrated.current && !held && !offering.current)
+      saveDraft(storage(), draft);
+  }, [draft, held, restored]);
 
   const update = useCallback(
     (patch: Partial<ProductDraft>) => setDraft((d) => ({ ...d, ...patch })),
@@ -328,6 +335,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     setDraft(emptyDraft(market.iso2));
     setPhotos({});
     setHeld(null);
+    offering.current = false;
     setRestored(null);
     goTo("basics");
   };
@@ -377,6 +385,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                 className="button small-button"
                 onClick={() => {
                   setDraft(forCountry(restored, market.iso2, offered));
+                  offering.current = false;
                   setRestored(null);
                   // Only that draft's photos: any picked meanwhile belong
                   // to the draft being set aside.
@@ -390,6 +399,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                 className="button secondary small-button"
                 onClick={() => {
                   forget();
+                  offering.current = false;
                   setRestored(null);
                 }}
               >

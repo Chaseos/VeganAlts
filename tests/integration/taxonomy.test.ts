@@ -320,6 +320,52 @@ it("re-derives Trending activity when a merge and its reversal move older rating
   expect(await daily(w.S)).toBe(0);
 });
 
+it("switches the survivor off again where only the reversed merge put it", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  // A donor product in another country, where the survivor isn't on.
+  const P4 = `p4-${w.s}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+    ).bind(P4, w.f.otherCountryId, `Fourth ${w.s}`, P4),
+    env.DB.prepare(
+      "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
+    ).bind(`v4-${w.s}`, P4),
+    env.DB.prepare(
+      "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
+    ).bind(P4, w.D),
+  ]);
+  const on = async (category: string) =>
+    (
+      await env.DB.prepare(
+        "SELECT country_id AS id FROM category_countries WHERE category_id=? ORDER BY country_id",
+      )
+        .bind(category)
+        .all<{ id: string }>()
+    ).results.map((r) => r.id);
+  expect(await on(w.S)).toEqual([w.f.countryId]);
+  const service = taxonomy();
+  const tree = await service.tree(operator);
+  const revision = (cid: string) =>
+    tree.categories.find((c) => c.id === cid)!.revision;
+  const merged = await service.merge(operator, id(), {
+    donorId: w.D,
+    survivorId: w.S,
+    donorRevision: revision(w.D),
+    survivorRevision: revision(w.S),
+    note,
+  });
+  expect(await on(w.S)).toContain(w.f.otherCountryId);
+  await service.reverseMerge(operator, id(), merged.mergeId, note);
+  expect(await on(w.S)).toEqual([w.f.countryId]);
+  expect(await on(w.D)).toContain(w.f.otherCountryId);
+});
+
 it("validates slugs and names, redirects renamed slugs and reverses taxonomy edits", async () => {
   const w = await world();
   const operator = {
