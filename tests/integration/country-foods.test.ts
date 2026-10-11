@@ -1,0 +1,204 @@
+import { env } from "cloudflare:workers";
+import { expect, it } from "vitest";
+import { taxonomyServices } from "../../server/taxonomy/infrastructure/composition";
+import { catalogService } from "../../server/catalog/infrastructure/composition";
+import {
+  categorySearchStatements,
+  rebuildSearchIndex,
+} from "../../server/catalog/infrastructure/search-index";
+import { taxonomySeedStatements } from "../../db/seed/taxonomy";
+
+const id = () => crypto.randomUUID();
+const note = "Country availability maintenance for the test.";
+const testEnv = {
+  ...env,
+  APP_ENV: "local",
+  MODERATION_PROVIDER: "fake",
+} as unknown as Cloudflare.Env;
+
+async function people() {
+  const [operator, contributor] = [`op-${id()}`, `contrib-${id()}`];
+  await env.DB.batch(
+    [operator, contributor].flatMap((user) => [
+      env.DB.prepare(
+        "INSERT INTO user(id,name,email,created_at,updated_at) VALUES(?,?,?,1,1)",
+      ).bind(user, "Test identity", `${user}@example.invalid`),
+      env.DB.prepare(
+        "INSERT INTO profiles(user_id,handle,created_at,updated_at) VALUES(?,?,1,1)",
+      ).bind(user, user),
+    ]),
+  );
+  return {
+    operator: { id: operator, accountState: "active", administrator: true },
+    contributor: {
+      id: contributor,
+      accountState: "active",
+      administrator: false,
+    },
+  };
+}
+const shelf = async (slug: string) =>
+  (await env.DB.prepare("SELECT id FROM categories WHERE slug=?")
+    .bind(slug)
+    .first("id")) as string;
+const foodsIn = async (code: string) =>
+  (await catalogService(env).page(code)).aisles.flatMap((a) =>
+    a.shelves.flatMap((s) => s.foods.map((f) => f.slug)),
+  );
+
+it("lists a suggested food only where it is on, and lets operators switch countries", async () => {
+  await env.DB.batch(
+    taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
+  );
+  await rebuildSearchIndex(env.DB);
+  const { operator, contributor } = await people();
+  const service = taxonomyServices(testEnv, id);
+  const s = id().slice(0, 6);
+  const proposal = await service.propose(contributor, id(), {
+    name: `Sausage rolls ${s}`,
+    shelfId: await shelf("pork"),
+    country: "GB",
+    explanation: "Sold in most British supermarkets.",
+  });
+  expect((await service.proposalDetail(operator, proposal.id)).country).toBe(
+    "GB",
+  );
+  const { slug, categoryId } = (await service.decideProposal(
+    operator,
+    id(),
+    proposal.id,
+    {
+      decision: "accept",
+      expectedRevision: (await service.proposalDetail(operator, proposal.id))
+        .revision,
+      note,
+    },
+  )) as { slug: string; categoryId: string };
+  // Accepted in the United Kingdom only.
+  expect(
+    (
+      await env.DB.prepare(
+        "SELECT co.iso2,cc.source FROM category_countries cc JOIN countries co ON co.id=cc.country_id WHERE cc.category_id=?",
+      )
+        .bind(categoryId)
+        .all()
+    ).results,
+  ).toEqual([{ iso2: "GB", source: "proposal" }]);
+  const catalog = catalogService(env);
+  const [gb, us] = [await catalog.market("gb"), await catalog.market("us")];
+  expect(await foodsIn("gb")).toContain(slug);
+  expect(await foodsIn("us")).not.toContain(slug);
+  // Its page elsewhere says so and lists nothing.
+  const absent = await catalog.category(us, slug);
+  expect(absent.availability).toEqual({ here: false, countries: ["gb"] });
+  expect(absent.ranked).toEqual([]);
+  expect((await catalog.category(gb, slug)).availability.here).toBe(true);
+  // Search and the sitemap follow availability.
+  const searched = async (market: typeof gb) =>
+    (await catalog.search(market, `sausage rolls ${s}`)).categories.map(
+      (c) => c.slug,
+    );
+  expect(await searched(gb)).toContain(slug);
+  expect(await searched(us)).not.toContain(slug);
+  const map = (await catalog.sitemap()).categories.filter(
+    (c) => c.slug === slug,
+  );
+  expect(map.map((c) => c.country)).toEqual(["gb"]);
+
+  // An operator opens it in the United States, then reverses that.
+  const revision = async () =>
+    (await service.tree(operator)).categories.find((c) => c.id === categoryId)!
+      .revision;
+  const opened = await service.setCountries(operator, id(), categoryId, {
+    expectedRevision: await revision(),
+    countries: ["GB", "US"],
+    note,
+  });
+  expect(await foodsIn("us")).toContain(slug);
+  expect(
+    (await service.tree(operator)).categories.find((c) => c.id === categoryId)!
+      .countries,
+  ).toEqual(["GB", "US"]);
+  await service.reverseUpdate(operator, id(), opened.actionId, note);
+  expect(await foodsIn("us")).not.toContain(slug);
+  // Aisles and shelves cannot be scoped.
+  await expect(
+    service.setCountries(operator, id(), await shelf("pork"), {
+      expectedRevision: 0,
+      countries: ["GB"],
+      note,
+    }),
+  ).rejects.toMatchObject({ code: "INVALID_COUNTRIES" });
+
+  // A product published in the United States switches it on there, and it
+  // then stays on.
+  const usId = (await env.DB.prepare(
+    "SELECT id FROM countries WHERE iso2='US'",
+  ).first("id")) as string;
+  const product = `product-${s}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+    ).bind(product, usId, "Rolls", product),
+    env.DB.prepare(
+      "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
+    ).bind(product, categoryId),
+    ...categorySearchStatements(env.DB, product),
+  ]);
+  expect(await foodsIn("us")).toContain(slug);
+  expect(await searched(us)).toContain(slug);
+  await expect(
+    service.setCountries(operator, id(), categoryId, {
+      expectedRevision: await revision(),
+      countries: ["GB"],
+      note,
+    }),
+  ).rejects.toMatchObject({ code: "FOOD_HAS_PRODUCTS" });
+
+  // Turning a Canadian suggestion into an alias opens the food in Canada.
+  const alias = await service.propose(contributor, id(), {
+    name: `Banger rolls ${s}`,
+    shelfId: await shelf("pork"),
+    country: "CA",
+    explanation: "The Canadian name for it.",
+  });
+  await service.decideProposal(operator, id(), alias.id, {
+    decision: "alias",
+    aliasOf: categoryId,
+    expectedRevision: (await service.proposalDetail(operator, alias.id))
+      .revision,
+    note,
+  });
+  expect(await foodsIn("ca")).toContain(slug);
+});
+
+it("skips a shelf level that only repeats its aisle or food", async () => {
+  await env.DB.batch(
+    taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
+  );
+  const catalog = catalogService(env);
+  const gb = await catalog.market("gb");
+  const home = await catalog.home(gb);
+  const shelves = (aisle: string) =>
+    home.aisles.find((a) => a.slug === aisle)!.shelves;
+  expect(shelves("eggs-aisle").map((s) => s.silent)).toEqual([true]);
+  expect(shelves("dairy").every((s) => s.silent)).toBe(true);
+  expect(shelves("meat").some((s) => s.silent)).toBe(false);
+  // Empty starter shelves stay out of browsing but are offered for proposals.
+  expect(shelves("meat").map((s) => s.slug)).not.toContain("turkey-shelf");
+  expect(
+    (await catalog.shelves(gb)).flatMap((a) => a.shelves).map((s) => s.slug),
+  ).toContain("turkey-shelf");
+  expect((await catalog.category(gb, "eggs")).place).toEqual({
+    aisle: { slug: "eggs-aisle", name: "Eggs" },
+    shelf: null,
+  });
+  expect((await catalog.category(gb, "ground-beef")).place.shelf).toEqual({
+    slug: "beef",
+    name: "Beef",
+  });
+  const dairy = await catalog.aisle(gb, "dairy");
+  expect(dairy.kind === "aisle" && dairy.shelves.every((s) => s.silent)).toBe(
+    true,
+  );
+});

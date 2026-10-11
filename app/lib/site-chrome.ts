@@ -15,6 +15,8 @@ export interface ChromeFood {
 export interface ChromeShelf {
   slug: string;
   name: string;
+  // Not shown as its own level: it only repeats its aisle or food.
+  silent: boolean;
   foods: ChromeFood[];
 }
 

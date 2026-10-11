@@ -68,6 +68,9 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
     return (
       <PageShell search={false}>
         <EmptyCountry name={loaderData.market.name} code={code} />
+        {home.aisles.length > 0 && (
+          <BrowseAisles country={code} aisles={home.aisles} empty />
+        )}
       </PageShell>
     );
   return (
@@ -122,55 +125,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
       </div>
 
       <div className="va-container va-home">
-        <section id="browse" aria-labelledby="browse-title">
-          <div className="va-home__heading">
-            <h2 id="browse-title" className="va-home__title">
-              Browse every food
-            </h2>
-            <p className="va-muted">
-              Aisle, then shelf, then food. Each food shows its closest swap.
-            </p>
-          </div>
-          {/* Phones: an accordion of aisles. Desktop: every aisle in columns. */}
-          <ul className="va-browse va-browse--phone">
-            {home.aisles.map((aisle) => (
-              <li key={aisle.slug} className="va-browse__aisle">
-                <details className="va-browse__details">
-                  <summary className="va-browse__summary">
-                    <AisleTitle aisle={aisle} />
-                    <Icon
-                      name="chevronDown"
-                      size={14}
-                      strokeWidth={3}
-                      className="va-browse__chevron"
-                    />
-                  </summary>
-                  <AisleFoods country={code} aisle={aisle} />
-                </details>
-              </li>
-            ))}
-          </ul>
-          <ul className="va-browse va-browse--desktop">
-            {home.aisles.map((aisle) => (
-              <li key={aisle.slug} className="va-browse__aisle">
-                <Link
-                  className="va-browse__summary"
-                  to={foodPath(code, aisle.slug)}
-                >
-                  <AisleTitle aisle={aisle} />
-                </Link>
-                <AisleFoods country={code} aisle={aisle} />
-              </li>
-            ))}
-          </ul>
-          <p className="va-home__suggest">
-            Don’t see the food you’re replacing?{" "}
-            <Link className="va-link" to={`/propose-category?country=${code}`}>
-              Suggest a food
-            </Link>{" "}
-            and it gets its own ranking.
-          </p>
-        </section>
+        <BrowseAisles country={code} aisles={home.aisles} />
 
         <div className="va-home__pair">
           {home.trending.length > 0 && (
@@ -305,6 +260,78 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
 }
 
 type Aisle = Home["aisles"][number];
+/**
+ * Every aisle and its foods. An empty country lists the same shared aisles so
+ * people there can add the first product for a food.
+ */
+function BrowseAisles({
+  country,
+  aisles,
+  empty = false,
+}: {
+  country: string;
+  aisles: Aisle[];
+  empty?: boolean;
+}) {
+  return (
+    <section
+      id="browse"
+      aria-labelledby="browse-title"
+      // The page shell already provides the gutter around an empty country.
+      className={empty ? "va-home" : undefined}
+    >
+      <div className="va-home__heading">
+        <h2 id="browse-title" className="va-home__title">
+          Browse every food
+        </h2>
+        <p className="va-muted">
+          {empty
+            ? "Open a food to add the first product people can rate here."
+            : "Each food shows its closest swap."}
+        </p>
+      </div>
+      {/* Phones: an accordion of aisles. Desktop: every aisle in columns. */}
+      <ul className="va-browse va-browse--phone">
+        {aisles.map((aisle) => (
+          <li key={aisle.slug} className="va-browse__aisle">
+            <details className="va-browse__details">
+              <summary className="va-browse__summary">
+                <AisleTitle aisle={aisle} />
+                <Icon
+                  name="chevronDown"
+                  size={14}
+                  strokeWidth={3}
+                  className="va-browse__chevron"
+                />
+              </summary>
+              <AisleFoods country={country} aisle={aisle} empty={empty} />
+            </details>
+          </li>
+        ))}
+      </ul>
+      <ul className="va-browse va-browse--desktop">
+        {aisles.map((aisle) => (
+          <li key={aisle.slug} className="va-browse__aisle">
+            <Link
+              className="va-browse__summary"
+              to={foodPath(country, aisle.slug)}
+            >
+              <AisleTitle aisle={aisle} />
+            </Link>
+            <AisleFoods country={country} aisle={aisle} empty={empty} />
+          </li>
+        ))}
+      </ul>
+      <p className="va-home__suggest">
+        Don’t see the food you’re replacing?{" "}
+        <Link className="va-link" to={`/propose-category?country=${country}`}>
+          Suggest a food
+        </Link>{" "}
+        and it gets its own ranking.
+      </p>
+    </section>
+  );
+}
 function AisleTitle({ aisle }: { aisle: Aisle }) {
   return (
     <>
@@ -318,21 +345,42 @@ function AisleTitle({ aisle }: { aisle: Aisle }) {
     </>
   );
 }
-function AisleFoods({ country, aisle }: { country: string; aisle: Aisle }) {
+function AisleFoods({
+  country,
+  aisle,
+  empty = false,
+}: {
+  country: string;
+  aisle: Aisle;
+  empty?: boolean;
+}) {
   return (
     <div className="va-browse__shelves">
-      {aisle.shelves.map((shelf) => (
-        <section key={shelf.slug} aria-label={`${aisle.name}: ${shelf.name}`}>
-          <p className="va-overline">{shelf.name}</p>
+      {aisle.shelves.map((shelf) => {
+        const foods = (
           <ul className="va-divided">
             {shelf.foods.map((food) => (
               <li key={food.slug}>
-                <FoodRow country={country} food={food} best={food.best} />
+                <FoodRow
+                  country={country}
+                  food={food}
+                  best={food.best}
+                  missing={empty ? "Be the first to add one" : undefined}
+                />
               </li>
             ))}
           </ul>
-        </section>
-      ))}
+        );
+        // A shelf that only repeats its aisle or food is not its own region.
+        return shelf.silent ? (
+          <div key={shelf.slug}>{foods}</div>
+        ) : (
+          <section key={shelf.slug} aria-label={`${aisle.name}: ${shelf.name}`}>
+            <p className="va-overline">{shelf.name}</p>
+            {foods}
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -397,12 +445,15 @@ function FoodRow({
   best,
   neutral = false,
   prefix = "",
+  missing = "No ranked swaps yet",
 }: {
   country: string;
   food: { slug: string; name: string };
   best: Leader["best"];
   neutral?: boolean;
   prefix?: string;
+  // What the row says when nothing is ranked.
+  missing?: string;
 }) {
   const href = useFoodHref(country, foodPath(country, food.slug));
   return (
@@ -410,7 +461,7 @@ function FoodRow({
       <span className="va-row-link__text">
         <span className="va-row-link__title">{food.name}</span>
         <span className="va-small va-muted va-truncate">
-          {best ? `${prefix}${best.name}` : "No ranked swaps yet"}
+          {best ? `${prefix}${best.name}` : missing}
         </span>
       </span>
       {best && (

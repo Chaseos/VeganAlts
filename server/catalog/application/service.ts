@@ -16,6 +16,7 @@ import {
 } from "../domain/ranking-view";
 import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
 import { aisleTree, taxonomyShape } from "../../taxonomy/domain/shape";
+import { silentShelf } from "../../taxonomy/domain/display";
 import {
   AISLE_TOP,
   DETAIL_MIN_ANSWERS,
@@ -235,16 +236,27 @@ export class CatalogService {
     const byName = <T extends { name: string }>(a: T, b: T) =>
       a.name.localeCompare(b.name);
     const nodes = [...shape.values()];
-    const shelves = nodes
+    // Only foods that are on in this country; shelves without one hide.
+    const placed = nodes
       .filter((item) => item.parentId === aisle.id && !item.isRankable)
       .sort(byName)
       .map((shelf) => ({
         slug: shelf.slug,
         name: shelf.name,
         foods: nodes
-          .filter((item) => item.parentId === shelf.id && !item.outsideDepth)
+          .filter(
+            (item) =>
+              item.parentId === shelf.id &&
+              !item.outsideDepth &&
+              item.available !== 0,
+          )
           .sort(byName),
-      }));
+      }))
+      .filter((shelf) => shelf.foods.length > 0);
+    const shelves = placed.map((shelf) => ({
+      ...shelf,
+      silent: silentShelf(aisle, shelf, shelf.foods, placed.length),
+    }));
     const foodIds = shelves.flatMap((shelf) => shelf.foods.map((f) => f.id));
     const top = await this.repository.topProducts(
       market.id,
@@ -257,6 +269,7 @@ export class CatalogService {
       shelves: shelves.map((shelf) => ({
         slug: shelf.slug,
         name: shelf.name,
+        silent: shelf.silent,
         foods: shelf.foods.map((food) => ({
           slug: food.slug,
           name: food.name,
@@ -325,6 +338,7 @@ export class CatalogService {
         shelves: aisle.shelves.map((shelf) => ({
           slug: shelf.slug,
           name: shelf.name,
+          silent: shelf.silent,
           foods: shelf.foods.map((food) => {
             const top = best(food.id);
             return {
@@ -441,21 +455,35 @@ export class CatalogService {
     const category = await this.repository.category(market.id, slug);
     if (!category)
       throw new ApplicationError("NOT_FOUND", "Category not found.", 404);
-    const [questions, set, storeOptions, unranked, taxonomy] =
+    // A food that is not on in this country keeps its page, which invites
+    // the first product there instead of listing anything.
+    const here = !category.isRankable || category.available === 1;
+    const [questions, set, storeOptions, unranked, taxonomy, availableIn] =
       await Promise.all([
         this.repository.questions(category.id),
-        this.repository.rankedSet(market.id, category.id, filters),
-        this.repository.storeOptions(market.id, category.id, filters.freeFrom),
-        this.repository.unranked(
-          market.id,
-          category.id,
-          filters,
-          (unrankedPage - 1) * CATALOG_PAGE_SIZE,
-          CATALOG_PAGE_SIZE + 1,
-          // Newest already lists unrated products from the New window.
-          view === "new" ? this.newSince() : undefined,
-        ),
+        here ? this.repository.rankedSet(market.id, category.id, filters) : [],
+        here
+          ? this.repository.storeOptions(
+              market.id,
+              category.id,
+              filters.freeFrom,
+            )
+          : [],
+        here
+          ? this.repository.unranked(
+              market.id,
+              category.id,
+              filters,
+              (unrankedPage - 1) * CATALOG_PAGE_SIZE,
+              CATALOG_PAGE_SIZE + 1,
+              // Newest already lists unrated products from the New window.
+              view === "new" ? this.newSince() : undefined,
+            )
+          : [],
         this.repository.taxonomy(market.id),
+        category.isRankable
+          ? this.repository.foodCountries(category.id)
+          : ([] as string[]),
       ]);
     const key = detailKey(view);
     if (key && !questions.some((question) => question.key === key))
@@ -495,7 +523,10 @@ export class CatalogService {
     // The position on this page where products without enough answers for
     // a detail sort begin (they follow in Top order).
     let qualified: number | null = null;
-    if (view === "trending" || view === "new") {
+    if (!here) {
+      listed = [];
+      hasNext = false;
+    } else if (view === "trending" || view === "new") {
       // Trending and Newest are discovery views; they never reorder Top.
       const rows =
         view === "trending"
@@ -530,6 +561,7 @@ export class CatalogService {
     return {
       view,
       category,
+      availability: { here, countries: availableIn },
       questions: questions.map(({ key, label }) => ({ key, label })),
       place: this.placeOf(taxonomy, category.id),
       sidebar: await this.sidebar(market, taxonomy, category.id),
@@ -556,7 +588,10 @@ export class CatalogService {
       hasNextUnranked: unranked.length > CATALOG_PAGE_SIZE,
     };
   }
-  /** A food's aisle and shelf, for its breadcrumb and back link. */
+  /**
+   * A food's aisle and shelf, for its breadcrumb and back link. A silent
+   * shelf is left out so the crumbs never repeat a name.
+   */
   private placeOf(
     taxonomy: Awaited<ReturnType<CatalogRepository["taxonomy"]>>,
     categoryId: string,
@@ -564,8 +599,13 @@ export class CatalogService {
     const shape = taxonomyShape(taxonomy.categories);
     const node = shape.get(categoryId);
     const aisle = node?.aisleId ? shape.get(node.aisleId) : undefined;
+    const listed = aisleTree(taxonomy.categories, new Map())
+      .flatMap((a) => a.shelves)
+      .find((s) => s.foods.some((food) => food.id === categoryId));
     const shelf =
-      node?.parentId && node.depth === 3 ? shape.get(node.parentId) : undefined;
+      node?.parentId && node.depth === 3 && !listed?.silent
+        ? shape.get(node.parentId)
+        : undefined;
     return {
       aisle:
         aisle && aisle.id !== categoryId
@@ -601,6 +641,7 @@ export class CatalogService {
             shelves: current.shelves.map((shelf) => ({
               slug: shelf.slug,
               name: shelf.name,
+              silent: shelf.silent,
               foods: shelf.foods.map((food) => ({
                 slug: food.slug,
                 name: food.name,

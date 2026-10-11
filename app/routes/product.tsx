@@ -158,7 +158,16 @@ export default function Product({
           items={[
             { label: "All foods", to: homePath(code) },
             ...(p.place?.aisle
-              ? [{ label: p.place.aisle.name, to: aislePath }]
+              ? [
+                  {
+                    // "Eggs aisle / Eggs" rather than "Eggs / Eggs".
+                    label:
+                      p.place.aisle.name === food?.name
+                        ? `${p.place.aisle.name} aisle`
+                        : p.place.aisle.name,
+                    to: aislePath,
+                  },
+                ]
               : []),
             ...(p.place?.shelf
               ? [

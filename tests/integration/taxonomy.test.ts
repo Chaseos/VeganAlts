@@ -941,6 +941,22 @@ it("lets aisles and shelves share a food's name but keeps foods and aliases uniq
   await env.DB.prepare("UPDATE countries SET iso2='ZX' WHERE id=?")
     .bind(w.f.otherCountryId)
     .run();
+  // A country features only foods that are on there.
+  await expect(
+    service.setFeatures(operator, id(), {
+      categoryIds: [w.S],
+      country: "ZX",
+      note,
+    }),
+  ).rejects.toMatchObject({ code: "INVALID_FEATURES" });
+  const food = (await service.tree(operator)).categories.find(
+    (c) => c.id === w.S,
+  )!;
+  await service.setCountries(operator, id(), w.S, {
+    expectedRevision: food.revision,
+    countries: ["US", "ZX"],
+    note,
+  });
   await service.setFeatures(operator, id(), {
     categoryIds: [w.S],
     country: "ZX",

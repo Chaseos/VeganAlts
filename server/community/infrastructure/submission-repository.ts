@@ -1,5 +1,8 @@
 import { ApplicationError } from "../../shared/domain/errors";
-import { productSearchStatements } from "../../catalog/infrastructure/search-index";
+import {
+  categorySearchStatements,
+  productSearchStatements,
+} from "../../catalog/infrastructure/search-index";
 import type {
   Actor,
   SubmissionInput,
@@ -483,6 +486,8 @@ export class SubmissionRepository {
       );
     statements.push(
       ...productSearchStatements(this.db, productId, guard, fence),
+      // A food this product switched on in its country becomes searchable.
+      ...categorySearchStatements(this.db, productId, guard, fence),
       this.db
         .prepare(
           `INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,after_data,created_at) SELECT ?,?,'product_published','product',?,?,? WHERE ${guard}`,

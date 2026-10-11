@@ -27,6 +27,7 @@ export async function loader({ params }: Route.LoaderArgs) {
       shelves: aisle.shelves.map((shelf) => ({
         slug: shelf.slug,
         name: shelf.name,
+        silent: shelf.silent,
         foods: shelf.foods.map((food) => ({
           slug: food.slug,
           name: food.name,

@@ -1,6 +1,9 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import { ACTIVE_RESPONSES } from "./moderation-repository";
-import { productSearchStatements } from "../../catalog/infrastructure/search-index";
+import {
+  categorySearchStatements,
+  productSearchStatements,
+} from "../../catalog/infrastructure/search-index";
 import type {
   Actor,
   ProductChange,
@@ -535,6 +538,13 @@ export class CatalogDecisionRepository {
     )
       statements.push(
         ...productSearchStatements(
+          this.db,
+          snapshot.id,
+          sql,
+          values.filter((v): v is string | number => v !== null),
+        ),
+        // An added food, or a restored product, can switch a food on here.
+        ...categorySearchStatements(
           this.db,
           snapshot.id,
           sql,

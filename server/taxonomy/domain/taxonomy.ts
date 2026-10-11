@@ -91,10 +91,20 @@ export const createCategoryInput = z
     parentId: id.nullable().default(null),
     isRankable: z.boolean(),
     aliases: aliasList,
+    // Where a new food is switched on; every active country when omitted.
+    countries: z.array(countryCode).max(300).optional(),
     note,
   })
   .strict();
 export type CreateCategoryInput = z.infer<typeof createCategoryInput>;
+// The full list of countries where a food is switched on (milestone 6).
+export const countriesInput = z
+  .object({
+    expectedRevision: z.number().int().nonnegative(),
+    countries: z.array(countryCode).max(300),
+    note,
+  })
+  .strict();
 export const updateCategoryInput = z
   .object({
     expectedRevision: z.number().int().nonnegative(),

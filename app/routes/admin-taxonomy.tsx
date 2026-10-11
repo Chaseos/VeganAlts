@@ -149,6 +149,8 @@ export default function AdminTaxonomy({
                   <span className="small muted">
                     /{c.slug} · in {name(c.parentId)} · {c.productCount}{" "}
                     products
+                    {c.isRankable === 1 &&
+                      ` · on in ${c.countries.length ? c.countries.join(", ") : "no country yet"}`}
                   </span>
                   {c.aliases.length > 0 && (
                     <p className="small">
@@ -318,6 +320,20 @@ export default function AdminTaxonomy({
                       Save category
                     </button>
                   </form>
+                )}
+                {editing === c.id && c.isRankable === 1 && c.isActive === 1 && (
+                  <CountriesEditor
+                    category={c}
+                    countries={data.countries}
+                    busy={action.busy}
+                    onSave={(countries, note) =>
+                      send(
+                        `admin/taxonomy/categories/${c.id}/countries`,
+                        { expectedRevision: c.revision, countries, note },
+                        `${c.name} countries saved.`,
+                      )
+                    }
+                  />
                 )}
                 {editing === c.id && c.isRankable === 1 && c.isActive === 1 && (
                   <DimensionEditor
@@ -670,6 +686,72 @@ const questionKey = (label: string) =>
 
 // A food's ordered detail questions. Keys are fixed once saved, so a question
 // is retired rather than removed; its answers are kept.
+/**
+ * Where a food is switched on. A country where it has visible products stays
+ * on; the server refuses to switch it off there.
+ */
+function CountriesEditor({
+  category,
+  countries,
+  busy,
+  onSave,
+}: {
+  category: Category;
+  countries: { iso2: string; name: string }[];
+  busy: boolean;
+  onSave: (countries: string[], note: string) => Promise<void>;
+}) {
+  const id = `countries-${category.id}`;
+  return (
+    <form
+      className="community-form va-taxonomy-tree__form"
+      aria-labelledby={id}
+      onSubmit={(event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        void onSave(
+          countries
+            .filter((country) => form.get(`on-${country.iso2}`) === "on")
+            .map((country) => country.iso2),
+          String(form.get("note")),
+        );
+      }}
+    >
+      <fieldset>
+        <legend id={id}>Countries where {category.name} is on</legend>
+        <p className="small muted">
+          Aisles and shelves appear everywhere. A food appears in a country once
+          it is on there, and switches on by itself when a product for it is
+          published in that country.
+        </p>
+        {countries.map((country) => (
+          <label className="checkbox-label" key={country.iso2}>
+            <input
+              type="checkbox"
+              name={`on-${country.iso2}`}
+              defaultChecked={category.countries.includes(country.iso2)}
+            />
+            {country.name}
+          </label>
+        ))}
+      </fieldset>
+      <div className="form-field">
+        <label htmlFor={`${id}-note`}>Reason</label>
+        <textarea
+          id={`${id}-note`}
+          name="note"
+          required
+          minLength={8}
+          rows={2}
+        />
+      </div>
+      <button className="button" disabled={busy}>
+        Save countries
+      </button>
+    </form>
+  );
+}
+
 function DimensionEditor({
   category,
   busy,

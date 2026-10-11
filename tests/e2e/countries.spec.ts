@@ -2,6 +2,7 @@ import { expect, test } from "./fixtures";
 import { accessible } from "./a11y";
 import { chooseCountry, openAccountLink } from "./site";
 import { createBrowserSession } from "./session-fixture";
+import { withLocalDb } from "./local-db";
 
 test("switching country keeps the food, remembers the choice and invites the first products", async ({
   page,
@@ -30,6 +31,13 @@ test("switching country keeps the food, remembers the choice and invites the fir
   await expect(
     page.getByRole("link", { name: "Add the first product" }),
   ).toHaveAttribute("href", "/add-product?country=ca");
+  // The shared aisles are listed so people there can add a food's first product.
+  await expect(
+    page.getByRole("heading", { name: "Browse every food" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Be the first to add one").first(),
+  ).toBeAttached();
   await accessible(page);
 
   // "/" sends a returning visitor to the remembered country after hydration.
@@ -39,6 +47,52 @@ test("switching country keeps the food, remembers the choice and invites the fir
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
+});
+
+test("a food that is not on in a country invites its first product there", async ({
+  page,
+  request,
+}) => {
+  // Bacon has no New Zealand products, so it can be switched off there.
+  const off = (db: D1Database) =>
+    db
+      .prepare(
+        "DELETE FROM category_countries WHERE category_id=(SELECT id FROM categories WHERE slug='bacon') AND country_id=(SELECT id FROM countries WHERE iso2='NZ')",
+      )
+      .run();
+  await withLocalDb(off);
+  try {
+    await page.goto("/nz/bacon");
+    await expect(
+      page.getByRole("heading", { name: "Not in New Zealand yet" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "See it in United States" }),
+    ).toHaveAttribute("href", "/us/bacon");
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+      "content",
+      /noindex/,
+    );
+    await accessible(page);
+    const api = await request.get("/api/v1/categories/bacon?country=NZ");
+    expect((await api.json()).data.availability).toMatchObject({
+      here: false,
+    });
+    // It is left out of New Zealand's aisles.
+    const chrome = await request.get("/api/v1/categories/bacon?country=US");
+    expect((await chrome.json()).data.availability).toMatchObject({
+      here: true,
+      countries: expect.not.arrayContaining(["nz"]),
+    });
+  } finally {
+    await withLocalDb((db) =>
+      db
+        .prepare(
+          "INSERT INTO category_countries(category_id,country_id,source,created_at) SELECT c.id,co.id,'launch',1 FROM categories c,countries co WHERE c.slug='bacon' AND co.iso2='NZ' ON CONFLICT DO NOTHING",
+        )
+        .run(),
+    );
+  }
 });
 
 test("only active countries route; the United States home lives at /", async ({

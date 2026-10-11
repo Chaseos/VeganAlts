@@ -2,8 +2,10 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "./fixtures";
 import { createBrowserSession } from "./session-fixture";
+import { withLocalDb } from "./local-db";
 
-// Screenshots for comparing pages with the Round 5 canvas boards by eye.
+// Screenshots for comparing pages with the Round 5 canvas boards by eye, and
+// for the owner's review of milestone 6 screens.
 // Run with CAPTURE=1 (and optionally CAPTURE_DIR); skipped otherwise. JPEG keeps
 // the committed evidence small.
 const PAGES = [
@@ -12,6 +14,9 @@ const PAGES = [
   ["category", "/us/ground-beef"],
   ["product", "/us/products/beyond-beef"],
   ["search", "/us/search?q=beef"],
+  ["food-silent-shelf", "/us/eggs"],
+  ["aisle-silent-shelves", "/us/dairy"],
+  ["empty-country", "/ca"],
 ] as const;
 const WIDTHS = [
   ["phone", 390, 844],
@@ -25,7 +30,7 @@ for (const [name, path] of PAGES)
   test(`capture ${name}`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "One capture per page.");
     const directory =
-      process.env.CAPTURE_DIR ?? join("docs", "verification", "milestone-5");
+      process.env.CAPTURE_DIR ?? join("docs", "verification", "milestone-6");
     mkdirSync(directory, { recursive: true });
     for (const [label, width, height] of WIDTHS)
       for (const scheme of ["light", "dark"] as const) {
@@ -51,7 +56,7 @@ test("capture workflows", async ({ page, context, request }, testInfo) => {
   test.skip(Boolean(process.env.TEST_BASE_URL), "Sessions are local.");
   test.setTimeout(240000);
   const directory =
-    process.env.CAPTURE_DIR ?? join("docs", "verification", "milestone-5");
+    process.env.CAPTURE_DIR ?? join("docs", "verification", "milestone-6");
   mkdirSync(directory, { recursive: true });
   const operator = await createBrowserSession({ administrator: true });
   try {
@@ -92,5 +97,46 @@ test("capture workflows", async ({ page, context, request }, testInfo) => {
         }
   } finally {
     await operator.dispose();
+  }
+});
+
+// A food that is not on in a country (local only: availability is arranged in
+// the database and restored afterwards).
+test("capture not-here", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "One capture per page.");
+  test.skip(Boolean(process.env.TEST_BASE_URL), "Data setup is local.");
+  const directory =
+    process.env.CAPTURE_DIR ?? join("docs", "verification", "milestone-6");
+  mkdirSync(directory, { recursive: true });
+  const where =
+    "category_id=(SELECT id FROM categories WHERE slug='bacon') AND country_id=(SELECT id FROM countries WHERE iso2='NZ')";
+  await withLocalDb((db) =>
+    db.prepare(`DELETE FROM category_countries WHERE ${where}`).run(),
+  );
+  try {
+    for (const [label, width, height] of WIDTHS)
+      for (const scheme of ["light", "dark"] as const) {
+        await page.setViewportSize({ width, height });
+        await page.emulateMedia({
+          colorScheme: scheme,
+          reducedMotion: "reduce",
+        });
+        await page.goto("/nz/bacon");
+        await page.waitForLoadState("networkidle");
+        await page.screenshot({
+          path: join(directory, `not-here-${label}-${scheme}.jpg`),
+          type: "jpeg",
+          quality: 70,
+          fullPage: true,
+        });
+      }
+  } finally {
+    await withLocalDb((db) =>
+      db
+        .prepare(
+          "INSERT INTO category_countries(category_id,country_id,source,created_at) SELECT c.id,co.id,'launch',1 FROM categories c,countries co WHERE c.slug='bacon' AND co.iso2='NZ' ON CONFLICT DO NOTHING",
+        )
+        .run(),
+    );
   }
 });

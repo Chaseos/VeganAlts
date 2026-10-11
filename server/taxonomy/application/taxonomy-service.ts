@@ -10,6 +10,7 @@ import {
   categoryDecision,
   categoryKey,
   categoryProposalInput,
+  countriesInput,
   storedCategoryProposal,
   categorySlug,
   createCategoryInput,
@@ -322,6 +323,7 @@ export class TaxonomyService {
       resolutionNote: proposal.resolution_note,
       suggestedSlug: categorySlug(proposal.name),
       parentId: proposal.parent_id,
+      country: proposal.country,
     };
   }
   /** Operator decision: create the category, alias an existing one, or reject. */
@@ -453,6 +455,20 @@ export class TaxonomyService {
             now,
             fence,
           ),
+          // The existing food opens in the country that asked for it.
+          ...(proposal.country_id
+            ? this.repository.countryStatements(
+                target.id,
+                {
+                  add: [proposal.country_id],
+                  remove: [],
+                  source: "proposal",
+                  actorId: actor.id,
+                },
+                now,
+                fence,
+              )
+            : []),
         ],
         receipt,
       );
@@ -493,7 +509,20 @@ export class TaxonomyService {
       action,
       guard,
       (fence) => [
-        ...this.repository.createStatements(categoryId, created, now, fence),
+        // An accepted food starts in the country it was suggested from.
+        ...this.repository.createStatements(
+          categoryId,
+          created,
+          now,
+          fence,
+          proposal.country_id
+            ? {
+                ids: [proposal.country_id],
+                source: "proposal",
+                actorId: actor.id,
+              }
+            : undefined,
+        ),
         this.repository.resolveProposalStatement(
           id,
           "accepted",
@@ -530,6 +559,9 @@ export class TaxonomyService {
     this.assertGroupAliases(input.isRankable, input.aliases);
     await this.assertNameAvailable([input.name, ...input.aliases], scope);
     await this.assertParent(null, input.parentId);
+    // An operator's new food starts in every active country unless they
+    // choose some.
+    const countryIds = await this.activeCountryIds(input.countries);
     const id = this.newId();
     const created = {
       name: input.name,
@@ -544,7 +576,12 @@ export class TaxonomyService {
     const result = await this.repository.commit(
       this.action(actor, "category_create", id, input.note, {}, created),
       guard,
-      (fence) => this.repository.createStatements(id, created, now, fence),
+      (fence) =>
+        this.repository.createStatements(id, created, now, fence, {
+          ids: countryIds,
+          source: "operator",
+          actorId: actor.id,
+        }),
       receipt,
     );
     await this.refreshed([slug]);
@@ -681,6 +718,96 @@ export class TaxonomyService {
       return { ...a, countryId };
     });
   }
+  /** Active countries' IDs for these ISO codes, or every active country. */
+  private async activeCountryIds(codes?: string[]) {
+    const wanted =
+      codes ?? (await this.repository.tree()).countries.map((c) => c.iso2);
+    const ids = await this.repository.countryIdsByIso(wanted);
+    if (codes && ids.size !== new Set(codes.map((c) => c.toUpperCase())).size)
+      throw new ApplicationError(
+        "INVALID_COUNTRY",
+        "Choose only active countries.",
+      );
+    return [...ids.values()];
+  }
+  /**
+   * Replaces the countries where a food is switched on. A food stays on
+   * wherever it has a visible product; inactive countries are left alone.
+   */
+  async setCountries(actor: Actor, key: string, id: string, raw: unknown) {
+    administrator(actor);
+    const input = countriesInput.parse(raw);
+    const now = this.clock(),
+      receipt = await receiptWrite(
+        actor.id,
+        "category-countries",
+        key,
+        { id, ...input },
+        now,
+      );
+    const prior = await this.repository.replay<{ actionId: string }>(receipt);
+    if (prior) return prior;
+    const category = await this.existing(id);
+    if (category.revision !== input.expectedRevision)
+      throw new ApplicationError(
+        "STALE_CATEGORY",
+        "This food changed. Refresh before choosing its countries.",
+        409,
+      );
+    if (!category.isRankable)
+      throw new ApplicationError(
+        "INVALID_COUNTRIES",
+        "Aisles and shelves appear in every country. Choose countries for a food.",
+      );
+    const wanted = await this.activeCountryIds(input.countries);
+    const current = await this.repository.countriesOf(id);
+    const remove = current
+      .filter((c) => !wanted.includes(c.id))
+      .map((c) => c.id);
+    const add = wanted.filter((w) => !current.some((c) => c.id === w));
+    const inUse = remove.length
+      ? await this.repository.countriesInUse(id, remove)
+      : [];
+    if (inUse.length)
+      throw new ApplicationError(
+        "FOOD_HAS_PRODUCTS",
+        `This food has products in ${current
+          .filter((c) => inUse.includes(c.id))
+          .map((c) => c.iso2)
+          .join(", ")}, so it stays on there.`,
+        409,
+      );
+    const before = current.map((c) => c.iso2).sort();
+    const after = [
+      ...new Set(input.countries.map((c) => c.toUpperCase())),
+    ].sort();
+    const result = await this.repository.commit(
+      this.action(
+        actor,
+        "category_countries",
+        id,
+        input.note,
+        { countries: before },
+        { countries: after },
+      ),
+      {
+        sql: "EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)",
+        values: [id, category.revision],
+      },
+      (fence) => [
+        ...this.repository.countryStatements(
+          id,
+          { add, remove, source: "operator", actorId: actor.id },
+          now,
+          fence,
+        ),
+        this.repository.bumpRevisionStatement(id, now, fence),
+      ],
+      receipt,
+    );
+    await this.refreshed([category.slug]);
+    return result;
+  }
   async setFeatures(actor: Actor, key: string, raw: unknown) {
     administrator(actor);
     const input = featuresInput.parse(raw);
@@ -715,6 +842,16 @@ export class TaxonomyService {
       throw new ApplicationError(
         "INVALID_COUNTRY",
         "Choose an active country for homepage features.",
+      );
+    // A country features only foods that are on there.
+    if (
+      (await this.repository.availableCount(input.categoryIds, countryId)) !==
+      input.categoryIds.length
+    )
+      throw new ApplicationError(
+        "INVALID_FEATURES",
+        "Feature only foods that are on in this country.",
+        409,
       );
     const before = await this.repository.features(countryId);
     const result = await this.repository.commit(
@@ -835,9 +972,12 @@ export class TaxonomyService {
     if (
       !original ||
       original.reversed_by ||
-      !["category_update", "category_features", "category_dimensions"].includes(
-        original.kind,
-      )
+      ![
+        "category_update",
+        "category_features",
+        "category_dimensions",
+        "category_countries",
+      ].includes(original.kind)
     )
       throw new ApplicationError(
         "INVALID_REVERSAL",
@@ -846,10 +986,12 @@ export class TaxonomyService {
     const before = JSON.parse(original.before_data) as CategoryPatch & {
       features?: string[];
       dimensions?: DimensionState[];
+      countries?: string[];
     };
     const after = JSON.parse(original.after_data) as CategoryPatch & {
       features?: string[];
       dimensions?: DimensionState[];
+      countries?: string[];
     };
     const action = this.action(
       actor,
@@ -909,6 +1051,58 @@ export class TaxonomyService {
         receipt,
       );
       await this.effects.invalidate([], []);
+      return result;
+    }
+    if (original.kind === "category_countries") {
+      const category = await this.existing(original.target_id);
+      const current = await this.repository.countriesOf(category.id);
+      if (
+        JSON.stringify(current.map((c) => c.iso2).sort()) !==
+        JSON.stringify(after.countries)
+      )
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "This food's countries changed since this action. Review the newer change first.",
+          409,
+        );
+      const restore = await this.repository.countryIdsByIso(
+        before.countries ?? [],
+      );
+      const remove = current
+        .filter((c) => !restore.has(c.iso2))
+        .map((c) => c.id);
+      if ((await this.repository.countriesInUse(category.id, remove)).length)
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "This food now has products in a country the action added, so it stays on there.",
+          409,
+        );
+      const result = await this.repository.commit(
+        action,
+        {
+          sql: `${reversed.sql} AND EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)`,
+          values: [...reversed.values, category.id, category.revision],
+        },
+        (fence) => [
+          ...this.repository.countryStatements(
+            category.id,
+            {
+              add: [...restore.values()].filter(
+                (id) => !current.some((c) => c.id === id),
+              ),
+              remove,
+              source: "operator",
+              actorId: actor.id,
+            },
+            now,
+            fence,
+          ),
+          this.repository.bumpRevisionStatement(category.id, now, fence),
+          this.reversedStatement(actionId, action.id, fence),
+        ],
+        receipt,
+      );
+      await this.refreshed([category.slug]);
       return result;
     }
     if (original.kind === "category_dimensions") {

@@ -59,6 +59,10 @@ export async function taxonomyApi(
     return respond(
       await services.update(actor, requestKey, parse(id, target), body),
     );
+  if (family === "categories" && target && operation === "countries")
+    return respond(
+      await services.setCountries(actor, requestKey, parse(id, target), body),
+    );
   if (family === "categories" && target && operation === "dimensions")
     return respond(
       await services.setDimensions(actor, requestKey, parse(id, target), body),

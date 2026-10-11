@@ -117,7 +117,8 @@ export class D1TaxonomyRepository {
           `SELECT c.id,c.name,c.slug,c.parent_id AS parentId,c.is_rankable AS isRankable,c.is_active AS isActive,c.revision,
         (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id=c.id) AS productCount,
         (SELECT json_group_array(json_object('alias',a.alias,'country',co.iso2,'displayName',json(CASE WHEN a.is_display_name=1 THEN 'true' ELSE 'false' END))) FROM category_aliases a LEFT JOIN countries co ON co.id=a.country_id WHERE a.category_id=c.id) AS aliases,
-        (SELECT json_group_array(json_object('key',d.key,'label',d.label,'description',d.description,'active',json(CASE WHEN d.is_active=1 THEN 'true' ELSE 'false' END))) FROM (SELECT * FROM category_rating_dimensions WHERE category_id=c.id ORDER BY sort_order,key) d) AS dimensions
+        (SELECT json_group_array(json_object('key',d.key,'label',d.label,'description',d.description,'active',json(CASE WHEN d.is_active=1 THEN 'true' ELSE 'false' END))) FROM (SELECT * FROM category_rating_dimensions WHERE category_id=c.id ORDER BY sort_order,key) d) AS dimensions,
+        (SELECT json_group_array(co.iso2) FROM (SELECT co.iso2 FROM category_countries cc JOIN countries co ON co.id=cc.country_id WHERE cc.category_id=c.id ORDER BY co.iso2) co) AS countries
         FROM categories c ORDER BY c.is_active DESC,c.name LIMIT 1000`,
         ),
         this.db.prepare(
@@ -146,10 +147,13 @@ export class D1TaxonomyRepository {
           productCount: number;
           aliases: string;
           dimensions: string;
+          countries: string;
         }[]
       ).map((c) => ({
         ...c,
         dimensions: JSON.parse(c.dimensions) as DimensionState[],
+        // Countries where a food is switched on (groups have none).
+        countries: JSON.parse(c.countries) as string[],
         // Scope travels with each alias so an edit can preserve it.
         aliases: JSON.parse(c.aliases) as {
           alias: string;
@@ -284,8 +288,99 @@ export class D1TaxonomyRepository {
         ),
       );
     if (patch.isRankable && !current.isRankable)
-      statements.push(...this.defaultDimensionStatements(id, now, fence));
+      statements.push(
+        ...this.defaultDimensionStatements(id, now, fence),
+        // A group that becomes a food starts on in every active country.
+        this.db
+          .prepare(
+            `INSERT INTO category_countries(category_id,country_id,source,created_at)
+            SELECT ?,co.id,'operator',? FROM countries co WHERE co.is_active=1 AND ${sql}
+            AND NOT EXISTS(SELECT 1 FROM category_countries WHERE category_id=?)`,
+          )
+          .bind(id, now, ...values, id),
+      );
     return statements;
+  }
+  /**
+   * Switches a food on in some countries and off in others. The delete
+   * trigger refuses a country where the food has a visible product.
+   */
+  countryStatements(
+    categoryId: string,
+    change: {
+      add: string[];
+      remove: string[];
+      source: "proposal" | "operator";
+      actorId: string | null;
+    },
+    now: number,
+    fence: DecisionGuard,
+  ) {
+    return [
+      ...change.remove.map((countryId) =>
+        this.db
+          .prepare(
+            `DELETE FROM category_countries WHERE category_id=? AND country_id=? AND ${fence.sql}`,
+          )
+          .bind(categoryId, countryId, ...fence.values),
+      ),
+      ...change.add.map((countryId) =>
+        this.db
+          .prepare(
+            `INSERT INTO category_countries(category_id,country_id,source,created_by,created_at)
+            SELECT c.id,co.id,?,?,? FROM categories c JOIN countries co ON co.id=?
+            WHERE c.id=? AND c.is_rankable=1 AND ${fence.sql}
+            AND NOT EXISTS(SELECT 1 FROM category_countries WHERE category_id=c.id AND country_id=co.id)`,
+          )
+          .bind(
+            change.source,
+            change.actorId,
+            now,
+            countryId,
+            categoryId,
+            ...fence.values,
+          ),
+      ),
+    ];
+  }
+  bumpRevisionStatement(categoryId: string, now: number, fence: DecisionGuard) {
+    return this.db
+      .prepare(
+        `UPDATE categories SET revision=revision+1,updated_at=? WHERE id=? AND ${fence.sql}`,
+      )
+      .bind(now, categoryId, ...fence.values);
+  }
+  /** Active countries where a food is on, as IDs and ISO codes. */
+  async countriesOf(categoryId: string) {
+    return (
+      await this.db
+        .prepare(
+          "SELECT co.id,co.iso2 FROM category_countries cc JOIN countries co ON co.id=cc.country_id AND co.is_active=1 WHERE cc.category_id=? ORDER BY co.iso2",
+        )
+        .bind(categoryId)
+        .all<{ id: string; iso2: string }>()
+    ).results;
+  }
+  /** Which of these countries hold a visible product of the food. */
+  async countriesInUse(categoryId: string, countryIds: string[]) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT DISTINCT p.country_id AS id FROM product_categories pc JOIN products p ON p.id=pc.product_id
+          WHERE pc.category_id=? AND p.lifecycle_status<>'hidden' AND p.country_id IN (SELECT value FROM json_each(?))`,
+        )
+        .bind(categoryId, JSON.stringify(countryIds))
+        .all<{ id: string }>()
+    ).results.map((r) => r.id);
+  }
+  /** How many of these foods are on in a country. */
+  async availableCount(categoryIds: string[], countryId: string) {
+    return (await this.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM category_countries WHERE country_id=? AND category_id IN (SELECT value FROM json_each(?))",
+      )
+      .bind(countryId, JSON.stringify(categoryIds))
+      .first<number>("n"))!;
   }
   createStatements(
     id: string,
@@ -298,6 +393,12 @@ export class D1TaxonomyRepository {
     },
     now: number,
     fence: DecisionGuard,
+    // Where a new food is switched on (country IDs). Groups ignore it.
+    countries?: {
+      ids: string[];
+      source: "proposal" | "operator";
+      actorId: string | null;
+    },
   ) {
     return [
       this.db
@@ -323,6 +424,19 @@ export class D1TaxonomyRepository {
       ),
       ...(input.isRankable
         ? this.defaultDimensionStatements(id, now, fence)
+        : []),
+      ...(input.isRankable && countries
+        ? this.countryStatements(
+            id,
+            {
+              add: countries.ids,
+              remove: [],
+              source: countries.source,
+              actorId: countries.actorId,
+            },
+            now,
+            fence,
+          )
         : []),
     ];
   }
@@ -624,13 +738,17 @@ export class D1TaxonomyRepository {
   }
   proposal(id: string) {
     return this.db
-      .prepare("SELECT * FROM category_proposals WHERE id=?")
+      .prepare(
+        "SELECT p.*,co.iso2 AS country FROM category_proposals p LEFT JOIN countries co ON co.id=p.country_id WHERE p.id=?",
+      )
       .bind(id)
       .first<{
         id: string;
         submitted_by: string;
         name: string;
         parent_id: string | null;
+        country_id: string | null;
+        country: string | null;
         explanation: string;
         proposed_data: string;
         status: string;
