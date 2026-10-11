@@ -37,6 +37,32 @@ it("enforces authentication, operator allowlist, origin, validation and private 
     actor.authEnv,
   );
   expect(options?.headers.get("Cache-Control")).toBe("private, no-store");
+  // Duplicate matching while typing is a private read: too-short input has no
+  // matches, and it uses the instant-search limit instead of a challenge.
+  const matches = (query: string) =>
+    communityApi(
+      request(`community/identity-matches?${query}`),
+      "community/identity-matches",
+      actor.authEnv,
+    );
+  const short = await matches("country=US&brand=G&name=B");
+  expect(short?.headers.get("Cache-Control")).toBe("private, no-store");
+  expect(((await short!.json()) as { data: unknown[] }).data).toEqual([]);
+  expect(
+    (
+      (await (await matches("country=US&brand=Garden&name=12 oz"))!.json()) as {
+        data: unknown[];
+      }
+    ).data,
+  ).toEqual([]);
+  const limited = actor.authEnv.SUGGEST_RATE_LIMIT;
+  actor.authEnv.SUGGEST_RATE_LIMIT = {
+    limit: async () => ({ success: false }),
+  };
+  await expect(
+    matches("country=US&brand=Garden&name=Burger"),
+  ).rejects.toMatchObject({ status: 429 });
+  actor.authEnv.SUGGEST_RATE_LIMIT = limited;
   const cross = new Headers(actor.headers);
   cross.set("Origin", "https://other.example");
   await expect(

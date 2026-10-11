@@ -382,7 +382,7 @@ export class SubmissionRepository {
           input.name,
           productSlug,
           status,
-          input.manufacturerLabel,
+          input.manufacturerLabel ?? "unknown",
           input.ingredientUrl ?? null,
           receipt.user_id,
           now,
@@ -430,13 +430,18 @@ export class SubmissionRepository {
         .bind(
           versionId,
           status,
-          input.manufacturerLabel,
+          input.manufacturerLabel ?? "unknown",
           JSON.stringify({
             urls: input.ingredientUrl ? [input.ingredientUrl] : [],
             imageIds: images
               .filter((i) => i.slot === "ingredients")
               .map((i) => i.imageId),
-            note: input.statusBasis,
+            // Evidence notes are at least 8 characters; the contributor's
+            // note is optional.
+            note:
+              input.statusBasis && input.statusBasis.length >= 8
+                ? input.statusBasis
+                : "Added with the product; the contributor left no ingredient note.",
           }),
           classification.reviewedBy,
           classification.ingredientsChecked ? 1 : 0,

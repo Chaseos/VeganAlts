@@ -93,17 +93,34 @@ export class CommunityLookupRepository {
         "INVALID_COUNTRY",
         "This country is not available for contributions.",
       );
-    const categories = await this.db
-      .prepare(
-        `SELECT id FROM categories WHERE id IN (${input.categoryIds.map(() => "?").join(",")}) AND is_active=1 AND is_rankable=1`,
-      )
-      .bind(...input.categoryIds)
-      .all();
+    // A suggested food may be the only one, so the list can be empty.
+    const categories = input.categoryIds.length
+      ? await this.db
+          .prepare(
+            "SELECT id FROM categories WHERE id IN (SELECT value FROM json_each(?)) AND is_active=1 AND is_rankable=1",
+          )
+          .bind(JSON.stringify(input.categoryIds))
+          .all()
+      : { results: [] };
     if (categories.results.length !== input.categoryIds.length)
       throw new ApplicationError(
         "INVALID_CATEGORY",
-        "Choose active replacement categories.",
+        "Choose foods that are still listed.",
       );
+    // Stores must be ones members report in this country.
+    if (input.retailerIds?.length) {
+      const stores = await this.db
+        .prepare(
+          "SELECT COUNT(*) AS n FROM retailer_markets WHERE country_id=? AND is_active=1 AND retailer_id IN (SELECT value FROM json_each(?))",
+        )
+        .bind(country.id, JSON.stringify(input.retailerIds))
+        .first<number>("n");
+      if (stores !== input.retailerIds.length)
+        throw new ApplicationError(
+          "INVALID_RETAILER",
+          "Choose stores from this country's list.",
+        );
+    }
     const brand = await this.db
       .prepare(
         "SELECT id,name FROM brands WHERE normalized_name=? OR id IN (SELECT brand_id FROM brand_aliases WHERE normalized_name=?) LIMIT 1",

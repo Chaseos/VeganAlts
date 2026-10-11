@@ -233,6 +233,24 @@ export class D1CatalogRepository implements CatalogRepository {
       .first<CategorySummary>();
   }
 
+  // Every food's other names in a country (not its display name there), for
+  // the contribution food picker.
+  async foodAliases(countryId: string) {
+    return (
+      await this.db
+        .prepare(
+          // A food renamed for this country keeps its base name searchable.
+          `SELECT a.category_id AS categoryId,a.alias FROM category_aliases a JOIN categories c ON c.id=a.category_id AND c.is_active=1 AND c.is_rankable=1
+          WHERE (a.country_id IS NULL OR a.country_id=?) AND a.is_display_name=0
+          UNION SELECT c.id,c.name FROM categories c JOIN category_aliases d ON d.category_id=c.id AND d.country_id=? AND d.is_display_name=1
+          WHERE c.is_active=1 AND c.is_rankable=1
+          ORDER BY 2 LIMIT 10000`,
+        )
+        .bind(countryId, countryId)
+        .all<{ categoryId: string; alias: string }>()
+    ).results;
+  }
+
   // Lowercase codes of the active countries where a food is on.
   async foodCountries(categoryId: string) {
     return (

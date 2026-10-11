@@ -113,6 +113,22 @@ export class SubmissionService {
     active(actor);
     return this.lookup.candidates(input, await this.lookup.context(input));
   }
+  /**
+   * "Is it one of these?" while someone types. Read-only; a name that is
+   * only a package size simply has no matches yet.
+   */
+  async identityMatches(actor: Actor, input: SubmissionIdentity) {
+    try {
+      return await this.checkIdentity(actor, input);
+    } catch (error) {
+      if (
+        error instanceof ApplicationError &&
+        error.code === "INVALID_IDENTITY"
+      )
+        return [];
+      throw error;
+    }
+  }
   async evidenceReceipt(actor: Actor, key: string, productId: string) {
     active(actor);
     await this.lookup.contributableProduct(productId);
@@ -366,8 +382,8 @@ export class SubmissionService {
           name: input.name,
           country: input.country,
           categories: await this.lookup.categoryNames(input.categoryIds),
-          manufacturerLabel: input.manufacturerLabel,
-          contributorNote: input.statusBasis,
+          manufacturerLabel: input.manufacturerLabel ?? "unknown",
+          contributorNote: input.statusBasis ?? "",
         },
         images: images.map((i, index) => ({
           position: index + 1,
@@ -404,12 +420,11 @@ export class SubmissionService {
       images.some(
         (i) => i.state !== "complete" || !input.imageSlots.includes(i.slot),
       ) ||
-      !images.some((i) => i.slot === "front") ||
-      (!input.ingredientUrl && !images.some((i) => i.slot === "ingredients"))
+      !images.some((i) => i.slot === "front")
     )
       throw new ApplicationError(
         "EVIDENCE_REQUIRED",
-        "Finish the front photo and ingredient evidence uploads before submitting.",
+        "Finish uploading the photos before submitting.",
         409,
       );
   }

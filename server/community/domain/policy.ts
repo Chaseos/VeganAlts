@@ -13,8 +13,10 @@ import type {
 export const DAY = 86_400_000;
 export const LEASE = 5 * 60_000;
 export const DEFAULT_LIMITS = {
-  images: 3,
-  submissionBytes: 30 * 1024 * 1024,
+  // Four slots (front, ingredients, back, nutrition): the automated photo
+  // check accepts at most four images.
+  images: 4,
+  submissionBytes: 40 * 1024 * 1024,
   accountBytes: 100 * 1024 * 1024,
   submissionsPerDay: 5,
   // Evidence receipts for proposals have their own allowance.
@@ -150,9 +152,16 @@ export function decideSubmission(
   if (candidates.length)
     reasons.push("A related catalog entry needs an identity check.");
   if (input.specialtyFlavor)
-    reasons.push("A specialty flavor needs a category-eligibility review.");
+    reasons.push(
+      "A specialty flavor needs a review of which foods it's ranked for.",
+    );
   if (input.relatedProductId || input.productFamilyId)
     reasons.push("The proposed product relationship needs review.");
+  // A suggested food is decided by an operator before the product publishes.
+  if (input.newFood)
+    reasons.push(
+      `The suggested food “${input.newFood.name}” needs an operator decision.`,
+    );
   return {
     decision: reasons.length ? "NEEDS_REVIEW" : "READY",
     reasons,

@@ -181,6 +181,9 @@ export interface CatalogRepository {
   categoryRedirect(slug: string): Promise<string | null>;
   category(countryId: string, slug: string): Promise<CategorySummary | null>;
   foodCountries(categoryId: string): Promise<string[]>;
+  foodAliases(
+    countryId: string,
+  ): Promise<{ categoryId: string; alias: string }[]>;
   rankings(
     countryId: string,
     categoryId: string,

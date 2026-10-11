@@ -17,6 +17,7 @@ import {
 import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
 import { aisleTree, taxonomyShape } from "../../taxonomy/domain/shape";
 import { silentShelf } from "../../taxonomy/domain/display";
+import { foodChoices } from "../../taxonomy/domain/food-choices";
 import {
   AISLE_TOP,
   DETAIL_MIN_ANSWERS,
@@ -206,6 +207,25 @@ export class CatalogService {
           })),
       }))
       .filter((aisle) => aisle.shelves.length > 0);
+  }
+
+  /**
+   * What Add a product needs to pick a food in a country: every placeable
+   * food (marked when it is not on there yet), every shelf for suggesting a
+   * new food, and the country's stores and allergen list.
+   */
+  async contributionChoices(market: Market) {
+    const [taxonomy, aliases, shelves, options] = await Promise.all([
+      this.repository.taxonomy(market.id),
+      this.repository.foodAliases(market.id),
+      this.shelves(market),
+      this.repository.filterOptions(market.id),
+    ]);
+    return {
+      foods: foodChoices(taxonomy.categories, aliases),
+      shelves,
+      allergens: options.allergens,
+    };
   }
 
   // A category's identity and whether it is a food, without its listings.

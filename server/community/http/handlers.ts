@@ -111,6 +111,24 @@ export async function communityApi(
           parse(countryCode, url.searchParams.get("country") ?? "US"),
         ),
       );
+    // Live duplicate matching while typing: read-only, private, and on the
+    // instant-search limit so it never needs a security check.
+    if (path === "community/identity-matches") {
+      await enforceLimit(env.SUGGEST_RATE_LIMIT, `identity:${actor.id}`);
+      const name = url.searchParams.get("name")?.trim() ?? "",
+        brand = url.searchParams.get("brand")?.trim() ?? "";
+      if (name.length < 2 || brand.length < 2) return respond([]);
+      return respond(
+        await services.submissions.identityMatches(
+          actor,
+          parse(submissionIdentity, {
+            name,
+            brand,
+            country: url.searchParams.get("country") ?? "US",
+          }),
+        ),
+      );
+    }
     if (path === "community/session")
       return respond({
         administrator: actor.administrator,

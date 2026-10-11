@@ -594,6 +594,97 @@ it("lowers an unreadable ingredients photo to not checked yet instead of holding
   ).toEqual({ status: "appears_vegan", checked: 0 });
 });
 
+it("publishes a front-photo-only product with its ingredients not checked yet", async () => {
+  const { f, repo, media, service, actor } = await setup();
+  const minimal = submissionInput.parse({
+    name: `Front only ${tag()}`,
+    brand: "Orchard",
+    country: "US",
+    categoryIds: [f.categories[0]],
+    imageSlots: ["front"],
+  });
+  // Stores must be ones members report in the country.
+  await expect(
+    service.preflight(actor, id(), { ...minimal, retailerIds: ["nowhere"] }),
+  ).rejects.toMatchObject({ code: "INVALID_RETAILER" });
+  const checked = await service.preflight(actor, id(), minimal);
+  expect(checked.decision).toBe("READY");
+  await media.upload(actor, {
+    receiptId: checked.receiptId!,
+    slot: "front",
+    idempotencyKey: id(),
+    bytes: photo(),
+  });
+  const published = await service.finalize(actor, checked.receiptId!, minimal);
+  expect(published).toMatchObject({ decision: "READY" });
+  const row = await env.DB.prepare(
+    "SELECT f.vegan_status AS status,f.ingredients_checked AS checked,f.manufacturer_label AS label,json_extract(f.evidence_data,'$.note') AS note FROM formula_classifications f WHERE f.product_version_id=?",
+  )
+    .bind((await repo.get(checked.receiptId!))!.planned_version_id)
+    .first<{ note: string }>();
+  expect(row).toMatchObject({
+    status: "appears_vegan",
+    checked: 0,
+    label: "unknown",
+  });
+  expect(row!.note.length).toBeGreaterThanOrEqual(8);
+});
+
+it("offers every placeable food, marking the ones not on in a country yet", async () => {
+  const { f } = await setup();
+  const [on, off] = f.categories as [string, string];
+  const shelf = `shelf-${tag()}`,
+    aisle = `aisle-${tag()}`,
+    root = `root-${tag()}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO categories(id,parent_id,slug,name,is_rankable,created_at,updated_at) VALUES(?,NULL,?,?,0,1,1),(?,?,?,?,0,1,1),(?,?,?,?,0,1,1)",
+    ).bind(
+      root,
+      root,
+      root,
+      aisle,
+      root,
+      aisle,
+      "Meat",
+      shelf,
+      aisle,
+      shelf,
+      "Beef",
+    ),
+    env.DB.prepare("UPDATE categories SET parent_id=? WHERE id IN (?,?)").bind(
+      shelf,
+      on,
+      off,
+    ),
+    env.DB.prepare(
+      "INSERT INTO category_aliases(id,category_id,alias,created_at) VALUES(?,?,?,1)",
+    ).bind(id(), off, `mince ${tag()}`),
+    // Switched off where the fixture's product is not.
+    env.DB.prepare(
+      "DELETE FROM category_countries WHERE category_id=? AND country_id=?",
+    ).bind(off, f.otherCountryId),
+  ]);
+  await env.DB.prepare("UPDATE countries SET iso2='CA' WHERE id=?")
+    .bind(f.otherCountryId)
+    .run();
+  const choices = await catalogService(env).contributionChoices(
+    testMarket(f.otherCountryId, "ca"),
+  );
+  const food = (categoryId: string) =>
+    choices.foods.find((c) => c.id === categoryId);
+  expect(food(off)).toMatchObject({
+    inCountry: false,
+    aisle: { name: "Meat" },
+    // The aisle's only shelf is not shown as its own level.
+    shelf: { name: "Beef", silent: true },
+  });
+  expect(food(off)!.otherNames[0]).toMatch(/^mince/);
+  expect(choices.shelves.flatMap((a) => a.shelves).map((s) => s.id)).toContain(
+    shelf,
+  );
+});
+
 it("checks large brands without a hard limit, ranks alias matches first and keeps the matched brand", async () => {
   const { f, media, service, input, actor } = await setup();
   const t = tag(),

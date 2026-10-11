@@ -68,9 +68,74 @@ it("distinguishes deterministic publication, actionable duplicates and manual re
       },
     ]).decision,
   ).toBe("NEEDS_CHANGES");
+  // A suggested food waits for an operator.
+  expect(
+    decideSubmission(
+      { ...input, newFood: { name: "Bratwurst", shelfId: "pork" } },
+      [],
+    ).decision,
+  ).toBe("NEEDS_REVIEW");
+});
+it("requires only a name, brand, country, food and front photo", () => {
+  const minimal = {
+    name: "Burger",
+    brand: "Garden",
+    country: "US",
+    categoryIds: ["burger"],
+    imageSlots: ["front"],
+  };
+  expect(submissionInput.safeParse(minimal).success).toBe(true);
+  // Ingredient evidence and the classification note are optional.
   expect(
     submissionInput.safeParse({ ...input, ingredientUrl: undefined }).success,
+  ).toBe(true);
+  // A food is required: an existing one or a suggested one, five at most.
+  expect(
+    submissionInput.safeParse({ ...minimal, categoryIds: [] }).success,
   ).toBe(false);
+  expect(
+    submissionInput.safeParse({
+      ...minimal,
+      categoryIds: [],
+      newFood: { name: "Bratwurst", shelfId: "pork" },
+    }).success,
+  ).toBe(true);
+  expect(
+    submissionInput.safeParse({
+      ...minimal,
+      categoryIds: ["a", "b", "c", "d", "e"],
+      newFood: { name: "Bratwurst", shelfId: "pork" },
+    }).success,
+  ).toBe(false);
+  // A front photo is required, and four photos at most.
+  expect(
+    submissionInput.safeParse({ ...minimal, imageSlots: ["ingredients"] })
+      .success,
+  ).toBe(false);
+  expect(
+    submissionInput.safeParse({
+      ...minimal,
+      imageSlots: ["front", "ingredients", "back", "nutrition"],
+    }).success,
+  ).toBe(true);
+  expect(
+    submissionInput.safeParse({
+      ...minimal,
+      imageSlots: ["front", "ingredients", "back", "nutrition", "prepared"],
+    }).success,
+  ).toBe(false);
+  // Extras are optional and bounded.
+  expect(
+    submissionInput.safeParse({
+      ...minimal,
+      rating: 4,
+      retailerIds: ["store"],
+      allergens: { status: "none_declared" },
+    }).success,
+  ).toBe(true);
+  expect(submissionInput.safeParse({ ...minimal, rating: 6 }).success).toBe(
+    false,
+  );
 });
 it("retains approximate date precision and rejects invented or malformed dates", () => {
   expect(effectiveDate("2026")).toMatchObject({
