@@ -1025,12 +1025,25 @@ export class TaxonomyService {
           "A previously featured category was retired. Choose new features instead.",
           409,
         );
+      // A country features only foods that are on there.
+      if (
+        (await this.repository.availableCount(restored, countryId)) !==
+        restored.length
+      )
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "A previously featured food is no longer on in this country. Switch it on there or choose new features.",
+          409,
+        );
       const result = await this.repository.commit(
         action,
         {
-          sql: `${reversed.sql} AND ${FEATURABLE}`,
+          sql: `${reversed.sql} AND ${FEATURABLE} AND (SELECT COUNT(*) FROM category_countries WHERE country_id=? AND category_id IN (SELECT value FROM json_each(?)))=?`,
           values: [
             ...reversed.values,
+            JSON.stringify(restored),
+            restored.length,
+            countryId,
             JSON.stringify(restored),
             restored.length,
           ],

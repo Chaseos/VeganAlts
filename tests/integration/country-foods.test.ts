@@ -313,6 +313,50 @@ it("closes a country an alias opened when it is reversed, and drops a demoted fo
   expect((await on(created.categoryId)).length).toBeGreaterThan(1);
 });
 
+it("won't restore a homepage feature for a food no longer on in that country", async () => {
+  await env.DB.batch(
+    taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
+  );
+  const { operator } = await people();
+  const service = taxonomyServices(testEnv, id);
+  const gb = (await env.DB.prepare(
+    "SELECT id FROM countries WHERE iso2='GB'",
+  ).first("id")) as string;
+  const featured = async () =>
+    (
+      await env.DB.prepare(
+        "SELECT category_id AS id FROM category_features WHERE country_id=? ORDER BY position",
+      )
+        .bind(gb)
+        .all<{ id: string }>()
+    ).results.map((r) => r.id);
+  const before = await featured();
+  expect(before.length).toBeGreaterThan(0);
+  const [first] = before as [string];
+  const other = (await env.DB.prepare(
+    "SELECT c.id FROM categories c JOIN category_countries cc ON cc.category_id=c.id AND cc.country_id=? WHERE c.is_rankable=1 AND c.id NOT IN (SELECT value FROM json_each(?)) LIMIT 1",
+  )
+    .bind(gb, JSON.stringify(before))
+    .first("id")) as string;
+  const changed = (await service.setFeatures(operator, id(), {
+    country: "GB",
+    categoryIds: [other],
+    note,
+  })) as { actionId: string };
+  // The food the reversal would bring back is switched off in the UK.
+  const tree = await service.tree(operator);
+  const food = tree.categories.find((c) => c.id === first)!;
+  await service.setCountries(operator, id(), first, {
+    expectedRevision: food.revision,
+    countries: food.countries.filter((c) => c !== "GB"),
+    note,
+  });
+  await expect(
+    service.reverseUpdate(operator, id(), changed.actionId, note),
+  ).rejects.toMatchObject({ code: "REVERSAL_CONFLICT" });
+  expect(await featured()).toEqual([other]);
+});
+
 it("skips a shelf level that only repeats its aisle or food", async () => {
   await env.DB.batch(
     taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),

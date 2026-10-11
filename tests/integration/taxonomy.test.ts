@@ -384,6 +384,52 @@ it("switches the survivor off again where only the reversed merge put it", async
   expect(await on(w.D)).toContain(w.f.otherCountryId);
 });
 
+it("keeps a transferred homepage feature available and closes it again on reversal", async () => {
+  const w = await world();
+  const operator = {
+    id: w.users[5]!,
+    accountState: "active",
+    administrator: true,
+  };
+  // The donor is featured in a country where the survivor isn't on.
+  await env.DB.prepare(
+    "INSERT INTO category_features(country_id,category_id,position,updated_at) VALUES(?,?,1,1)",
+  )
+    .bind(w.f.otherCountryId, w.D)
+    .run();
+  const on = async (category: string) =>
+    (
+      await env.DB.prepare(
+        "SELECT country_id AS id FROM category_countries WHERE category_id=? ORDER BY country_id",
+      )
+        .bind(category)
+        .all<{ id: string }>()
+    ).results.map((r) => r.id);
+  expect(await on(w.S)).toEqual([w.f.countryId]);
+  const service = taxonomy();
+  const tree = await service.tree(operator);
+  const revision = (cid: string) =>
+    tree.categories.find((c) => c.id === cid)!.revision;
+  const merged = await service.merge(operator, id(), {
+    donorId: w.D,
+    survivorId: w.S,
+    donorRevision: revision(w.D),
+    survivorRevision: revision(w.S),
+    note,
+  });
+  // The feature now names the survivor, which is on there to show it.
+  expect(
+    await env.DB.prepare(
+      "SELECT category_id FROM category_features WHERE country_id=?",
+    )
+      .bind(w.f.otherCountryId)
+      .first("category_id"),
+  ).toBe(w.S);
+  expect(await on(w.S)).toContain(w.f.otherCountryId);
+  await service.reverseMerge(operator, id(), merged.mergeId, note);
+  expect(await on(w.S)).toEqual([w.f.countryId]);
+});
+
 it("validates slugs and names, redirects renamed slugs and reverses taxonomy edits", async () => {
   const w = await world();
   const operator = {

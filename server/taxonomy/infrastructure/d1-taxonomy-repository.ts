@@ -50,6 +50,8 @@ export interface FinalizeData {
     position: number;
     survivorFeatured: boolean;
   }[];
+  // Countries the survivor was switched on in to keep a transferred feature.
+  featureCountries?: string[];
 }
 interface PageRating {
   id: string;
@@ -1170,10 +1172,16 @@ export class D1TaxonomyRepository {
       ...donor.aliases.map((a) => ({ alias: a.alias, countryId: a.countryId })),
     ];
     const aliasIds = aliases.map(() => this.newId());
+    // A feature moving to the survivor needs it on in that country.
+    const survivorOn = new Set((await this.countriesOf(S)).map((c) => c.id));
+    const featureCountries = features
+      .filter((f) => !f.survivorFeatured && !survivorOn.has(f.countryId))
+      .map((f) => f.countryId);
     const data: FinalizeData = {
       children: (children!.results as { id: string }[]).map((c) => c.id),
       aliasIds,
       features,
+      ...(featureCountries.length ? { featureCountries } : {}),
     };
     const token = this.newId(),
       g = this.owned(merge.id, token);
@@ -1238,6 +1246,17 @@ export class D1TaxonomyRepository {
                 `UPDATE category_features SET category_id=?,updated_at=? WHERE category_id=? AND country_id=? AND ${g.sql}`,
               )
               .bind(S, now, D, f.countryId, ...g.values),
+      ),
+      ...this.countryStatements(
+        S,
+        {
+          add: featureCountries,
+          remove: [],
+          source: "operator",
+          actorId: null,
+        },
+        now,
+        g,
       ),
       // Statements fenced on the page token run before the state change
       // below clears it.
@@ -1457,6 +1476,16 @@ export class D1TaxonomyRepository {
           `DELETE FROM category_aliases WHERE id IN (SELECT value FROM json_each(?)) AND ${g.sql}`,
         )
         .bind(JSON.stringify(data.aliasIds ?? []), ...g.values),
+      // Countries opened only for a transferred feature close again where
+      // the survivor has no visible product.
+      this.db
+        .prepare(
+          `DELETE FROM category_countries WHERE category_id=? AND country_id IN (SELECT value FROM json_each(?))
+          AND NOT EXISTS(SELECT 1 FROM product_categories pc JOIN products p ON p.id=pc.product_id
+            WHERE pc.category_id=category_countries.category_id AND p.country_id=category_countries.country_id AND p.lifecycle_status<>'hidden')
+          AND ${g.sql}`,
+        )
+        .bind(S, JSON.stringify(data.featureCountries ?? []), ...g.values),
       ...(
         data.features ??
         // A milestone 4 merge recorded the United States feature only.
