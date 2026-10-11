@@ -32,6 +32,7 @@ import {
 import {
   basicsErrors,
   clearDraft,
+  draftKey,
   emptyDraft,
   extrasErrors,
   forCountry,
@@ -137,6 +138,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const step = params.get("step") === "more" ? "more" : "basics";
+  const key = draftKey(followUp);
   const initial = () =>
     followUp
       ? fromSubmission(followUp.input, {
@@ -185,7 +187,14 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
       }
     }
     hydrated.current = true;
-    const saved = followUp ? null : loadDraft(storage());
+    // A follow-up reply restores only its own draft, for the same request.
+    const stored = loadDraft(storage(), Date.now(), key);
+    const saved =
+      followUp &&
+      (stored?.followUp?.submissionId !== followUp.submissionId ||
+        stored.followUp.expectedRevision !== followUp.expectedRevision)
+        ? null
+        : stored;
     const same =
       saved &&
       saved.country === market.iso2 &&
@@ -231,7 +240,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
   }, [market.iso2]);
   useEffect(() => {
     if (hydrated.current && !held && !offering.current)
-      saveDraft(storage(), draft);
+      saveDraft(storage(), draft, Date.now(), key);
   }, [draft, held, restored]);
 
   const update = useCallback(
@@ -245,7 +254,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
   // Forgets the saved draft and its photos; another draft's photos (one set
   // aside, or another tab's) stay.
   const forget = (draftId = draft.id) => {
-    clearDraft(storage());
+    clearDraft(storage(), key);
     void clearDraftPhotos(draftId);
   };
   const onExact = useCallback((match: Candidate | null) => setExact(match), []);

@@ -116,6 +116,16 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await page
       .getByLabel("Anything a reviewer should know? (optional)")
       .fill("Updated manufacturer source for the original flavor and recipe.");
+    // The reply survives a reload, its photo included.
+    await page.waitForTimeout(150);
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Submit product", exact: true }),
+    ).toBeEnabled();
+    await openOptional(page, "Ingredients");
+    await expect(page.getByLabel(/Link to the ingredients/)).toHaveValue(
+      "https://example.com/corrected-ingredients",
+    );
     await openOptional(page, "Variants and other foods");
     await page.getByLabel(/Specialty flavor/).uncheck();
     await accessible(page);

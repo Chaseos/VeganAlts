@@ -311,6 +311,22 @@ it("closes a country an alias opened when it is reversed, and drops a demoted fo
     note,
   });
   expect((await on(created.categoryId)).length).toBeGreaterThan(1);
+
+  // A country change can't be reversed once the food became a group.
+  const narrowed = (await service.setCountries(
+    operator,
+    id(),
+    created.categoryId,
+    { expectedRevision: await revision(), countries: ["US"], note },
+  )) as { actionId: string };
+  await service.update(operator, id(), created.categoryId, {
+    expectedRevision: await revision(),
+    isRankable: false,
+    note,
+  });
+  await expect(
+    service.reverseUpdate(operator, id(), narrowed.actionId, note),
+  ).rejects.toMatchObject({ code: "REVERSAL_CONFLICT" });
 });
 
 it("won't restore a homepage feature for a food no longer on in that country", async () => {
@@ -355,6 +371,15 @@ it("won't restore a homepage feature for a food no longer on in that country", a
     service.reverseUpdate(operator, id(), changed.actionId, note),
   ).rejects.toMatchObject({ code: "REVERSAL_CONFLICT" });
   expect(await featured()).toEqual([other]);
+  // A featured food can't be switched off where it is featured.
+  const kept = tree.categories.find((c) => c.id === other)!;
+  await expect(
+    service.setCountries(operator, id(), other, {
+      expectedRevision: kept.revision,
+      countries: kept.countries.filter((c) => c !== "GB"),
+      note,
+    }),
+  ).rejects.toMatchObject({ code: "FOOD_FEATURED" });
 });
 
 it("skips a shelf level that only repeats its aisle or food", async () => {

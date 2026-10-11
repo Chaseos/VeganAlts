@@ -671,6 +671,7 @@ export class TaxonomyService {
           "This food has products, so it stays a food.",
           409,
         );
+      await this.assertNotFeatured(id, removed);
     }
     if (next.aliases) next.aliases = await this.countryIds(next.aliases);
     const plan = planCategoryUpdate(current, next);
@@ -713,6 +714,19 @@ export class TaxonomyService {
         );
       return { ...a, countryId };
     });
+  }
+  // A homepage feature needs its food on in that country: change the
+  // features before switching it off there.
+  private async assertNotFeatured(categoryId: string, countryIds: string[]) {
+    const featured = countryIds.length
+      ? await this.repository.featuredIn(categoryId, countryIds)
+      : [];
+    if (featured.length)
+      throw new ApplicationError(
+        "FOOD_FEATURED",
+        `This food is featured on the ${featured.map((c) => c.iso2).join(", ")} homepage. Change those features first.`,
+        409,
+      );
   }
   /** Active countries' IDs for these ISO codes, or every active country. */
   private async activeCountryIds(codes?: string[]) {
@@ -773,6 +787,7 @@ export class TaxonomyService {
           .join(", ")}, so it stays on there.`,
         409,
       );
+    await this.assertNotFeatured(id, remove);
     const before = current.map((c) => c.iso2).sort();
     const after = [
       ...new Set(input.countries.map((c) => c.toUpperCase())),
@@ -1064,6 +1079,12 @@ export class TaxonomyService {
     }
     if (original.kind === "category_countries") {
       const category = await this.existing(original.target_id);
+      if (!category.isRankable)
+        throw new ApplicationError(
+          "REVERSAL_CONFLICT",
+          "This food is now an aisle or shelf. Reverse that change first.",
+          409,
+        );
       const current = await this.repository.countriesOf(category.id);
       if (
         JSON.stringify(current.map((c) => c.iso2).sort()) !==
@@ -1086,6 +1107,7 @@ export class TaxonomyService {
           "This food now has products in a country the action added, so it stays on there.",
           409,
         );
+      await this.assertNotFeatured(category.id, remove);
       const result = await this.repository.commit(
         action,
         {

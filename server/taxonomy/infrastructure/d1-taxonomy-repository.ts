@@ -404,6 +404,17 @@ export class D1TaxonomyRepository {
         .all<{ id: string }>()
     ).results.map((r) => r.id);
   }
+  /** Which of these countries feature the food on their homepage. */
+  async featuredIn(categoryId: string, countryIds: string[]) {
+    return (
+      await this.db
+        .prepare(
+          "SELECT f.country_id AS id,co.iso2 FROM category_features f JOIN countries co ON co.id=f.country_id WHERE f.category_id=? AND f.country_id IN (SELECT value FROM json_each(?))",
+        )
+        .bind(categoryId, JSON.stringify(countryIds))
+        .all<{ id: string; iso2: string }>()
+    ).results;
+  }
   /** How many of these foods are on in a country. */
   async availableCount(categoryIds: string[], countryId: string) {
     return (await this.db

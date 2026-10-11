@@ -303,6 +303,10 @@ export function fromSubmission(
 }
 
 export const DRAFT_KEY = "veganalts.product-draft.v1";
+// A reply to a moderator's follow-up keeps its own draft, so it survives a
+// reload without replacing an unfinished new product.
+export const draftKey = (followUp?: { submissionId: string } | null) =>
+  followUp ? `${DRAFT_KEY}:follow-up:${followUp.submissionId}` : DRAFT_KEY;
 export const DRAFT_TTL = 24 * 60 * 60 * 1000;
 type DraftStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -311,9 +315,10 @@ type DraftStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 export function loadDraft(
   storage: DraftStorage | null,
   now = Date.now(),
+  key = DRAFT_KEY,
 ): ProductDraft | null {
   try {
-    const raw = storage?.getItem(DRAFT_KEY);
+    const raw = storage?.getItem(key);
     if (!raw) return null;
     const parsed = draftSchema.safeParse(JSON.parse(raw));
     if (!parsed.success || now - parsed.data.savedAt > DRAFT_TTL) return null;
@@ -326,16 +331,17 @@ export function saveDraft(
   storage: DraftStorage | null,
   draft: ProductDraft,
   now = Date.now(),
+  key = DRAFT_KEY,
 ) {
   try {
-    storage?.setItem(DRAFT_KEY, JSON.stringify({ ...draft, savedAt: now }));
+    storage?.setItem(key, JSON.stringify({ ...draft, savedAt: now }));
   } catch {
     // Quota or privacy settings: the form still works without a draft.
   }
 }
-export function clearDraft(storage: DraftStorage | null) {
+export function clearDraft(storage: DraftStorage | null, key = DRAFT_KEY) {
   try {
-    storage?.removeItem(DRAFT_KEY);
+    storage?.removeItem(key);
   } catch {
     // Nothing to clear.
   }
