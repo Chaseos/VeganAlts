@@ -33,6 +33,19 @@ export function CatalogSelect({
         (defaultValue ? { id: defaultValue, name: "Current selection" } : null),
     ),
     [error, setError] = useState("");
+  // A choice that changes from outside (a draft restored after mount, or
+  // cleared by a country change) replaces what is shown.
+  useEffect(() => {
+    setSelected((current) =>
+      current?.id === defaultValue
+        ? current
+        : (options.find((o) => o.id === defaultValue) ??
+          (defaultValue
+            ? { id: defaultValue, name: "Current selection" }
+            : null)),
+    );
+    // Only the outside value matters; options change with every search.
+  }, [defaultValue]);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {

@@ -152,10 +152,16 @@ describe("product draft", () => {
 });
 
 describe("moving a draft to another country", () => {
-  it("keeps only the stores and allergens the new country offers", () => {
+  it("keeps only the stores, allergens and related products the new country offers", () => {
     const draft = {
       ...emptyDraft("US", { kind: "existing", id: "ground-beef" }, 1),
       retailerIds: ["us-store", "both"],
+      variants: {
+        familyId: "family",
+        relatedId: "us-product",
+        relationship: "variant" as const,
+        specialtyFlavor: false,
+      },
       allergens: {
         status: "declared" as const,
         contains: ["soy", "celery"],
@@ -176,6 +182,8 @@ describe("moving a draft to another country", () => {
         contains: ["soy"],
         mayContain: ["mustard"],
       },
+      // A family belongs to the brand; a related product to the country.
+      variants: { familyId: "family", relatedId: "", relationship: "" },
     });
   });
 });

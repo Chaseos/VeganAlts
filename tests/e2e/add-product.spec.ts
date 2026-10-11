@@ -139,6 +139,13 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
       "Everything here is optional",
     );
     await accessible(page);
+    // A related product chosen before a reload is still shown after it.
+    await openOptional(page, "Variants and other foods");
+    const related = page.getByLabel("Related product", { exact: true });
+    await related.selectOption({ index: 1 });
+    const relatedId = await related.inputValue();
+    expect(relatedId).not.toBe("");
+    await page.waitForTimeout(100);
     // A reload keeps the picked photo too (phones often reload after the
     // camera), so step 2 stays open.
     await page.reload();
@@ -150,6 +157,10 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
     await expect(
       page.getByRole("button", { name: "Submit product", exact: true }),
     ).toBeEnabled();
+    await openOptional(page, "Variants and other foods");
+    await expect(related).toHaveValue(relatedId);
+    // Cleared again so this product publishes without a relationship review.
+    await related.selectOption("");
     // Back returns to the basics with everything kept.
     await page.goBack();
     await expect(page.getByLabel("Product name (required)")).toHaveValue(name);

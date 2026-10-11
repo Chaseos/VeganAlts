@@ -230,9 +230,9 @@ export function toSubmission(
 }
 
 /**
- * The draft moved to another country. Stores and allergens are each
- * country's own lists, so choices the new country doesn't offer are dropped
- * rather than kept where no control can clear them.
+ * The draft moved to another country. Stores, allergens and related products
+ * are each country's own, so choices the new country doesn't offer are
+ * dropped rather than kept where no control can clear them.
  */
 export function forCountry(
   draft: ProductDraft,
@@ -251,6 +251,9 @@ export function forCountry(
       contains: draft.allergens.contains.filter(allergen),
       mayContain: draft.allergens.mayContain.filter(allergen),
     },
+    // Related products are in the product's own country; a family belongs
+    // to the brand and stays.
+    variants: { ...draft.variants, relatedId: "", relationship: "" },
   };
 }
 
