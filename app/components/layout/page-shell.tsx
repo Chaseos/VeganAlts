@@ -18,6 +18,7 @@ export function PageShell({
   phoneBack,
   phoneTitle,
   minimal = false,
+  countryMenu = true,
 }: {
   children: ReactNode;
   width?: PageWidth;
@@ -28,6 +29,7 @@ export function PageShell({
   phoneTitle?: ReactNode;
   // The root error boundary renders outside the personal-state provider.
   minimal?: boolean;
+  countryMenu?: boolean;
 }) {
   return (
     <div className="va-site">
@@ -41,6 +43,7 @@ export function PageShell({
         aisles={aisles}
         phoneBack={phoneBack}
         phoneTitle={phoneTitle}
+        countryMenu={countryMenu}
       />
       <main id="main" className={`va-main va-main--${width}`} tabIndex={-1}>
         {!minimal && <PendingRatingRecovery />}

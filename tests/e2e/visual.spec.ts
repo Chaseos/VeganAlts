@@ -140,3 +140,63 @@ test("capture not-here", async ({ page }, testInfo) => {
     );
   }
 });
+
+// Add a product, both steps and the open food picker (local sessions).
+test("capture add-product", async ({ page, context }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "One capture per page.");
+  test.skip(Boolean(process.env.TEST_BASE_URL), "Sessions are local.");
+  test.setTimeout(240000);
+  const directory =
+    process.env.CAPTURE_DIR ?? join("docs", "verification", "milestone-6");
+  mkdirSync(directory, { recursive: true });
+  const contributor = await createBrowserSession();
+  try {
+    await context.addCookies([contributor.cookie]);
+    for (const [label, width, height] of WIDTHS)
+      for (const scheme of ["light", "dark"] as const) {
+        await page.setViewportSize({ width, height });
+        await page.emulateMedia({
+          colorScheme: scheme,
+          reducedMotion: "reduce",
+        });
+        const shot = (name: string) =>
+          page.screenshot({
+            path: join(directory, `add-product-${name}-${label}-${scheme}.jpg`),
+            type: "jpeg",
+            quality: 70,
+            fullPage: true,
+          });
+        await page.goto("/add-product?country=gb");
+        await page.evaluate(() => sessionStorage.clear());
+        await page.reload();
+        await page.locator("main").waitFor();
+        await page.waitForTimeout(300);
+        await shot("basics");
+        await page
+          .getByRole("combobox", {
+            name: "What food does it replace? (required)",
+          })
+          .fill("bee");
+        await page.waitForTimeout(200);
+        await shot("picker");
+        await page.getByRole("option").first().click();
+        await page.getByLabel("Brand (required)").fill("Richmond");
+        await page
+          .getByLabel("Product name (required)")
+          .fill("Meat Free Sausages");
+        await page
+          .getByLabel("Front of pack photo (required)")
+          .setInputFiles("tests/fixtures/small.jpg");
+        await page.getByRole("button", { name: "Continue" }).click();
+        await page
+          .locator("details.va-optional")
+          .first()
+          .locator("summary")
+          .click();
+        await page.waitForTimeout(200);
+        await shot("more");
+      }
+  } finally {
+    await contributor.dispose();
+  }
+});

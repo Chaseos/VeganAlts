@@ -1,5 +1,6 @@
 import { expect, test } from "./fixtures";
 import { createBrowserSession } from "./session-fixture";
+import { fillBasics, openOptional } from "./site";
 
 test("submission renews consumed and rejected challenges across preflight, upload and finalization", async ({
   page,
@@ -72,23 +73,18 @@ test("submission renews consumed and rejected challenges across preflight, uploa
     );
     const name = `Challenge ${testInfo.project.name} ${Date.now()}`;
     await page.goto("/add-product");
-    await page.getByLabel("Product name", { exact: true }).fill(name);
+    await fillBasics(page, {
+      food: "Beef Burgers",
+      brand: `Challenge Garden ${Date.now()}`,
+      name,
+    });
+    // Duplicate matching while typing is a plain read: it never needs a
+    // security check (the routed endpoints above count every one).
+    await page.getByRole("button", { name: "Continue" }).click();
+    await openOptional(page, "Ingredients");
     await page
-      .getByLabel("Brand", { exact: true })
-      .fill(`Challenge Garden ${Date.now()}`);
-    await page.getByLabel("Beef Burgers", { exact: true }).check();
-    await page.getByRole("button", { name: "Check for matches" }).click();
-    await page.getByRole("button", { name: "Add evidence" }).click();
-    await page
-      .getByLabel("Front photo (required)")
-      .setInputFiles("tests/fixtures/small.jpg");
-    await page
-      .getByLabel(/Manufacturer ingredient source/)
+      .getByLabel(/Link to the ingredients/)
       .fill("https://example.com/ingredients");
-    await page
-      .getByLabel("What supports the ingredient classification?")
-      .fill("The manufacturer ingredient source lists only plant ingredients.");
-    await page.getByRole("button", { name: "Review submission" }).click();
     await page
       .getByRole("button", { name: "Submit product", exact: true })
       .click();
@@ -103,7 +99,7 @@ test("submission renews consumed and rejected challenges across preflight, uploa
         })
         .click();
       await page
-        .getByRole("button", { name: /^(Submit product|Resume submission)$/ })
+        .getByRole("button", { name: "Submit product", exact: true })
         .click();
     }
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();

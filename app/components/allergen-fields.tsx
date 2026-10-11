@@ -29,16 +29,6 @@ export function AllergenFields({ product }: { product: Product }) {
       i.state === "accepted" &&
       (i.slot === "ingredients" || i.slot === "nutrition"),
   );
-  const toggle = (
-    list: string[],
-    key: string,
-    on: boolean,
-    other?: (update: (keys: string[]) => string[]) => void,
-  ) => {
-    // An allergen is either contained or a cross-contact warning, not both.
-    if (on) other?.((keys) => keys.filter((k) => k !== key));
-    return on ? [...list, key] : list.filter((k) => k !== key);
-  };
   return (
     <>
       <div className="notice">
@@ -54,71 +44,19 @@ export function AllergenFields({ product }: { product: Product }) {
           ? describeDeclaration(current, allergenLabels(product))
           : "Not confirmed yet"}
       </p>
-      <fieldset className="va-choice-list">
-        <legend>What does the label say?</legend>
-        <label className="checkbox-label">
-          <input
-            type="radio"
-            name="allergenStatus"
-            value="declared"
-            checked={declared}
-            onChange={() => setDeclared(true)}
-          />
-          It lists allergens
-        </label>
-        <label className="checkbox-label">
-          <input
-            type="radio"
-            name="allergenStatus"
-            value="none_declared"
-            checked={!declared}
-            onChange={() => setDeclared(false)}
-          />
-          No allergens declared on the label
-        </label>
-      </fieldset>
-      {declared && (
-        <div className="va-allergen-grid">
-          <fieldset className="va-choice-list">
-            <legend>Contains</legend>
-            {product.allergenList.map((a) => (
-              <label className="checkbox-label" key={a.key}>
-                <input
-                  type="checkbox"
-                  name="contains"
-                  value={a.key}
-                  checked={contains.includes(a.key)}
-                  onChange={(event) =>
-                    setContains((keys) =>
-                      toggle(keys, a.key, event.target.checked, setMayContain),
-                    )
-                  }
-                />
-                {a.label}
-              </label>
-            ))}
-          </fieldset>
-          <fieldset className="va-choice-list">
-            <legend>May contain</legend>
-            {product.allergenList.map((a) => (
-              <label className="checkbox-label" key={a.key}>
-                <input
-                  type="checkbox"
-                  name="mayContain"
-                  value={a.key}
-                  checked={mayContain.includes(a.key)}
-                  onChange={(event) =>
-                    setMayContain((keys) =>
-                      toggle(keys, a.key, event.target.checked, setContains),
-                    )
-                  }
-                />
-                {a.label}
-              </label>
-            ))}
-          </fieldset>
-        </div>
-      )}
+      <AllergenChecklist
+        list={product.allergenList}
+        value={{
+          status: declared ? "declared" : "none_declared",
+          contains,
+          mayContain,
+        }}
+        onChange={(next) => {
+          setDeclared(next.status !== "none_declared");
+          setContains(next.contains);
+          setMayContain(next.mayContain);
+        }}
+      />
       <fieldset className="va-choice-list">
         <legend>Which photo shows it?</legend>
         {photos.map((photo) => (
@@ -172,4 +110,101 @@ export function allergenDetails(form: FormData) {
         };
   const cited = String(form.get("citedImageId") ?? "");
   return { declaration, ...(cited ? { citedImageId: cited } : {}) };
+}
+
+export interface AllergenChoice {
+  status: "declared" | "none_declared" | null;
+  contains: string[];
+  mayContain: string[];
+}
+/**
+ * What a package label says about allergens, from one country's list. The
+ * inputs keep their form names so uncontrolled forms can read them.
+ */
+export function AllergenChecklist({
+  list,
+  value,
+  onChange,
+}: {
+  list: { key: string; label: string }[];
+  value: AllergenChoice;
+  onChange: (value: AllergenChoice) => void;
+}) {
+  // An allergen is either contained or a cross-contact warning, not both.
+  const toggle = (
+    field: "contains" | "mayContain",
+    key: string,
+    on: boolean,
+  ) => {
+    const other = field === "contains" ? "mayContain" : "contains";
+    onChange({
+      ...value,
+      status: "declared",
+      [field]: on
+        ? [...value[field], key]
+        : value[field].filter((k) => k !== key),
+      [other]: on ? value[other].filter((k) => k !== key) : value[other],
+    });
+  };
+  return (
+    <>
+      <fieldset className="va-choice-list">
+        <legend>What does the label say?</legend>
+        <label className="checkbox-label">
+          <input
+            type="radio"
+            name="allergenStatus"
+            value="declared"
+            checked={value.status === "declared"}
+            onChange={() => onChange({ ...value, status: "declared" })}
+          />
+          It lists allergens
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="radio"
+            name="allergenStatus"
+            value="none_declared"
+            checked={value.status === "none_declared"}
+            onChange={() =>
+              onChange({
+                status: "none_declared",
+                contains: [],
+                mayContain: [],
+              })
+            }
+          />
+          No allergens declared on the label
+        </label>
+      </fieldset>
+      {value.status === "declared" && (
+        <div className="va-allergen-grid">
+          {(
+            [
+              ["contains", "Contains"],
+              ["mayContain", "May contain"],
+            ] as const
+          ).map(([field, legend]) => (
+            <fieldset className="va-choice-list" key={field}>
+              <legend>{legend}</legend>
+              {list.map((a) => (
+                <label className="checkbox-label" key={a.key}>
+                  <input
+                    type="checkbox"
+                    name={field}
+                    value={a.key}
+                    checked={value[field].includes(a.key)}
+                    onChange={(event) =>
+                      toggle(field, a.key, event.target.checked)
+                    }
+                  />
+                  {a.label}
+                </label>
+              ))}
+            </fieldset>
+          ))}
+        </div>
+      )}
+    </>
+  );
 }

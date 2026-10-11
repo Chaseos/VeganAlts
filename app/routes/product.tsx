@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Link, redirect } from "react-router";
+import { Link, redirect, useLocation } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   publicLoader,
@@ -93,7 +93,7 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
       p
         ? `${p.name}${p.formula.isCurrent ? "" : " · Formula history"}`
         : "Product",
-      `Explore ${p?.name ?? "this vegan alternative"}, its category scores, formula history and community experience.`,
+      `Explore ${p?.name ?? "this vegan alternative"}, its scores for each food, formula history and community experience.`,
       `${productPath(data?.market.code ?? "us", p?.slug ?? "")}${p && !p.formula.isCurrent ? `?version=${p.versionId}` : ""}`,
       origin,
       data?.staging ?? true,
@@ -131,6 +131,10 @@ export default function Product({
   loaderData: { product: p, comments, market },
 }: Route.ComponentProps) {
   const code = market.code;
+  // Navigation state from Add a product, never part of the cached page.
+  const added = Boolean(
+    (useLocation().state as { added?: boolean } | null)?.added,
+  );
   const food = p.categories.find((c) => c.slug === p.food) ?? null;
   const others = p.categories.filter((c) => c.isActive && c.id !== food?.id);
   const labels = Object.fromEntries(
@@ -217,6 +221,17 @@ export default function Product({
               <Notice>
                 This product is {p.lifecycleStatus.replaceAll("_", " ")}. New
                 ratings are unavailable.
+              </Notice>
+            )}
+            {added && (
+              <Notice tone="success" title="Your product is live" role="status">
+                Thanks for adding it.{" "}
+                {food?.canRate && (
+                  <>
+                    Tried it? <a href="#scores-title">Rate it</a> so it joins
+                    the ranking.
+                  </>
+                )}
               </Notice>
             )}
             {p.veganStatus === "unchecked" && p.formula.isCurrent && (

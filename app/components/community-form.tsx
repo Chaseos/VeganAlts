@@ -86,20 +86,27 @@ export function PhotoPicker({
   file,
   onChange,
   required = false,
+  label,
+  error,
 }: {
   slot: ImageSlot;
   file?: File;
   onChange: (file: File | undefined) => void;
   required?: boolean;
+  label?: string;
+  // Shown under the field and announced with it.
+  error?: string;
 }) {
+  const errorId = `photo-${slot}-error`;
   return (
     <div className="photo-picker">
       <label htmlFor={`photo-${slot}`}>
-        {slot === "front"
-          ? "Front photo"
-          : slot === "ingredients"
-            ? "Ingredient-panel photo"
-            : `${slot[0]!.toUpperCase()}${slot.slice(1)} photo`}
+        {label ??
+          (slot === "front"
+            ? "Front photo"
+            : slot === "ingredients"
+              ? "Ingredients photo"
+              : `${slot[0]!.toUpperCase()}${slot.slice(1)} photo`)}
         {required ? " (required)" : " (optional)"}
       </label>
       <input
@@ -107,8 +114,15 @@ export function PhotoPicker({
         type="file"
         accept="image/jpeg,image/png,image/webp"
         required={required && !file}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
         onChange={(event) => onChange(event.target.files?.[0])}
       />
+      {error && (
+        <p id={errorId} className="field-error">
+          {error}
+        </p>
+      )}
       {file && <p className="small">Selected: {file.name}</p>}
     </div>
   );

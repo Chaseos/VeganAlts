@@ -257,7 +257,7 @@ export class TaxonomyService {
     )
       throw new ApplicationError(
         "PROPOSAL_LIMIT",
-        "Today's category proposal allowance is exhausted. Please try again tomorrow.",
+        "You’ve suggested the most foods allowed today. Try again tomorrow.",
         429,
       );
     await this.assertNameAvailable([input.name, ...input.aliases], {
@@ -289,7 +289,7 @@ export class TaxonomyService {
         automated.outcome === "BLOCKED"
           ? "PROPOSAL_BLOCKED"
           : "PROPOSAL_NEEDS_CHANGES",
-        automated.reasons.join(" ") || "Check the proposed category.",
+        automated.reasons.join(" ") || "Check the suggested food.",
         422,
       );
     return this.repository.createProposal(

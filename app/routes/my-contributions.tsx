@@ -65,7 +65,7 @@ export default function Contributions({
             <strong>Status: {friendly(category.status)}</strong>
             {category.resolutionNote && <p>{category.resolutionNote}</p>}
           </div>
-          <h2>Category proposal: {String(category.proposed.name)}</h2>
+          <h2>Food suggestion: {String(category.proposed.name)}</h2>
           <p>{String(category.proposed.explanation)}</p>
           <p>
             <Link to="/my-contributions">← All contributions</Link>
@@ -106,7 +106,10 @@ export default function Contributions({
                   <Link to={`/my-contributions/${item.kind}/${item.id}`}>
                     <strong>{item.title}</strong>
                     <span>
-                      {friendly(item.kind)} · {dateLabel(item.createdAt)}
+                      {item.kind === "category"
+                        ? "food suggestion"
+                        : friendly(item.kind)}{" "}
+                      · {dateLabel(item.createdAt)}
                     </span>
                   </Link>
                   <span className="status-badge">{friendly(item.status)}</span>

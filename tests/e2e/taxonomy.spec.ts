@@ -40,7 +40,7 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
     await page.goto("/admin/moderation?filter=high_risk");
     await page.getByRole("link", { name: new RegExp(name) }).click();
     await expect(
-      page.getByRole("heading", { name: `Proposed category: ${name}` }),
+      page.getByRole("heading", { name: `Suggested food: ${name}` }),
     ).toBeVisible();
     const slug = `bratwurst-${stamp}`;
     await page.getByLabel("Slug").fill(slug);

@@ -1,6 +1,11 @@
 import { expect, test } from "./fixtures";
 import { accessible } from "./a11y";
-import { chooseCountry, openAccountLink } from "./site";
+import {
+  chooseCountry,
+  fillBasics,
+  openAccountLink,
+  openOptional,
+} from "./site";
 import { createBrowserSession } from "./session-fixture";
 import { withLocalDb } from "./local-db";
 
@@ -133,34 +138,26 @@ test("a product added from Ireland is published, rated and ranked in Ireland onl
     await page.goto("/ie/beef-burgers");
     await openAccountLink(page, "Add a product");
     await expect(page).toHaveURL(/\/add-product\?country=ie$/);
-    await expect(
-      page.getByRole("main").getByRole("combobox", { name: "Country" }),
-    ).toHaveValue("IE");
-    await page.getByLabel("Product name", { exact: true }).fill(name);
-    await page
-      .getByLabel("Brand", { exact: true })
-      .fill(`Maple Farms ${Date.now()}`);
-    await page.getByLabel("Beef Burgers", { exact: true }).check();
-    await page.getByRole("button", { name: "Check for matches" }).click();
-    await page.getByRole("button", { name: "Add evidence" }).click();
-    await page
-      .getByLabel("Front photo (required)")
-      .setInputFiles("tests/fixtures/small.jpg");
-    await page
-      .getByLabel(/Manufacturer ingredient source/)
-      .fill("https://example.com/maple-ingredients");
-    await page
-      .getByLabel("What supports the ingredient classification?")
-      .fill("The manufacturer ingredient list contains only plants.");
-    await page.getByRole("button", { name: "Review submission" }).click();
+    await expect(page.getByRole("main")).toContainText("Adding to Ireland");
+    await fillBasics(page, {
+      food: "Beef Burgers",
+      brand: `Maple Farms ${Date.now()}`,
+      name,
+    });
+    await page.getByRole("button", { name: "Continue" }).click();
     await expect(
       page.getByRole("definition").filter({ hasText: /^Ireland$/ }),
     ).toBeVisible();
+    await openOptional(page, "Ingredients");
+    await page
+      .getByLabel(/Link to the ingredients/)
+      .fill("https://example.com/maple-ingredients");
+    await page.getByLabel(/I checked the ingredients/).check();
     await page
       .getByRole("button", { name: "Submit product", exact: true })
       .click();
     // A clear submission publishes at once; anything else waits for review.
-    const receipt = page.getByRole("link", { name: "View submission receipt" });
+    const receipt = page.getByRole("link", { name: "View your submission" });
     await expect(
       page.getByRole("heading", { level: 1, name }).or(receipt),
     ).toBeVisible();

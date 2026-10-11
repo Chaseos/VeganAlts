@@ -100,7 +100,9 @@ export function FoodCard({
       {food.top.length > 0 && food.top.length < 3 && (
         <p className="va-food-card__more">
           Know another?{" "}
-          <Link to={`/add-product?country=${country}`}>Add it.</Link>
+          <Link to={`/add-product?country=${country}&food=${food.slug}`}>
+            Add it.
+          </Link>
         </p>
       )}
     </article>

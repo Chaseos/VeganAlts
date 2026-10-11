@@ -93,7 +93,7 @@ const labels = {
   packaging: "Packaging update",
   discontinue: "Discontinued product",
   reintroduce: "Reintroduced product",
-  relationships: "Family, variants and category eligibility",
+  relationships: "Family, variants and which foods it’s ranked for",
   retailer_status: "Retailer availability concern",
   allergens: "Allergens on the label",
 };
@@ -694,7 +694,7 @@ export default function Contribute({
                     <option value="successor">Successor</option>
                   </select>
                   <fieldset>
-                    <legend>Eligible replacement categories</legend>
+                    <legend>Ranked for these foods</legend>
                     {product.categories.map((c) => (
                       <label className="checkbox-label" key={c.categoryId}>
                         <input
@@ -708,8 +708,8 @@ export default function Contribute({
                       </label>
                     ))}
                     <p className="small muted">
-                      Exclude specialty flavors from base categories where they
-                      would be misleading. Existing ratings remain preserved.
+                      Leave specialty flavors out of foods where ranking them
+                      would mislead. Existing ratings are kept.
                     </p>
                   </fieldset>
                 </>

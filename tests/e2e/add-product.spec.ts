@@ -1,0 +1,134 @@
+import { expect, test } from "./fixtures";
+import { accessible } from "./a11y";
+import { createBrowserSession } from "./session-fixture";
+import { chooseFood, fillBasics } from "./site";
+
+test.skip(
+  Boolean(process.env.TEST_BASE_URL),
+  "Real staging accounts are verified interactively.",
+);
+
+test("asks for the basics first, explains what's missing and keeps the draft", async ({
+  page,
+  context,
+}) => {
+  const session = await createBrowserSession();
+  try {
+    await context.addCookies([session.cookie]);
+    await page.goto("/add-product?country=gb");
+    await expect(page.getByRole("main")).toContainText(
+      "Adding to United Kingdom",
+    );
+    // Continue is never silently disabled: it says what is missing.
+    await page.getByRole("button", { name: "Continue" }).click();
+    const summary = page.getByRole("alert");
+    await expect(summary).toBeFocused();
+    await expect(summary).toContainText("4 things to fix");
+    await expect(summary.getByRole("link")).toHaveText([
+      "Choose the food it replaces, or suggest a new one.",
+      "Enter the brand.",
+      "Enter the product name.",
+      "Add a photo of the front of the package.",
+    ]);
+
+    // The picker uses the country's names and is usable from the keyboard.
+    const picker = page.getByRole("combobox", {
+      name: "What food does it replace? (required)",
+    });
+    await picker.fill("ground");
+    await expect(
+      page.getByRole("option", { name: /Beef mince.*Also called/ }),
+    ).toBeVisible();
+    await accessible(page);
+    await picker.press("ArrowDown");
+    await picker.press("Enter");
+    await expect(
+      page.getByRole("button", { name: "Change Beef mince" }),
+    ).toBeVisible();
+    await expect(summary).toContainText("3 things to fix");
+
+    // Text survives a reload; photos are chosen again.
+    await page.getByLabel("Brand (required)").fill("Draft Brand");
+    await page.getByLabel("Product name (required)").fill("Draft Crumbles");
+    await page.waitForTimeout(100);
+    await page.reload();
+    await expect(page.getByLabel("Product name (required)")).toHaveValue(
+      "Draft Crumbles",
+    );
+    await expect(
+      page.getByRole("button", { name: "Change Beef mince" }),
+    ).toBeVisible();
+
+    // An exact duplicate is pointed out before anything is sent.
+    await page.getByLabel("Brand (required)").fill("Beyond");
+    await page.getByLabel("Product name (required)").fill("Beyond Beef");
+    await page.goto("/add-product?country=us");
+    await page.getByRole("button", { name: "Start a new one" }).click();
+    await fillBasics(page, {
+      food: "Ground Beef",
+      brand: "Beyond",
+      name: "Beyond Beef",
+    });
+    await expect(page.getByText("Already on VeganAlts")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Rate it" })).toHaveAttribute(
+      "href",
+      /\/us\/products\/beyond-beef/,
+    );
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("alert")).toContainText("already on VeganAlts");
+  } finally {
+    await page.close();
+    await session.dispose();
+  }
+});
+
+test("publishes a front-photo-only product with its ingredients not checked yet", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.setTimeout(120000);
+  const session = await createBrowserSession(),
+    name = `Front only ${testInfo.project.name} ${Date.now()}`;
+  try {
+    await context.addCookies([session.cookie]);
+    await page.goto("/add-product?country=us&food=bacon");
+    // A food page's link arrives with its food chosen.
+    await expect(
+      page.getByRole("button", { name: "Change Bacon" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: /^Change/ }).click();
+    await chooseFood(page, "Chicken Nuggets");
+    await page.getByLabel("Brand (required)").fill(`Plain Farm ${Date.now()}`);
+    await page.getByLabel("Product name (required)").fill(name);
+    await page
+      .getByLabel("Front of pack photo (required)")
+      .setInputFiles("tests/fixtures/small.jpg");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page).toHaveURL(/step=more/);
+    await expect(
+      page.getByRole("heading", { name: "Add more (optional)" }),
+    ).toBeFocused();
+    await expect(page.getByRole("main")).toContainText(
+      "Everything here is optional",
+    );
+    await accessible(page);
+    // Back returns to the basics with everything kept.
+    await page.goBack();
+    await expect(page.getByLabel("Product name (required)")).toHaveValue(name);
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page
+      .getByRole("button", { name: "Submit product", exact: true })
+      .click();
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    await expect(page.getByText("Your product is live")).toBeVisible();
+    await expect(
+      page.getByText("Ingredients not checked yet").first(),
+    ).toBeVisible();
+    // The notice is navigation state, never part of the cached page.
+    await page.reload();
+    await expect(page.getByText("Your product is live")).toHaveCount(0);
+  } finally {
+    await page.close();
+    await session.dispose();
+  }
+});

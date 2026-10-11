@@ -19,6 +19,37 @@ export const LAST_ATE: { value: ConventionalRecency; label: string }[] = [
   { value: "over_year", label: "Over a year ago" },
   { value: "prefer_not_to_say", label: "Prefer not to say" },
 ];
+/** The five overall-similarity buttons, labeled with what each score means. */
+export function OverallScale({
+  selected,
+  onChoose,
+}: {
+  selected: number | null | undefined;
+  onChoose: (score: number) => void;
+}) {
+  return (
+    <>
+      <div className="va-rate__overall">
+        {SCORE_MEANINGS.map((meaning, index) => (
+          <button
+            type="button"
+            key={meaning}
+            aria-label={`${index + 1} ${meaning} (${index + 1} of 5)`}
+            aria-pressed={selected === index + 1}
+            onClick={() => onChoose(index + 1)}
+          >
+            <span className="va-rate__number">{index + 1}</span>{" "}
+            <span className="va-rate__meaning">{meaning}</span>
+          </button>
+        ))}
+      </div>
+      <p className="va-rate__ends" aria-hidden="true">
+        <span>{SCORE_MEANINGS[0]}</span>
+        <span>{SCORE_MEANINGS[4]}</span>
+      </p>
+    </>
+  );
+}
 export interface RatingQuestion {
   key: string;
   label: string;
@@ -97,24 +128,10 @@ export function RatingControl({
         <legend className="va-rate__title">
           Tried it? How close is it to {food}?
         </legend>
-        <div className="va-rate__overall">
-          {SCORE_MEANINGS.map((meaning, index) => (
-            <button
-              type="button"
-              key={meaning}
-              aria-label={`${index + 1} ${meaning} (${index + 1} of 5)`}
-              aria-pressed={state?.selected === index + 1}
-              onClick={() => save({ score: index + 1 })}
-            >
-              <span className="va-rate__number">{index + 1}</span>{" "}
-              <span className="va-rate__meaning">{meaning}</span>
-            </button>
-          ))}
-        </div>
-        <p className="va-rate__ends" aria-hidden="true">
-          <span>{SCORE_MEANINGS[0]}</span>
-          <span>{SCORE_MEANINGS[4]}</span>
-        </p>
+        <OverallScale
+          selected={state?.selected}
+          onChoose={(score) => save({ score })}
+        />
       </fieldset>
       <p id={helpId} className="va-rate__help">
         {user === null

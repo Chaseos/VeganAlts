@@ -1,6 +1,7 @@
 import { expect, test } from "./fixtures";
 import { accessible } from "./a11y";
 import { createBrowserSession } from "./session-fixture";
+import { fillBasics, openOptional } from "./site";
 
 test("submission, private receipt, operator publication, reporting, formula history and duplicate reversal", async ({
   page,
@@ -17,47 +18,37 @@ test("submission, private receipt, operator publication, reporting, formula hist
   try {
     await context.addCookies([contributor.cookie]);
     await page.goto("/add-product");
-    await page.getByLabel("Product name", { exact: true }).fill(name);
-    await page
-      .getByLabel("Brand", { exact: true })
-      .fill(`Garden ${Date.now()}`);
-    await page.getByLabel("Beef Burgers", { exact: true }).check();
+    await fillBasics(page, {
+      food: "Beef Burgers",
+      brand: `Garden ${Date.now()}`,
+      name,
+    });
     await accessible(page);
-    await page
-      .getByRole("button", { name: "Check for matches" })
-      .press("Enter");
+    await page.getByRole("button", { name: "Continue" }).press("Enter");
     await expect(
-      page.getByRole("heading", { name: "Check existing products" }),
+      page.getByRole("heading", { name: "Add more (optional)" }),
     ).toBeFocused();
-    await page.getByRole("button", { name: "Add evidence" }).click();
+    await openOptional(page, "Ingredients");
     await page
-      .getByLabel("Front photo (required)")
-      .setInputFiles("tests/fixtures/small.jpg");
-    await page
-      .getByLabel(/Manufacturer ingredient source/)
+      .getByLabel(/Link to the ingredients/)
       .fill("http://example.com/manufacturer-ingredients");
     await page
-      .getByLabel("What supports the ingredient classification?")
+      .getByLabel("Anything a reviewer should know? (optional)")
       .fill(
         "The ingredient source lists only plants. This synthetic browser fixture requires manual category review.",
       );
-    await page
-      .getByText("Variants and related products (optional)", { exact: true })
-      .click();
+    await openOptional(page, "Variants and other foods");
     await page.getByLabel(/Specialty flavor/).check();
-    await page.getByRole("button", { name: "Review submission" }).click();
     await page
       .getByRole("button", { name: "Submit product", exact: true })
       .click();
-    await expect(page.getByRole("alert")).toContainText("HTTPS");
-    await expect(page.getByRole("alert")).toBeFocused();
+    // An http link is caught on the page, before anything is sent.
+    const summary = page.getByRole("alert");
+    await expect(summary).toContainText("HTTPS");
+    await expect(summary).toBeFocused();
     await page
-      .getByRole("button", { name: "Edit evidence", exact: true })
-      .click();
-    await page
-      .getByLabel(/Manufacturer ingredient source/)
+      .getByLabel(/Link to the ingredients/)
       .fill("https://example.com/manufacturer-ingredients");
-    await page.getByRole("button", { name: "Review submission" }).click();
     await page.screenshot({
       path: testInfo.outputPath("submission-review.png"),
       fullPage: true,
@@ -65,7 +56,10 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await page
       .getByRole("button", { name: "Submit product", exact: true })
       .click();
-    await page.getByRole("link", { name: "View submission receipt" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Thanks, your product is in review" }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "View your submission" }).click();
     await expect(
       page.getByText("Status: review", { exact: true }),
     ).toBeVisible();
@@ -104,45 +98,41 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await context.addCookies([contributor.cookie]);
     await page.goto(`/my-contributions/submission/${receiptId}`);
     await page.getByRole("link", { name: "Respond to follow-up" }).click();
-    await expect(page.getByLabel("Product name", { exact: true })).toHaveValue(
-      name,
-    );
+    await expect(
+      page.getByLabel("Product name (required)", { exact: true }),
+    ).toHaveValue(name);
     await expect(
       page.getByRole("complementary", { name: "Requested follow-up" }),
     ).toContainText("Please clarify");
-    await page.getByRole("button", { name: "Check for matches" }).click();
-    await page.getByRole("button", { name: "Add evidence" }).click();
+    // Photos are files, so the front photo is chosen again.
     await page
-      .getByLabel("Front photo (required)")
+      .getByLabel("Front of pack photo (required)")
       .setInputFiles("tests/fixtures/small.jpg");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await openOptional(page, "Ingredients");
     await page
-      .getByLabel(/Manufacturer ingredient source/)
+      .getByLabel(/Link to the ingredients/)
       .fill("https://example.com/corrected-ingredients");
     await page
-      .getByLabel("What supports the ingredient classification?")
+      .getByLabel("Anything a reviewer should know? (optional)")
       .fill("Updated manufacturer source for the original flavor and recipe.");
-    await page
-      .getByText("Variants and related products (optional)", { exact: true })
-      .click();
+    await openOptional(page, "Variants and other foods");
     await page.getByLabel(/Specialty flavor/).uncheck();
     await accessible(page);
     await page.screenshot({
       path: testInfo.outputPath("submission-follow-up.png"),
       fullPage: true,
     });
-    await page.getByRole("button", { name: "Review submission" }).click();
     await page
       .getByRole("button", { name: "Submit product", exact: true })
       .click();
-    await page.getByRole("link", { name: "View submission receipt" }).click();
+    await page.getByRole("link", { name: "View your submission" }).click();
     await expect(
       page.getByText("Status: review", { exact: true }),
     ).toBeVisible();
     receiptId = new URL(page.url()).pathname.split("/").at(-1)!;
     expect(receiptId).not.toBe(originalReceiptId);
-    await page
-      .getByRole("link", { name: "original submission and evidence" })
-      .click();
+    await page.getByRole("link", { name: "original submission" }).click();
     await expect(
       page.getByText("Status: superseded", { exact: true }),
     ).toBeVisible();

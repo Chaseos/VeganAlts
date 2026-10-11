@@ -55,7 +55,7 @@ export function CategoryReview({
           <strong>Status: {friendly(detail.status)}</strong>
           {detail.resolutionNote && <p>{detail.resolutionNote}</p>}
         </div>
-        <h2>Proposed category: {proposed.name}</h2>
+        <h2>Suggested food: {proposed.name}</h2>
         <p>{proposed.explanation}</p>
         {!!proposed.exampleProducts?.length && (
           <p>
@@ -86,9 +86,11 @@ export function CategoryReview({
                 setDecision(e.target.value as "accept" | "alias" | "reject")
               }
             >
-              <option value="accept">Create this category</option>
-              <option value="alias">Add as another name of a category</option>
-              <option value="reject">Reject proposal</option>
+              <option value="accept">Create this food</option>
+              <option value="alias">
+                Add as another name for an existing food
+              </option>
+              <option value="reject">Reject suggestion</option>
             </select>
             {decision === "accept" && (
               <>
@@ -120,7 +122,7 @@ export function CategoryReview({
             )}
             {decision === "alias" && (
               <>
-                <label htmlFor="category-alias-of">Existing category</label>
+                <label htmlFor="category-alias-of">Existing food</label>
                 <select id="category-alias-of" name="aliasOf" required>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -144,7 +146,7 @@ export function CategoryReview({
             </button>
           </form>
         ) : (
-          <p>This proposal has already been decided.</p>
+          <p>This suggestion has already been decided.</p>
         )}
       </aside>
     </div>

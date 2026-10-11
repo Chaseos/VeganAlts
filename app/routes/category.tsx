@@ -226,7 +226,7 @@ function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
     ...publicMetadata(
       data
         ? `Best vegan alternatives to ${data.category.name.toLowerCase()}`
-        : "Category",
+        : "Food",
       `Compare vegan ${data?.category.name.toLowerCase() ?? "food"} alternatives, ranked by similarity with rating counts and formula details.`,
       // Filtered pages declare the unfiltered ranking canonical.
       data
@@ -296,7 +296,7 @@ function NotHereYet({ data }: { data: FoodData }) {
           actions={
             <>
               <ButtonLink
-                to={`/add-product?category=${data.category.id}&country=${code}`}
+                to={`/add-product?country=${code}&food=${data.category.slug}`}
               >
                 Add a product
               </ButtonLink>
@@ -535,7 +535,7 @@ function FoodRankingList({ data }: { data: FoodData }) {
                 }
                 actions={
                   <ButtonLink
-                    to={`/add-product?category=${data.category.id}&country=${code}`}
+                    to={`/add-product?country=${code}&food=${data.category.slug}`}
                   >
                     Add a product
                   </ButtonLink>
@@ -630,7 +630,7 @@ function FoodRankingList({ data }: { data: FoodData }) {
             Know a {food.toLowerCase()} swap that isn’t here?{" "}
             <Link
               className="va-link"
-              to={`/add-product?category=${data.category.id}&country=${code}`}
+              to={`/add-product?country=${code}&food=${data.category.slug}`}
             >
               Add a product
             </Link>

@@ -77,7 +77,7 @@ export function ProposalSummary({
       )}
       {Array.isArray(input.categoryIds) && (
         <p>
-          <strong>Replacement categories:</strong>{" "}
+          <strong>Foods it replaces:</strong>{" "}
           {input.categoryIds
             .map(String)
             .map((id) => labels[id] ?? id)
@@ -122,9 +122,7 @@ export function ProposalSummary({
               (entry: { categoryId: string; eligible: boolean }) => (
                 <li key={entry.categoryId}>
                   {labels[entry.categoryId] ?? entry.categoryId}:{" "}
-                  {entry.eligible
-                    ? "Eligible"
-                    : "Excluded from this category's ranking"}
+                  {entry.eligible ? "Eligible" : "Not ranked for this food"}
                 </li>
               ),
             )}

@@ -80,7 +80,7 @@ export function FactChangeFields({
         <>
           <label htmlFor="fact-category">It also replaces</label>
           <select id="fact-category" name="categoryId" required>
-            <option value="">Choose a category</option>
+            <option value="">Choose a food</option>
             {categories
               .filter((c) => !existing.includes(c.id))
               .map((c) => (
@@ -90,7 +90,7 @@ export function FactChangeFields({
               ))}
           </select>
           <p className="small muted">
-            Ratings in each category are independent. The product starts unrated
+            Ratings for each food are separate. The product starts unrated
             there.
           </p>
         </>
