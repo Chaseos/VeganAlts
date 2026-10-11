@@ -321,11 +321,10 @@ export class CatalogService {
         this.repository.productCount(market.id),
       ]);
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
-    const here = aisleTree(taxonomy.categories, counts);
-    // A newly opened country has no foods switched on yet: its home lists the
-    // shared aisles so people can add the first products there.
-    const aisles = here.length
-      ? here
+    // A country without products lists the shared aisles, so people can add
+    // the first products there, even if some foods are already switched on.
+    const aisles = productCount
+      ? aisleTree(taxonomy.categories, counts)
       : aisleTree(
           taxonomy.categories.map((node) => ({ ...node, available: 1 })),
           counts,

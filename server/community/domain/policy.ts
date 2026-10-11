@@ -9,7 +9,10 @@ import type {
   SubmissionDecision,
   VeganStatus,
 } from "./contracts";
-import { needsClassificationReview } from "./allergens";
+import {
+  needsClassificationReview,
+  type AllergenDeclaration,
+} from "./allergens";
 
 export const DAY = 86_400_000;
 export const LEASE = 5 * 60_000;
@@ -112,6 +115,7 @@ interface ClassificationFacts {
   ingredientUrl?: string;
   noKnownAnimalIngredients?: boolean;
   manufacturerLabel?: string;
+  allergens?: AllergenDeclaration;
 }
 /** An ingredients photo or a manufacturer ingredient source. */
 export const hasIngredientEvidence = (input: ClassificationFacts) =>
@@ -145,6 +149,10 @@ export function provisionalClassification(
   const evidence =
     hasIngredientEvidence(input) && !(unreadablePhoto && !input.ingredientUrl);
   if (!evidence) return UNCHECKED;
+  // A label listing milk, egg, fish, crustacean or mollusc contradicts an
+  // animal-free classification, so only an operator's choice can set one.
+  if (input.allergens && needsClassificationReview(input.allergens))
+    return UNCHECKED;
   if (input.noKnownAnimalIngredients)
     return { veganStatus: "appears_vegan", ingredientsChecked: true };
   if (input.manufacturerLabel === "plant_based")

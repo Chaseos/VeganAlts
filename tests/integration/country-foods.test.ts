@@ -185,6 +185,13 @@ it("shows a newly opened country the shared aisles to start from", async () => {
   const catalog = catalogService(env);
   const de = await catalog.market("de");
   expect(await foodsIn("de")).toEqual([]);
+  // An operator switching one food on doesn't hide the rest before any
+  // product arrives.
+  await env.DB.prepare(
+    "INSERT INTO category_countries(category_id,country_id,source,created_at) SELECT id,?,'operator',1 FROM categories WHERE slug='bacon'",
+  )
+    .bind(de.id)
+    .run();
   const home = await catalog.home(de);
   expect(home.counts.products).toBe(0);
   expect(home.aisles.map((a) => a.slug)).toEqual(
@@ -216,15 +223,20 @@ it("shows a newly opened country the shared aisles to start from", async () => {
     ).bind(product, beef),
   ]);
   const started = await catalog.home(de);
-  expect(
-    started.aisles.flatMap((a) => a.shelves.flatMap((s) => s.foods)),
-  ).toEqual([
-    expect.objectContaining({
-      slug: "ground-beef",
-      best: null,
-      productCount: 1,
-    }),
-  ]);
+  const startedFoods = started.aisles.flatMap((a) =>
+    a.shelves.flatMap((s) => s.foods),
+  );
+  expect(startedFoods).toHaveLength(2);
+  expect(startedFoods).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ slug: "bacon", productCount: 0 }),
+      expect.objectContaining({
+        slug: "ground-beef",
+        best: null,
+        productCount: 1,
+      }),
+    ]),
+  );
 });
 
 it("skips a shelf level that only repeats its aisle or food", async () => {

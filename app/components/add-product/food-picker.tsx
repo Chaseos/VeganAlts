@@ -66,6 +66,10 @@ export function FoodPicker({
       : []),
   ];
   useEffect(() => setActive(-1), [query]);
+  // Other names are committed on blur; a restored draft brings its own.
+  const joined = value?.kind === "new" ? value.otherNames.join(", ") : "";
+  const [otherNames, setOtherNames] = useState(joined);
+  useEffect(() => setOtherNames(joined), [joined]);
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
@@ -151,8 +155,9 @@ export function FoodPicker({
         </label>
         <input
           id={`${id}-other`}
-          defaultValue={value.otherNames.join(", ")}
+          value={otherNames}
           maxLength={400}
+          onChange={(e) => setOtherNames(e.target.value)}
           onBlur={(e) =>
             onChange({
               ...value,

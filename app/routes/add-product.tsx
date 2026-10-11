@@ -384,12 +384,19 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                 type="button"
                 className="button small-button"
                 onClick={() => {
-                  setDraft(forCountry(restored, market.iso2, offered));
+                  // A draft stays in its own country: the page follows it
+                  // there, with that country's foods, stores and allergens.
+                  setDraft(restored);
                   offering.current = false;
                   setRestored(null);
                   // Only that draft's photos: any picked meanwhile belong
                   // to the draft being set aside.
                   void loadDraftPhotos(restored.id).then(setPhotos);
+                  if (restored.country !== market.iso2)
+                    void navigate(
+                      `?country=${restored.country.toLowerCase()}`,
+                      { replace: true },
+                    );
                 }}
               >
                 Continue it

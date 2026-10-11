@@ -367,6 +367,24 @@ it("classifies by the evidence given, and more evidence never does worse", () =>
         );
       }
     }
+  // A label listing an animal-derived allergen leaves the classification to
+  // an operator; a cross-contact statement does not.
+  const evidence = {
+    imageSlots: ["front", "ingredients"],
+    noKnownAnimalIngredients: true,
+  };
+  expect(
+    provisionalClassification({
+      ...evidence,
+      allergens: { status: "declared", contains: ["egg"], mayContain: [] },
+    }),
+  ).toEqual(unchecked);
+  expect(
+    provisionalClassification({
+      ...evidence,
+      allergens: { status: "declared", contains: [], mayContain: ["egg"] },
+    }),
+  ).toEqual({ veganStatus: "appears_vegan", ingredientsChecked: true });
   // An unreadable ingredients photo counts only when a source backs it.
   const photo = { ...input, imageSlots: ["front", "ingredients"] as const };
   expect(

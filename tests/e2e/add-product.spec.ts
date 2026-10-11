@@ -71,6 +71,17 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
     ).toBeVisible();
     await page.reload();
     await expect(page.getByText("Beyond · Beyond Beef is saved")).toBeVisible();
+    // Continuing it returns to its own country rather than moving it.
+    await page.getByRole("button", { name: "Continue it" }).click();
+    await expect(page).toHaveURL(/country=gb/);
+    await expect(page.locator(".va-add__country")).toContainText(
+      "United Kingdom",
+    );
+    await expect(page.getByLabel("Product name (required)")).toHaveValue(
+      "Beyond Beef",
+    );
+    await page.waitForTimeout(100);
+    await page.goto("/add-product?country=us");
     await page.getByRole("button", { name: "Start a new one" }).click();
     await fillBasics(page, {
       food: "Ground Beef",
