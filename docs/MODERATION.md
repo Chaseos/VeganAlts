@@ -83,7 +83,7 @@ After approval, canonical records are created and approved images are promoted t
 
 Abandoned/rejected temporary uploads are deleted after a configured retention window.
 
-The exact launch minimum remains a milestone UX decision.
+The launch minimum is set in the milestone 6 policy below.
 
 ## 4. Edit proposals
 
@@ -470,7 +470,7 @@ This layer may become more important when ranked recipes are added later.
 
 ## Milestone 3 manual policy
 
-The [approved scope](MILESTONE_3_PLAN.md) uses deterministic submission checks and manual operators; no external AI provider or community-confidence auto-acceptance is enabled. Publication requires a front photo plus ingredient evidence and creates only provisional classification. Vegan classification requires review. An operator accepting a held submission whose ingredients the contributor could not confirm chooses its classification; approval never defaults to a status the evidence did not support. Ingredient reports are prioritized but only an operator can apply Under Review. Pending submission media is private and expires after the configured review window. Comment-target reporting is supported/tested, with visible comment reporting deferred to the comment milestone. Retailer confirmations do not establish inventory; stale evidence is labeled after 180 days and an operator decides removal.
+The [approved scope](MILESTONE_3_PLAN.md) uses deterministic submission checks and manual operators; no external AI provider or community-confidence auto-acceptance is enabled. Publication requires a front photo plus ingredient evidence and creates only provisional classification (milestone 6 makes ingredient evidence optional). Vegan classification requires review. An operator accepting a held submission whose ingredients the contributor could not confirm chooses its classification; approval never defaults to a status the evidence did not support. Ingredient reports are prioritized but only an operator can apply Under Review. Pending submission media is private and expires after the configured review window. Comment-target reporting is supported/tested, with visible comment reporting deferred to the comment milestone. Retailer confirmations do not establish inventory; stale evidence is labeled after 180 days and an operator decides removal.
 
 For a submission follow-up, its contributor can reopen the guided form from My contributions, revise the details and attach the requested photos. The response uses a new receipt under the normal quotas and always returns to manual review. Finalizing it atomically supersedes the original queue item, checks the requested revision, and audits both payloads. An intervening operator decision or competing response rejects the stale finalization. The original payload, request and evidence links remain in private history; temporary media retains its normal retention window.
 
@@ -516,3 +516,35 @@ A reformulation starts the new formula with no declaration; earlier formulas kee
 **Per-country contributions.** Product additions, retailer choices, category proposals and allergen lists belong to the country of the page they start from. Adding a retailer that already exists in another country proposes that retailer's market in this country and follows the same review as a new retailer. Moderation queues and the taxonomy workspace show each item's country.
 
 **Taxonomy and dimensions.** Category proposals choose a shelf. Aisles and shelves only need names that are unique among their siblings; foods and aliases stay unique across the taxonomy. Operators add, rename, reorder and retire a food's detail dimensions; retiring keeps stored answers, and every change is audited and reversible. Category merges now carry detail answers: answers follow their rating to the survivor by dimension key, a key only the donor had is kept on the survivor as a retired dimension, and reversal restores both exactly.
+
+## Milestone 6 policy
+
+The [approved scope](MILESTONE_6_PLAN.md) lowers the submission minimum, adds a visible unchecked-ingredients state and lets a missing food travel with the product that needs it. It supersedes the milestone 3 rule that publication requires ingredient evidence and settles §3's launch minimum.
+
+**Submission minimum.** A submission needs a country, brand, product name, at least one food (existing or suggested) and a front photo. Ingredient evidence, a classification note, back and nutrition photos, variant details, further foods, a rating, stores and an allergen declaration are optional. At most four photos are accepted, the limit of the automated photo check.
+
+**Provisional classification.** The deterministic result is never "classification needed":
+
+| Ingredient evidence | "Nothing animal-derived" ticked | Manufacturer label        | Classification          |
+| ------------------- | ------------------------------- | ------------------------- | ----------------------- |
+| none                | any                             | any                       | ingredients not checked |
+| given               | yes                             | any                       | appears vegan           |
+| given               | no                              | plant-based               | plant-based             |
+| given               | no                              | vegan, neither or unknown | ingredients not checked |
+
+Giving more evidence never produces a worse outcome than giving less. When the only ingredient evidence is a photo and the automated check flags it as unreadable or not an ingredient list, the classification is downgraded to "ingredients not checked" instead of holding the submission; automation still never upgrades a result. Near-duplicates, variant relationships, specialty flavors, follow-ups and suggested foods still hold for review. A declaration that the product contains milk, egg, fish, crustacean or mollusc holds the submission for review before publication. An operator accepting a held submission without choosing a classification publishes it as "ingredients not checked".
+
+**Ingredients not checked.** The state is shown as "Ingredients not checked yet". The product ranks and can be rated. It is not a vegan status: it records that no one has confirmed the ingredients. On such a formula, a classification change that chooses Appears vegan or Plant-based and cites the formula's accepted ingredients or nutrition photo is **tier 2**: community-confirmable and automatically acceptable under the milestone 4 rule, and any disagreement goes to an operator. Every other classification change, including Vegan, Under Review and any change without a cited photo, stays tier 3. Accepting any reviewed classification marks the ingredients checked, and reversal restores the earlier state exactly.
+
+**Suggested foods inside a submission.** A submission may suggest one new food (name, shelf, optional other names) in place of, or beside, existing foods. Preflight applies the standalone suggestion rules: an open country, a valid shelf, a name and other names unused across the taxonomy, reserved words, and the shared daily limit of three suggestions. Finalization evaluates the product and the suggestion and holds both together; the submission waits while its food is undecided. An operator decides the food first:
+
+- **Accept or alias.** The waiting submission is re-checked with the resolved food. It publishes when nothing else needs review; otherwise it stays in the queue with its remaining reasons. An alias decision also switches the existing food on in the suggestion's country.
+- **Reject.** Each waiting submission receives a follow-up asking its contributor to choose an existing food. The revision always returns to manual review.
+
+Accepting a suggested food as non-rankable while a product waits on it is refused. Every step uses the fenced, audited and reversible decision paths.
+
+**Standalone suggestions.** The explanation is optional. Suggestions still choose a shelf and belong to the country of the page they start from, and operator review shows that country.
+
+**Extras at publication.** Stores are confirmed in the publication batch. The contributor's rating is saved through the canonical rating path after publication, only if they have not rated that food; an allergen declaration becomes an ordinary allergen proposal citing the published photo, under the milestone 5 tiers. Extras on a superseded or rejected submission are never applied.
+
+**Countries.** Operators can switch a food on or off per country; a food cannot be switched off where it has visible products. Switching is audited and reversible.

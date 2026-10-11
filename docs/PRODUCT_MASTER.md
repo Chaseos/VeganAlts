@@ -1076,7 +1076,7 @@ Local and staging catalog records are approved fictional development fixtures. D
 
 ## Milestone 3 implementation decisions
 
-The approved [milestone 3 specification](MILESTONE_3_PLAN.md) governs community submissions, retailers, manual reporting/review, formula/lifecycle changes, classification evidence and duplicate/variant management. New submissions require a front photo and ingredient-panel photo or manufacturer ingredient source; deterministic validation precedes canonical insertion. Automatic publication is provisional; Vegan classification and Under Review require operator assessment. Separate formula-specific evidence, manufacturer wording and known certification. Duplicate consolidation archives the donor without transferring its ratings or metadata, leaves the survivor unchanged, and remains reversible. Public comment reporting is deferred to the comment feature while its shared reporting contract is tested here. Staging is the delivery destination; production launch, external AI moderation, community acceptance voting and contributor trust remain later work.
+The approved [milestone 3 specification](MILESTONE_3_PLAN.md) governs community submissions, retailers, manual reporting/review, formula/lifecycle changes, classification evidence and duplicate/variant management. New submissions require a front photo and ingredient-panel photo or manufacturer ingredient source (milestone 6 makes ingredient evidence optional); deterministic validation precedes canonical insertion. Automatic publication is provisional; Vegan classification and Under Review require operator assessment. Separate formula-specific evidence, manufacturer wording and known certification. Duplicate consolidation archives the donor without transferring its ratings or metadata, leaves the survivor unchanged, and remains reversible. Public comment reporting is deferred to the comment feature while its shared reporting contract is tested here. Staging is the delivery destination; production launch, external AI moderation, community acceptance voting and contributor trust remain later work.
 
 ## Milestone 4 implementation decisions
 
@@ -1104,7 +1104,7 @@ Food
 └─ Eggs ── Eggs (Eggs)
 ```
 
-**Countries (§04).** The English-speaking launch countries are active: the United States, Canada, the United Kingdom, Australia, New Zealand and Ireland. Each has its own home at `/{country}` (lowercase ISO code) and its own rankings at `/{country}/{food}`; `/` remains the United States home and `/us` redirects to it. A country switcher appears on every page and lists only active countries. Switching keeps the current food where it exists, and a product page moves to its food. The device remembers the chosen country and `/` sends a returning visitor there after the page loads; nothing is inferred from IP. Countries without rankings say "No rankings in [country] yet" and invite people who live there to add the first products. A product added from a country's page belongs to that country. Store choices, allergen lists and homepage features are per country. A country may give a food its own display name ("Beef mince" for Ground Beef in the United Kingdom, Australia, New Zealand and Ireland) while the URL stays the same. Food pages link their versions in other countries.
+**Countries (§04).** The English-speaking launch countries are active: the United States, Canada, the United Kingdom, Australia, New Zealand and Ireland. Each has its own home at `/{country}` (lowercase ISO code) and its own rankings at `/{country}/{food}`; `/` remains the United States home and `/us` redirects to it. A country switcher appears on every page and lists only active countries. Switching keeps the current food where it exists, and a product page moves to its food (milestone 6 scopes foods to countries). The device remembers the chosen country and `/` sends a returning visitor there after the page loads; nothing is inferred from IP. Countries without rankings say "No rankings in [country] yet" and invite people who live there to add the first products. A product added from a country's page belongs to that country. Store choices, allergen lists and homepage features are per country. A country may give a food its own display name ("Beef mince" for Ground Beef in the United Kingdom, Australia, New Zealand and Ireland) while the URL stays the same. Food pages link their versions in other countries.
 
 **Ratings (§05).** Overall similarity remains the one required answer and still saves the moment it is tapped. Once it is chosen, the form offers optional food-specific detail scores (1–5) and "When did you last eat [food]?" (This week, This month, This year, Over a year ago, Prefer not to say). Each optional answer also saves when tapped, and tapping a chosen answer again clears it. Operators set each food's details; a new food starts with Taste and Texture. Details explain a score; they never change Top. People who ate the original within the past year form the recent-eaters group, whose average is shown once ten of their ratings count. Familiarity never changes how much a rating counts.
 
@@ -1122,3 +1122,26 @@ Tree nuts are one entry: labels in Australia and New Zealand name the individual
 **Store preference (§09).** Rankings offer a "Commonly found at" filter: a checklist of the stores members report in the current country, each with its number of ranked swaps in the food. Choosing several stores shows products commonly found at any of them. Only active reports count; uncertain and no-longer-current reports never qualify a product. The choice is saved on the device per country and applies to every ranking; a product page's stores can be tapped to add or remove them. Wording stays "Commonly found at", never "sold at" or "in stock".
 
 **Appearance.** Light and dark themes follow the device by default, with a System / Light / Dark choice stored on the device.
+
+## Milestone 6 implementation decisions
+
+The approved [milestone 6 specification](MILESTONE_6_PLAN.md) simplifies contributions and scopes foods to countries. These decisions amend §04 and §06 and the milestone 3 and milestone 5 decisions noted below.
+
+**Foods per country (§04).** Aisles and shelves are shared by every country, and each country can name foods its own way. A food (the rankable leaf) appears in a country only once it is switched on there. The launch foods are on in all six launch countries. A food accepted from a suggestion starts in the suggestion's country. A food switches on automatically in another country when a product for it is published there. Operators can switch countries on and off; a food stays on wherever it has a visible product. Aisles and shelves with no food on in a country are hidden there. A food that is not on in a country keeps its URL, which says "Not in [country] yet" and invites people there to add the first product; it is not listed, searched or linked as a version in other countries. This replaces "switching keeps the current food where it exists" and "food pages link their versions in other countries" from the milestone 5 Countries decision: the switcher keeps the food and lands on that page where the food is not on, and food pages link only the countries where the food is on.
+
+**Starter shelves (§04).** The owner confirmed on 2026-10-10:
+
+```text
+Food
+├─ Meat ── Beef · Chicken · Pork · Turkey · Lamb
+├─ Fish and seafood ── Fish · Shellfish
+├─ Dairy ─ Milk · Butter · Cream · Yogurt · Ice cream
+├─ Cheese ─ Block and shredded · Soft and spreadable · Hard and grated
+└─ Eggs ── Eggs
+```
+
+The launch foods stay where they are. New shelves whose name could also be a food's use a `-shelf` slug (`turkey-shelf`, `fish-shelf`) so the plain slug stays free for the food; shelves have no page of their own. Navigation hides a shelf level that only repeats its aisle or food ("All foods / Eggs aisle / Eggs").
+
+**Product additions (§06).** Adding a product asks for its name, brand, food and a front photo, with the country taken from the page. This supersedes the milestone 3 decision that new submissions require an ingredient-panel photo or manufacturer ingredient source. Ingredient evidence, the contributor's rating, stores, an allergen declaration, back and nutrition photos, variant details and further foods are optional and collected on a second step before one submit. Duplicate matches appear while the contributor types. A product published without ingredient evidence shows "Ingredients not checked yet" until someone adds evidence and another member confirms it; it still ranks and can be rated. A contributor who cannot find the food suggests it inside the same form, and the product goes live once the food is accepted.
+
+**Wording.** People see aisles, shelves and foods. "Suggest a food" is the action for a missing food; "category" stays an internal term.

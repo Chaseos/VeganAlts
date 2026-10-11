@@ -596,4 +596,26 @@ The approved [milestone 5 specification](MILESTONE_5_PLAN.md) adds the following
 
 **Taxonomy shape.** Depth is computed from `parent_id`, not stored: aisles are children of the root, shelves are children of aisles, and rankable foods are children of shelves. Food names and all aliases remain unique across the taxonomy (case-, accent- and spacing-insensitive); group names are unique among siblings and groups have no aliases. Slugs remain globally unique. Every new rankable category starts with Taste and Texture dimensions.
 
-**Countries.** The taxonomy seed inserts the six launch countries as active rows with deterministic IDs (`country:US`, `country:CA`, `country:GB`, `country:AU`, `country:NZ`, `country:IE`), their allergen lists, homepage features and display names. It stays insert-only and idempotent. Existing local and staging data are re-parented to the three-level shape by `scripts/reshape-taxonomy.ts`, which uses the audited, reversible taxonomy update path. Product slugs are unique per country, so every product read is scoped by country.
+**Countries.** The taxonomy seed inserts the six launch countries as active rows (generated IDs on staging and production; the local development catalog seed uses deterministic IDs such as `country:US`), their allergen lists, homepage features and display names. Rows are matched by ISO code, never by ID. It stays insert-only and idempotent. Existing local and staging data are re-parented to the three-level shape by `scripts/reshape-taxonomy.ts`, which uses the audited, reversible taxonomy update path. Product slugs are unique per country, so every product read is scoped by country.
+
+## Milestone 6 persistence decisions
+
+The approved [milestone 6 specification](MILESTONE_6_PLAN.md) adds the following append-only, additive migrations. No parent table is rebuilt: D1 cannot disable foreign keys, so rebuilding `products` would cascade into ratings (see `0006`).
+
+- `0019_country_foods.sql`
+  - Adds `category_countries(category_id, country_id, source, created_by, created_at)` with primary key `(category_id, country_id)` and an index on `(country_id, category_id)`. `source` is `launch`, `proposal`, `product` or `operator`.
+  - Backfills every active rankable food in every active country, plus every (food, country) pair of a visible product.
+  - Triggers enforce the invariants:
+    - only rankable categories (foods) get rows;
+    - a row cannot be deleted while the food has a visible product in that country;
+    - inserting a `product_categories` row switches the food on in the product's country (covering publication, category additions and merges);
+    - restoring a hidden product switches its foods on again.
+- `0020_quick_additions.sql`
+  - Adds `formula_classifications.ingredients_checked` (`1` by default). A check allows `0` only with the placeholder status `appears_vegan`, so an unchecked formula can never be stored as Vegan or Under Review.
+  - Adds `pending_submissions.category_proposal_id`, referencing `category_proposals`, with a partial index. A held submission that suggested a food points at that suggestion.
+
+**Foods per country.** Aisles and shelves are never country-scoped. Public reads list a food in a country only when it has a `category_countries` row there; groups without such a food are hidden. A food stays on wherever it has a visible product. Activating a new country switches no foods on. The taxonomy seed writes launch availability only for foods that have none, so an operator's choices are never overwritten.
+
+**Ingredients not checked.** The public classification is derived by one shared read helper: `ingredients_checked = 0` reads as `unchecked`, otherwise the stored status. Writers never store `unchecked`. Any reviewed classification sets the flag to `1`, and reversal restores both values.
+
+**Starter shelves.** The taxonomy seed adds the Fish and seafood aisle (`fish-and-seafood`) and the shelves `turkey-shelf`, `lamb-shelf`, `fish-shelf`, `shellfish-shelf`, `cream-shelf`, `yogurt-shelf`, `ice-cream-shelf` and `hard-and-grated`, insert-only by slug.

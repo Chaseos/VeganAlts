@@ -335,7 +335,7 @@ The approved [milestone 4 specification](MILESTONE_4_PLAN.md) extends the milest
 | POST   | `/comments/:id/vote`                                                                  | `{value: 1 \| -1 \| 0}`; `0` removes the vote. Own and non-visible comments are rejected. Returns counts and the stored vote.                                                                                 |
 | GET    | `/community/products/:id/proposals`                                                   | Signed-in contributors. Pending community-confirmable proposals with change summary, response counts, the viewer's stance and evidence references.                                                            |
 | POST   | `/proposals/:id/responses`                                                            | `{stance: confirm \| disagree \| evidence, note?, evidence?}`; one current stance per account; the proposer is rejected.                                                                                      |
-| POST   | `/category-proposals`                                                                 | `{name, parentId?, country, explanation, exampleProducts[], aliases[]}`; operator-reviewed.                                                                                                                   |
+| POST   | `/category-proposals`                                                                 | `{name, parentId?, country, explanation, exampleProducts[], aliases[]}`; operator-reviewed. Milestone 5 replaced `parentId` with a required `shelfId`; milestone 6 makes `explanation` optional.              |
 | GET    | `/admin/taxonomy`                                                                     | Allowlisted category list with revisions, aliases, homepage features, active merges and recent taxonomy actions.                                                                                              |
 | POST   | `/admin/taxonomy/categories`                                                          | Create a category (`name`, optional `slug`, `parentId`, `isRankable`, `aliases`, `note`).                                                                                                                     |
 | POST   | `/admin/taxonomy/categories/:id`                                                      | Fenced by `expectedRevision`: rename, re-slug (old slug redirects), re-parent, rankability, retire/restore and replace aliases.                                                                               |
@@ -401,3 +401,40 @@ The approved [milestone 5 specification](MILESTONE_5_PLAN.md) extends the v1 con
 - The moderation inbox and detail add each item's `country`.
 
 **Caching.** Cache tags gain the country: `catalog:<cc>`, `surface:<kind>:<cc>`, `category:<cc>:<slug>` and `product:<cc>:<slug>`. Taxonomy changes purge every country's listings because the aisle bar appears on every page. Retailer confirmations now purge the product and its foods' listings, because the store filter reads them. Ratings still never purge.
+
+## Milestone 6 contract additions
+
+The approved [milestone 6 specification](MILESTONE_6_PLAN.md) extends the v1 contracts additively. Every POST keeps the milestone 3 and 4 rules.
+
+**Submissions.** `SubmissionInput` changes:
+
+- `statusBasis` (up to 2,000 characters), `noKnownAnimalIngredients` and `manufacturerLabel` are optional; absent values read as no note, unticked and `unknown`.
+- Ingredient evidence is optional: the rule "add an ingredient-panel photo or a manufacturer ingredient source" is removed.
+- `imageSlots` takes 1–4 distinct slots and must include `front`; the offered slots are `front`, `ingredients`, `back` and `nutrition`.
+- `categoryIds` takes 0–5 existing foods. `newFood` optionally suggests one food: `{name, shelfId, aliases[]}` (up to 10 other names). At least one food is required and at most five in total. The primary food is `newFood` when present, otherwise the first of `categoryIds`.
+- Optional extras: `rating` (1–5, for the primary food), `retailerIds` (up to 10 retailers with an active market in the country) and `allergens` (the milestone 5 declaration shape).
+- New fields have no defaults, so an earlier payload normalizes and fingerprints exactly as before.
+
+Decisions follow the milestone 6 moderation policy. A submission with `newFood` is always held; its status adds `waitingOnFood: {name, status}`. A `NEEDS_CHANGES` reason caused by an existing food of the suggested name carries `foodMatch: {id, slug, name}`. Publication responses add `foodSlug`. Approving a submission whose suggested food is undecided returns 409 `FOOD_PENDING`.
+
+| Method | Path beneath `/api/v1`                              | Contract                                                                                                                                                                                                                                                     |
+| ------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/community/options?country=&q=`                    | Adds `foods` (every active food with `id`, `slug`, display `name` in the country, `otherNames`, `aisle`, `shelf` with a `silent` flag, and `inCountry`), `shelves` (every active shelf grouped by aisle, empty ones included) and the country's `allergens`. |
+| GET    | `/community/identity-matches?country=&brand=&name=` | Read-only duplicate candidates while typing (`id`, `slug`, `name`, `brand`, `exact`, `foodSlug`). Authenticated, private/no-store, on the search rate limit; never challenged. Brand and name need two characters each.                                      |
+| POST   | `/submissions/check-identity`                       | `categoryIds` is optional.                                                                                                                                                                                                                                   |
+| POST   | `/category-proposals`                               | `{name, shelfId, country, explanation?, exampleProducts[], aliases[]}`. `CATEGORY_EXISTS` names the existing food.                                                                                                                                           |
+| POST   | `/admin/taxonomy/categories/:id/countries`          | `{expectedRevision, countries: iso2[], note}`: the full list of countries where a food is on. Removing a country where the food has visible products returns 409 `FOOD_HAS_PRODUCTS`. Audited and reversible.                                                |
+
+**Public reads.**
+
+- Product and ranking reads may return the classification status `unchecked` ("Ingredients not checked yet"), alongside `vegan`, `appears_vegan`, `plant_based` and `under_review`. It never appears in a write.
+- `GET /categories/:slug?country=` for a food that is not on in that country returns 200 with `availability: {here: false, countries: [iso2…]}` and no rows; for a food that is on, `availability.countries` lists every country where it is on. Both are shared-cacheable. The document page for a not-here food is `noindex`.
+- Aisle, home, search, suggest and sitemap results include only foods that are on in the requested country.
+
+**Changes and review.**
+
+- `ProductChange` kind `classification` accepts `citedImageId`. On an unchecked formula, Appears vegan or Plant-based citing the formula's accepted ingredients or nutrition photo is tier 2; everything else stays tier 3.
+- `GET /admin/taxonomy` lists each food's `countries`; `POST /admin/taxonomy/categories` accepts `countries` (default: every active country).
+- Category proposal review detail adds `country`, the shelf path and `waitingProducts`. Submission review detail adds `pendingFood`. Inbox items add `waitingFor: "food"`.
+
+**Caching.** Switching a food on in a country (by publication, operator change or proposal decision) purges that country's listings, because the aisle bar appears on every page.

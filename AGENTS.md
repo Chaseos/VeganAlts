@@ -12,11 +12,13 @@ Before substantial implementation work, read:
 4. `docs/RANKING.md` — ranking semantics and derived data.
 5. `docs/MODERATION.md` — contribution and trust rules.
 6. `docs/API.md` — API conventions.
-7. `docs/MILESTONE_4_PLAN.md` — current implementation scope and acceptance gates.
+7. `docs/MILESTONE_6_PLAN.md` — current implementation scope and acceptance gates.
 
-`docs/MILESTONE_1_PLAN.md`, `docs/MILESTONE_2_PLAN.md`, `docs/MILESTONE_3_PLAN.md`, and their verification records preserve earlier scope and evidence.
+`docs/MILESTONE_1_PLAN.md` through `docs/MILESTONE_5_PLAN.md`, `docs/DESIGN_DIRECTION.md`, and their verification records preserve earlier scope and evidence.
 
 Milestone 4 adds Cloudflare Workers AI Clef behind the provider-neutral `ModerationDecisionService`. Automation is advisory: deterministic checks run first, and provider failure routes to review, never approval. Product duplicate consolidation still archives the donor without transferring ratings; category merges are the documented exception and transfer ratings reversibly. Protected changes remain auditable and reversible.
+
+Milestone 6 makes ingredient evidence optional for new products (they show "Ingredients not checked yet" and still rank), lets a missing food be suggested inside Add a product, and switches foods on per country while aisles and shelves stay shared.
 
 If these documents conflict, do not guess. Preserve existing behavior and surface the conflict for an explicit documentation decision.
 

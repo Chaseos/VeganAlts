@@ -26,7 +26,7 @@ The primary user eats a conventional food today and wants the closest vegan vers
 | Screen sizes   | Phone and desktop designed side by side for every screen.                                                                                                                                                                                                                                                                                                      |
 | Imagery        | Member package photos (the five canonical slots) and line icons for aisles and foods. No stock or lifestyle photography.                                                                                                                                                                                                                                       |
 | Logo           | Direction D, the tagged wordmark: "Vegan" followed by "Alts" inside a yellow shelf label. Chosen for now; refinement continues on the canvas.                                                                                                                                                                                                                  |
-| Workflow       | Screens are approved on the canvas, then become the Milestone 5 plan and issues, then code.                                                                                                                                                                                                                                                                    |
+| Workflow       | Screens are approved on the canvas, then become the Milestone 5 plan and issues, then code. Milestone 6 screens have no boards: they follow these patterns and the owner reviews phone and desktop screenshots in both themes at each checkpoint (§10).                                                                                                        |
 
 ## 3. Visual system
 
@@ -110,7 +110,7 @@ One family, **Archivo** (variable: width 62–125, weight 100–900), fallback `
 - **Score label.** The yellow shelf label. Always reads as a score, never a price: large and medium sizes say "out of 5" under the number; compact sizes append "/5". Format follows the locked rule (`4.6/5`, no word label).
 - **#1 flag.** One red flag per list, on the closest match only. Under filters it names why the product leads ("Closest match · soy-free").
 - **Badges.** Early (1–9 ratings), New, and detail winners ("Best taste") when a product other than #1 leads a detail.
-- **Vegan status chip.** Vegan, Appears vegan, Plant-based, Under review, matching the classification model.
+- **Vegan status chip.** Vegan, Appears vegan, Plant-based, Under review, matching the classification model. Milestone 6 adds the display state "Ingredients not checked yet" for products whose ingredients no one has confirmed.
 - **Allergen label and Free-from filter.** "Contains soy, wheat" on products; "Free from" chips on rankings. Always paired with "Always check the package."
 - **Aisle bar and aisle menu.** Header bar of aisles; the menu shows shelves in a rail and food cards with each food's top three.
 - **Search with instant answers.** Matching foods show their #1 swap and score; matching products show their rank. A preview of the pointed-at food fills the space beside the results.
@@ -160,3 +160,23 @@ These presentation decisions depended on behavior that was not yet specified. Ea
 4. **Three-level taxonomy.** Aisles are the first level under Food; shelves are the second; rankable foods are leaves. Cheese becomes its own aisle. Use milestone 4 taxonomy tools; update the taxonomy seed.
 5. **Country switcher and contributions.** Define behavior for countries without rankings, how the choice is stored, that only active countries are listed or routed, and how products, stores, aliases and allergen lists are contributed per country.
 6. **Store preference.** Define device storage of several stores per country, the filter contract (stores come from each country's retailer markets; only active product–retailer reports count; several stores combine with OR) and cache behavior. Update ARCHITECTURE and API.
+
+## 10. Milestone 6 additions
+
+Agreed on 2026-10-10 for the [milestone 6 specification](MILESTONE_6_PLAN.md). These screens follow the patterns above without canvas boards.
+
+- **Add a product.** Two steps and one submit.
+  - Step 1, "The basics": a country chip ("Adding to United Kingdom · Change"), the food picker, brand, product name, "Is it one of these?" matches and the front photo. The step says "All fields are required" and each label ends in "(required)".
+  - Step 2, "Add more (optional)": a compact summary of the basics with Edit, then optional rows separated by dividers inside the form panel (lists use dividers, not cards). The rows are your rating, ingredients, allergens, stores, more photos, variants and other foods it replaces. Each row is a disclosure with an "Optional" tag and a one-line status of what was added; rows with content start open. The step opens with "Everything here is optional. Submit now or add what you know."
+  - Errors collect in a focused summary at the top of the step that links to each field. Continue and Submit are never silently disabled.
+- **Food picker.** A combobox like instant search.
+  - Results are grouped by aisle with a "Meat › Chicken" line; a match on another name says "Also called mince".
+  - Foods not on in the country carry "Not in [country] yet".
+  - The last option is "Suggest '[name]' as a new food", which opens the shelf choice and other names in place.
+  - A chosen food collapses to a summary with Change.
+- **Your rating.** The overall 1–5 scale from the rating form. Here it is held and saved when the product goes live, because the product does not exist yet; everywhere else ratings save on tap.
+- **Results.** A published product opens its page with "Your product is live" and a rate prompt. A held submission explains what happens next and names a suggested food it is waiting on.
+- **Silent shelves.** A shelf that only repeats its aisle or food is not shown as a level: breadcrumbs read "All foods / Eggs aisle / Eggs", menus and Browse lists merge it, and an aisle with one visible shelf hides the shelf rail.
+- **Not in [country] yet.** A food page in a country where the food is not on shows an empty state with "Add a product" and links to the countries that have it. Sort and filters are hidden.
+- **Empty countries.** The home lists the shared aisles and foods with "Be the first to add one".
+- **Status chip.** "Ingredients not checked yet" uses the neutral tone with a text label and a prompt to add an ingredients photo on the product page.

@@ -493,3 +493,13 @@ Follow [milestone 5](MILESTONE_5_PLAN.md) and the [design direction](DESIGN_DIRE
 **Presentation.** Every color is a `--va-*` token defined once for light and dark; components never use literal colors. The content security policy forbids inline styles, so proportional bars are SVG presentation attributes and components use classes only. Archivo is self-hosted as a hashed asset. The aisle menu reads each aisle's top products from that aisle page's cached route data on first open. Instant search calls the cached `/api/v1/suggest` endpoint with debouncing and request cancellation, and the full results page works without JavaScript.
 
 **Derived reads.** Detail-dimension and familiarity statistics are rebuildable read models written in the same fenced batch as rating aggregates. Category listings compute the overall Top rank before applying sorts and filters, so narrowing a view never changes a score. Store filtering joins only active product–retailer reports in an active market of the product's country.
+
+## Milestone 6 boundaries
+
+Follow [milestone 6](MILESTONE_6_PLAN.md).
+
+**Contribution flow.** Add a product stays one route outside the country layout. Step 2 is a URL parameter (`?step=more`); the draft lives in session storage (and IndexedDB for picked photos), never in cookies or the server, until submission. The food picker filters the loader's country-scoped food list in the browser. Live duplicate matching is a read-only, private GET on the search rate limit, so typing never consumes the contribution limiter or a Turnstile challenge. Publication still runs preflight, uploads and finalization.
+
+**Foods per country.** Availability is a canonical table maintained by triggers and the taxonomy services; catalog reads, search indexing and the sitemap join it. A food that is not on in a country renders a shared-cacheable, `noindex` page rather than a 404, so it stays cacheable and gives the country switcher a destination. Switching a food on purges that country's listings.
+
+**After publication.** Stores are confirmed inside the publication batch. The contributor's rating and allergen declaration need the rating aggregates and an automated check, so the batch records a recovery marker and the extras are applied immediately afterward, then retried by the hourly schedule until done. The hourly schedule also continues submissions whose suggested food was accepted.

@@ -357,3 +357,11 @@ The approved [milestone 5 specification](MILESTONE_5_PLAN.md) activates §5 and 
 | Recent-eaters score     | 10 counted ratings from people who ate the original this year |
 | Start with these (home) | 6 foods whose #1 is past Early                                |
 | Still waiting (home)    | 6 foods whose best ranked product is below 3.5/5              |
+
+## Milestone 6 decisions
+
+The approved [milestone 6 specification](MILESTONE_6_PLAN.md) changes who can contribute what, not how scores are computed.
+
+- **Ingredients not checked yet.** A product published without confirmed ingredients is ranking-eligible like any provisionally classified product. Only Under Review removes a product from rankings.
+- **Foods per country.** A food's ranking exists in a country only where the food is switched on, and every visible product's foods are on in its country, so no ranked product is ever hidden by availability. Switching a food on or off never changes a score, weight or `product_category_stats` row.
+- **Contribution extras.** The rating collected with a new product is an ordinary rating written through the canonical rating path once the product is published; it counts exactly like any other rating and is never written twice.
