@@ -390,13 +390,25 @@ export class TaxonomyService {
           ) === i && categoryKey(a.alias) !== categoryKey(target.name),
       );
       const plan = planCategoryUpdate(target, { aliases: deduped });
+      // The existing food opens in the country that asked for it; the action
+      // records that so its reversal closes it again.
+      const opened =
+        proposal.country_id &&
+        !(await this.repository.countriesOf(target.id)).some(
+          (c) => c.id === proposal.country_id,
+        )
+          ? [proposal.country_id]
+          : [];
       const action = this.action(
         actor,
         "category_update",
         target.id,
         input.note,
         plan.before,
-        plan.after,
+        {
+          ...plan.after,
+          ...(opened.length ? { countriesOpened: opened } : {}),
+        },
       );
       guard.sql +=
         " AND EXISTS(SELECT 1 FROM categories WHERE id=? AND revision=?)";
@@ -421,20 +433,12 @@ export class TaxonomyService {
             now,
             fence,
           ),
-          // The existing food opens in the country that asked for it.
-          ...(proposal.country_id
-            ? this.repository.countryStatements(
-                target.id,
-                {
-                  add: [proposal.country_id],
-                  remove: [],
-                  source: "proposal",
-                  actorId: actor.id,
-                },
-                now,
-                fence,
-              )
-            : []),
+          ...this.repository.countryStatements(
+            target.id,
+            { add: opened, remove: [], source: "proposal", actorId: actor.id },
+            now,
+            fence,
+          ),
         ],
         receipt,
       );
@@ -656,6 +660,16 @@ export class TaxonomyService {
     ];
     if (added.length) await this.assertNameAvailable(added, scope, id);
     if (next.parentId !== undefined) await this.assertParent(id, next.parentId);
+    // A food with products stays a food; without, its countries go with it.
+    if (next.isRankable === false && current.isRankable) {
+      const on = (await this.repository.countriesOf(id)).map((c) => c.id);
+      if ((await this.repository.countriesInUse(id, on)).length)
+        throw new ApplicationError(
+          "FOOD_HAS_PRODUCTS",
+          "This food has products, so it stays a food.",
+          409,
+        );
+    }
     if (next.aliases) next.aliases = await this.countryIds(next.aliases);
     const plan = planCategoryUpdate(current, next);
     const guard = {
@@ -1133,7 +1147,17 @@ export class TaxonomyService {
       return result;
     }
     const current = await this.existing(original.target_id);
-    for (const [field, value] of Object.entries(after))
+    // An alias decision may also have opened the food in a country; that
+    // closes again unless products arrived there since.
+    const { countriesOpened = [], ...fields } = after as typeof after & {
+      countriesOpened?: string[];
+    };
+    const closing = countriesOpened.length
+      ? await this.repository
+          .countriesInUse(current.id, countriesOpened)
+          .then((inUse) => countriesOpened.filter((c) => !inUse.includes(c)))
+      : [];
+    for (const [field, value] of Object.entries(fields))
       if (
         JSON.stringify(
           field === "aliases"
@@ -1195,6 +1219,12 @@ export class TaxonomyService {
           current.id,
           current,
           before,
+          now,
+          fence,
+        ),
+        ...this.repository.countryStatements(
+          current.id,
+          { add: [], remove: closing, source: "operator", actorId: actor.id },
           now,
           fence,
         ),

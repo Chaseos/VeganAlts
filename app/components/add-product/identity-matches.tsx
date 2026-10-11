@@ -27,6 +27,10 @@ export function IdentityMatches({
       onExact(null);
       return;
     }
+    // A different brand or name is no longer that exact match; the other
+    // suggestions stay until the new lookup answers.
+    setMatches((found) => found.filter((c) => !c.exact));
+    onExact(null);
     let active = true;
     const timer = setTimeout(() => {
       const query = new URLSearchParams({

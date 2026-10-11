@@ -239,6 +239,67 @@ it("shows a newly opened country the shared aisles to start from", async () => {
   );
 });
 
+it("closes a country an alias opened when it is reversed, and drops a demoted food's countries", async () => {
+  await env.DB.batch(
+    taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
+  );
+  const { operator, contributor } = await people();
+  const service = taxonomyServices(testEnv, id);
+  const s = id().slice(0, 6);
+  const on = async (categoryId: string) =>
+    (
+      await env.DB.prepare(
+        "SELECT co.iso2 FROM category_countries cc JOIN countries co ON co.id=cc.country_id WHERE cc.category_id=? ORDER BY co.iso2",
+      )
+        .bind(categoryId)
+        .all<{ iso2: string }>()
+    ).results.map((r) => r.iso2);
+  const created = (await service.create(operator, id(), {
+    name: `Hot links ${s}`,
+    isRankable: true,
+    parentId: await shelf("pork"),
+    countries: ["US"],
+    note,
+  })) as { categoryId: string };
+  expect(await on(created.categoryId)).toEqual(["US"]);
+  // A British suggestion aliased to it opens it in the United Kingdom.
+  const proposal = await service.propose(contributor, id(), {
+    name: `Red sausages ${s}`,
+    shelfId: await shelf("pork"),
+    country: "GB",
+  });
+  const aliased = (await service.decideProposal(operator, id(), proposal.id, {
+    decision: "alias",
+    aliasOf: created.categoryId,
+    expectedRevision: (await service.proposalDetail(operator, proposal.id))
+      .revision,
+    note,
+  })) as { actionId: string };
+  expect(await on(created.categoryId)).toEqual(["GB", "US"]);
+  // Reversing the alias closes it there again.
+  await service.reverseUpdate(operator, id(), aliased.actionId, note);
+  expect(await on(created.categoryId)).toEqual(["US"]);
+
+  // Demoted to a group, a food without products leaves every country; made a
+  // food again, it starts in every active country.
+  const revision = async () =>
+    (await service.tree(operator)).categories.find(
+      (c) => c.id === created.categoryId,
+    )!.revision;
+  await service.update(operator, id(), created.categoryId, {
+    expectedRevision: await revision(),
+    isRankable: false,
+    note,
+  });
+  expect(await on(created.categoryId)).toEqual([]);
+  await service.update(operator, id(), created.categoryId, {
+    expectedRevision: await revision(),
+    isRankable: true,
+    note,
+  });
+  expect((await on(created.categoryId)).length).toBeGreaterThan(1);
+});
+
 it("skips a shelf level that only repeats its aisle or food", async () => {
   await env.DB.batch(
     taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),

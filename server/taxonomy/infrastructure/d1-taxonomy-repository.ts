@@ -287,6 +287,18 @@ export class D1TaxonomyRepository {
             ),
         ),
       );
+    // Aisles and shelves are never country-scoped. Rows a visible product
+    // still needs are refused before this; the guard keeps the trigger quiet.
+    if (patch.isRankable === false && current.isRankable)
+      statements.push(
+        this.db
+          .prepare(
+            `DELETE FROM category_countries WHERE category_id=? AND ${sql}
+            AND NOT EXISTS(SELECT 1 FROM product_categories pc JOIN products p ON p.id=pc.product_id
+              WHERE pc.category_id=category_countries.category_id AND p.country_id=category_countries.country_id AND p.lifecycle_status<>'hidden')`,
+          )
+          .bind(id, ...values),
+      );
     if (patch.isRankable && !current.isRankable)
       statements.push(
         ...this.defaultDimensionStatements(id, now, fence),
