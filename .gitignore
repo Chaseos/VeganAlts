@@ -22,6 +22,9 @@ build/
 coverage/
 playwright-report/
 test-results/
+# Screenshots and captures stay local (test-results/captures), never in git.
+docs/verification/**/*.jpg
+docs/verification/**/*.png
 .react-router/
 worker-configuration.d.ts
 *.tsbuildinfo

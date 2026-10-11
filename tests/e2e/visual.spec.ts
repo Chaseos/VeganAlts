@@ -6,8 +6,8 @@ import { withLocalDb } from "./local-db";
 
 // Screenshots for comparing pages with the Round 5 canvas boards by eye, and
 // for the owner's review of milestone 6 screens.
-// Run with CAPTURE=1 (and optionally CAPTURE_DIR); skipped otherwise. JPEG keeps
-// the committed evidence small.
+// Run with CAPTURE=1 (and optionally CAPTURE_DIR); skipped otherwise. Captures
+// stay local in the ignored test-results folder and are never committed.
 const PAGES = [
   ["home", "/"],
   ["aisle", "/us/meat"],
@@ -30,7 +30,7 @@ for (const [name, path] of PAGES)
   test(`capture ${name}`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "One capture per page.");
     const directory =
-      process.env.CAPTURE_DIR ?? join("docs", "verification", "milestone-6");
+      process.env.CAPTURE_DIR ?? join("test-results", "captures");
     mkdirSync(directory, { recursive: true });
     for (const [label, width, height] of WIDTHS)
       for (const scheme of ["light", "dark"] as const) {
@@ -55,8 +55,7 @@ test("capture workflows", async ({ page, context, request }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "One capture per page.");
   test.skip(Boolean(process.env.TEST_BASE_URL), "Sessions are local.");
   test.setTimeout(240000);
-  const directory =
-    process.env.CAPTURE_DIR ?? join("docs", "verification", "milestone-6");
+  const directory = process.env.CAPTURE_DIR ?? join("test-results", "captures");
   mkdirSync(directory, { recursive: true });
   const operator = await createBrowserSession({ administrator: true });
   try {
@@ -105,8 +104,7 @@ test("capture workflows", async ({ page, context, request }, testInfo) => {
 test("capture not-here", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "One capture per page.");
   test.skip(Boolean(process.env.TEST_BASE_URL), "Data setup is local.");
-  const directory =
-    process.env.CAPTURE_DIR ?? join("docs", "verification", "milestone-6");
+  const directory = process.env.CAPTURE_DIR ?? join("test-results", "captures");
   mkdirSync(directory, { recursive: true });
   const where =
     "category_id=(SELECT id FROM categories WHERE slug='bacon') AND country_id=(SELECT id FROM countries WHERE iso2='NZ')";
@@ -146,8 +144,7 @@ test("capture add-product", async ({ page, context }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "One capture per page.");
   test.skip(Boolean(process.env.TEST_BASE_URL), "Sessions are local.");
   test.setTimeout(240000);
-  const directory =
-    process.env.CAPTURE_DIR ?? join("docs", "verification", "milestone-6");
+  const directory = process.env.CAPTURE_DIR ?? join("test-results", "captures");
   mkdirSync(directory, { recursive: true });
   const contributor = await createBrowserSession();
   try {

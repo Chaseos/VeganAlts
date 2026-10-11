@@ -1,5 +1,4 @@
 import { env } from "cloudflare:workers";
-import { applyD1Migrations } from "cloudflare:test";
 import { expect, it } from "vitest";
 import { catalogFixture } from "./fixtures";
 import {
@@ -17,18 +16,13 @@ const countries = (db: D1Database, categoryId: string) =>
     .all<{ country: string; source: string }>()
     .then((r) => r.results);
 
-// A milestone 5 database (through 0018) upgraded through 0019–0020.
-it("backfills food availability, enforces its invariants and adds the unchecked flag", async () => {
-  const db = env.DB_UPGRADE;
-  await applyD1Migrations(
-    db,
-    env.TEST_MIGRATIONS.filter((m) => Number(m.name.slice(0, 4)) < 19),
-  );
+// Food availability rules the schema enforces on its own (milestone 6).
+it("switches foods on where their products are, guards availability and the unchecked flag", async () => {
+  const db = env.DB;
   const f = await catalogFixture(db, 2);
   const [food] = f.categories as [string, string];
   const shelf = `shelf-${id()}`,
     retired = `retired-${id()}`,
-    closed = `closed-${id()}`,
     hidden = `hidden-${id()}`;
   await db.batch([
     db
@@ -36,7 +30,7 @@ it("backfills food availability, enforces its invariants and adds the unchecked 
         "INSERT INTO categories(id,slug,name,is_rankable,created_at,updated_at) VALUES(?,?,?,0,1,1)",
       )
       .bind(shelf, shelf, "Shelf"),
-    // A retired food still listed for its visible product's country.
+    // A retired food still follows its visible product.
     db
       .prepare(
         "INSERT INTO categories(id,slug,name,is_rankable,is_active,created_at,updated_at) VALUES(?,?,?,1,0,1,1)",
@@ -47,16 +41,12 @@ it("backfills food availability, enforces its invariants and adds the unchecked 
         "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
       )
       .bind(f.productId, retired),
-    db
-      .prepare(
-        "INSERT INTO countries(id,iso2,name,is_active,created_at,updated_at) VALUES(?,?,?,0,1,1)",
-      )
-      .bind(closed, `ZZ-${closed}`, "Closed"),
+    // A hidden product switches nothing on.
     db
       .prepare(
         "INSERT INTO products(id,country_id,name,slug,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,'hidden',1,1)",
       )
-      .bind(hidden, closed, "Hidden", hidden),
+      .bind(hidden, f.otherCountryId, "Hidden", hidden),
     db
       .prepare(
         "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
@@ -68,24 +58,17 @@ it("backfills food availability, enforces its invariants and adds the unchecked 
       )
       .bind(
         f.versionId,
-        JSON.stringify({ urls: [], imageIds: [], note: "Legacy evidence." }),
+        JSON.stringify({ urls: [], imageIds: [], note: "Checked evidence." }),
       ),
   ]);
-
-  await applyD1Migrations(db, env.TEST_MIGRATIONS);
-
-  // Active foods are on in every active country; a closed country, a group or
-  // a hidden product adds nothing, and a retired food follows its product.
-  const active = (
-    await db
-      .prepare("SELECT id FROM countries WHERE is_active=1 ORDER BY id")
-      .all<{ id: string }>()
-  ).results.map((r) => r.id);
-  expect((await countries(db, food)).map((r) => r.country)).toEqual(active);
-  expect(await countries(db, shelf)).toEqual([]);
+  expect(await countries(db, food)).toEqual([
+    { country: f.countryId, source: "product" },
+  ]);
   expect(await countries(db, retired)).toEqual([
     { country: f.countryId, source: "product" },
   ]);
+  expect(await countries(db, shelf)).toEqual([]);
+  // Classifications are checked unless written otherwise.
   expect(
     await db
       .prepare(
@@ -105,18 +88,14 @@ it("backfills food availability, enforces its invariants and adds the unchecked 
       .run(),
   ).rejects.toThrow(/only foods/);
   // A food with a visible product stays on in that country.
-  const off = db
-    .prepare(
-      "DELETE FROM category_countries WHERE category_id=? AND country_id=?",
-    )
-    .bind(food, f.countryId);
-  await expect(off.run()).rejects.toThrow(/stays on/);
-  await db
-    .prepare(
-      "DELETE FROM category_countries WHERE category_id=? AND country_id=?",
-    )
-    .bind(food, f.otherCountryId)
-    .run();
+  await expect(
+    db
+      .prepare(
+        "DELETE FROM category_countries WHERE category_id=? AND country_id=?",
+      )
+      .bind(food, f.countryId)
+      .run(),
+  ).rejects.toThrow(/stays on/);
 
   // A membership in a new country switches the food on there, once.
   const elsewhere = `elsewhere-${id()}`;
@@ -149,6 +128,9 @@ it("backfills food availability, enforces its invariants and adds the unchecked 
     )
     .bind(food, f.otherCountryId)
     .run();
+  expect((await countries(db, food)).map((r) => r.country)).not.toContain(
+    f.otherCountryId,
+  );
   await db
     .prepare("UPDATE products SET lifecycle_status='active' WHERE id=?")
     .bind(elsewhere)
@@ -180,13 +162,6 @@ it("backfills food availability, enforces its invariants and adds the unchecked 
       .bind(f.versionId)
       .run(),
   ).rejects.toThrow(/CHECK/);
-  expect(
-    (
-      await db
-        .prepare("SELECT name FROM pragma_table_info('pending_submissions')")
-        .all<{ name: string }>()
-    ).results.map((r) => r.name),
-  ).toContain("category_proposal_id");
 });
 
 it("seeds launch foods in every launch country without undoing an operator's change", async () => {

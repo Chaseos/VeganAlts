@@ -30,6 +30,7 @@ Multi-country catalogs keep one shared category list with localized names and pe
 - **Staging only.** No production migrations, secrets, deployment or DNS changes.
 - **Ranking integrity.** Top remains the Bayesian overall-similarity order. Availability per country, the "Ingredients not checked yet" state and the contribution extras never change a Top score, eligibility rule or rating weight. They only add products to, or remove them from, rankings through the existing canonical records.
 - **Additive data.** Migrations are append-only and additive. No parent table (`products`, `product_versions`, `categories`) is rebuilt, because D1 cannot disable foreign keys and a rebuild would cascade into ratings.
+- **Version 1 baseline (owner, 2026-10-10).** Nothing has been released, so every migration, including this milestone's, is folded into one baseline, `db/migrations/0001_initial.sql`. Local and staging databases are recreated from it, and production starts from it at release. Append-only applies from version 1 on.
 - **Moderation automation stays advisory.** Deterministic checks run first. A provider failure routes to review, never approval. "Vegan" classification stays operator-only.
 - **Not in this milestone:**
   - barcode scanning;
@@ -61,7 +62,7 @@ Multi-country catalogs keep one shared category list with localized names and pe
   - more photos (back, nutrition);
   - variant details;
   - other foods it replaces.
-- **No canvas boards for milestone 6 screens.** They follow the milestone 5 design patterns. Phone and desktop screenshots in both themes are reviewed by the owner at each UI checkpoint before work continues.
+- **No canvas boards for milestone 6 screens.** They follow the milestone 5 design patterns. Phone and desktop screenshots in both themes are reviewed by the owner at each UI checkpoint before work continues; they are never committed.
 - **Adding ingredient evidence later is community-confirmed (tier 2),** the same way allergen declarations are, and any disagreement goes to an operator.
 - **Starter shelves.** Meat gains Turkey and Lamb. A new Fish and seafood aisle holds Fish and Shellfish. Dairy gains Cream, Yogurt and Ice cream. Cheese gains Hard and grated. Empty shelves stay hidden from browsing until they hold a food that is on in that country, but they are offered when suggesting a food.
 
@@ -143,7 +144,7 @@ On a product whose ingredients are not checked, a contributor can cite its accep
    - PRODUCT_MASTER, MODERATION, DATABASE_BASELINE, API, RANKING, ARCHITECTURE and DESIGN_DIRECTION gain milestone 6 sections.
    - AGENTS.md points here.
 2. **Data foundation.**
-   - Migrations `0019_country_foods` and `0020_quick_additions`.
+   - Migrations `0019_country_foods` and `0020_quick_additions`, later folded into the version 1 baseline.
    - Schema, the insert-only seed (launch availability and starter shelves) and migration tests.
 3. **Per-country catalog and browsing.**
    - Country-scoped reads, search, sitemap and alternates.
@@ -164,7 +165,8 @@ On a product whose ingredients are not checked, a contributor can cite its accep
     - Picked photos kept in IndexedDB for 24 hours.
     - `blob:` thumbnails, which needs `blob:` added to the image source policy.
 11. **Hardening and staging.**
-    - Full checks and browser tests, accessibility at 390 px and desktop in both themes, and captures.
+    - Full checks and browser tests, accessibility at 390 px and desktop in both themes, and local captures, which are never committed.
+    - Every migration folded into the version 1 baseline, with a reset command for remote databases.
     - The verification record, then staging after approval.
 
 ## Configurable defaults
@@ -187,7 +189,7 @@ On a product whose ingredients are not checked, a contributor can cite its accep
 - **Each checkpoint** passes `npm run check` and its focused integration and browser suites before its local commit.
 - **Final verification** covers:
   - `npm run check` and `npm run test:e2e` after a local reset;
-  - fresh and upgrade migrations;
+  - the version 1 baseline producing exactly the schema of the folded history, and an emptied database migrating back to it;
   - foreign-key checks;
   - proof that Top order and scores are unchanged on the seeded catalog;
   - a sweep proving "Ingredients not checked yet" never reads as "Appears vegan";
@@ -198,5 +200,5 @@ On a product whose ingredients are not checked, a contributor can cite its accep
   3. checks Canada's empty-country home;
   4. checks a food that is not on in the United States;
   5. adds rating, store and allergen extras.
-- **Staging,** after approval: capture a Time Travel bookmark, migrate, run the taxonomy seed, deploy, and repeat the running-app pass with two accounts.
-- **Records.** Evidence, versions, screenshots and limitations go in `docs/verification/milestone-6.md`.
+- **Staging,** after approval: record a Time Travel bookmark, reset the database to version 1, migrate, seed the demo catalog and images, deploy, and repeat the running-app pass with two accounts.
+- **Records.** Evidence, versions and limitations go in `docs/verification/milestone-6.md`. Screenshots are shared for review only; they are never committed or uploaded.

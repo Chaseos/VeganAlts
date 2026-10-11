@@ -63,6 +63,8 @@ Future-ready schema abstractions are allowed only when they materially avoid a k
 - Use D1/SQLite-compatible migrations.
 - Prefer explicit foreign keys, unique constraints, and indexes over application-only assumptions.
 - Migrations are append-only once applied to a shared environment. Never silently rewrite an applied migration.
+- Version 1 is `db/migrations/0001_initial.sql`: the pre-release history was folded into it on the owner's instruction (2026-10-10). Add new migrations after it; databases with the old history are reset (`npm run db:reset:<env>`), never upgraded.
+- Never commit screenshots or visual captures. `CAPTURE=1` writes them to the ignored `test-results/captures`.
 - Better Auth owns its auth tables; application migrations should not manually duplicate them unless the auth strategy is intentionally revised.
 - Formula/version history and revision/audit history are durable product requirements.
 

@@ -526,6 +526,8 @@ Recommended ordering at initial setup:
 2. VeganAlts application baseline.
 3. Seed countries/categories/initial brands/products.
 
+**Version 1 baseline (owner decision, 2026-10-10).** Before the first release, the pre-release migrations `0000`–`0020` were folded into one executable baseline, `db/migrations/0001_initial.sql`. It produces exactly the schema those migrations produced (tables, indexes, triggers, the FTS5 index), plus the rows they inserted: the `veganalts-system` actor and the shared allergen list. Every database is created from it; local, staging and production databases carrying the old history are emptied (`npm run db:reset:<env>`) and migrated again rather than upgraded. Migrations are append-only from version 1 on. The milestone sections below keep their original migration names as the record of when each part of the schema was decided; the backfills and upgrade preflights they describe applied only to the old history.
+
 ## 28. D1-specific notes
 
 D1 supports foreign keys and FTS5. Use D1 batch operations for groups of statements that need atomic behavior; do not assume interactive database transactions are available in the same way as traditional PostgreSQL clients.
@@ -556,7 +558,7 @@ Migration `0008_submission_followups.sql` adds a unique, nullable `pending_submi
 
 Migration `0009_proposal_baselines.sql` adds nullable `edit_proposals.baseline_data`: the catalog facts a proposal was drafted against (current formula, lifecycle, classification, affected photo slots, relationships or retailer status, depending on its kind). Acceptance compares those facts instead of the whole product revision, so unrelated activity never strands a proposal. Proposals created before this migration keep the strict revision comparison.
 
-Applied migration `0006_community_catalog.sql` remains immutable. The migration commands run `db/upgrades/legacy-reports.ts` first on pre-0006 databases: for each duplicate active reporter/target/reason group, keep the earliest report (ID breaks timestamp ties), combine its notes, preserve reviewing priority, and dismiss the others with a link to the active report. Original rows remain and each atomic group records all prior fields in an audit entry. The preflight is resumable and skips fresh databases or databases already protected by the unique index. See [deployment operations](operations/deployment.md) before upgrading a legacy environment. Migration `0006` also approximated name normalization in SQL (ASCII-only lowercasing, no NFKC or package-size removal). After Wrangler applies migrations, the commands run `db/upgrades/catalog-identity.ts`, which recomputes brand and retailer normalized names and each product's identity key with the application rules. It is idempotent and resumable; when two legacy names share a corrected key, the later one keeps its old key and is counted as a conflict for manual consolidation.
+Migration `0006` once needed a legacy-report preflight and a later identity-key normalization for databases created by earlier releases. Both were removed with the version 1 baseline, since no database carries that history; names and identity keys are always written by the application rules.
 
 ## Milestone 4 persistence decisions
 

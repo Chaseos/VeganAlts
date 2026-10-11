@@ -1,5 +1,4 @@
 import { env } from "cloudflare:workers";
-import { applyD1Migrations } from "cloudflare:test";
 import { expect, it } from "vitest";
 import { catalogFixture } from "./fixtures";
 import { TaxonomyService } from "../../server/taxonomy/application/taxonomy-service";
@@ -18,14 +17,10 @@ import {
 
 const id = () => crypto.randomUUID();
 
-// A milestone 4 database (migrations through 0015) with a completed category
-// merge, upgraded through 0016–0018, then seeded and reshaped as staging is.
-it("upgrades milestone 4 data, keeps its merge ledger reversible and reshapes the taxonomy", async () => {
-  const db = env.DB_UPGRADE;
-  await applyD1Migrations(
-    db,
-    env.TEST_MIGRATIONS.filter((m) => Number(m.name.slice(0, 4)) < 16),
-  );
+// Foods at the root with a completed category merge, then seeded and reshaped
+// into the launch taxonomy.
+it("keeps a merge reversible and reshapes root foods into the launch taxonomy", async () => {
+  const db = env.DB;
   const f = await catalogFixture(db, 3);
   await db
     .prepare("UPDATE countries SET iso2='US' WHERE id=?")
@@ -43,7 +38,7 @@ it("upgrades milestone 4 data, keeps its merge ledger reversible and reshapes th
     (typeof f.users)[0],
   ];
   await db.batch([
-    // The milestone 4 shape: foods at the root.
+    // Foods at the root, before the launch taxonomy exists.
     db
       .prepare("UPDATE categories SET slug=?,name=? WHERE id=?")
       .bind("ground-beef", "Ground Beef", survivor),
@@ -106,39 +101,6 @@ it("upgrades milestone 4 data, keeps its merge ledger reversible and reshapes th
       )
       .bind(mergeId, moved, f.productId, mergeId, f.productId, f.productId),
   ]);
-  const ledger = await db
-    .prepare(
-      "SELECT * FROM category_merge_moves WHERE merge_id=? ORDER BY 1,2,3",
-    )
-    .bind(mergeId)
-    .all();
-
-  await applyD1Migrations(db, env.TEST_MIGRATIONS);
-  expect(
-    (
-      await db
-        .prepare(
-          "SELECT * FROM category_merge_moves WHERE merge_id=? ORDER BY 1,2,3",
-        )
-        .bind(mergeId)
-        .all()
-    ).results,
-  ).toEqual(ledger.results);
-  // Familiarity starts from every counted rating (no answers yet).
-  expect(
-    await db
-      .prepare(
-        "SELECT recency,overall_similarity AS score,rating_count AS n FROM product_category_familiarity_stats WHERE product_version_id=? ORDER BY category_id,recency,score",
-      )
-      .bind(f.versionId)
-      .all(),
-  ).toMatchObject({
-    results: expect.arrayContaining([
-      { recency: "unanswered", score: 4, n: 1 },
-      { recency: "within_month", score: 5, n: 1 },
-      { recency: "unanswered", score: 3, n: 1 },
-    ]),
-  });
   expect((await db.prepare("PRAGMA foreign_key_check").all()).results).toEqual(
     [],
   );
@@ -160,13 +122,13 @@ it("upgrades milestone 4 data, keeps its merge ledger reversible and reshapes th
     id,
   );
   const operator = { ...a, administrator: true };
-  // The milestone 4 merge still reverses after the upgrade.
+  // The merge reverses.
   expect(
     await service.reverseMerge(
       operator,
       id(),
       mergeId,
-      "Reversed after the upgrade.",
+      "Checking the merge reverses.",
     ),
   ).toMatchObject({ state: "reversed" });
   expect(

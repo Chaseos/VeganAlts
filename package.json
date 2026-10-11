@@ -26,6 +26,8 @@
     "db:seed:local": "tsx scripts/seed.ts local",
     "db:seed:staging": "tsx scripts/seed.ts staging",
     "db:reset:local": "tsx scripts/reset-local.ts",
+    "db:reset:staging": "tsx scripts/reset-remote.ts staging",
+    "db:reset:production": "tsx scripts/reset-remote.ts production",
     "rankings:rebuild:local": "tsx scripts/rebuild-rankings.ts local",
     "rankings:rebuild:staging": "tsx scripts/rebuild-rankings.ts staging",
     "rankings:rebuild:production": "tsx scripts/rebuild-rankings.ts production",
