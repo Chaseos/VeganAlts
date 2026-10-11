@@ -8,7 +8,12 @@ import type { CommunityAction } from "../../lib/community";
 import { PHOTO_SLOTS, type PhotoSlot } from "../../lib/product-draft";
 
 export type SubmitOutcome =
-  | { kind: "published"; slug: string; ratingSaved: boolean }
+  | {
+      kind: "published";
+      slug: string;
+      // Saved, retried shortly, or never counting; unknown on a replay.
+      rating: "saved" | "pending" | "dropped" | null;
+    }
   | { kind: "held"; receiptId: string; reasons: string[] }
   | { kind: "duplicate"; candidates: Candidate[]; reasons: string[] };
 
@@ -58,7 +63,7 @@ export function useSubmission(action: CommunityAction) {
             return {
               kind: "published",
               slug: checked.slug,
-              ratingSaved: false,
+              rating: null,
             };
           if (checked.decision === "NEEDS_CHANGES" || !checked.receiptId) {
             reset();
@@ -92,14 +97,14 @@ export function useSubmission(action: CommunityAction) {
           slug?: string;
           reasons?: string[];
           receiptId?: string;
-          ratingSaved?: boolean;
+          rating?: "saved" | "pending" | "dropped";
         }>(`submissions/${receipt.current}/finalize`, input, key.current);
         if (saved.decision === "READY" && saved.slug) {
           reset();
           return {
             kind: "published",
             slug: saved.slug,
-            ratingSaved: saved.ratingSaved === true,
+            rating: saved.rating ?? null,
           };
         }
         if (saved.decision === "NEEDS_REVIEW") {

@@ -32,6 +32,7 @@ export interface ExtrasPorts {
  * written with the publication keeps them until done; the hourly sweep
  * retries anything a failure left.
  */
+export type RatingOutcome = "saved" | "pending" | "dropped";
 // Conflicts that a later attempt can get past.
 const RETRYABLE = new Set(["WRITE_CONFLICT", "STALE_PRODUCT"]);
 
@@ -41,17 +42,19 @@ export class PublicationExtras {
     private readonly ports: ExtrasPorts,
   ) {}
   /**
-   * The rating alone, before the contributor's response: whether it is saved
-   * now. The marker stays for `apply`, which skips a saved rating.
+   * The rating alone, before the contributor's response: saved now, pending
+   * (a later attempt retries it) or dropped (it can never count). The marker
+   * stays for `apply`, which skips a saved rating.
    */
-  async applyRating(receiptId: string) {
+  async applyRating(receiptId: string): Promise<RatingOutcome> {
     const marker = await this.receipts.extras(receiptId);
-    if (!marker?.rating || !marker.categoryId) return false;
-    if ((await this.ports.account(marker.userId)) !== "active") return false;
+    if (!marker?.rating || !marker.categoryId) return "dropped";
+    if ((await this.ports.account(marker.userId)) !== "active")
+      return "dropped";
     const saved = () =>
       this.ports.rated(marker.userId, marker.versionId, marker.categoryId!);
-    if (await saved()) return true;
-    await this.permanent(() =>
+    if (await saved()) return "saved";
+    const done = await this.permanent(() =>
       this.ports.rate(
         marker.userId,
         marker.versionId,
@@ -59,7 +62,8 @@ export class PublicationExtras {
         marker.rating!,
       ),
     );
-    return saved();
+    if (!done) return "dropped";
+    return (await saved()) ? "saved" : "pending";
   }
   async apply(receiptId: string) {
     const marker = await this.receipts.extras(receiptId);
@@ -121,9 +125,11 @@ export class PublicationExtras {
   // A refusal that will never change (not rateable, an allergen not on the
   // country's list) is dropped; a write conflict, a product that moved on, a
   // rate limit or a failure is retried later.
+  // True when the work is done, false when it was dropped for good.
   private async permanent(work: () => Promise<unknown>) {
     try {
       await work();
+      return true;
     } catch (error) {
       if (
         error instanceof ApplicationError &&
@@ -131,7 +137,7 @@ export class PublicationExtras {
         error.status !== 429 &&
         !RETRYABLE.has(error.code)
       )
-        return;
+        return false;
       throw error;
     }
   }

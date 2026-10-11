@@ -232,6 +232,8 @@ export class D1TaxonomyRepository {
     patch: CategoryPatch,
     now: number,
     fence: DecisionGuard,
+    // A reversed demotion restores the food's own countries (IDs).
+    restoreCountries?: string[],
   ) {
     const { sql, values } = fence;
     const statements = [
@@ -299,7 +301,22 @@ export class D1TaxonomyRepository {
           )
           .bind(id, ...values),
       );
-    if (patch.isRankable && !current.isRankable)
+    if (patch.isRankable && !current.isRankable && restoreCountries)
+      statements.push(
+        ...this.defaultDimensionStatements(id, now, fence),
+        ...this.countryStatements(
+          id,
+          {
+            add: restoreCountries,
+            remove: [],
+            source: "operator",
+            actorId: null,
+          },
+          now,
+          fence,
+        ),
+      );
+    else if (patch.isRankable && !current.isRankable)
       statements.push(
         ...this.defaultDimensionStatements(id, now, fence),
         // A group that becomes a food starts on in every active country.

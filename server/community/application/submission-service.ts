@@ -24,6 +24,7 @@ import type { ReceiptWrite } from "../infrastructure/receipts";
 import type { SubmissionContext } from "../infrastructure/lookup-repository";
 import type { ModerationDecisionService } from "../../moderation/application/decision-service";
 import { combineDecisions } from "../../moderation/domain/decisions";
+import type { RatingOutcome } from "./publication-extras";
 import { categoryKey } from "../../taxonomy/domain/taxonomy";
 
 /** The deterministic checks a suggested food passes (the taxonomy module). */
@@ -46,9 +47,9 @@ export class SubmissionService {
     private readonly clock = Date.now,
     private readonly foods: FoodChecks | null = null,
     // Applies the contributor's rating and declaration once published, and
-    // says whether the rating is saved yet.
+    // says what became of the rating.
     private readonly afterPublish:
-      ((receiptId: string) => Promise<{ ratingSaved: boolean }>) | null = null,
+      ((receiptId: string) => Promise<{ rating: RatingOutcome }>) | null = null,
   ) {}
   /**
    * Why a suggested food can't be added, as a contributor-facing reason, or
@@ -526,10 +527,10 @@ export class SubmissionService {
         console.error(JSON.stringify({ event: "publication_extras_failed" }));
         return null;
       });
-      // Only a submission with a rating says whether it's saved yet; a
-      // replayed publication leaves it out and the page says it follows.
+      // Only a submission with a rating says what became of it; a replayed
+      // publication leaves it out.
       return input.rating
-        ? { ...published, ratingSaved: extras?.ratingSaved ?? false }
+        ? { ...published, rating: extras?.rating ?? ("pending" as const) }
         : published;
     } catch (error) {
       await this.repository.release(receipt.id, token, this.clock());

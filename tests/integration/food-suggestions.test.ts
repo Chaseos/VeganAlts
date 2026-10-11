@@ -378,7 +378,7 @@ it("drops a rating that can never count and still proposes the declaration", asy
     0,
     note,
   );
-  expect(published).toMatchObject({ ratingSaved: false });
+  expect(published).toMatchObject({ rating: "dropped" });
   const productId = (published as { productId: string }).productId;
   // The declaration is proposed and the marker cleared, never retried.
   await settle(async () =>
@@ -491,7 +491,7 @@ it("applies the contributor's rating, store and allergen declaration once the pr
     checked.receiptId!,
     input,
   );
-  expect(published).toMatchObject({ decision: "READY", ratingSaved: true });
+  expect(published).toMatchObject({ decision: "READY", rating: "saved" });
   const productId = (published as { productId: string }).productId;
   // The rating counts like any other, once.
   expect(

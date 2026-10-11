@@ -16,7 +16,10 @@ import { StagedMediaService } from "../application/staged-media-service";
 import { ContributionService } from "../application/contribution-service";
 import { ModerationService } from "../application/moderation-service";
 import { waitUntil } from "cloudflare:workers";
-import { PublicationExtras } from "../application/publication-extras";
+import {
+  PublicationExtras,
+  type RatingOutcome,
+} from "../application/publication-extras";
 import { ratingsService } from "../../ratings/infrastructure/composition";
 import { D1RatingsRepository } from "../../ratings/infrastructure/d1-repository";
 import {
@@ -70,10 +73,12 @@ export function communityServices(
     // runs an automated check, so it finishes afterwards (the hourly sweep
     // retries anything left).
     async (receiptId) => {
-      const ratingSaved = await extras.applyRating(receiptId).catch(() => {
-        console.error(JSON.stringify({ event: "publication_rating_failed" }));
-        return false;
-      });
+      const rating = await extras
+        .applyRating(receiptId)
+        .catch((): RatingOutcome => {
+          console.error(JSON.stringify({ event: "publication_rating_failed" }));
+          return "pending";
+        });
       waitUntil(
         extras
           .apply(receiptId)
@@ -83,7 +88,7 @@ export function communityServices(
             ),
           ),
       );
-      return { ratingSaved };
+      return { rating };
     },
   );
   const contributionRepository = new ContributionRepository(env.DB, limits);

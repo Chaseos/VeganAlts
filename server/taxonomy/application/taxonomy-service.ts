@@ -660,10 +660,12 @@ export class TaxonomyService {
     ];
     if (added.length) await this.assertNameAvailable(added, scope, id);
     if (next.parentId !== undefined) await this.assertParent(id, next.parentId);
-    // A food with products stays a food; without, its countries go with it.
+    // A food with products stays a food; without, its countries go with it
+    // and are recorded so a reversal restores exactly those.
+    const removed: string[] = [];
     if (next.isRankable === false && current.isRankable) {
-      const on = (await this.repository.countriesOf(id)).map((c) => c.id);
-      if ((await this.repository.countriesInUse(id, on)).length)
+      removed.push(...(await this.repository.countriesOf(id)).map((c) => c.id));
+      if ((await this.repository.countriesInUse(id, removed)).length)
         throw new ApplicationError(
           "FOOD_HAS_PRODUCTS",
           "This food has products, so it stays a food.",
@@ -679,14 +681,10 @@ export class TaxonomyService {
     fenceNames(guard, added, id, scope);
     fenceParent(guard, id, next.parentId);
     const result = await this.repository.commit(
-      this.action(
-        actor,
-        "category_update",
-        id,
-        input.note,
-        plan.before,
-        plan.after,
-      ),
+      this.action(actor, "category_update", id, input.note, plan.before, {
+        ...plan.after,
+        ...(removed.length ? { countriesRemoved: removed } : {}),
+      }),
       guard,
       (fence) =>
         this.repository.categoryStatements(id, current, plan.after, now, fence),
@@ -1149,8 +1147,14 @@ export class TaxonomyService {
     const current = await this.existing(original.target_id);
     // An alias decision may also have opened the food in a country; that
     // closes again unless products arrived there since.
-    const { countriesOpened = [], ...fields } = after as typeof after & {
+    // A reversed demotion restores the countries the food had.
+    const {
+      countriesOpened = [],
+      countriesRemoved,
+      ...fields
+    } = after as typeof after & {
       countriesOpened?: string[];
+      countriesRemoved?: string[];
     };
     const closing = countriesOpened.length
       ? await this.repository
@@ -1221,6 +1225,7 @@ export class TaxonomyService {
           before,
           now,
           fence,
+          countriesRemoved,
         ),
         ...this.repository.countryStatements(
           current.id,

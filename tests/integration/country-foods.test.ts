@@ -286,12 +286,20 @@ it("closes a country an alias opened when it is reversed, and drops a demoted fo
     (await service.tree(operator)).categories.find(
       (c) => c.id === created.categoryId,
     )!.revision;
+  const demoted = (await service.update(operator, id(), created.categoryId, {
+    expectedRevision: await revision(),
+    isRankable: false,
+    note,
+  })) as { actionId: string };
+  expect(await on(created.categoryId)).toEqual([]);
+  // Reversing the demotion restores exactly the countries it had.
+  await service.reverseUpdate(operator, id(), demoted.actionId, note);
+  expect(await on(created.categoryId)).toEqual(["US"]);
   await service.update(operator, id(), created.categoryId, {
     expectedRevision: await revision(),
     isRankable: false,
     note,
   });
-  expect(await on(created.categoryId)).toEqual([]);
   await service.update(operator, id(), created.categoryId, {
     expectedRevision: await revision(),
     isRankable: true,
