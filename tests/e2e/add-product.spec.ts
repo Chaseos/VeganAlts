@@ -276,7 +276,20 @@ test("suggests a missing food inline and publishes the product once a moderator 
       .getByLabel("Front of pack photo (required)")
       .setInputFiles("tests/fixtures/small.jpg");
     await accessible(page);
+    // A name another food already uses is refused by the server, and the
+    // refusal is shown on the basics.
+    const otherNames = page.getByLabel(
+      "Other names (optional, separated by commas)",
+    );
+    await otherNames.fill("Beef mince");
     await page.getByRole("button", { name: "Continue" }).click();
+    await page
+      .getByRole("button", { name: "Submit product", exact: true })
+      .click();
+    await expect(page.getByRole("alert")).toContainText("already names a food");
+    // Other names typed last and sent with Enter still travel with it.
+    await otherNames.fill(`${food} links, ${stamp} sausage`);
+    await otherNames.press("Enter");
     await expect(page.getByRole("main")).toContainText(
       `${food} (new food, reviewed with your product)`,
     );
@@ -306,6 +319,9 @@ test("suggests a missing food inline and publishes the product once a moderator 
     await expect(
       page.getByText("1 product is waiting on this food"),
     ).toBeVisible();
+    await expect(page.getByRole("main")).toContainText(
+      `Other names: ${food} links, ${stamp} sausage`,
+    );
     await page
       .getByLabel("Reason and next steps")
       .fill("A distinct food with several alternatives in the UK.");

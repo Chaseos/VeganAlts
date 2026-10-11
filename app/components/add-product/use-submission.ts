@@ -8,7 +8,7 @@ import type { CommunityAction } from "../../lib/community";
 import { PHOTO_SLOTS, type PhotoSlot } from "../../lib/product-draft";
 
 export type SubmitOutcome =
-  | { kind: "published"; slug: string }
+  | { kind: "published"; slug: string; ratingSaved: boolean }
   | { kind: "held"; receiptId: string; reasons: string[] }
   | { kind: "duplicate"; candidates: Candidate[]; reasons: string[] };
 
@@ -54,7 +54,12 @@ export function useSubmission(action: CommunityAction) {
             SubmissionDecision & { receiptId: string | null; slug?: string }
           >("submissions/preflight", input, key.current);
           // A retried key may already have been published.
-          if (checked.slug) return { kind: "published", slug: checked.slug };
+          if (checked.slug)
+            return {
+              kind: "published",
+              slug: checked.slug,
+              ratingSaved: false,
+            };
           if (checked.decision === "NEEDS_CHANGES" || !checked.receiptId) {
             reset();
             return {
@@ -87,10 +92,15 @@ export function useSubmission(action: CommunityAction) {
           slug?: string;
           reasons?: string[];
           receiptId?: string;
+          ratingSaved?: boolean;
         }>(`submissions/${receipt.current}/finalize`, input, key.current);
         if (saved.decision === "READY" && saved.slug) {
           reset();
-          return { kind: "published", slug: saved.slug };
+          return {
+            kind: "published",
+            slug: saved.slug,
+            ratingSaved: saved.ratingSaved === true,
+          };
         }
         if (saved.decision === "NEEDS_REVIEW") {
           const held = receipt.current!;

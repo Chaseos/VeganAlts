@@ -32,14 +32,36 @@ export interface ExtrasPorts {
  * written with the publication keeps them until done; the hourly sweep
  * retries anything a failure left.
  */
+// Conflicts that a later attempt can get past.
+const RETRYABLE = new Set(["WRITE_CONFLICT", "STALE_PRODUCT"]);
+
 export class PublicationExtras {
   constructor(
     private readonly receipts: SubmissionRepository,
     private readonly ports: ExtrasPorts,
   ) {}
-  // `"rating"` applies only the rating, a quick write the contributor sees
-  // next, and keeps the marker for the declaration.
-  async apply(receiptId: string, part?: "rating") {
+  /**
+   * The rating alone, before the contributor's response: whether it is saved
+   * now. The marker stays for `apply`, which skips a saved rating.
+   */
+  async applyRating(receiptId: string) {
+    const marker = await this.receipts.extras(receiptId);
+    if (!marker?.rating || !marker.categoryId) return false;
+    if ((await this.ports.account(marker.userId)) !== "active") return false;
+    const saved = () =>
+      this.ports.rated(marker.userId, marker.versionId, marker.categoryId!);
+    if (await saved()) return true;
+    await this.permanent(() =>
+      this.ports.rate(
+        marker.userId,
+        marker.versionId,
+        marker.categoryId!,
+        marker.rating!,
+      ),
+    );
+    return saved();
+  }
+  async apply(receiptId: string) {
     const marker = await this.receipts.extras(receiptId);
     if (!marker) return false;
     // A contributor suspended since then adds nothing further.
@@ -61,7 +83,6 @@ export class PublicationExtras {
             marker.rating!,
           ),
         );
-      if (part === "rating") return true;
       if (marker.allergens)
         await this.permanent(async () =>
           this.ports.propose(
@@ -98,7 +119,8 @@ export class PublicationExtras {
     return applied;
   }
   // A refusal that will never change (not rateable, an allergen not on the
-  // country's list) is dropped; anything else is retried later.
+  // country's list) is dropped; a write conflict, a product that moved on, a
+  // rate limit or a failure is retried later.
   private async permanent(work: () => Promise<unknown>) {
     try {
       await work();
@@ -106,8 +128,8 @@ export class PublicationExtras {
       if (
         error instanceof ApplicationError &&
         error.status < 500 &&
-        error.status !== 409 &&
-        error.status !== 429
+        error.status !== 429 &&
+        !RETRYABLE.has(error.code)
       )
         return;
       throw error;

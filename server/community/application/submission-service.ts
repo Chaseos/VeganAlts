@@ -45,9 +45,10 @@ export class SubmissionService {
     private readonly newId: () => string,
     private readonly clock = Date.now,
     private readonly foods: FoodChecks | null = null,
-    // Applies the contributor's rating and declaration once published.
+    // Applies the contributor's rating and declaration once published, and
+    // says whether the rating is saved yet.
     private readonly afterPublish:
-      ((receiptId: string) => Promise<unknown>) | null = null,
+      ((receiptId: string) => Promise<{ ratingSaved: boolean }>) | null = null,
   ) {}
   /**
    * Why a suggested food can't be added, as a contributor-facing reason, or
@@ -521,10 +522,15 @@ export class SubmissionService {
         operation,
       );
       // Publication is committed; its extras are retried hourly if this fails.
-      await this.afterPublish?.(receipt.id).catch(() =>
-        console.error(JSON.stringify({ event: "publication_extras_failed" })),
-      );
-      return published;
+      const extras = await this.afterPublish?.(receipt.id).catch(() => {
+        console.error(JSON.stringify({ event: "publication_extras_failed" }));
+        return null;
+      });
+      // Only a submission with a rating says whether it's saved yet; a
+      // replayed publication leaves it out and the page says it follows.
+      return input.rating
+        ? { ...published, ratingSaved: extras?.ratingSaved ?? false }
+        : published;
     } catch (error) {
       await this.repository.release(receipt.id, token, this.clock());
       if (

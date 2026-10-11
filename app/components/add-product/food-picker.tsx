@@ -10,6 +10,12 @@ import {
 } from "../../lib/food-choices";
 import type { FoodPick } from "../../lib/product-draft";
 
+const parseNames = (text: string) =>
+  text
+    .split(",")
+    .map((n) => n.trim())
+    .filter(Boolean)
+    .slice(0, 10);
 // Typing narrows to the closest few; an empty field lets people browse.
 const SHOWN = { typed: 8, browsing: 40 };
 type Option =
@@ -66,10 +72,18 @@ export function FoodPicker({
       : []),
   ];
   useEffect(() => setActive(-1), [query]);
-  // Other names are committed on blur; a restored draft brings its own.
+  // Other names update the draft as they're typed; the text is kept as typed
+  // (commas and all) unless the draft's names change from outside, as when a
+  // draft is restored.
   const joined = value?.kind === "new" ? value.otherNames.join(", ") : "";
   const [otherNames, setOtherNames] = useState(joined);
-  useEffect(() => setOtherNames(joined), [joined]);
+  useEffect(
+    () =>
+      setOtherNames((text) =>
+        parseNames(text).join(", ") === joined ? text : joined,
+      ),
+    [joined],
+  );
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
@@ -157,17 +171,10 @@ export function FoodPicker({
           id={`${id}-other`}
           value={otherNames}
           maxLength={400}
-          onChange={(e) => setOtherNames(e.target.value)}
-          onBlur={(e) =>
-            onChange({
-              ...value,
-              otherNames: e.target.value
-                .split(",")
-                .map((n) => n.trim())
-                .filter(Boolean)
-                .slice(0, 10),
-            })
-          }
+          onChange={(e) => {
+            setOtherNames(e.target.value);
+            onChange({ ...value, otherNames: parseNames(e.target.value) });
+          }}
         />
         <p className="small muted">
           A moderator checks new foods for duplicates. Your product goes live

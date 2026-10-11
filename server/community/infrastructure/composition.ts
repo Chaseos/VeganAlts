@@ -70,7 +70,10 @@ export function communityServices(
     // runs an automated check, so it finishes afterwards (the hourly sweep
     // retries anything left).
     async (receiptId) => {
-      await extras.apply(receiptId, "rating");
+      const ratingSaved = await extras.applyRating(receiptId).catch(() => {
+        console.error(JSON.stringify({ event: "publication_rating_failed" }));
+        return false;
+      });
       waitUntil(
         extras
           .apply(receiptId)
@@ -80,6 +83,7 @@ export function communityServices(
             ),
           ),
       );
+      return { ratingSaved };
     },
   );
   const contributionRepository = new ContributionRepository(env.DB, limits);

@@ -265,15 +265,20 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     action.clearError();
     focusHeading();
   };
-  // Live corrections once a step was attempted: fixed fields drop out.
+  // Live corrections once a step was attempted: fixed fields drop out. A
+  // refusal from the server (a duplicate, a food name already taken) stays
+  // until the next attempt, since nothing here can recheck it.
   const errors = attempt
     ? Object.fromEntries(
-        Object.keys(shownErrors).map((field) => [
-          field,
-          (step === "basics" ? basics() : extrasErrors(draft))[
+        Object.keys(shownErrors).map((field) => {
+          const live = (step === "basics" ? basics() : extrasErrors(draft))[
             field as keyof DraftErrors
-          ],
-        ]),
+          ];
+          return [
+            field,
+            field === "duplicate" ? (live ?? shownErrors.duplicate) : live,
+          ];
+        }),
       )
     : {};
   // Step 2 with missing basics (after a reload, photos are gone) returns to 1.
@@ -313,7 +318,12 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     if (outcome.kind === "published") {
       forget();
       await navigate(productPath(market.code, outcome.slug), {
-        state: { added: true, rated: draft.rating },
+        // "Saved" only when the server confirms it; otherwise it follows.
+        state: {
+          added: true,
+          rated: outcome.ratingSaved ? draft.rating : null,
+          ratingPending: Boolean(draft.rating) && !outcome.ratingSaved,
+        },
       });
     } else if (outcome.kind === "held") {
       forget();

@@ -136,14 +136,21 @@ export default function Product({
   // shows after hydration and is cleared, so a reload doesn't repeat it.
   const location = useLocation(),
     navigate = useNavigate();
-  const [added, setAdded] = useState<{ rated: number | null } | null>(null);
+  const [added, setAdded] = useState<{
+    rated: number | null;
+    ratingPending: boolean;
+  } | null>(null);
   useEffect(() => {
     const state = location.state as {
       added?: boolean;
       rated?: number | null;
+      ratingPending?: boolean;
     } | null;
     if (!state?.added) return;
-    setAdded({ rated: state.rated ?? null });
+    setAdded({
+      rated: state.rated ?? null,
+      ratingPending: state.ratingPending === true,
+    });
     void navigate(`${location.pathname}${location.search}${location.hash}`, {
       replace: true,
       state: null,
@@ -246,6 +253,8 @@ export default function Product({
                     Your {added.rated}/5 rating is saved.{" "}
                     <a href="#scores-title">Add detail scores</a> if you like.
                   </>
+                ) : added.ratingPending ? (
+                  <>Your rating will be saved in a moment.</>
                 ) : (
                   food?.canRate && (
                     <>

@@ -336,6 +336,76 @@ it("hands a product to an operator when it can't publish after its food is accep
   expect(JSON.parse(handed.reasons).join(" ")).toMatch(/photos/);
 });
 
+it("drops a rating that can never count and still proposes the declaration", async () => {
+  const w = await world();
+  // A specialty flavor ranks for no food until an operator decides.
+  const input = submissionInput.parse({
+    name: `Maple Rashers ${tag()}`,
+    brand: `Smoky ${tag()}`,
+    country: "GB",
+    categoryIds: [w.bacon],
+    imageSlots: ["front", "ingredients"],
+    specialtyFlavor: true,
+    rating: 4,
+    allergens: { status: "declared", contains: ["soy"], mayContain: [] },
+  });
+  const checked = await w.community.submissions.preflight(
+    w.contributor,
+    id(),
+    input,
+  );
+  for (const [slot, file] of [
+    ["front", env.TEST_IMAGES.jpeg],
+    ["ingredients", env.TEST_IMAGES.png],
+  ] as const)
+    await w.community.media.upload(w.contributor, {
+      receiptId: checked.receiptId!,
+      slot,
+      idempotencyKey: id(),
+      bytes: Uint8Array.from(atob(file), (c) => c.charCodeAt(0)),
+    });
+  expect(
+    await w.community.submissions.finalize(
+      w.contributor,
+      checked.receiptId!,
+      input,
+    ),
+  ).toMatchObject({ decision: "NEEDS_REVIEW" });
+  const published = await w.community.submissions.approve(
+    w.operator,
+    checked.receiptId!,
+    input,
+    0,
+    note,
+  );
+  expect(published).toMatchObject({ ratingSaved: false });
+  const productId = (published as { productId: string }).productId;
+  // The declaration is proposed and the marker cleared, never retried.
+  await settle(async () =>
+    expect(
+      await env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM community_recovery WHERE prefix=?",
+      )
+        .bind(`submission-extras:${checked.receiptId}`)
+        .first("n"),
+    ).toBe(0),
+  );
+  expect(
+    await env.DB.prepare(
+      "SELECT change_type FROM edit_proposals WHERE target_id=?",
+    )
+      .bind(productId)
+      .first("change_type"),
+  ).toBe("allergens");
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=?",
+    )
+      .bind(productId)
+      .first("n"),
+  ).toBe(0);
+});
+
 it("leaves no suggested food behind when the product can't be held", async () => {
   const w = await world();
   const input = submissionInput.parse({
@@ -421,7 +491,7 @@ it("applies the contributor's rating, store and allergen declaration once the pr
     checked.receiptId!,
     input,
   );
-  expect(published).toMatchObject({ decision: "READY" });
+  expect(published).toMatchObject({ decision: "READY", ratingSaved: true });
   const productId = (published as { productId: string }).productId;
   // The rating counts like any other, once.
   expect(
