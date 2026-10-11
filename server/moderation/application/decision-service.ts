@@ -115,6 +115,15 @@ export class ModerationDecisionService {
   latest(type: SubjectType, id: string) {
     return this.repository.latest(type, id);
   }
+  /** The latest check's outcome and flags, for decisions made after it. */
+  async latestCheck(type: SubjectType, id: string) {
+    const row = await this.repository.latest(type, id);
+    if (!row) return null;
+    const stored = row.result_data
+      ? (JSON.parse(row.result_data) as Partial<StoredResult>)
+      : null;
+    return { outcome: row.outcome, flags: stored?.flags ?? [] };
+  }
   expireLeases() {
     return this.repository.expireLeases(this.clock());
   }

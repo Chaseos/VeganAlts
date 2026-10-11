@@ -13,6 +13,7 @@ import {
   administrator,
   active,
   identityKey,
+  onlyUnreadablePhoto,
   SYSTEM_ACTOR,
   SYSTEM_ACTOR_ID,
 } from "../domain/policy";
@@ -69,70 +70,104 @@ export class ModerationService {
     const food = await this.receipts.foodDecision(proposalId);
     const published: { productId: string }[] = [];
     if (!food || food.status === "pending") return published;
-    for (const waiting of await this.receipts.waitingOnFood(proposalId)) {
-      const input = submissionInput.parse(JSON.parse(waiting.proposed));
-      const now = this.clock();
-      if (food.status === "rejected" || !food.resolvedId) {
-        await this.queue.submissionDecision(
-          {
-            id: this.newId(),
-            actor: SYSTEM_ACTOR,
-            kind: "submission_follow_up",
-            targetId: waiting.id,
-            productId: null,
-            before: {},
-            after: { proposalId },
-            note: `The food “${food.name}” wasn’t added${food.note ? ` (${food.note})` : ""}. Choose an existing food and send it again.`,
-            now,
-          },
-          waiting.revision,
-          "follow_up",
-          await receiptWrite(
-            SYSTEM_ACTOR_ID,
-            "food-follow-up",
-            `food-${proposalId}-${waiting.id}`.slice(0, 100),
-            { proposalId, submissionId: waiting.id },
-            now,
-          ),
+    // Each waiting product continues on its own: one that fails is left for
+    // the hourly sweep and never stops the others.
+    for (const waiting of await this.receipts.waitingOnFood(proposalId))
+      try {
+        const result = await this.continueWaiting(proposalId, food, waiting);
+        if (result) published.push(result);
+      } catch {
+        console.error(
+          JSON.stringify({ event: "food_continuation_failed", proposalId }),
         );
-        continue;
       }
-      const { newFood: _decided, ...rest } = input;
-      const resolved = {
-        ...rest,
-        categoryIds: [
-          ...new Set([food.resolvedId, ...input.categoryIds]),
-        ].slice(0, 5),
-      };
-      const decision = await this.submissions.recheck(resolved);
-      const automated = await this.decisions.latest("submission", waiting.id);
-      const clear =
-        decision.decision === "READY" &&
-        (!automated || automated.outcome === "READY");
-      if (
-        !(await this.receipts.resolveFood(
-          waiting.id,
-          waiting.revision,
-          resolved,
-          decision.reasons,
-        ))
-      )
-        continue;
-      if (!clear) continue;
-      const result = await this.submissions.publishAfterFood(
-        waiting.id,
-        resolved,
-        waiting.revision + 1,
-      );
-      if (result) published.push({ productId: result.productId });
-    }
     return published;
+  }
+  private async continueWaiting(
+    proposalId: string,
+    food: {
+      name: string;
+      status: string;
+      resolvedId: string | null;
+      note: string | null;
+    },
+    waiting: { id: string; proposed: string; revision: number },
+  ) {
+    const input = submissionInput.parse(JSON.parse(waiting.proposed));
+    const now = this.clock();
+    if (food.status === "rejected" || !food.resolvedId) {
+      await this.queue.submissionDecision(
+        {
+          id: this.newId(),
+          actor: SYSTEM_ACTOR,
+          kind: "submission_follow_up",
+          targetId: waiting.id,
+          productId: null,
+          before: {},
+          after: { proposalId },
+          note: `The food “${food.name}” wasn’t added${food.note ? ` (${food.note})` : ""}. Choose an existing food and send it again.`,
+          now,
+        },
+        waiting.revision,
+        "follow_up",
+        await receiptWrite(
+          SYSTEM_ACTOR_ID,
+          "food-follow-up",
+          `food-${proposalId}-${waiting.id}`.slice(0, 100),
+          { proposalId, submissionId: waiting.id },
+          now,
+        ),
+      );
+      return null;
+    }
+    const { newFood: _decided, ...rest } = input;
+    const resolved = {
+      ...rest,
+      categoryIds: [...new Set([food.resolvedId, ...input.categoryIds])].slice(
+        0,
+        5,
+      ),
+    };
+    const decision = await this.submissions.recheck(resolved);
+    // As at finalization, a photo the automated check could not read lowers
+    // the classification instead of holding the product.
+    const automated = await this.decisions.latestCheck(
+      "submission",
+      waiting.id,
+    );
+    const unreadablePhoto = onlyUnreadablePhoto(automated);
+    const clear =
+      decision.decision === "READY" &&
+      (!automated || automated.outcome === "READY" || unreadablePhoto);
+    if (
+      !(await this.receipts.resolveFood(
+        waiting.id,
+        waiting.revision,
+        resolved,
+        decision.reasons,
+      ))
+    )
+      return null;
+    if (!clear) return null;
+    const result = await this.submissions.publishAfterFood(
+      waiting.id,
+      resolved,
+      waiting.revision + 1,
+      unreadablePhoto,
+    );
+    return result ? { productId: result.productId } : null;
   }
   /** The hourly pass over decided foods that still have products waiting. */
   async sweepFoodDecisions() {
     const published: { productId: string }[] = [];
     for (const proposalId of await this.receipts.decidedFoods())
-      published.push(...(await this.continueAfterFood(proposalId)));
+      try {
+        published.push(...(await this.continueAfterFood(proposalId)));
+      } catch {
+        console.error(
+          JSON.stringify({ event: "food_continuation_failed", proposalId }),
+        );
+      }
     return published;
   }
   async inbox(

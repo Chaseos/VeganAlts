@@ -14,19 +14,23 @@ export type SubmitOutcome =
 
 /**
  * Preflight, one upload per photo, then finalization. A retry resumes with
- * the same receipt and uploads; changing the details starts a fresh one,
- * because the server checks that finalization matches the preflight.
+ * the same receipt and uploads; changing the details or a photo starts a
+ * fresh one, because the server checks that finalization matches the
+ * preflight and an upload key always returns its first photo.
  */
 export function useSubmission(action: CommunityAction) {
   const key = useRef<string | null>(null),
     receipt = useRef<string | null>(null),
     payload = useRef<string | null>(null),
+    // The files the receipt was started with: a replaced photo starts afresh.
+    files = useRef<Partial<Record<PhotoSlot, File>>>({}),
     uploaded = useRef(new Set<PhotoSlot>());
   const [progress, setProgress] = useState("");
   const reset = () => {
     key.current = null;
     receipt.current = null;
     payload.current = null;
+    files.current = {};
     uploaded.current.clear();
   };
   const submit = (
@@ -36,8 +40,13 @@ export function useSubmission(action: CommunityAction) {
     action
       .run(async (): Promise<SubmitOutcome> => {
         const body = JSON.stringify(input);
-        if (payload.current !== body) reset();
+        if (
+          payload.current !== body ||
+          PHOTO_SLOTS.some((slot) => files.current[slot] !== photos[slot])
+        )
+          reset();
         payload.current = body;
+        files.current = { ...photos };
         key.current ??= crypto.randomUUID();
         if (!receipt.current) {
           setProgress("Checking your product…");

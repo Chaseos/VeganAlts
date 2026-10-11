@@ -592,11 +592,7 @@ export default function Contribute({
                   <select
                     id="vegan-status"
                     name="veganStatus"
-                    defaultValue={
-                      product.veganStatus === "under_review" && unchecked
-                        ? "appears_vegan"
-                        : product.veganStatus
-                    }
+                    defaultValue={product.veganStatus}
                   >
                     <option value="appears_vegan">Appears vegan</option>
                     <option value="vegan">

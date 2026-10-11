@@ -57,6 +57,15 @@ export class ModerationRepository {
   replay<T>(receipt: ReceiptWrite) {
     return replay<T>(this.db, receipt);
   }
+  /** A member's account state, or null when there is no profile. */
+  async accountState(userId: string) {
+    return (
+      (await this.db
+        .prepare("SELECT account_state FROM profiles WHERE user_id=?")
+        .bind(userId)
+        .first<string>("account_state")) ?? null
+    );
+  }
   async snapshot(productId: string): Promise<ProductSnapshot> {
     const rows = await this.db.batch<Record<string, unknown>>([
       this.db

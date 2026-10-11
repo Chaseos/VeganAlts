@@ -49,18 +49,27 @@ async function transaction(
 
 interface StoredPhoto {
   file: File;
+  // The draft the photo was picked for; another draft never receives it.
+  draftId: string;
   savedAt: number;
 }
 
-export function saveDraftPhoto(slot: PhotoSlot, file: File | undefined) {
+export function saveDraftPhoto(
+  draftId: string,
+  slot: PhotoSlot,
+  file: File | undefined,
+) {
   return transaction("readwrite", (store) => {
     if (file)
-      store.put({ file, savedAt: Date.now() } satisfies StoredPhoto, slot);
+      store.put(
+        { file, draftId, savedAt: Date.now() } satisfies StoredPhoto,
+        slot,
+      );
     else store.delete(slot);
   });
 }
 
-export async function loadDraftPhotos(now = Date.now()) {
+export async function loadDraftPhotos(draftId: string, now = Date.now()) {
   const photos: Partial<Record<PhotoSlot, File>> = {};
   const db = await open();
   if (!db) return photos;
@@ -72,7 +81,11 @@ export async function loadDraftPhotos(now = Date.now()) {
         const row = cursor.result;
         if (!row) return;
         const stored = row.value as StoredPhoto;
-        if (stored?.file instanceof Blob && now - stored.savedAt <= DRAFT_TTL)
+        if (
+          stored?.file instanceof Blob &&
+          stored.draftId === draftId &&
+          now - stored.savedAt <= DRAFT_TTL
+        )
           photos[row.key as PhotoSlot] = stored.file;
         row.continue();
       };

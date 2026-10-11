@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { communityServices } from "../../server/community/infrastructure/composition";
 import { taxonomyServices } from "../../server/taxonomy/infrastructure/composition";
 import { submissionInput } from "../../server/community/domain/contracts";
@@ -95,6 +95,9 @@ const pending = (submissionId: string) =>
       state: string;
       productId: string | null;
     }>();
+// A food decision continues its waiting products after the response.
+const settle = <T>(check: () => Promise<T>) =>
+  vi.waitFor(check, { timeout: 5000, interval: 20 });
 const decide = async (
   w: World,
   proposalId: string,
@@ -146,8 +149,11 @@ it("holds a product with its suggested food and publishes it once the food is ac
   const accepted = (await decide(w, held!.proposalId!, {
     decision: "accept",
   })) as { categoryId: string };
-  const after = await pending(checked.receiptId!);
-  expect(after?.state).toBe("published");
+  const after = await settle(async () => {
+    const row = await pending(checked.receiptId!);
+    expect(row?.state).toBe("published");
+    return row;
+  });
   // Published in the new food, which is on in the United Kingdom only.
   expect(
     (
@@ -168,13 +174,15 @@ it("holds a product with its suggested food and publishes it once the food is ac
     ).results.map((r) => r.iso2),
   ).toEqual(["GB"]);
   // The rating given with the product is saved once it publishes.
-  expect(
-    await env.DB.prepare(
-      "SELECT r.overall_similarity FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=? AND r.user_id=?",
-    )
-      .bind(after!.productId, w.contributor.id)
-      .first("overall_similarity"),
-  ).toBe(4);
+  await settle(async () =>
+    expect(
+      await env.DB.prepare(
+        "SELECT r.overall_similarity FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=? AND r.user_id=?",
+      )
+        .bind(after!.productId, w.contributor.id)
+        .first("overall_similarity"),
+    ).toBe(4),
+  );
 });
 
 it("continues with an existing food on an alias, and asks for another on a rejection", async () => {
@@ -182,8 +190,11 @@ it("continues with an existing food on an alias, and asks for another on a rejec
   const aliased = await submit(w, `Breakfast rashers ${tag()}`);
   const aliasId = (await pending(aliased.checked.receiptId!))!.proposalId!;
   await decide(w, aliasId, { decision: "alias", aliasOf: w.bacon });
-  const published = await pending(aliased.checked.receiptId!);
-  expect(published?.state).toBe("published");
+  const published = await settle(async () => {
+    const row = await pending(aliased.checked.receiptId!);
+    expect(row?.state).toBe("published");
+    return row;
+  });
   expect(
     await env.DB.prepare(
       "SELECT category_id FROM product_categories WHERE product_id=?",
@@ -195,9 +206,12 @@ it("continues with an existing food on an alias, and asks for another on a rejec
   const rejected = await submit(w, `Novelty ${tag()}`);
   const rejectId = (await pending(rejected.checked.receiptId!))!.proposalId!;
   await decide(w, rejectId, { decision: "reject" });
-  const asked = await pending(rejected.checked.receiptId!);
+  const asked = await settle(async () => {
+    const row = await pending(rejected.checked.receiptId!);
+    expect(row?.note).toMatch(/wasn’t added.*Choose an existing food/);
+    return row;
+  });
   expect(asked).toMatchObject({ state: "review" });
-  expect(asked?.note).toMatch(/wasn’t added.*Choose an existing food/);
   // Answering with the same rejected food is refused; an existing food is
   // held for an operator, as every follow-up is.
   const followUp = {
@@ -252,6 +266,37 @@ it("carries an undecided food through a follow-up and keeps the daily allowance"
       .bind(w.contributor.id)
       .first("n"),
   ).toBe(1);
+  // Answering again with an existing food instead withdraws the suggestion.
+  await w.community.moderation.decide(
+    w.operator,
+    id(),
+    "submission",
+    revision.checked.receiptId!,
+    {
+      decision: "follow_up",
+      expectedRevision: 0,
+      note: "Please add a clearer front photo.",
+      effect: "none",
+    },
+  );
+  const chosen = await submit(w, food, {
+    name: first.input.name,
+    brand: first.input.brand,
+    categoryIds: [w.bacon],
+    newFood: undefined,
+    followUp: {
+      submissionId: revision.checked.receiptId!,
+      expectedRevision: 1,
+    },
+  });
+  expect(chosen.result).toMatchObject({ decision: "NEEDS_REVIEW" });
+  expect(
+    await env.DB.prepare(
+      "SELECT status,resolution_note AS note FROM category_proposals WHERE id=?",
+    )
+      .bind(proposalId)
+      .first(),
+  ).toEqual({ status: "rejected", note: expect.stringMatching(/^Withdrawn/) });
   // Two more suggestions use up the day's three; a fourth is refused.
   await submit(w, `Kielbasa ${tag()}`);
   await submit(w, `Chorizo ${tag()}`);
@@ -260,6 +305,45 @@ it("carries an undecided food through a follow-up and keeps the daily allowance"
     decision: "NEEDS_CHANGES",
     reasons: [expect.stringMatching(/most foods allowed today/)],
   });
+});
+
+it("leaves no suggested food behind when the product can't be held", async () => {
+  const w = await world();
+  const input = submissionInput.parse({
+    name: `Brats ${tag()}`,
+    brand: `Grill ${tag()}`,
+    country: "GB",
+    categoryIds: [],
+    newFood: { name: `Weisswurst ${tag()}`, shelfId: w.shelf },
+    imageSlots: ["front"],
+  });
+  const checked = await w.community.submissions.preflight(
+    w.contributor,
+    id(),
+    input,
+  );
+  await w.community.media.upload(w.contributor, {
+    receiptId: checked.receiptId!,
+    slot: "front",
+    idempotencyKey: id(),
+    bytes: photo(),
+  });
+  // Suspended between preflight and finalization.
+  await env.DB.prepare(
+    "UPDATE profiles SET account_state='suspended' WHERE user_id=?",
+  )
+    .bind(w.contributor.id)
+    .run();
+  await expect(
+    w.community.submissions.finalize(w.contributor, checked.receiptId!, input),
+  ).rejects.toMatchObject({ code: "SUBMISSION_CHANGED" });
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM category_proposals WHERE submitted_by=?",
+    )
+      .bind(w.contributor.id)
+      .first("n"),
+  ).toBe(0);
 });
 
 it("applies the contributor's rating, store and allergen declaration once the product is live", async () => {
@@ -326,14 +410,26 @@ it("applies the contributor's rating, store and allergen declaration once the pr
       .bind(productId, store)
       .first(),
   ).toEqual({ status: "active", n: 1 });
-  // The declaration is an ordinary proposal citing the label photo (tier 2).
-  expect(
-    await env.DB.prepare(
-      "SELECT change_type AS kind,risk_tier AS tier,submitted_by AS user,json_extract(proposed_data,'$.citedImageId') IS NOT NULL AS cited FROM edit_proposals WHERE target_id=?",
-    )
-      .bind(productId)
-      .first(),
-  ).toEqual({ kind: "allergens", tier: 2, user: w.contributor.id, cited: 1 });
+  // The declaration is an ordinary proposal citing the label photo (tier 2),
+  // proposed after the response.
+  await settle(async () =>
+    expect(
+      await env.DB.prepare(
+        "SELECT change_type AS kind,risk_tier AS tier,submitted_by AS user,json_extract(proposed_data,'$.citedImageId') IS NOT NULL AS cited FROM edit_proposals WHERE target_id=?",
+      )
+        .bind(productId)
+        .first(),
+    ).toEqual({ kind: "allergens", tier: 2, user: w.contributor.id, cited: 1 }),
+  );
+  await settle(async () =>
+    expect(
+      await env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM community_recovery WHERE prefix=?",
+      )
+        .bind(`submission-extras:${checked.receiptId}`)
+        .first("n"),
+    ).toBe(0),
+  );
   // Nothing is applied twice.
   expect(await ranked.extras.apply(checked.receiptId!)).toBe(false);
   expect(await ranked.extras.sweep()).toBe(0);

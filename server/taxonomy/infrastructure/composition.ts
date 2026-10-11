@@ -1,3 +1,4 @@
+import { waitUntil } from "cloudflare:workers";
 import { v7 as uuid } from "uuid";
 import { ModerationRepository } from "../../community/infrastructure/moderation-repository";
 import { moderationDecisions } from "../../moderation/infrastructure/composition";
@@ -30,16 +31,25 @@ export function taxonomyServices(
           console.error(JSON.stringify({ event: "taxonomy_trending_failed" }));
         }
       },
-      // Products waiting on a decided food continue; each one published
-      // purges its pages like any other publication.
+      // Products waiting on a decided food continue after the operator's
+      // response (each publication can run automated checks); each one
+      // published purges its pages. The hourly sweep finishes the rest.
       foodDecided: async (proposalId) => {
-        const published = await communityServices(
-          env,
-          newId,
-          clock,
-        ).moderation.continueAfterFood(proposalId);
-        for (const { productId } of published)
-          await invalidateCommunityProduct(env.DB, productId);
+        waitUntil(
+          (async () => {
+            const published = await communityServices(
+              env,
+              newId,
+              clock,
+            ).moderation.continueAfterFood(proposalId);
+            for (const { productId } of published)
+              await invalidateCommunityProduct(env.DB, productId);
+          })().catch(() =>
+            console.error(
+              JSON.stringify({ event: "food_continuation_failed", proposalId }),
+            ),
+          ),
+        );
       },
       // Category changes purge category, home, search and product surfaces.
       invalidate: async (slugs) => {

@@ -37,7 +37,9 @@ export class PublicationExtras {
     private readonly receipts: SubmissionRepository,
     private readonly ports: ExtrasPorts,
   ) {}
-  async apply(receiptId: string) {
+  // `"rating"` applies only the rating, a quick write the contributor sees
+  // next, and keeps the marker for the declaration.
+  async apply(receiptId: string, part?: "rating") {
     const marker = await this.receipts.extras(receiptId);
     if (!marker) return false;
     // A contributor suspended since then adds nothing further.
@@ -59,6 +61,7 @@ export class PublicationExtras {
             marker.rating!,
           ),
         );
+      if (part === "rating") return true;
       if (marker.allergens)
         await this.permanent(async () =>
           this.ports.propose(

@@ -6,6 +6,8 @@ export default defineConfig({
   test: {
     projects: [
       {
+        // Client modules import pure server helpers through `@server/*`.
+        resolve: { tsconfigPaths: true },
         test: {
           name: "domain",
           include: ["tests/unit/**/*.test.ts", "tests/unit/**/*.test.tsx"],

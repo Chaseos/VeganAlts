@@ -15,8 +15,10 @@ import { SubmissionService } from "../application/submission-service";
 import { StagedMediaService } from "../application/staged-media-service";
 import { ContributionService } from "../application/contribution-service";
 import { ModerationService } from "../application/moderation-service";
+import { waitUntil } from "cloudflare:workers";
 import { PublicationExtras } from "../application/publication-extras";
 import { ratingsService } from "../../ratings/infrastructure/composition";
+import { D1RatingsRepository } from "../../ratings/infrastructure/d1-repository";
 import {
   moderationDecisions,
   type ModerationEnv,
@@ -64,7 +66,21 @@ export function communityServices(
     newId,
     clock,
     foods,
-    (receiptId) => extras.apply(receiptId),
+    // The rating is saved before the response; the allergen declaration
+    // runs an automated check, so it finishes afterwards (the hourly sweep
+    // retries anything left).
+    async (receiptId) => {
+      await extras.apply(receiptId, "rating");
+      waitUntil(
+        extras
+          .apply(receiptId)
+          .catch(() =>
+            console.error(
+              JSON.stringify({ event: "publication_extras_failed" }),
+            ),
+          ),
+      );
+    },
   );
   const contributionRepository = new ContributionRepository(env.DB, limits);
   const catalog = new CatalogDecisionRepository(repository),
@@ -97,20 +113,9 @@ export function communityServices(
   );
   // A product's rating and allergen declaration use their own write paths.
   const extras: PublicationExtras = new PublicationExtras(receipts, {
-    account: async (userId) =>
-      (await env.DB.prepare(
-        "SELECT account_state FROM profiles WHERE user_id=?",
-      )
-        .bind(userId)
-        .first<string>("account_state")) ?? null,
-    rated: async (userId, versionId, categoryId) =>
-      Boolean(
-        await env.DB.prepare(
-          "SELECT 1 FROM ratings WHERE user_id=? AND product_version_id=? AND category_id=?",
-        )
-          .bind(userId, versionId, categoryId)
-          .first(),
-      ),
+    account: (userId) => repository.accountState(userId),
+    rated: (userId, versionId, categoryId) =>
+      new D1RatingsRepository(env.DB).hasRated(userId, versionId, categoryId),
     rate: async (userId, versionId, categoryId, score) => {
       await ratingsService(env as Cloudflare.Env).rate(
         { id: userId, accountState: "active" },

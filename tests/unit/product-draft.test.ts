@@ -6,6 +6,7 @@ import {
   clearDraft,
   emptyDraft,
   extrasErrors,
+  forCountry,
   fromSubmission,
   loadDraft,
   saveDraft,
@@ -147,5 +148,34 @@ describe("product draft", () => {
     expect(loadDraft(broken)).toBeNull();
     expect(() => saveDraft(broken, basics())).not.toThrow();
     expect(() => clearDraft(broken)).not.toThrow();
+  });
+});
+
+describe("moving a draft to another country", () => {
+  it("keeps only the stores and allergens the new country offers", () => {
+    const draft = {
+      ...emptyDraft("US", { kind: "existing", id: "ground-beef" }, 1),
+      retailerIds: ["us-store", "both"],
+      allergens: {
+        status: "declared" as const,
+        contains: ["soy", "celery"],
+        mayContain: ["mustard"],
+      },
+    };
+    const moved = forCountry(draft, "gb", {
+      retailerIds: ["both", "gb-store"],
+      allergens: ["soy", "mustard"],
+    });
+    expect(moved).toMatchObject({
+      id: draft.id,
+      country: "GB",
+      food: draft.food,
+      retailerIds: ["both"],
+      allergens: {
+        status: "declared",
+        contains: ["soy"],
+        mayContain: ["mustard"],
+      },
+    });
   });
 });

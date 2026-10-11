@@ -161,6 +161,30 @@ export class SubmissionRepository {
       "EXISTS(SELECT 1 FROM submission_receipts WHERE id=? AND state='review' AND active_token=?)";
     const guard = [receipt.id, token];
     const day = Math.floor(now / 86_400_000) * 86_400_000;
+    // The receipt can be held: its contributor is active and, for a
+    // follow-up, the original request still awaits them. A suggested food is
+    // created under the same conditions, so it never outlives a failed hold.
+    const holdable = [
+      "EXISTS(SELECT 1 FROM profiles WHERE user_id=? AND account_state='active')",
+      ...(input.followUp
+        ? [
+            `EXISTS(SELECT 1 FROM submission_receipts s JOIN pending_submissions p ON p.submission_id=s.id
+            WHERE s.id=? AND s.user_id=? AND s.state='review' AND s.expires_at>? AND p.revision=?
+            AND p.resolved_at IS NULL AND p.resolution_note IS NOT NULL AND p.superseded_by IS NULL)`,
+          ]
+        : []),
+    ].join(" AND ");
+    const holdableValues = [
+      receipt.user_id,
+      ...(input.followUp
+        ? [
+            input.followUp.submissionId,
+            receipt.user_id,
+            now,
+            input.followUp.expectedRevision,
+          ]
+        : []),
+    ];
     const statements = [
       ...(food?.create && input.newFood
         ? [
@@ -171,7 +195,7 @@ export class SubmissionRepository {
                 WHERE (SELECT COUNT(*) FROM category_proposals WHERE submitted_by=? AND created_at>=?) < ?
                 AND EXISTS(SELECT 1 FROM countries WHERE iso2=? AND is_active=1)
                 AND EXISTS(SELECT 1 FROM submission_receipts WHERE id=? AND state='staging' AND expires_at>?)
-                AND NOT EXISTS(SELECT 1 FROM category_proposals WHERE id=?)`,
+                AND NOT EXISTS(SELECT 1 FROM category_proposals WHERE id=?) AND ${holdable}`,
               )
               .bind(
                 food.proposalId,
@@ -196,21 +220,15 @@ export class SubmissionRepository {
                 receipt.id,
                 now,
                 food.proposalId,
+                ...holdableValues,
               ),
           ]
         : []),
       this.db
         .prepare(
           `UPDATE submission_receipts SET state='review',active_token=?,updated_at=?,expires_at=? WHERE id=? AND state='staging' AND expires_at>?
-          AND EXISTS(SELECT 1 FROM profiles WHERE user_id=submission_receipts.user_id AND account_state='active')
-          ${food ? "AND EXISTS(SELECT 1 FROM category_proposals WHERE id=? AND status='pending')" : ""}
-          ${
-            input.followUp
-              ? `AND EXISTS(SELECT 1 FROM submission_receipts s JOIN pending_submissions p ON p.submission_id=s.id
-            WHERE s.id=? AND s.user_id=? AND s.state='review' AND s.expires_at>? AND p.revision=?
-            AND p.resolved_at IS NULL AND p.resolution_note IS NOT NULL AND p.superseded_by IS NULL)`
-              : ""
-          }`,
+          AND ${holdable}
+          ${food ? "AND EXISTS(SELECT 1 FROM category_proposals WHERE id=? AND status='pending')" : ""}`,
         )
         .bind(
           token,
@@ -218,15 +236,8 @@ export class SubmissionRepository {
           now + this.limits.reviewRetention,
           receipt.id,
           now,
+          ...holdableValues,
           ...(food ? [food.proposalId] : []),
-          ...(input.followUp
-            ? [
-                input.followUp.submissionId,
-                receipt.user_id,
-                now,
-                input.followUp.expectedRevision,
-              ]
-            : []),
         ),
       this.db
         .prepare(
@@ -268,6 +279,25 @@ export class SubmissionRepository {
             `UPDATE submission_receipts SET updated_at=? WHERE id=? AND ${fence}`,
           )
           .bind(now, input.followUp.submissionId, ...guard),
+        // A food the original suggested that this revision no longer carries
+        // is withdrawn, unless another live submission still waits on it.
+        this.db
+          .prepare(
+            `UPDATE category_proposals SET status='rejected',resolved_by=?,resolution_note=?,resolved_at=?,updated_at=?
+            WHERE id=(SELECT category_proposal_id FROM pending_submissions WHERE submission_id=?) AND status='pending' AND id IS NOT ?
+            AND ${fence}
+            AND NOT EXISTS(SELECT 1 FROM pending_submissions p JOIN submission_receipts s ON s.id=p.submission_id AND s.state='review'
+              WHERE p.category_proposal_id=category_proposals.id AND p.resolved_at IS NULL AND p.superseded_by IS NULL)`,
+          )
+          .bind(
+            receipt.user_id,
+            "Withdrawn: the contributor’s revised submission no longer suggests this food.",
+            now,
+            now,
+            input.followUp.submissionId,
+            food?.proposalId ?? null,
+            ...guard,
+          ),
       );
     statements.push(
       this.db
@@ -282,9 +312,17 @@ export class SubmissionRepository {
       !held.meta.changes &&
       (await this.get(receipt.id))?.state !== "review"
     ) {
-      // The suggestion was refused by its fence: the allowance was used up
-      // meanwhile, or the country closed.
-      if (food?.create)
+      // A suggestion refused because the allowance was used up meanwhile
+      // says so; any other refusal is a changed submission.
+      if (
+        food?.create &&
+        ((await this.db
+          .prepare(
+            "SELECT COUNT(*) AS n FROM category_proposals WHERE submitted_by=? AND created_at>=?",
+          )
+          .bind(receipt.user_id, day)
+          .first<number>("n")) ?? 0) >= food.perDay
+      )
         throw new ApplicationError(
           "PROPOSAL_LIMIT",
           "You’ve suggested the most foods allowed today. Try again tomorrow, or choose an existing food.",

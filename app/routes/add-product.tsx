@@ -33,6 +33,7 @@ import {
   clearDraft,
   emptyDraft,
   extrasErrors,
+  forCountry,
   fromSubmission,
   loadDraft,
   saveDraft,
@@ -190,7 +191,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
         (saved.food?.kind === "existing" && saved.food.id === preselect));
     if (saved && same) {
       setDraft(saved);
-      void loadDraftPhotos().then((stored) => {
+      void loadDraftPhotos(saved.id).then((stored) => {
         setPhotos((picked) => ({ ...stored, ...picked }));
         setPhotosReady(true);
       });
@@ -209,11 +210,16 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     preselect,
     suggested,
   ]);
-  // The country comes from the page (and its food list from the loader).
+  // The country comes from the page, and so do its stores and allergen list.
+  const offered = {
+    retailerIds: options.retailers.map((r) => r.id),
+    allergens: allergens.map((a) => a.key),
+  };
   useEffect(() => {
     setDraft((d) =>
-      d.country === market.iso2 ? d : { ...d, country: market.iso2 },
+      d.country === market.iso2 ? d : forCountry(d, market.iso2, offered),
     );
+    // The offered lists arrive with the country's loader data.
   }, [market.iso2]);
   useEffect(() => {
     if (hydrated.current && !held) saveDraft(storage(), draft);
@@ -225,7 +231,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
   );
   const setPhoto = (slot: PhotoSlot, file: File | undefined) => {
     setPhotos((p) => ({ ...p, [slot]: file }));
-    void saveDraftPhoto(slot, file);
+    void saveDraftPhoto(draft.id, slot, file);
   };
   const forget = () => {
     clearDraft(storage());
@@ -370,11 +376,11 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                 type="button"
                 className="button small-button"
                 onClick={() => {
-                  setDraft({ ...restored, country: market.iso2 });
+                  setDraft(forCountry(restored, market.iso2, offered));
                   setRestored(null);
-                  void loadDraftPhotos().then((stored) =>
-                    setPhotos((picked) => ({ ...stored, ...picked })),
-                  );
+                  // Only that draft's photos: any picked meanwhile belong
+                  // to the draft being set aside.
+                  void loadDraftPhotos(restored.id).then(setPhotos);
                 }}
               >
                 Continue it

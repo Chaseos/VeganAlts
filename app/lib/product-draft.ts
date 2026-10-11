@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasIngredientEvidence as hasEvidence } from "@server/community/domain/policy";
 import type {
   ManufacturerLabel,
   SubmissionInput,
@@ -37,6 +38,8 @@ const foodPick = z.discriminatedUnion("kind", [
 ]);
 const draftSchema = z.object({
   v: z.literal(1),
+  // Ties photos kept in IndexedDB to the draft they were picked for.
+  id: z.string().min(1),
   country: z.string().regex(/^[A-Z]{2}$/),
   food: foodPick.nullable(),
   brand: z.string(),
@@ -79,6 +82,7 @@ export function emptyDraft(
 ): ProductDraft {
   return {
     v: 1,
+    id: crypto.randomUUID(),
     country: country.toUpperCase(),
     food,
     brand: "",
@@ -157,10 +161,15 @@ export function extrasErrors(draft: ProductDraft): DraftErrors {
   return errors;
 }
 
+// The server's rule: an ingredients photo or a manufacturer source.
 export const hasIngredientEvidence = (
   draft: ProductDraft,
   photos: DraftPhotos,
-) => Boolean(photos.ingredients) || Boolean(draft.ingredients.url.trim());
+) =>
+  hasEvidence({
+    imageSlots: PHOTO_SLOTS.filter((slot) => photos[slot]),
+    ingredientUrl: draft.ingredients.url.trim() || undefined,
+  });
 
 /**
  * The submission the server checks. Optional answers left empty are left out,
@@ -217,6 +226,31 @@ export function toSubmission(
       : {}),
     specialtyFlavor: draft.variants.specialtyFlavor,
     ...(draft.followUp ? { followUp: draft.followUp } : {}),
+  };
+}
+
+/**
+ * The draft moved to another country. Stores and allergens are each
+ * country's own lists, so choices the new country doesn't offer are dropped
+ * rather than kept where no control can clear them.
+ */
+export function forCountry(
+  draft: ProductDraft,
+  country: string,
+  offered: { retailerIds: readonly string[]; allergens: readonly string[] },
+): ProductDraft {
+  const allergen = (key: string) => offered.allergens.includes(key);
+  return {
+    ...draft,
+    country: country.toUpperCase(),
+    retailerIds: draft.retailerIds.filter((id) =>
+      offered.retailerIds.includes(id),
+    ),
+    allergens: {
+      ...draft.allergens,
+      contains: draft.allergens.contains.filter(allergen),
+      mayContain: draft.allergens.mayContain.filter(allergen),
+    },
   };
 }
 

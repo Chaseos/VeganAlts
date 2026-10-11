@@ -12,6 +12,7 @@ import {
   administrator,
   decideSubmission,
   fingerprint,
+  onlyUnreadablePhoto,
   provisionalClassification,
   SYSTEM_ACTOR,
 } from "../domain/policy";
@@ -23,6 +24,7 @@ import type { ReceiptWrite } from "../infrastructure/receipts";
 import type { SubmissionContext } from "../infrastructure/lookup-repository";
 import type { ModerationDecisionService } from "../../moderation/application/decision-service";
 import { combineDecisions } from "../../moderation/domain/decisions";
+import { categoryKey } from "../../taxonomy/domain/taxonomy";
 
 /** The deterministic checks a suggested food passes (the taxonomy module). */
 export interface FoodChecks {
@@ -32,8 +34,6 @@ export interface FoodChecks {
     food: { name: string; shelfId: string; country: string; aliases: string[] },
   ): Promise<void>;
 }
-const normal = (value: string) =>
-  value.normalize("NFKC").trim().toLocaleLowerCase();
 
 export class SubmissionService {
   constructor(
@@ -62,7 +62,7 @@ export class SubmissionService {
       );
       if (
         earlier &&
-        normal(earlier.name) === normal(food.name) &&
+        categoryKey(earlier.name) === categoryKey(food.name) &&
         earlier.shelfId === food.shelfId
       ) {
         if (earlier.status === "pending")
@@ -337,10 +337,7 @@ export class SubmissionService {
     });
     // An ingredients photo the check could not read lowers the classification
     // to "Ingredients not checked yet" instead of holding the product.
-    const unreadablePhoto =
-      automated.outcome === "NEEDS_REVIEW" &&
-      automated.flags.length > 0 &&
-      automated.flags.every((flag) => flag === "ingredient_evidence");
+    const unreadablePhoto = onlyUnreadablePhoto(automated);
     const outcome = combineDecisions(
       decision.decision,
       unreadablePhoto ? "READY" : automated.outcome,
@@ -418,10 +415,18 @@ export class SubmissionService {
       );
     // An operator's chosen classification is reviewed; without one the
     // product publishes with what the contributor's evidence supports, which
-    // is "Ingredients not checked yet" when it supports nothing.
+    // is "Ingredients not checked yet" when it supports nothing (or only a
+    // photo the automated check could not read).
     const classification = veganStatus
       ? { veganStatus, ingredientsChecked: true, reviewedBy: actor.id }
-      : { ...provisionalClassification(input), reviewedBy: null };
+      : {
+          ...provisionalClassification(input, {
+            unreadablePhoto: onlyUnreadablePhoto(
+              await this.decisions.latestCheck("submission", receipt.id),
+            ),
+          }),
+          reviewedBy: null,
+        };
     await this.validateImages(receipt, input);
     return this.publish(
       actor,
@@ -449,6 +454,7 @@ export class SubmissionService {
     receiptId: string,
     input: SubmissionInput,
     revision: number,
+    unreadablePhoto: boolean,
   ) {
     const receipt = await this.repository.get(receiptId);
     if (!receipt || receipt.state !== "review") return null;
@@ -457,7 +463,10 @@ export class SubmissionService {
       SYSTEM_ACTOR,
       receipt,
       input,
-      { ...provisionalClassification(input), reviewedBy: null },
+      {
+        ...provisionalClassification(input, { unreadablePhoto }),
+        reviewedBy: null,
+      },
       revision,
       "Published after its suggested food was accepted.",
     );

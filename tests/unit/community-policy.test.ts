@@ -68,6 +68,26 @@ it("distinguishes deterministic publication, actionable duplicates and manual re
       },
     ]).decision,
   ).toBe("NEEDS_CHANGES");
+  // A label listing an animal-derived allergen contradicts the
+  // classification; a cross-contact statement does not.
+  expect(
+    decideSubmission(
+      {
+        ...input,
+        allergens: { status: "declared", contains: ["milk"], mayContain: [] },
+      },
+      [],
+    ).decision,
+  ).toBe("NEEDS_REVIEW");
+  expect(
+    decideSubmission(
+      {
+        ...input,
+        allergens: { status: "declared", contains: [], mayContain: ["milk"] },
+      },
+      [],
+    ).decision,
+  ).toBe("READY");
   // A suggested food waits for an operator.
   expect(
     decideSubmission(

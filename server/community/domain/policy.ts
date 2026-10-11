@@ -9,6 +9,7 @@ import type {
   SubmissionDecision,
   VeganStatus,
 } from "./contracts";
+import { needsClassificationReview } from "./allergens";
 
 export const DAY = 86_400_000;
 export const LEASE = 5 * 60_000;
@@ -122,6 +123,21 @@ export const hasIngredientEvidence = (input: ClassificationFacts) =>
  * automated check could not read counts as no evidence unless a manufacturer
  * source backs it.
  */
+/**
+ * An automated check whose only concern is an ingredients photo it could not
+ * read. That lowers the classification to "Ingredients not checked yet"
+ * instead of holding the product.
+ */
+export function onlyUnreadablePhoto(
+  check: { outcome: string | null; flags: readonly string[] } | null,
+) {
+  return Boolean(
+    check &&
+    check.outcome === "NEEDS_REVIEW" &&
+    check.flags.length > 0 &&
+    check.flags.every((flag) => flag === "ingredient_evidence"),
+  );
+}
 export function provisionalClassification(
   input: ClassificationFacts,
   { unreadablePhoto = false }: { unreadablePhoto?: boolean } = {},
@@ -158,6 +174,12 @@ export function decideSubmission(
     );
   if (input.relatedProductId || input.productFamilyId)
     reasons.push("The proposed product relationship needs review.");
+  // A label that lists milk, egg, fish, crustacean or mollusc contradicts an
+  // animal-free classification.
+  if (input.allergens && needsClassificationReview(input.allergens))
+    reasons.push(
+      "The label lists an animal-derived allergen, so the classification needs review.",
+    );
   // A suggested food is decided by an operator before the product publishes.
   if (input.newFood)
     reasons.push(

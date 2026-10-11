@@ -1,6 +1,6 @@
-const same = (a: string, b: string) =>
-  a.normalize("NFKC").trim().toLocaleLowerCase() ===
-  b.normalize("NFKC").trim().toLocaleLowerCase();
+import { categoryKey } from "./taxonomy";
+
+const same = (a: string, b: string) => categoryKey(a) === categoryKey(b);
 
 /**
  * A "silent" shelf only repeats its aisle or its one food (Eggs › Eggs › Eggs,

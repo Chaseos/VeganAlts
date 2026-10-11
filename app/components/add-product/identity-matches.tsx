@@ -40,8 +40,13 @@ export function IdentityMatches({
           setMatches(found);
           onExact(found.find((c) => c.exact) ?? null);
         })
-        // Matching is a convenience; publishing checks duplicates again.
-        .catch(() => active && setMatches([]));
+        // Matching is a convenience; publishing checks duplicates again, so
+        // a failed check forgets any earlier exact match too.
+        .catch(() => {
+          if (!active) return;
+          setMatches([]);
+          onExact(null);
+        });
     }, 600);
     return () => {
       active = false;

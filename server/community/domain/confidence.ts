@@ -48,7 +48,8 @@ export const established = (
 /**
  * Checking a formula whose ingredients no one has confirmed against its own
  * accepted ingredients or nutrition photo, as Appears vegan or Plant-based
- * (MODERATION, milestone 6). Vegan and Under Review stay operator decisions.
+ * (MODERATION, milestone 6), changing nothing else. Vegan and Under Review
+ * stay operator decisions.
  */
 export function checksIngredients(
   change: ProductChange,
@@ -59,7 +60,11 @@ export function checksIngredients(
     snapshot.classification?.ingredientsChecked === false &&
     (change.veganStatus === "appears_vegan" ||
       change.veganStatus === "plant_based") &&
-    citedEvidence(snapshot).some((i) => i.id === change.citedImageId)
+    citedEvidence(snapshot).some((i) => i.id === change.citedImageId) &&
+    // The manufacturer label and certifications stay operator decisions.
+    change.manufacturerLabel === snapshot.classification.manufacturerLabel &&
+    JSON.stringify(change.certifications) ===
+      JSON.stringify(snapshot.classification.certifications)
   );
 }
 
