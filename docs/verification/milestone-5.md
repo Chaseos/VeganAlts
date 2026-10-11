@@ -97,18 +97,7 @@ The comparison found and fixed:
 - the moderation filter chips' alignment and spacing;
 - a lone paging link on an empty My contributions page.
 
-A representative set is committed:
-
-| Page      | Captures                                                                                                                                                                                                                                                                             |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Home      | [desktop light](milestone-5/home-desktop-light.jpg), [desktop dark](milestone-5/home-desktop-dark.jpg), [phone light](milestone-5/home-phone-light.jpg)                                                                                                                              |
-| Aisle     | [desktop light](milestone-5/aisle-desktop-light.jpg), [phone dark](milestone-5/aisle-phone-dark.jpg)                                                                                                                                                                                 |
-| Category  | [desktop light](milestone-5/category-desktop-light.jpg), [desktop dark](milestone-5/category-desktop-dark.jpg), [phone light](milestone-5/category-phone-light.jpg)                                                                                                                  |
-| Product   | [desktop light](milestone-5/product-desktop-light.jpg), [phone dark](milestone-5/product-phone-dark.jpg)                                                                                                                                                                             |
-| Search    | [desktop light](milestone-5/search-desktop-light.jpg)                                                                                                                                                                                                                                |
-| Workflows | [add product (phone light)](milestone-5/add-product-phone-light.jpg), [contribute (desktop dark)](milestone-5/contribute-desktop-dark.jpg), [moderation (desktop light)](milestone-5/moderation-desktop-light.jpg), [my ratings (phone dark)](milestone-5/my-ratings-phone-dark.jpg) |
-
-Canvas data is illustrative; captures show the development catalog.
+Screenshots from this comparison were removed from the repository on 2026-10-10 at the owner's request; the text records what they showed.
 
 ## Interactive acceptance
 
