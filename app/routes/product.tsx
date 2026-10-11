@@ -256,16 +256,35 @@ export default function Product({
                 )}
               </Notice>
             )}
-            {p.veganStatus === "unchecked" && p.formula.isCurrent && (
-              <Notice title="Ingredients not checked yet">
-                Whoever added this product didn’t include its ingredients. Have
-                the package?{" "}
-                <Link to={`/contribute/${p.id}?action=photo&slot=ingredients`}>
-                  Add an ingredients photo
-                </Link>{" "}
-                and another member can confirm it.
-              </Notice>
-            )}
+            {p.veganStatus === "unchecked" &&
+              p.formula.isCurrent &&
+              // A label photo already on file only needs checking; without one,
+              // someone adds it first.
+              (p.images.some(
+                (i) => i.slot === "ingredients" || i.slot === "nutrition",
+              ) ? (
+                <Notice title="Ingredients not checked yet">
+                  No one has checked this product’s ingredients against its
+                  label photo yet.{" "}
+                  <Link
+                    to={`/contribute/${p.id}?action=change&kind=classification`}
+                  >
+                    Check the ingredients
+                  </Link>{" "}
+                  and another member can confirm it.
+                </Notice>
+              ) : (
+                <Notice title="Ingredients not checked yet">
+                  Whoever added this product didn’t include its ingredients.
+                  Have the package?{" "}
+                  <Link
+                    to={`/contribute/${p.id}?action=photo&slot=ingredients`}
+                  >
+                    Add an ingredients photo
+                  </Link>{" "}
+                  and another member can confirm it.
+                </Notice>
+              ))}
             {p.veganStatus === "under_review" && (
               <Notice tone="warn">
                 An operator is assessing an ingredient concern. This formula is

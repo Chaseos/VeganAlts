@@ -173,6 +173,32 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
     // The notice is navigation state, never part of the cached page.
     await page.reload();
     await expect(page.getByText("Your product is live")).toHaveCount(0);
+    // Without a label photo the notice asks for one; with one on file it
+    // asks for the ingredient check instead.
+    await expect(
+      page.getByRole("link", { name: "Add an ingredients photo" }),
+    ).toHaveAttribute("href", /action=photo&slot=ingredients/);
+    const photoId = `e2e-label-${testInfo.project.name}-${Date.now()}`;
+    await withLocalDb((db) =>
+      db
+        .prepare(
+          `INSERT INTO product_images(id,product_version_id,slot,full_r2_key,state,created_at,updated_at)
+          SELECT ?,v.id,'ingredients','e2e/label.webp','accepted',1,1 FROM product_versions v JOIN products p ON p.id=v.product_id
+          WHERE p.name=? AND v.is_current=1`,
+        )
+        .bind(photoId, name)
+        .run(),
+    );
+    try {
+      await page.reload();
+      await expect(
+        page.getByRole("link", { name: "Check the ingredients" }),
+      ).toHaveAttribute("href", /action=change&kind=classification/);
+    } finally {
+      await withLocalDb((db) =>
+        db.prepare("DELETE FROM product_images WHERE id=?").bind(photoId).run(),
+      );
+    }
   } finally {
     await page.close();
     await session.dispose();
