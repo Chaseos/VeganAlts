@@ -908,7 +908,12 @@ it("seeds the two-level launch tree, countries, allergen lists, display names an
   expect(parent.beef).toBe("food");
   expect(parent.eggs).toBe("eggs-aisle");
   expect(parent["eggs-aisle"]).toBe("food");
-  expect(parent.queso).toBe("cheese");
+  expect(parent.queso).toBe("dips-and-spreads");
+  expect(parent.tzatziki).toBe("dips-and-spreads");
+  expect(parent["milk-chocolate"]).toBe("chocolate");
+  expect(parent["gummy-candy"]).toBe("candy");
+  expect(parent["peanut-butter-cups"]).toBe("chocolate");
+  expect(parent["pies-and-cheesecake"]).toBe("bakery-and-desserts");
   expect(parent.cheese).toBe("food");
   expect(parent.mayonnaise).toBe("condiments");
   const countries = (
@@ -960,6 +965,15 @@ it("seeds the two-level launch tree, countries, allergen lists, display names an
   );
   expect(found).not.toContain("cheese");
   expect(found).toContain("cheddar");
+  // A food filed by how it is used is still found by what the original is
+  // made from.
+  const slugs = async (query: string) =>
+    (await catalogService(env).search(us, query)).categories.map((c) => c.slug);
+  expect(await slugs("yogurt dip")).toContain("tzatziki");
+  expect(await slugs("egg-free mayo")).toContain("mayonnaise");
+  expect(await slugs("gummy bears")).toContain("gummy-candy");
+  expect(await slugs("banana bread")).toContain("cake");
+  expect(await slugs("brownie mix")).toContain("baking-mixes");
   // Every launch country features the six foods.
   expect(
     await env.DB.prepare(

@@ -50,6 +50,12 @@ test("the desktop aisle menu opens from the keyboard, filters its foods and retu
   await page.mouse.click(2, 2);
   await expect(page.getByRole("region", { name: "Cheese aisle" })).toBeHidden();
 
+  // A mouse opens a menu by resting on its aisle and closes it by leaving.
+  await aisles.getByRole("button", { name: "Milk", exact: true }).hover();
+  await expect(page.getByRole("region", { name: "Milk aisle" })).toBeVisible();
+  await page.mouse.move(2, 2);
+  await expect(page.getByRole("region", { name: "Milk aisle" })).toBeHidden();
+
   await beef.click();
   await page
     .getByRole("region", { name: "Beef aisle" })
@@ -99,12 +105,12 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
   );
   await accessible(page);
 
-  // Home aisle cards show four foods, then "See all" (both layouts render).
+  // Home aisle cards show three foods, then "See all" (both layouts render).
   await page.goto("/");
   // (On phones the link sits in a closed accordion, so find it by class.)
   await expect(
     page
-      .locator(".va-browse__more", { hasText: "See all 9 cheese foods" })
+      .locator(".va-browse__more", { hasText: "See all 8 cheese foods" })
       .first(),
   ).toHaveAttribute("href", "/us/cheese");
   // A seasonal food says when it is sold.

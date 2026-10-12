@@ -10,7 +10,7 @@ It also:
 - lets search find brands, each with a page of that brand's products in the country;
 - reorders Add a product around the food, the brand and that brand's existing lines;
 - simplifies the taxonomy to two levels, universal aisles and the foods under them;
-- sets the United States launch foods, so the owner can fill the catalog with direct replacements for meat, fish, dairy, cheese, eggs and animal-based condiments.
+- sets the United States launch foods, so the owner can fill the catalog with direct replacements for meat, fish, dairy, cheese, eggs, and animal-based condiments, dips, sweets and baked goods.
 
 The plan and the implementation share one branch, `docs/milestone-seven-recipe-lines-plan`, and one pull request (#49), at the owner's request on 2026-10-12. The launch foods can ship first on their own (checkpoint 2), so Eggnog is in place for the season.
 
@@ -80,10 +80,38 @@ Most of what remains is sold as a few base recipes in several flavors:
 
 **Foods**
 
-- **Two levels: aisle › food.** Aisles such as Beef, Chicken, Milk, Cheese, Eggs and Condiments are universal. The foods under each aisle are specific and vary by country. Shelves are removed.
+- **Two levels: aisle › food.** Aisles such as Beef, Chicken, Milk, Cheese, Eggs and Condiments are universal.
+- **Each food has exactly one aisle, and an aisle names a kind of product, not an occasion.**
+  - The test is whether a food could reasonably sit in two aisles. Breakfast fails it, because bacon, sausage, eggs and yogurt already have aisles. Bakery and desserts passes.
+  - Search reaches a food from any of its names.
+  - Cross-cutting lists such as "Breakfast swaps" would be curated lists, like the home page's featured foods, never aisles.
+- **No minimum size for foods, and empty foods stay listed.** Neither a product-count bar nor hiding foods without products (owner, 2026-10-12). The foods under each aisle are specific and vary by country. Shelves are removed.
 - **Butter stays one food,** covering sticks and tubs.
 - **Each condiment is its own food:** Mayonnaise, Ranch Dressing, Caesar Dressing and Worcestershire Sauce.
-- **Cheese is one aisle.** All its foods sit directly under it, including Cream Cheese and a new **Queso**. Feta, Ricotta and Cottage Cheese join it when they have enough products.
+- **Cheese is one aisle.** All its foods sit directly under it, including Cream Cheese. Feta, Ricotta and Cottage Cheese join it when they have enough products.
+- **Aisles follow how a food is used, not what the original is made from.** Mayonnaise stays a condiment though the original is egg-based, and Tzatziki is a dip though it is made with yogurt. Every US grocery site checked shelves them this way. Search reaches a food from either side: "yogurt dip" finds Tzatziki and "egg-free mayo" finds Mayonnaise.
+- **A Dips and spreads aisle** holds Queso, Spinach Artichoke Dip, French Onion Dip and Tzatziki.
+  - Queso moves there from Cheese, because no store files it under cheese.
+  - Ranch Dressing stays in Condiments and covers "dressing and dip" bottles.
+  - The aisle stays savory. Sweet spreads belong with the sweets.
+- **Sweets get two aisles, Chocolate and Candy, split by what each sweet is.**
+  - Anything where chocolate comes first goes in Chocolate: Milk Chocolate, White Chocolate, Chocolate Chips, Peanut Butter Cups, Candy Bars, Candy-Coated Chocolates and Chocolate Hazelnut Spread.
+  - Milk Chocolate and White Chocolate stay separate foods.
+  - The rest of the candy goes in Candy: Gummy Candy, Marshmallows and Caramels.
+  - "Candy" is the US word. The UK ("sweets") and Australia ("lollies") get their own names when aisle names can differ by country (milestone 8). Until then the aisle shows only in the United States, where its foods are.
+  - Gummy Candy ranks vegan versions of gelatin gummies such as gummy bears. Candy that was always vegan, such as US Sour Patch Kids, is not a swap.
+  - Cookie butter is left out. Biscoff and Trader Joe's are already vegan, so there is no original to replace.
+- **One Bakery and desserts aisle,** because a store's bakery department holds cakes, cookies and bread together. A separate Bakery aisle would have only two foods clearly above the bar. It can split once it outgrows one aisle.
+  - Its foods are Cookies, Cake, Brownies, Muffins, Cinnamon Rolls, Pies and Cheesecake, Brioche and Rolls, and Pudding Cups.
+  - **Thin foods are broadened rather than held back.** A food can start with one brand when it is a distinct thing people look for. Pies and Cheesecake starts with Daiya's cheesecakes and gives the next pie or cheesecake a place to go.
+  - **Format doesn't split a food.** A frozen pie and a bakery pie are the same food, as Butter covers sticks and tubs. A brand's frozen pie and a store's bakery pie are separate lines anyway.
+  - Pudding Cups is a dessert, so it sits here rather than with the candy.
+  - **Baking Mixes is its own food,** apart from finished goods. A mix bakes at home, so it is compared with what a regular box mix bakes. It covers cake, brownie, cookie and muffin mixes until each has enough products of its own.
+    - Many regular box mixes contain no egg or milk; the baker adds those. For those mixes, the swap is Eggs for Baking.
+    - Pancake and waffle mixes wait with Frozen Waffles.
+  - Banana bread is an alias of Cake (a loaf cake) until it has products of its own.
+  - Breads that are usually vegan already, such as sandwich bread, bagels and sourdough, are not swaps.
+  - Products from a chain's own bakery count, with the store as the brand, and so do regional brands that chains carry. Independent local bakeries stay out, like restaurant menus.
 - **Yogurt and Greek Yogurt are separate foods,** just as Ground Beef and Beef Burgers are.
 - **Eggnog and Half-and-Half are their own foods.** Eggnog is needed before the holiday season.
 - **Seafood starts with Fish Fillets,** breaded included. The fish foods need more thought once more products exist.
@@ -111,7 +139,8 @@ Most of what remains is sold as a few base recipes in several flavors:
 **Ordering, browsing, trending and seasons**
 
 - **Popularity orders the aisles and foods in each country.** Most ratings come first. A country without ratings falls back to a default store order.
-- **Browse every food shows aisle cards.** Each card holds an aisle's four most popular foods and "See all" when there are more, so the grid lines up.
+- **Browse every food shows aisle cards.** Each card holds an aisle's three most popular foods and "See all" when there are more. A card is only as tall as its foods; a one-food aisle isn't padded out to match its row.
+- **Aisle menus open on hover.** On desktop a mouse opens an aisle's menu by resting on it. Touch and the keyboard still open it on press.
 - **A Trending tag marks rising swaps everywhere.** A line that is trending in its food carries a Trending tag in every other list and on its product page, the way New already does.
 - **Trending looks back a quarter.** People shop every week or two and may check the site every month or two, so what rose over the last 90 days is still news to them.
 - **Seasonal foods and products are tagged.** Eggnog and Turkey Roast are seasonal foods with their months, and any product can carry a Seasonal tag.
@@ -185,7 +214,7 @@ Most of what remains is sold as a few base recipes in several flavors:
   - adds `family_category_dimension_stats`, one row per family, food and dimension: people who answered and the sum of their means;
   - adds the indexes for line reads and brand pages (`products(brand_id, country_id)`).
 - **Migration `0004_line_discovery.sql`:**
-  - adds `family_category_daily_stats` (one row per line, food, day and person in the 14-day window) and `family_category_trends`;
+  - adds `family_category_daily_stats` (one row per line, food, day and person over the last 180 days: the 90-day window and the baseline before it) and `family_category_trends`;
   - drops `product_category_daily_stats` and `product_category_trends`, once Trending reads lines.
 
 ### Line scores
@@ -372,7 +401,7 @@ Most of what remains is sold as a few base recipes in several flavors:
 
 The taxonomy becomes two levels below the root: **aisle › food**. It replaces the milestone 5 shape of aisle › shelf › food and removes shelves.
 
-- **The aisles are universal.** There are 14 of them, the same in every country.
+- **The aisles are universal.** There are 18 of them, the same in every country.
 - **Foods sit directly under an aisle.** They can be as specific as each country needs.
 - **Aisles stay non-rankable groups, and foods are the rankable leaves.**
 - **An aisle holding one food of its own name is silent in breadcrumbs,** so "All foods / Eggs" never reads "All foods / Eggs / Eggs".
@@ -380,73 +409,99 @@ The taxonomy becomes two levels below the root: **aisle › food**. It replaces 
 - **Order.** See [Aisle order, browsing and seasons](#aisle-order-browsing-and-seasons).
 - **Desktop aisle bar.** On desktop, the aisle bar wraps onto a second row; phones scroll it sideways.
 
-| Aisle            | Slug               | US foods at launch                                                                                            |
-| ---------------- | ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| Beef             | `beef`             | Ground Beef, Beef Burgers, Meatballs, Hot Dogs                                                                |
-| Chicken          | `chicken`          | Chicken Nuggets, Grilled Chicken Strips, Chicken Patties, Chicken Tenders, Boneless Wings                     |
-| Pork             | `pork`             | Bacon, Breakfast Sausage, Chorizo, Italian Sausage                                                            |
-| Turkey           | `turkey-aisle`     | Turkey Roast, Turkey Deli Slices                                                                              |
-| Lamb             | `lamb-aisle`       | none yet (hidden until a food has a product)                                                                  |
-| Fish and seafood | `fish-and-seafood` | Fish Fillets                                                                                                  |
-| Milk             | `milk-aisle`       | Milk, Chocolate Milk, Eggnog                                                                                  |
-| Cream            | `cream-aisle`      | Coffee Creamer, Half-and-Half, Sour Cream, Whipped Cream                                                      |
-| Butter           | `butter-aisle`     | Butter                                                                                                        |
-| Yogurt           | `yogurt-aisle`     | Yogurt, Greek Yogurt                                                                                          |
-| Ice cream        | `ice-cream-aisle`  | Ice Cream                                                                                                     |
-| Cheese           | `cheese`           | Cheddar, Mozzarella, Smoked Gouda, Pepper Jack, American Cheese, Mexican Blend, Parmesan, Cream Cheese, Queso |
-| Eggs             | `eggs-aisle`       | Eggs, Eggs for Baking                                                                                         |
-| Condiments       | `condiments`       | Mayonnaise, Ranch Dressing, Caesar Dressing, Worcestershire Sauce                                             |
+| Aisle               | Slug                  | US foods at launch                                                                                                                   |
+| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Beef                | `beef`                | Ground Beef, Beef Burgers, Meatballs, Hot Dogs                                                                                       |
+| Chicken             | `chicken`             | Chicken Nuggets, Grilled Chicken Strips, Chicken Patties, Chicken Tenders, Boneless Wings                                            |
+| Pork                | `pork`                | Bacon, Breakfast Sausage, Chorizo, Italian Sausage                                                                                   |
+| Turkey              | `turkey-aisle`        | Turkey Roast, Turkey Deli Slices                                                                                                     |
+| Lamb                | `lamb-aisle`          | none yet (hidden until a food has a product)                                                                                         |
+| Fish and seafood    | `fish-and-seafood`    | Fish Fillets                                                                                                                         |
+| Milk                | `milk-aisle`          | Milk, Chocolate Milk, Eggnog                                                                                                         |
+| Cream               | `cream-aisle`         | Coffee Creamer, Half-and-Half, Sour Cream, Whipped Cream                                                                             |
+| Butter              | `butter-aisle`        | Butter                                                                                                                               |
+| Yogurt              | `yogurt-aisle`        | Yogurt, Greek Yogurt                                                                                                                 |
+| Ice cream           | `ice-cream-aisle`     | Ice Cream                                                                                                                            |
+| Cheese              | `cheese`              | Cheddar, Mozzarella, Smoked Gouda, Pepper Jack, American Cheese, Mexican Blend, Parmesan, Cream Cheese                               |
+| Eggs                | `eggs-aisle`          | Eggs, Eggs for Baking                                                                                                                |
+| Condiments          | `condiments`          | Mayonnaise, Ranch Dressing, Caesar Dressing, Worcestershire Sauce                                                                    |
+| Dips and spreads    | `dips-and-spreads`    | Queso, Spinach Artichoke Dip, French Onion Dip, Tzatziki                                                                             |
+| Chocolate           | `chocolate`           | Milk Chocolate, White Chocolate, Chocolate Chips, Peanut Butter Cups, Candy Bars, Candy-Coated Chocolates, Chocolate Hazelnut Spread |
+| Candy               | `candy`               | Gummy Candy, Marshmallows, Caramels                                                                                                  |
+| Bakery and desserts | `bakery-and-desserts` | Cookies, Cake, Brownies, Muffins, Cinnamon Rolls, Pies and Cheesecake, Brioche and Rolls, Pudding Cups, Baking Mixes                 |
 
-### The 42 foods
+### The 64 foods
 
-The seed starts the United States with 42 foods: the 10 existing launch foods, which stay on in all six launch countries, and 32 new foods, switched on in the United States only. This is a starting set, not a fixed list. Foods are added through suggestions, and each country grows its own.
+The seed starts the United States with 64 foods: the 10 existing launch foods, which stay on in all six launch countries, and 54 new foods, switched on in the United States only. This is a starting set, not a fixed list. Foods are added through suggestions, and each country grows its own.
 
 Counts are distinct US recipes in mainstream chains as of October 2026, excluding sizes. They are estimates, and store brands are the least confirmed.
 
-| Aisle            | Food                   | Status                         | ~US recipes       | Other names                                    |
-| ---------------- | ---------------------- | ------------------------------ | ----------------- | ---------------------------------------------- |
-| Beef             | Ground Beef            | existing; gains crumbles       | ~10               | + beef crumbles                                |
-| Beef             | Beef Burgers           | existing                       | largest format    | —                                              |
-| Beef             | Meatballs              | new                            | ~6                | meatless meatballs                             |
-| Beef             | Hot Dogs               | new                            | ~6                | franks, frankfurters, wieners, veggie dogs     |
-| Chicken          | Chicken Nuggets        | existing                       | 8–10              | —                                              |
-| Chicken          | Grilled Chicken Strips | new                            | 9–10              | chicken strips, chicken pieces, chick'n strips |
-| Chicken          | Chicken Patties        | new                            | 5–7               | chicken fillets, chicken sandwich patties      |
-| Chicken          | Chicken Tenders        | new                            | ~5                | chicken fingers, tenders                       |
-| Chicken          | Boneless Wings         | new                            | ~7                | buffalo wings, chicken wings, wings            |
-| Pork             | Bacon                  | existing; thin                 | ~3–4              | —                                              |
-| Pork             | Breakfast Sausage      | new                            | 10+               | sausage links, sausage patties                 |
-| Pork             | Chorizo                | new                            | ~6                | soyrizo, Mexican chorizo                       |
-| Pork             | Italian Sausage        | new                            | ~5                | sweet Italian sausage, mild Italian sausage    |
-| Turkey           | Turkey Roast           | new (seasonal Oct–Dec)         | 5–6               | holiday roast, Thanksgiving roast              |
-| Turkey           | Turkey Deli Slices     | new                            | 4–5               | turkey slices, deli turkey                     |
-| Fish and seafood | Fish Fillets           | new; breaded, plain and sticks | 3 at chains + 2–3 | fish sticks, fish fingers, breaded fish        |
-| Milk             | Milk                   | existing                       | ~40               | + barista milk                                 |
-| Milk             | Chocolate Milk         | new                            | ~10               | —                                              |
-| Milk             | Eggnog                 | new (seasonal Nov–Jan)         | 9–10              | nog, holiday nog                               |
-| Cream            | Coffee Creamer         | new                            | 20+               | creamer, non-dairy creamer                     |
-| Cream            | Half-and-Half          | new                            | 8–10              | half and half                                  |
-| Cream            | Sour Cream             | new                            | ~10               | —                                              |
-| Cream            | Whipped Cream          | new                            | 5–8               | whipped topping                                |
-| Butter           | Butter                 | existing; sticks and tubs      | 20+               | —                                              |
-| Yogurt           | Yogurt                 | new                            | 10+               | yoghurt, dairy-free yogurt                     |
-| Yogurt           | Greek Yogurt           | new; thin                      | ~3                | Greek-style yogurt, Greek yoghurt              |
-| Ice cream        | Ice Cream              | new                            | 10+ lines         | frozen dessert, non-dairy ice cream            |
-| Cheese           | Cheddar                | existing                       | ~20               | —                                              |
-| Cheese           | Mozzarella             | existing                       | ~12               | —                                              |
-| Cheese           | Smoked Gouda           | new                            | 6–7               | gouda                                          |
-| Cheese           | Pepper Jack            | new                            | 5–7               | pepperjack                                     |
-| Cheese           | American Cheese        | new                            | ~5                | American slices, American singles              |
-| Cheese           | Mexican Blend          | new                            | ~5                | Mexican cheese, taco cheese, Mexican shreds    |
-| Cheese           | Parmesan               | new                            | 9–11              | parm, parmigiano, grated parmesan              |
-| Cheese           | Cream Cheese           | existing                       | 9–10              | —                                              |
-| Cheese           | Queso                  | new                            | ~5                | nacho cheese dip, cheese dip, cheese sauce     |
-| Eggs             | Eggs                   | existing; cooked eggs          | 5–6               | scrambled eggs (replaces egg replacer)         |
-| Eggs             | Eggs for Baking        | new                            | 3–5               | egg replacer, egg substitute                   |
-| Condiments       | Mayonnaise             | new                            | 10–12             | mayo, aioli                                    |
-| Condiments       | Ranch Dressing         | new                            | ~9                | ranch                                          |
-| Condiments       | Caesar Dressing        | new                            | ~7                | caesar                                         |
-| Condiments       | Worcestershire Sauce   | new                            | 4–5               | worcestershire, worcester sauce                |
+| Aisle               | Food                      | Status                                      | ~US recipes       | Other names                                                               |
+| ------------------- | ------------------------- | ------------------------------------------- | ----------------- | ------------------------------------------------------------------------- |
+| Beef                | Ground Beef               | existing; gains crumbles                    | ~10               | + beef crumbles                                                           |
+| Beef                | Beef Burgers              | existing                                    | largest format    | —                                                                         |
+| Beef                | Meatballs                 | new                                         | ~6                | meatless meatballs                                                        |
+| Beef                | Hot Dogs                  | new                                         | ~6                | franks, frankfurters, wieners, veggie dogs                                |
+| Chicken             | Chicken Nuggets           | existing                                    | 8–10              | —                                                                         |
+| Chicken             | Grilled Chicken Strips    | new                                         | 9–10              | chicken strips, chicken pieces, chick'n strips                            |
+| Chicken             | Chicken Patties           | new                                         | 5–7               | chicken fillets, chicken sandwich patties                                 |
+| Chicken             | Chicken Tenders           | new                                         | ~5                | chicken fingers, tenders                                                  |
+| Chicken             | Boneless Wings            | new                                         | ~7                | buffalo wings, chicken wings, wings                                       |
+| Pork                | Bacon                     | existing; thin                              | ~3–4              | —                                                                         |
+| Pork                | Breakfast Sausage         | new                                         | 10+               | sausage links, sausage patties                                            |
+| Pork                | Chorizo                   | new                                         | ~6                | soyrizo, Mexican chorizo                                                  |
+| Pork                | Italian Sausage           | new                                         | ~5                | sweet Italian sausage, mild Italian sausage                               |
+| Turkey              | Turkey Roast              | new (seasonal Oct–Dec)                      | 5–6               | holiday roast, Thanksgiving roast                                         |
+| Turkey              | Turkey Deli Slices        | new                                         | 4–5               | turkey slices, deli turkey                                                |
+| Fish and seafood    | Fish Fillets              | new; breaded, plain and sticks              | 3 at chains + 2–3 | fish sticks, fish fingers, breaded fish                                   |
+| Milk                | Milk                      | existing                                    | ~40               | + barista milk                                                            |
+| Milk                | Chocolate Milk            | new                                         | ~10               | —                                                                         |
+| Milk                | Eggnog                    | new (seasonal Nov–Jan)                      | 9–10              | nog, holiday nog                                                          |
+| Cream               | Coffee Creamer            | new                                         | 20+               | creamer, non-dairy creamer                                                |
+| Cream               | Half-and-Half             | new                                         | 8–10              | half and half                                                             |
+| Cream               | Sour Cream                | new                                         | ~10               | —                                                                         |
+| Cream               | Whipped Cream             | new                                         | 5–8               | whipped topping                                                           |
+| Butter              | Butter                    | existing; sticks and tubs                   | 20+               | —                                                                         |
+| Yogurt              | Yogurt                    | new                                         | 10+               | yoghurt, dairy-free yogurt                                                |
+| Yogurt              | Greek Yogurt              | new; thin                                   | ~3                | Greek-style yogurt, Greek yoghurt                                         |
+| Ice cream           | Ice Cream                 | new                                         | 10+ lines         | frozen dessert, non-dairy ice cream                                       |
+| Cheese              | Cheddar                   | existing                                    | ~20               | —                                                                         |
+| Cheese              | Mozzarella                | existing                                    | ~12               | —                                                                         |
+| Cheese              | Smoked Gouda              | new                                         | 6–7               | gouda                                                                     |
+| Cheese              | Pepper Jack               | new                                         | 5–7               | pepperjack                                                                |
+| Cheese              | American Cheese           | new                                         | ~5                | American slices, American singles                                         |
+| Cheese              | Mexican Blend             | new                                         | ~5                | Mexican cheese, taco cheese, Mexican shreds                               |
+| Cheese              | Parmesan                  | new                                         | 9–11              | parm, parmigiano, grated parmesan                                         |
+| Cheese              | Cream Cheese              | existing                                    | 9–10              | —                                                                         |
+| Eggs                | Eggs                      | existing; cooked eggs                       | 5–6               | scrambled eggs (replaces egg replacer)                                    |
+| Eggs                | Eggs for Baking           | new                                         | 3–5               | egg replacer, egg substitute                                              |
+| Condiments          | Mayonnaise                | new                                         | 10–12             | mayo, aioli, egg-free mayo, eggless mayo                                  |
+| Condiments          | Ranch Dressing            | new                                         | ~9                | ranch                                                                     |
+| Condiments          | Caesar Dressing           | new                                         | ~7                | caesar                                                                    |
+| Condiments          | Worcestershire Sauce      | new                                         | 4–5               | worcestershire, worcester sauce                                           |
+| Dips and spreads    | Queso                     | new; moved from Cheese                      | ~8 brands         | nacho cheese dip, cheese dip, cheese sauce                                |
+| Dips and spreads    | Spinach Artichoke Dip     | new                                         | ~5 brands         | spinach dip, artichoke dip                                                |
+| Dips and spreads    | French Onion Dip          | new                                         | ~4 brands         | onion dip, sour cream dip, sour cream and onion dip                       |
+| Dips and spreads    | Tzatziki                  | new                                         | ~4 brands         | yogurt dip, cucumber dip, tzatziki dip                                    |
+| Chocolate           | Milk Chocolate            | new                                         | ~6 brands         | chocolate bar, milk chocolate bar, oat milk chocolate                     |
+| Chocolate           | White Chocolate           | new; mostly online                          | ~8 brands         | white chocolate bar, white chocolate chips                                |
+| Chocolate           | Chocolate Chips           | new; milk and white baking chips            | 3–4 brands        | chocolate morsels, baking chips, milk chocolate chips                     |
+| Chocolate           | Peanut Butter Cups        | new                                         | 5–10 brands       | peanut butter cup, pb cups                                                |
+| Chocolate           | Candy Bars                | new; mostly online                          | ~7 brands         | filled chocolate bars, wafer bars, nougat bars                            |
+| Chocolate           | Candy-Coated Chocolates   | new                                         | ~4 brands         | chocolate candies, candy coated chocolate, chocolate gems                 |
+| Chocolate           | Chocolate Hazelnut Spread | new                                         | ~5 brands         | hazelnut spread, chocolate spread                                         |
+| Candy               | Gummy Candy               | new                                         | ~6 brands         | gummy bears, gummy worms, gummies, gelatin-free gummies                   |
+| Candy               | Marshmallows              | new                                         | 4–5 brands        | marshmallow, gelatin-free marshmallows                                    |
+| Candy               | Caramels                  | new                                         | ~2 brands         | caramel candy, chewy caramels, caramel chews                              |
+| Bakery and desserts | Cookies                   | new                                         | 8 brands, 20+     | cookie, chocolate chip cookies, bakery cookies                            |
+| Bakery and desserts | Cake                      | new; cakes and cupcakes                     | 6 brands, ~15     | cupcakes, chocolate cake, layer cake, pound cake, loaf cake, banana bread |
+| Bakery and desserts | Brownies                  | new                                         | 6 brands          | brownie                                                                   |
+| Bakery and desserts | Muffins                   | new                                         | 3 brands, ~8      | muffin                                                                    |
+| Bakery and desserts | Cinnamon Rolls            | new                                         | 4 brands          | cinnamon roll, cinnamon buns                                              |
+| Bakery and desserts | Pies and Cheesecake       | new; frozen and bakery                      | Daiya, ~7 flavors | pie, pumpkin pie, cheesecake, cheese cake, cheesecake bites               |
+| Bakery and desserts | Brioche and Rolls         | new; brioche, Hawaiian and dinner rolls     | 4 brands          | brioche, brioche buns, hawaiian rolls, sweet rolls, dinner rolls, challah |
+| Bakery and desserts | Pudding Cups              | new                                         | 5–6 brands        | pudding, chocolate pudding                                                |
+| Bakery and desserts | Baking Mixes              | new; cake, brownie, cookie and muffin mixes | not yet counted   | cake mix, brownie mix, cookie mix, muffin mix, box mix                    |
 
 Existing foods keep their current names and other names unless a row says otherwise.
 
@@ -460,22 +515,27 @@ Existing foods keep their current names and other names unless a row says otherw
 
 **Seed changes.**
 
-- **`TAXONOMY_GROUPS`** holds the root and the 14 aisles.
+- **`TAXONOMY_GROUPS`** holds the root and the 18 aisles.
 - **`TAXONOMY_LEAVES`** names each food's aisle and gains an optional `countries` list (ISO codes). The list defaults to every launch country, and the new foods list `["US"]`.
-- **Existing environments.** The seed stays insert-only and idempotent. For an environment that is not reset, the reshape script (`scripts/reshape-taxonomy.ts`) moves foods from shelves to aisles through the audited taxonomy path and retires the emptied shelves.
+- **Existing environments.** The seed stays insert-only and idempotent. For an environment that is not reset, the reshape script (`scripts/reshape-taxonomy.ts`) moves foods from shelves to aisles through the audited taxonomy path and retires the emptied shelves. The same run moves Queso from Cheese into Dips and spreads.
 
 **Fish needs more thought.**
 
 - Fish Fillets covers breaded fillets, plain fillets and fish sticks for now. Raters compare each product with the same style of fish.
 - When one style reaches about five recipes on its own, it becomes its own food in the Fish and seafood aisle: for example Fish Sticks, plain Fish Fillets, Tuna, Smoked Salmon or Shrimp.
 
-**Watch list.** These are close to the bar and are added when they reach about five recipes:
+**Watch list.** Candidates to add next. There is no size bar: the owner adds one when it is a distinct thing people look for, broadening a thin food where that fits better:
 
 - Heavy Cream, Feta, Ricotta, Cottage Cheese, Steak Tips, Pepperoni, Bratwurst and Pulled Pork;
 - Fried Eggs (Yo Egg, BeLeaf, regional) and Hard-Boiled Eggs (Crafty Counter WunderEggs);
 - Ham, Salami, Bologna and Chicken Deli Slices;
 - Tuna, which today has two brands, both sold online;
-- Fish Sauce, which is sold mostly online.
+- Fish Sauce, which is sold mostly online;
+- Ranch Dip in tubs, Buffalo Dip, Blue Cheese Dip, Pimento Cheese, Cheese Spreads and Aioli (in Condiments), with two or three brands each. Dips and spreads stays savory: sweet spreads such as chocolate hazelnut belong with sweets, not dips (owner, 2026-10-12);
+- Caramel Sauce, Jelly Beans and Candy Corn, and Gelatin Dessert;
+- Sweetened Condensed Milk (it would join Milk) and bee-free Honey, sold mostly in specialty stores;
+- Croissants (two in chains), Donuts (Whole Foods only), Cookie Dough, Naan and Tiramisu (none in stores);
+- Frozen Waffles, which have enough products but no aisle yet.
 
 ### Aisle order, browsing and seasons
 
@@ -483,12 +543,12 @@ Existing foods keep their current names and other names unless a row says otherw
   - In each country, aisles are ordered by the number of counted ratings across their foods there, most first. Ties go to product count, then the default order, then name.
   - Foods within an aisle follow the same rule.
   - The counts come from the rating aggregates, never raw ratings. They are all-time, so the order changes slowly.
-- **Default order.** Each aisle carries a `position`, used when a country has no ratings yet: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments. Operators set it for aisles they add. An aisle without one sorts after those with one.
+- **Default order.** Each aisle carries a `position`, used when a country has no ratings yet: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Bakery and desserts. Operators set it for aisles they add. An aisle without one sorts after those with one.
 - **The same order everywhere.** The aisle bar, Browse every food, aisle pages, the footer and the food picker all use it.
 - **Browse every food.**
-  - Each aisle is an equal-height card holding its four most popular foods with their #1 swap.
-  - When an aisle has more, a fifth line reads "See all 9 foods".
-  - Cards in a row line up whatever their food count.
+  - Each aisle is a card holding its three most popular foods with their #1 swap.
+  - When an aisle has more, a last line reads "See all 9 cheese foods".
+  - Each card is as tall as its content. Cards in a row align at the top, not by stretching the shorter ones.
 - **Seasonal foods.**
   - A food can carry season months, for example Eggnog in November–January and Turkey Roast in October–December.
   - Its ranking page, cards and search results show "Seasonal · Nov–Jan". It stays listed and ranked all year.
@@ -513,7 +573,7 @@ Existing foods keep their current names and other names unless a row says otherw
 2. **The taxonomy ships with the rest of the milestone.** The owner chose one pull request (#49) for the whole milestone, kept as a draft until it is done.
    - Staging still needs its reset to version 1 before real data is entered, or anything entered before it is wiped.
    - Until then, photos and names collected while shopping can wait in a spreadsheet.
-3. **People see the 14 groups as "aisles",** keeping the store feel of the swap aisle. Internally they remain categories.
+3. **People see the 18 groups as "aisles",** keeping the store feel of the swap aisle. Internally they remain categories.
 
 ## Implementation sequence
 
@@ -533,6 +593,7 @@ Existing foods keep their current names and other names unless a row says otherw
    - Popularity order in the taxonomy reads for the aisle bar, aisle pages, Browse every food, the footer and the food picker.
    - The aisle cards on the home page, and the Seasonal chip on foods.
    - Operator fields for an aisle's position and a food's season.
+   - After the first review: three foods per card at their natural height, aisle menus on hover, the Dips and spreads aisle (Queso moves from Cheese), the Chocolate, Candy, and Bakery and desserts aisles.
    - **Owner review:** screenshots of the home page and an aisle.
 4. **Data foundation.**
    - Migration `0003_recipe_lines.sql`, the Drizzle schema and migration tests: family backfill and per-country split, triggers, the flavor and enjoyment checks, and a database emptied and migrated back to the same schema.
@@ -590,7 +651,7 @@ Existing foods keep their current names and other names unless a row says otherw
 | Trending window / half-life      | 90 days / 30 days                       |
 | Trending baseline                | Days 91–180                             |
 | Trending minimum                 | 3 people in the window                  |
-| Foods per aisle card (home)      | 4, then "See all"                       |
+| Foods per aisle card (home)      | 3, then "See all"                       |
 | Trending tag                     | Top 3 trending lines in a food          |
 
 ## Verification and staging delivery
@@ -669,7 +730,7 @@ Indonesia, Malaysia, the Philippines, Vietnam, Turkey, Portugal, Norway, Finland
 
 **Every country starts from the shared aisles.**
 
-- **The macro categories are shared.** The 14 aisles are the same everywhere, and an empty country's home lists them.
+- **The macro categories are shared.** The 18 aisles are the same everywhere, and an empty country's home lists them.
 - **Foods start fresh in each country.**
   - A food switches on when someone there adds the first product for it.
   - Anyone can pick any existing food, or suggest a new one when the local food doesn't exist yet. Japan, for example, will grow foods the US doesn't have.

@@ -1241,7 +1241,9 @@ Every product belongs to the one country it is added in.
 **Two levels: aisle › food (§04).** This replaces the milestone 5 taxonomy shape (aisle › shelf › food, with foods at depth three) and the milestone 6 starter shelves.
 
 - **Shape.** The taxonomy is two levels below the root, and shelves are removed.
-- **The 14 aisles are universal,** the same in every country: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs and Condiments.
+- **The 18 aisles are universal,** the same in every country: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, and Bakery and desserts.
+- **Each food has one aisle, and an aisle names a kind of product, never an occasion** such as Breakfast. Thin foods are broadened rather than held back, and foods without products stay listed.
+- **An aisle follows how a food is used, not what the original is made from.** Mayonnaise is a condiment and Tzatziki a dip, as stores shelve them. Search finds a food from either side.
 - **Foods sit directly under an aisle.** They can be as specific as each country needs.
 - **Groups and leaves.** Aisles are non-rankable groups, and foods are the rankable leaves at depth two.
 - **Repeated names.** An aisle holding one food of its own name is silent in breadcrumbs ("All foods / Eggs").
@@ -1250,8 +1252,8 @@ Every product belongs to the one country it is added in.
 **Ordering and browsing (§03).**
 
 - **Popularity order.** In each country, aisles and the foods within them are ordered by popularity: most counted ratings first, from the rating aggregates.
-- **Default order.** A country without ratings uses a default store order: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments.
-- **Browse every food** shows each aisle as a card with its four most popular foods and "See all" when there are more.
+- **Default order.** A country without ratings uses a default store order: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Bakery and desserts.
+- **Browse every food** shows each aisle as a card with its three most popular foods and "See all" when there are more.
 - **New aisles.** Operators can add aisles for any country, and an aisle shows only where it holds a food. Contributor aisle suggestions and per-country aisle names follow in milestone 8.
 
 **Seasons.**
@@ -1263,7 +1265,7 @@ Every product belongs to the one country it is added in.
 
 **United States launch foods.** The initial database focuses on direct replacements in the United States.
 
-- **The list.** The plan's [launch food list](MILESTONE_7_PLAN.md#united-states-launch-foods) proposes 42 foods: the 10 launch foods plus 32 United States foods. Among them, each condiment is its own food, Queso joins the Cheese aisle and Eggs for Baking is separate from cooked Eggs.
+- **The list.** The plan's [launch food list](MILESTONE_7_PLAN.md#united-states-launch-foods) proposes 64 foods: the 10 launch foods plus 54 United States foods. Among them, each condiment and dip is its own food, Queso sits with the dips, sweets split into Chocolate and Candy, baked goods share one Bakery and desserts aisle, and Eggs for Baking is separate from cooked Eggs.
 - **A starting set.** The list is a starting set, not a fixed one. Foods grow through suggestions, and each country grows its own.
 - **Detail questions.** Milk's "In coffee" becomes "In hot drinks", and Milk and Eggs gain Baking.
 
@@ -1282,9 +1284,13 @@ Food
 ├─ Butter ── Butter
 ├─ Yogurt ── Yogurt · Greek Yogurt
 ├─ Ice cream ── Ice Cream
-├─ Cheese ── Cheddar · Mozzarella · Smoked Gouda · Pepper Jack · American Cheese · Mexican Blend · Parmesan · Cream Cheese · Queso
+├─ Cheese ── Cheddar · Mozzarella · Smoked Gouda · Pepper Jack · American Cheese · Mexican Blend · Parmesan · Cream Cheese
 ├─ Eggs ── Eggs · Eggs for Baking
-└─ Condiments ── Mayonnaise · Ranch Dressing · Caesar Dressing · Worcestershire Sauce
+├─ Condiments ── Mayonnaise · Ranch Dressing · Caesar Dressing · Worcestershire Sauce
+├─ Dips and spreads ── Queso · Spinach Artichoke Dip · French Onion Dip · Tzatziki
+├─ Chocolate ── Milk Chocolate · White Chocolate · Chocolate Chips · Peanut Butter Cups · Candy Bars · Candy-Coated Chocolates · Chocolate Hazelnut Spread
+├─ Candy ── Gummy Candy · Marshmallows · Caramels
+└─ Bakery and desserts ── Cookies · Cake · Brownies · Muffins · Cinnamon Rolls · Pies and Cheesecake · Brioche and Rolls · Pudding Cups · Baking Mixes
 ```
 
 People see the top level as aisles.

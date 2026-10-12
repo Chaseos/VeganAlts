@@ -627,7 +627,7 @@ The approved [milestone 6 specification](MILESTONE_6_PLAN.md) adds the following
 The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following append-only, additive migrations after the version 1 baseline. No parent table is rebuilt.
 
 - `0002_aisle_order_and_seasons.sql`
-  - Adds `categories.position`, the default order of an aisle where a country has no ratings yet, seeded for the 14 aisles.
+  - Adds `categories.position`, the default order of an aisle where a country has no ratings yet, seeded for the 18 aisles.
   - Adds `categories.season_start` and `categories.season_end`, both months 1–12; a season may wrap past December. Both are null for a food without a season, and a check keeps them both set or both null.
   - Adds `products.seasonal` (0 or 1).
 - `0003_recipe_lines.sql`
@@ -646,7 +646,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following append-o
   - **`family_category_dimension_stats`** has one row per family, food and dimension: people who answered and the sum of their means.
   - **Indexes** for line reads and `products(brand_id, country_id)` for brand pages.
 - `0004_line_discovery.sql`
-  - Adds `family_category_daily_stats`, one row per line, food, day and person in the 14-day trend window, so Trending counts each person once across the window.
+  - Adds `family_category_daily_stats`, one row per line, food, day and person over the last 180 days (the 90-day trend window and its baseline), so Trending counts each person once across the window.
   - Adds `family_category_trends`.
   - Drops `product_category_daily_stats` and `product_category_trends`, which are derived and no longer read.
 
@@ -655,6 +655,6 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following append-o
 **Taxonomy shape.** This replaces milestone 5's three-level shape and milestone 6's starter shelves.
 
 - **Depth.** Aisles are children of the root and foods are children of aisles.
-- **Seed.** The taxonomy seed writes the 14 aisles and the launch foods.
+- **Seed.** The taxonomy seed writes the 18 aisles and the launch foods.
 - **Availability.** `TAXONOMY_LEAVES` carries an optional `countries` list for launch availability.
 - **Existing environments.** For an environment that is not reset, the reshape script re-parents foods to aisles through the audited taxonomy path and retires the emptied shelves.

@@ -1,4 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { NavLink, useFetcher, useLocation } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
 import { Icon } from "../icons/icon";
@@ -11,24 +16,50 @@ import {
 import { useHydrated } from "../../lib/use-hydrated";
 import { useMediaQuery } from "../../lib/use-media-query";
 
+// Hover intent: a pointer crossing the bar on its way to an open menu doesn't
+// switch aisles, and one leaving it briefly doesn't close the menu.
+const HOVER_OPEN_MS = 150;
+const HOVER_CLOSE_MS = 300;
+
 // The header's second row. Without JavaScript and on phones each aisle is a
 // link to its aisle page (the bar scrolls sideways). On desktop, once
 // hydrated, each aisle opens a menu of its foods with their top
-// three, read from that aisle page's cached data.
+// three, read from that aisle page's cached data. A mouse opens it on hover
+// (owner decision, 2026-10-12); touch and the keyboard open it on press.
 export function AisleBar() {
   const { country, aisles } = useSiteChrome();
   const hydrated = useHydrated();
   const desktop = useMediaQuery("(min-width: 760px)");
   const [open, setOpen] = useState<string | null>(null);
+  const hoverTimer = useRef<number | undefined>(undefined);
   const location = useLocation();
-  useEffect(() => setOpen(null), [location.key]);
+  useEffect(() => {
+    window.clearTimeout(hoverTimer.current);
+    setOpen(null);
+  }, [location.key]);
+  useEffect(() => () => window.clearTimeout(hoverTimer.current), []);
   if (!aisles.length) return null;
   const menus = hydrated && desktop;
+  const hover = (event: ReactPointerEvent, slug: string | null) => {
+    if (event.pointerType !== "mouse") return;
+    window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(
+      () => setOpen(slug),
+      slug ? HOVER_OPEN_MS : HOVER_CLOSE_MS,
+    );
+  };
   return (
     <nav className="va-aisle-bar" aria-label="Aisles">
       <ul>
         {aisles.map((aisle) => (
-          <li key={aisle.slug}>
+          <li
+            key={aisle.slug}
+            // The menu is inside the item, so moving onto it keeps it open.
+            onPointerEnter={
+              menus ? (event) => hover(event, aisle.slug) : undefined
+            }
+            onPointerLeave={menus ? (event) => hover(event, null) : undefined}
+          >
             {menus ? (
               <AisleMenuItem
                 country={country.code}
@@ -68,6 +99,9 @@ function AisleMenuItem({
   });
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  // A mouse press opens the menu hover may already have opened, rather than
+  // closing it again.
+  const mousePress = useRef(false);
   const href = foodPath(country, aisle.slug);
   const prefetch = () => {
     if (fetcher.state === "idle" && !fetcher.data) void fetcher.load(href);
@@ -97,6 +131,9 @@ function AisleMenuItem({
         aria-expanded={open}
         aria-controls={id}
         onPointerEnter={prefetch}
+        onPointerDown={(event) => {
+          mousePress.current = event.pointerType === "mouse";
+        }}
         onFocus={prefetch}
         onKeyDown={(event) => {
           if (event.key === "Escape" && open) {
@@ -106,7 +143,8 @@ function AisleMenuItem({
         }}
         onClick={() => {
           prefetch();
-          onToggle(!open);
+          onToggle(mousePress.current || !open);
+          mousePress.current = false;
         }}
       >
         <FoodIcon slug={aisle.slug} size={20} className="va-tag-icon" />

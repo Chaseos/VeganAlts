@@ -13,7 +13,7 @@ export const HOME_LIST_SIZE = 6;
 export const STILL_WAITING_BELOW = 3.5;
 export const AISLE_TOP = 3;
 // Foods shown on each aisle card in Browse every food before "See all".
-export const BROWSE_AISLE_FOODS = 4;
+export const BROWSE_AISLE_FOODS = 3;
 export const SUGGEST_LIMIT = 5;
 
 // A ranked product with 1–9 counted ratings carries the Early badge.

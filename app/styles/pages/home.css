@@ -426,17 +426,16 @@
     display: none;
   }
 
-  /* Equal-height aisle cards, so a row lines up whatever its food counts. */
+  /* Each card is as tall as its foods: a one-food aisle isn't padded out to
+     match its row (owner decision, 2026-10-12). */
   .va-browse--desktop {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    align-items: stretch;
+    align-items: start;
     gap: 20px;
   }
 
   .va-browse--desktop .va-browse__aisle {
-    display: flex;
-    flex-direction: column;
     padding: 4px 18px 10px;
     border: 1px solid var(--va-line);
     border-top: 4px solid var(--va-kale);
@@ -445,14 +444,7 @@
   }
 
   .va-browse--desktop .va-browse__foods {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
     padding: 0;
-  }
-
-  .va-browse--desktop .va-browse__more {
-    margin-top: auto;
   }
 
   .va-browse--desktop .va-browse__summary {

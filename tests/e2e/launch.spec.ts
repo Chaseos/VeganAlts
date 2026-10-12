@@ -48,6 +48,7 @@ test("robots, sitemap and structured data describe only public pages", async ({
   expect(xml).toContain("/ca/beef</loc>");
   expect(xml).toContain("/us/condiments</loc>");
   expect(xml).not.toContain("/ca/condiments</loc>");
+  expect(xml).toContain("/us/dips-and-spreads</loc>");
   expect(xml).toMatch(/\/us\/products\/[a-z0-9-]+<\/loc>/);
   expect(xml).toContain("/about/rankings</loc>");
   expect(xml).not.toMatch(/\/(api|account|admin|my-ratings|sign-in)\b/);

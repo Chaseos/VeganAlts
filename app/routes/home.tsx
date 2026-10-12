@@ -352,8 +352,8 @@ function AisleFoods({
   aisle: Aisle;
   empty?: boolean;
 }) {
-  // Each card shows the aisle's most popular foods, then "See all" (owner
-  // decision, 2026-10-12), so cards line up whatever their size.
+  // Each card shows the aisle's three most popular foods, then "See all"
+  // (owner decision, 2026-10-12).
   const shown = aisle.foods.slice(0, BROWSE_AISLE_FOODS);
   return (
     <div className="va-browse__foods">

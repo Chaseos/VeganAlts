@@ -394,6 +394,8 @@ it("skips an aisle that only repeats its one food", async () => {
   expect(beef).not.toContain("meatballs");
   expect(beef).not.toContain("hot-dogs");
   expect(aisle("condiments")).toBeUndefined();
+  expect(aisle("dips-and-spreads")).toBeUndefined();
+  expect(aisle("candy")).toBeUndefined();
   // Empty aisles stay out of browsing but are offered for suggestions.
   expect(aisle("lamb-aisle")).toBeUndefined();
   expect((await catalog.aisles(gb)).map((a) => a.slug)).toContain("lamb-aisle");

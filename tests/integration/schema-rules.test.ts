@@ -219,7 +219,7 @@ it("seeds each launch food in its launch countries without undoing an operator's
       .bind(bacon, nz)
       .first("n"),
   ).toBe(0);
-  // The 14 aisles sit directly under Food and are never country-scoped.
+  // The 18 aisles sit directly under Food and are never country-scoped.
   expect(
     await env.DB.prepare(
       "SELECT COUNT(*) AS n FROM categories c JOIN categories p ON p.id=c.parent_id AND p.slug='food' WHERE c.is_rankable=0 AND c.slug IN (SELECT value FROM json_each(?))",
@@ -230,7 +230,7 @@ it("seeds each launch food in its launch countries without undoing an operator's
         ),
       )
       .first("n"),
-  ).toBe(14);
+  ).toBe(18);
   expect(
     await env.DB.prepare(
       "SELECT COUNT(*) AS n FROM category_countries cc JOIN categories c ON c.id=cc.category_id WHERE c.is_rankable=0",

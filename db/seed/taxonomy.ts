@@ -29,6 +29,27 @@ export const TAXONOMY_GROUPS = [
   { slug: "cheese", name: "Cheese", parent: "food", position: 12 },
   { slug: "eggs-aisle", name: "Eggs", parent: "food", position: 13 },
   { slug: "condiments", name: "Condiments", parent: "food", position: 14 },
+  // Aisles follow how a food is used, not what the original is made from:
+  // mayonnaise is a condiment and tzatziki a dip, the way stores shelve them
+  // (owner decision, 2026-10-12).
+  {
+    slug: "dips-and-spreads",
+    name: "Dips and spreads",
+    parent: "food",
+    position: 15,
+  },
+  // Sweets split by what they are: anything chocolate comes first goes in
+  // Chocolate, the rest of the candy in Candy (owner decision, 2026-10-12).
+  { slug: "chocolate", name: "Chocolate", parent: "food", position: 16 },
+  { slug: "candy", name: "Candy", parent: "food", position: 17 },
+  // One aisle, as a store's bakery department holds cakes, cookies and bread
+  // together; it can split once it outgrows one (owner decision, 2026-10-12).
+  {
+    slug: "bakery-and-desserts",
+    name: "Bakery and desserts",
+    parent: "food",
+    position: 18,
+  },
 ] as const;
 // The United States launch foods (milestone 7) start only there; a food
 // switches on elsewhere when a product for it is published there.
@@ -275,13 +296,6 @@ export const TAXONOMY_LEAVES = [
     aliases: ["cream cheese spread"],
   },
   {
-    slug: "queso",
-    name: "Queso",
-    parent: "cheese",
-    aliases: ["nacho cheese dip", "cheese dip", "cheese sauce"],
-    countries: US,
-  },
-  {
     slug: "eggs",
     name: "Eggs",
     parent: "eggs-aisle",
@@ -299,7 +313,7 @@ export const TAXONOMY_LEAVES = [
     slug: "mayonnaise",
     name: "Mayonnaise",
     parent: "condiments",
-    aliases: ["mayo", "aioli"],
+    aliases: ["mayo", "aioli", "egg-free mayo", "eggless mayo"],
     countries: US,
   },
   {
@@ -321,6 +335,196 @@ export const TAXONOMY_LEAVES = [
     name: "Worcestershire Sauce",
     parent: "condiments",
     aliases: ["worcestershire", "worcester sauce"],
+    countries: US,
+  },
+  // Queso moved here from Cheese: stores shelve it with the dips.
+  {
+    slug: "queso",
+    name: "Queso",
+    parent: "dips-and-spreads",
+    aliases: ["nacho cheese dip", "cheese dip", "cheese sauce"],
+    countries: US,
+  },
+  {
+    slug: "spinach-artichoke-dip",
+    name: "Spinach Artichoke Dip",
+    parent: "dips-and-spreads",
+    aliases: ["spinach dip", "artichoke dip"],
+    countries: US,
+  },
+  {
+    slug: "french-onion-dip",
+    name: "French Onion Dip",
+    parent: "dips-and-spreads",
+    aliases: ["onion dip", "sour cream dip", "sour cream and onion dip"],
+    countries: US,
+  },
+  {
+    slug: "tzatziki",
+    name: "Tzatziki",
+    parent: "dips-and-spreads",
+    aliases: ["yogurt dip", "cucumber dip", "tzatziki dip"],
+    countries: US,
+  },
+  {
+    slug: "milk-chocolate",
+    name: "Milk Chocolate",
+    parent: "chocolate",
+    aliases: ["chocolate bar", "milk chocolate bar", "oat milk chocolate"],
+    countries: US,
+  },
+  {
+    slug: "white-chocolate",
+    name: "White Chocolate",
+    parent: "chocolate",
+    aliases: ["white chocolate bar", "white chocolate chips"],
+    countries: US,
+  },
+  {
+    slug: "chocolate-chips",
+    name: "Chocolate Chips",
+    parent: "chocolate",
+    aliases: ["chocolate morsels", "baking chips", "milk chocolate chips"],
+    countries: US,
+  },
+  {
+    slug: "peanut-butter-cups",
+    name: "Peanut Butter Cups",
+    parent: "chocolate",
+    aliases: ["peanut butter cup", "pb cups"],
+    countries: US,
+  },
+  {
+    slug: "candy-bars",
+    name: "Candy Bars",
+    parent: "chocolate",
+    aliases: ["filled chocolate bars", "wafer bars", "nougat bars"],
+    countries: US,
+  },
+  {
+    slug: "candy-coated-chocolates",
+    name: "Candy-Coated Chocolates",
+    parent: "chocolate",
+    aliases: ["chocolate candies", "candy coated chocolate", "chocolate gems"],
+    countries: US,
+  },
+  {
+    slug: "chocolate-hazelnut-spread",
+    name: "Chocolate Hazelnut Spread",
+    parent: "chocolate",
+    aliases: ["hazelnut spread", "chocolate spread"],
+    countries: US,
+  },
+  // Vegan versions of gelatin gummies; candy that was always vegan isn't a
+  // swap.
+  {
+    slug: "gummy-candy",
+    name: "Gummy Candy",
+    parent: "candy",
+    aliases: ["gummy bears", "gummy worms", "gummies", "gelatin-free gummies"],
+    countries: US,
+  },
+  {
+    slug: "marshmallows",
+    name: "Marshmallows",
+    parent: "candy",
+    aliases: ["marshmallow", "gelatin-free marshmallows"],
+    countries: US,
+  },
+  {
+    slug: "caramels",
+    name: "Caramels",
+    parent: "candy",
+    aliases: ["caramel candy", "chewy caramels", "caramel chews"],
+    countries: US,
+  },
+  {
+    slug: "cookies",
+    name: "Cookies",
+    parent: "bakery-and-desserts",
+    aliases: ["cookie", "chocolate chip cookies", "bakery cookies"],
+    countries: US,
+  },
+  // Banana bread is a loaf cake here until it has products of its own.
+  {
+    slug: "cake",
+    name: "Cake",
+    parent: "bakery-and-desserts",
+    aliases: [
+      "cupcakes",
+      "chocolate cake",
+      "layer cake",
+      "pound cake",
+      "loaf cake",
+      "banana bread",
+    ],
+    countries: US,
+  },
+  {
+    slug: "brownies",
+    name: "Brownies",
+    parent: "bakery-and-desserts",
+    aliases: ["brownie"],
+    countries: US,
+  },
+  {
+    slug: "muffins",
+    name: "Muffins",
+    parent: "bakery-and-desserts",
+    aliases: ["muffin"],
+    countries: US,
+  },
+  {
+    slug: "cinnamon-rolls",
+    name: "Cinnamon Rolls",
+    parent: "bakery-and-desserts",
+    aliases: ["cinnamon roll", "cinnamon buns"],
+    countries: US,
+  },
+  // Broad while each kind has few products. Frozen and bakery pies are the
+  // same food; a brand's frozen pie and a store's bakery pie are separate
+  // lines anyway.
+  {
+    slug: "pies-and-cheesecake",
+    name: "Pies and Cheesecake",
+    parent: "bakery-and-desserts",
+    aliases: [
+      "pie",
+      "pumpkin pie",
+      "cheesecake",
+      "cheese cake",
+      "cheesecake bites",
+    ],
+    countries: US,
+  },
+  {
+    slug: "brioche-and-rolls",
+    name: "Brioche and Rolls",
+    parent: "bakery-and-desserts",
+    aliases: [
+      "brioche",
+      "brioche buns",
+      "hawaiian rolls",
+      "sweet rolls",
+      "dinner rolls",
+      "challah",
+    ],
+    countries: US,
+  },
+  {
+    slug: "pudding-cups",
+    name: "Pudding Cups",
+    parent: "bakery-and-desserts",
+    aliases: ["pudding", "chocolate pudding"],
+    countries: US,
+  },
+  // Mixes bake at home, so they are compared with what a regular box mix
+  // bakes, not with bakery goods. One food until each kind has enough.
+  {
+    slug: "baking-mixes",
+    name: "Baking Mixes",
+    parent: "bakery-and-desserts",
+    aliases: ["cake mix", "brownie mix", "cookie mix", "muffin mix", "box mix"],
     countries: US,
   },
 ] as const;

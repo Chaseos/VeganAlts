@@ -276,7 +276,7 @@
 }
 
 @media (min-width: 760px) {
-  /* Fourteen aisles wrap onto a second row rather than hiding off the edge;
+  /* The aisles wrap onto a second row rather than hiding off the edge;
      phones keep the sideways scroll. */
   .va-aisle-bar > ul {
     padding: 0 calc(var(--va-gutter) - 8px);
@@ -289,12 +289,19 @@
   .va-aisle-bar > ul > li > a,
   .va-aisle-bar > ul > li > button {
     min-height: 52px;
-    padding: 0 14px;
+    padding: 0 11px;
     border: 0;
     border-bottom: 3px solid transparent;
     border-radius: 0;
     font-size: 15px;
     font-weight: 600;
+  }
+
+  /* A server-rendered link keeps room for the chevron its menu button gains
+     on hydration (8px gap + 12px icon), so the rows wrap the same and the page
+     doesn't shift. */
+  .va-aisle-bar > ul > li > a {
+    padding-right: 31px;
   }
 
   .va-aisle-bar > ul > li > a:hover,
