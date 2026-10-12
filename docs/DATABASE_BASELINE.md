@@ -642,7 +642,8 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following append-o
   - **`family_category_dimension_stats`** has one row per family, food and dimension: people who answered and the sum of their means.
   - **Indexes** for line reads and `products(brand_id, country_id)` for brand pages.
 - `0003_line_discovery.sql`
-  - Adds `family_category_daily_stats` (people who rated, tried and commented, and the day's per-person similarity sum) and `family_category_trends`.
+  - Adds `family_category_daily_stats`, one row per line, food, day and person in the 14-day trend window, so Trending counts each person once across the window.
+  - Adds `family_category_trends`.
   - Drops `product_category_daily_stats` and `product_category_trends`, which are derived and no longer read.
 
 **Product family.** A family is a recipe line in one country: one brand's base recipe and its flavors. It no longer links markets. Rankings group a food's eligible products by family.

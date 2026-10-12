@@ -174,7 +174,7 @@ Most of what remains is sold as a few base recipes in several flavors:
   - adds `family_category_dimension_stats`, one row per family, food and dimension: people who answered and the sum of their means;
   - adds the indexes for line reads and brand pages (`products(brand_id, country_id)`).
 - **Migration `0003_line_discovery.sql`:**
-  - adds `family_category_daily_stats` and `family_category_trends`;
+  - adds `family_category_daily_stats` (one row per line, food, day and person in the 14-day window) and `family_category_trends`;
   - drops `product_category_daily_stats` and `product_category_trends`, once Trending reads lines.
 
 ### Line scores
@@ -211,16 +211,15 @@ Most of what remains is sold as a few base recipes in several flavors:
   - A line's detail mean is shown, sorted on or awarded at 5 people.
   - Detail sorts and badges read "Closest taste" and "Closest texture", so they are not confused with Tastiest.
 - **Product-page statistics stay per flavor:** familiarity, the recent-eaters score and "How people rated it".
-- **Trending.** The hourly rollup counts, per line, food and day:
-  - distinct people who rated;
-  - distinct people who tried;
-  - distinct commenters;
-  - the people's mean similarity that day.
+- **Trending.** Each person counts once per line and food across the whole 14-day trend window, never once per day.
+  - The hourly rollup keeps one row per line, food, day and person (`family_category_daily_stats`), so the window can be deduplicated.
+  - A person's activity counts on the day of their latest activity in the window, as a rating, a trial or a comment, whichever weighs most.
+  - Their similarity is their mean across the line's flavors in the window.
+  - The milestone 4 formula is otherwise unchanged. One person rating three flavors on three days adds one person, not three events.
 
-  The milestone 4 formula is unchanged, but its inputs count people, so one person rating three flavors in a week does not make a line trend.
-
-- **New.** New lists lines whose earliest published eligible flavor falls within 90 days, newest first.
-  - A new flavor does not bring an old line back into New.
+- **New.** New lists lines whose first publication in that food falls within 90 days, newest first.
+  - A line's first publication is the earliest `published_at` of any flavor the line has had in that food, eligible or not (discontinued, excluded or archived included). It never moves later.
+  - Neither a new flavor nor a discontinued oldest flavor brings an old line back into New.
   - Lines and flavors published within 30 days carry the New tag; on a flavor it reads as a new flavor.
 - **Filters** (stores and Free-from).
   - A line is shown when any eligible flavor matches.
@@ -318,6 +317,8 @@ Most of what remains is sold as a few base recipes in several flavors:
        A flavored new product also asks for "Name without the flavor", prefilled by removing the flavor's words from the product name.
 - **Looser duplicate matching.**
   - While a new product's name is typed, "Is it one of these?" lists similar products in the country from any brand. The brand matches loosely, and one shared word of three or more letters is enough (today a two-word name needs two). "Impossible Meat" therefore lists Impossible Beef.
+  - The looser matching only widens what is shown while typing. The near-duplicate hold keeps the milestone 6 rule.
+  - Products already in the line the contributor chose never count as near-duplicates, because a sibling flavor shares the line's words by design.
   - Exact identity still blocks publication.
 - **Step 2, "Add more (optional)",** keeps its rows: rating (both questions), ingredients, allergens, stores, more photos and other foods it replaces.
   - The variants row is removed, because the line is chosen in step 1.
@@ -333,7 +334,7 @@ Most of what remains is sold as a few base recipes in several flavors:
 - **Hands-off by default.**
   - Joining an existing line, starting a new one and giving a flavor label never hold a submission on their own.
   - Every submission still needs its front photo, and goes through the deterministic checks and the automated photo check as today.
-  - Near-duplicates, an animal-allergen declaration and a suggested food still hold, as in milestone 6.
+  - Near-duplicates, an animal-allergen declaration and a suggested food still hold, as in milestone 6. Flavors in the line the contributor chose are exempt from the near-duplicate hold.
 - **Report reasons.** Product reports gain "This flavor doesn't exist" and "Not part of this line", beside the existing reasons such as discontinued, duplicate and wrong food.
 - **Submissions.**
   - Submissions always write `ranking_eligible = 1`, and the specialty-flavor checkbox is removed.
@@ -542,6 +543,9 @@ Existing foods keep their current names and other names unless a row says otherw
   - **One-flavor equivalence.** On the seeded catalog with one flavor per line, every line's Closest score, rank and order equals the product's score, rank and order before this milestone.
   - **One vote per person.** One person rating three flavors adds one person and their mean, in both rankings.
   - **Tastiest is independent.** Tastiest answers never change a Closest score, rank or order.
+  - **Trending dedupes across the window.** One person rating three flavors on three different days adds one person to the line's trend.
+  - **New never moves later.** Discontinuing a line's oldest flavor, or adding a new one, never brings the line back into New.
+  - **Siblings never hold.** A new flavor of a chosen line is not held as a near-duplicate of that line's flavors; an exact duplicate is still refused.
   - **Formula versions.** A reformulated flavor drops its old ratings from the line.
   - **Eligibility.** Every eligibility-changing decision refreshes the line, including discontinuation and reintroduction, and reversals restore it.
   - **Rebuild equality.** The integrity rebuild reproduces the incremental line tables exactly.

@@ -559,6 +559,8 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) groups products into recipe
 - **What does not hold a submission.** Joining an existing line, starting a new line and giving a flavor label never hold a submission on their own.
 - **What every submission still needs.** Its front photo and the deterministic and automated photo checks.
 - **What still holds,** as in milestone 6: near-duplicates, an animal-allergen declaration and a suggested food.
+  - Flavors already in the line the contributor chose are never near-duplicates of the new flavor.
+  - The looser similar-name matching in Add a product only widens what is shown while typing; it does not widen the hold.
 - **Changing membership.** Moving a product to another line, starting a new line for an existing product and renaming a line are tier 3 (operator only). Each is audited with its before and after state and is reversible. Ratings never move; the affected lines are rescored.
 
 **Reports.**

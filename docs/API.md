@@ -491,11 +491,11 @@ The `related` list keeps only companion and successor links.
 
 **Contribution lookups.** Each is authenticated, private/no-store and on the instant-answer rate limit.
 
-| Method | Path beneath `/api/v1`                              | Contract                                                                                                                                                  |
-| ------ | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/community/brands?country=&q=`                     | Up to 8 brand suggestions `{id, slug, name, productCount}` from 2 characters.                                                                             |
-| GET    | `/community/brands/:id/lines?country=&food=`        | The brand's lines in the country, those in `food` first: `{lineId, name, foods[], flavors: [{productId, slug, name, flavor}]}`.                           |
-| GET    | `/community/identity-matches?country=&brand=&name=` | Looser: any one shared word of three or more letters qualifies a similar product, and the brand matches through the shared matcher. `exact` is unchanged. |
+| Method | Path beneath `/api/v1`                              | Contract                                                                                                                                                                                                                                                                              |
+| ------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/community/brands?country=&q=`                     | Up to 8 brand suggestions `{id, slug, name, productCount}` from 2 characters.                                                                                                                                                                                                         |
+| GET    | `/community/brands/:id/lines?country=&food=`        | The brand's lines in the country, those in `food` first: `{lineId, name, foods[], flavors: [{productId, slug, name, flavor}]}`.                                                                                                                                                       |
+| GET    | `/community/identity-matches?country=&brand=&name=` | Looser: any one shared word of three or more letters qualifies a similar product, and the brand matches through the shared matcher. `exact` is unchanged. These matches are for display only; the near-duplicate hold keeps its milestone 6 rule and skips the chosen line's flavors. |
 
 **Submissions.** `SubmissionInput` changes as follows.
 
