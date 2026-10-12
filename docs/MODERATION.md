@@ -548,3 +548,38 @@ Accepting a suggested food as non-rankable while a product waits on it is refuse
 **Extras at publication.** Stores are confirmed in the publication batch. The contributor's rating is saved through the canonical rating path after publication, only if they have not rated that food; an allergen declaration becomes an ordinary allergen proposal citing the published photo, under the milestone 5 tiers. Extras on a superseded or rejected submission are never applied.
 
 **Countries.** Operators can switch a food on or off per country; a food cannot be switched off where it has visible products. Switching is audited and reversible.
+
+## Milestone 7 policy
+
+The [milestone 7 specification](MILESTONE_7_PLAN.md) groups products into recipe lines. The owner decided on 2026-10-11 and 2026-10-12 that contributing stays as hands-off as possible: the community can grow lines freely, and reports and operator tools correct mistakes.
+
+**Line membership.**
+
+- **Rule.** A line holds products of the same brand and country that share one base recipe and differ only in flavor or seasoning. Changed bases are separate lines (PRODUCT_MASTER, milestone 7).
+- **What does not hold a submission.** Joining an existing line, starting a new line and giving a flavor label never hold a submission on their own.
+- **What every submission still needs.** Its front photo and the deterministic and automated photo checks.
+- **What still holds,** as in milestone 6: near-duplicates, an animal-allergen declaration and a suggested food.
+- **Changing membership.** Moving a product to another line, starting a new line for an existing product and renaming a line are tier 3 (operator only). Each is audited with its before and after state and is reversible. Ratings never move; the affected lines are rescored.
+
+**Reports.**
+
+- **New reasons.** Product reports gain "This flavor doesn't exist" and "Not part of this line", beside the existing reasons such as discontinued, duplicate and wrong category.
+- **Operator actions.** Operators resolve these reports with the line tools, the lifecycle change or Under Review.
+
+**Flavors.**
+
+- **Flavor labels.** Setting or changing a flavor label on an existing product is part of a rename and stays tier 2.
+- **Excluding a flavor.** Excluding a flavor from a food's line score uses the existing eligibility change, which is tier 3.
+- **Retired submission options.** The specialty-flavor checkbox is retired, and new submissions are always ranking-eligible in their foods.
+- **Relationship types.** Contributions can no longer create `variant` or `specialty_flavor` relationships. Companion and successor links remain as edit proposals, limited to the product's own country.
+
+**Suggesting a food.** With shelves removed, a food suggestion chooses an aisle instead of a shelf. Review is otherwise unchanged in this milestone.
+
+**Tier table changes.**
+
+| Change                                                           | Tier          |
+| ---------------------------------------------------------------- | ------------- |
+| Joining an existing line or starting one at submission           | No hold       |
+| Move an existing product to another or a new line, rename a line | 3             |
+| Flavor label on an existing product (with rename)                | 2             |
+| Eligibility exclusion of a flavor                                | 3 (unchanged) |
