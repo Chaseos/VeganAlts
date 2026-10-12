@@ -14,7 +14,8 @@ import {
 import { EmptyState } from "../components/ui/feedback";
 import { Pagination } from "../components/ui/navigation";
 import { ButtonLink } from "../components/ui/button";
-import { CheckThePackage } from "../components/ui/badges";
+import { CheckThePackage, SeasonBadge } from "../components/ui/badges";
+import { seasonOf } from "@server/taxonomy/domain/season";
 import { FoodIcon } from "../components/icons/food-icons";
 import {
   FeaturedSwap,
@@ -23,7 +24,7 @@ import {
   sortNote,
 } from "../components/catalog/ranking-list";
 import { categorySummary } from "../lib/summaries";
-import { formatScore, joinList, plural } from "../lib/format";
+import { formatScore, joinList, plural, withArticle } from "../lib/format";
 import {
   breadcrumbs,
   countryAlternates,
@@ -316,6 +317,7 @@ function FoodRanking({ data }: { data: FoodData }) {
 function FoodRankingList({ data }: { data: FoodData }) {
   const code = data.market.code;
   const food = data.category.name;
+  const season = seasonOf(data.category.seasonStart, data.category.seasonEnd);
   const filtered = hasFilters(data.filters);
   const labels = Object.fromEntries(
     data.allergenOptions.map((option) => [option.key, option.label]),
@@ -399,6 +401,11 @@ function FoodRankingList({ data }: { data: FoodData }) {
             <h1 className="va-ranking__title">
               Vegan alternatives to {food.toLowerCase()}
             </h1>
+            {season && (
+              <p className="va-ranking__season">
+                <SeasonBadge season={season} />
+              </p>
+            )}
             <p className="va-ranking__summary">
               {categorySummary({
                 food,
@@ -606,7 +613,7 @@ function FoodRankingList({ data }: { data: FoodData }) {
             </section>
           )}
           <p className="va-ranking__add">
-            Know a {food.toLowerCase()} swap that isn’t here?{" "}
+            Know {withArticle(food.toLowerCase())} swap that isn’t here?{" "}
             <Link
               className="va-link"
               to={`/add-product?country=${code}&food=${data.category.slug}`}

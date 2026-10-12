@@ -402,6 +402,12 @@ it("skips an aisle that only repeats its one food", async () => {
   expect((await catalog.category(gb, "ground-beef")).place).toEqual({
     aisle: { slug: "beef", name: "Beef" },
   });
+  // A country without products shows every shared food on its aisle pages,
+  // so its Eggs aisle lists Eggs for Baking too and repeats nothing.
   const eggs = await catalog.aisle(gb, "eggs-aisle");
-  expect(eggs.kind === "aisle" && eggs.aisle.silent).toBe(true);
+  expect(eggs.kind === "aisle" && eggs.foods.map((f) => f.slug)).toEqual([
+    "eggs",
+    "eggs-for-baking",
+  ]);
+  expect(eggs.kind === "aisle" && eggs.aisle.silent).toBe(false);
 });

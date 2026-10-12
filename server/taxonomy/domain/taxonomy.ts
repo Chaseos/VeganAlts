@@ -85,6 +85,10 @@ export const storedCategoryProposal = z.object({
   aliases: aliasList,
 });
 export type CategoryProposalInput = z.infer<typeof categoryProposalInput>;
+// An aisle's default position, and a food's season months (milestone 7).
+const position = z.number().int().min(0).max(999).nullable();
+const month = z.number().int().min(1).max(12);
+const season = z.object({ start: month, end: month }).strict().nullable();
 export const createCategoryInput = z
   .object({
     name: shortText,
@@ -92,6 +96,8 @@ export const createCategoryInput = z
     parentId: id.nullable().default(null),
     isRankable: z.boolean(),
     aliases: aliasList,
+    position: position.optional(),
+    season: season.optional(),
     // Where a new food is switched on; every active country when omitted.
     countries: z.array(countryCode).max(300).optional(),
     note,
@@ -109,6 +115,8 @@ export const countriesInput = z
 export const updateCategoryInput = z
   .object({
     expectedRevision: z.number().int().nonnegative(),
+    position: position.optional(),
+    season: season.optional(),
     name: shortText.optional(),
     slug: z.string().max(60).optional(),
     parentId: id.nullable().optional(),
@@ -200,6 +208,10 @@ export interface CategoryState {
     // Absent in actions recorded before milestone 5.
     displayName?: boolean;
   }[];
+  // Absent in actions recorded before milestone 7.
+  position?: number | null;
+  seasonStart?: number | null;
+  seasonEnd?: number | null;
 }
 export type CategoryPatch = Partial<CategoryState>;
 
@@ -228,8 +240,11 @@ export function planCategoryUpdate(
     "parentId",
     "isRankable",
     "isActive",
+    "position",
+    "seasonStart",
+    "seasonEnd",
   ] as const)
-    if (next[key] !== undefined && next[key] !== current[key]) {
+    if (next[key] !== undefined && next[key] !== (current[key] ?? null)) {
       (before as Record<string, unknown>)[key] = current[key];
       (after as Record<string, unknown>)[key] = next[key];
     }

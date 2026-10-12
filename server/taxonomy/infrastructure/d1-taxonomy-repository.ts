@@ -92,6 +92,7 @@ export class D1TaxonomyRepository {
     const row = await this.db
       .prepare(
         `SELECT c.id,c.name,c.slug,c.parent_id AS parentId,c.is_rankable AS isRankable,c.is_active AS isActive,c.revision,
+        c.position,c.season_start AS seasonStart,c.season_end AS seasonEnd,
         (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id=c.id) AS productCount,
         (SELECT json_group_array(json_object('alias',a.alias,'countryId',a.country_id,'displayName',json(CASE WHEN a.is_display_name=1 THEN 'true' ELSE 'false' END))) FROM category_aliases a WHERE a.category_id=c.id) AS aliases
         FROM categories c WHERE c.id=?`,
@@ -117,6 +118,7 @@ export class D1TaxonomyRepository {
       await this.db.batch([
         this.db.prepare(
           `SELECT c.id,c.name,c.slug,c.parent_id AS parentId,c.is_rankable AS isRankable,c.is_active AS isActive,c.revision,
+        c.position,c.season_start AS seasonStart,c.season_end AS seasonEnd,
         (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id=c.id) AS productCount,
         (SELECT json_group_array(json_object('alias',a.alias,'country',co.iso2,'displayName',json(CASE WHEN a.is_display_name=1 THEN 'true' ELSE 'false' END))) FROM category_aliases a LEFT JOIN countries co ON co.id=a.country_id WHERE a.category_id=c.id) AS aliases,
         (SELECT json_group_array(json_object('key',d.key,'label',d.label,'description',d.description,'active',json(CASE WHEN d.is_active=1 THEN 'true' ELSE 'false' END))) FROM (SELECT * FROM category_rating_dimensions WHERE category_id=c.id ORDER BY sort_order,key) d) AS dimensions,
@@ -146,6 +148,9 @@ export class D1TaxonomyRepository {
           isRankable: number;
           isActive: number;
           revision: number;
+          position: number | null;
+          seasonStart: number | null;
+          seasonEnd: number | null;
           productCount: number;
           aliases: string;
           dimensions: string;
@@ -241,7 +246,7 @@ export class D1TaxonomyRepository {
     const statements = [
       this.db
         .prepare(
-          `UPDATE categories SET name=?,slug=?,parent_id=?,is_rankable=?,is_active=?,revision=revision+1,updated_at=? WHERE id=? AND ${sql}`,
+          `UPDATE categories SET name=?,slug=?,parent_id=?,is_rankable=?,is_active=?,position=?,season_start=?,season_end=?,revision=revision+1,updated_at=? WHERE id=? AND ${sql}`,
         )
         .bind(
           patch.name ?? current.name,
@@ -249,6 +254,17 @@ export class D1TaxonomyRepository {
           patch.parentId === undefined ? current.parentId : patch.parentId,
           Number(patch.isRankable ?? current.isRankable),
           Number(patch.isActive ?? current.isActive),
+          // null is a value here (no position, no season), so only an absent
+          // key keeps the current one.
+          patch.position === undefined
+            ? (current.position ?? null)
+            : patch.position,
+          patch.seasonStart === undefined
+            ? (current.seasonStart ?? null)
+            : patch.seasonStart,
+          patch.seasonEnd === undefined
+            ? (current.seasonEnd ?? null)
+            : patch.seasonEnd,
           now,
           id,
           ...values,
@@ -432,6 +448,9 @@ export class D1TaxonomyRepository {
       parentId: string | null;
       isRankable: boolean;
       aliases: string[];
+      position?: number | null;
+      seasonStart?: number | null;
+      seasonEnd?: number | null;
     },
     now: number,
     fence: DecisionGuard,
@@ -445,7 +464,7 @@ export class D1TaxonomyRepository {
     return [
       this.db
         .prepare(
-          `INSERT INTO categories(id,parent_id,slug,name,is_rankable,is_active,created_at,updated_at) SELECT ?,?,?,?,?,1,?,? WHERE ${fence.sql}`,
+          `INSERT INTO categories(id,parent_id,slug,name,is_rankable,is_active,position,season_start,season_end,created_at,updated_at) SELECT ?,?,?,?,?,1,?,?,?,?,? WHERE ${fence.sql}`,
         )
         .bind(
           id,
@@ -453,6 +472,9 @@ export class D1TaxonomyRepository {
           input.slug,
           input.name,
           Number(input.isRankable),
+          input.position ?? null,
+          input.seasonStart ?? null,
+          input.seasonEnd ?? null,
           now,
           now,
           ...fence.values,

@@ -9,6 +9,9 @@ export interface CategorySummary {
   name: string;
   parentId: string | null;
   isRankable: number;
+  // A seasonal food's months (milestone 7); null otherwise.
+  seasonStart: number | null;
+  seasonEnd: number | null;
   productCount: number;
   // 1 when the category is a group or a food switched on in the country.
   available: number;
@@ -65,6 +68,8 @@ export interface TaxonomyCounts {
   categoryId: string;
   productCount: number;
   rankedCount: number;
+  // Counted ratings of the food's ranked swaps (popularity, milestone 7).
+  ratingCount: number;
 }
 
 export interface TopProduct {

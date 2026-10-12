@@ -61,7 +61,7 @@ function parseAllergens<T extends { allergens?: unknown }>(row: T) {
 const onHere = (category: string) =>
   `(${category}.is_rankable=0 OR EXISTS(SELECT 1 FROM category_countries cc WHERE cc.category_id=${category}.id AND cc.country_id=?))`;
 // Binds the country ID three times: display name, product count, availability.
-const categoryFields = `c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,
+const categoryFields = `c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,c.season_start AS seasonStart,c.season_end AS seasonEnd,
  (SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=c.id AND p.country_id=? AND ${visible}) AS productCount,
  ${onHere("c")} AS available`;
 
@@ -141,13 +141,16 @@ export class D1CatalogRepository implements CatalogRepository {
     const [categories, counts] = await this.db.batch([
       this.db
         .prepare(
-          `SELECT c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,${onHere("c")} AS available FROM categories c WHERE c.is_active=1 ORDER BY name LIMIT 2000`,
+          `SELECT c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,${onHere("c")} AS available,
+          c.position,c.season_start AS seasonStart,c.season_end AS seasonEnd FROM categories c WHERE c.is_active=1 ORDER BY name LIMIT 2000`,
         )
         .bind(countryId, countryId),
       this.db
         .prepare(
           `SELECT pc.category_id AS categoryId,COUNT(DISTINCT p.id) AS productCount,
-            COUNT(DISTINCT CASE WHEN s.rating_count>0 AND pc.ranking_eligible=1 AND ${eligible} THEN p.id END) AS rankedCount
+            COUNT(DISTINCT CASE WHEN s.rating_count>0 AND pc.ranking_eligible=1 AND ${eligible} THEN p.id END) AS rankedCount,
+            -- Popularity (milestone 7): counted ratings of the food's ranked swaps.
+            COALESCE(SUM(CASE WHEN pc.ranking_eligible=1 AND ${eligible} THEN s.rating_count END),0) AS ratingCount
           FROM product_categories pc JOIN products p ON p.id=pc.product_id AND p.country_id=? AND ${visible}
           JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
           LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id

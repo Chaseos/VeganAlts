@@ -3,7 +3,8 @@ import { Form, Link } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
 import { Icon } from "../icons/icon";
 import { ScoreLabel } from "../ui/score";
-import { Badge } from "../ui/badges";
+import { Badge, SeasonBadge } from "../ui/badges";
+import type { Season } from "@server/taxonomy/domain/season";
 import { plural } from "../../lib/format";
 import { useFoodHref } from "../../lib/ranking-filters";
 import { foodPath, productPath, searchPath } from "../../lib/site-chrome";
@@ -22,6 +23,7 @@ export interface AisleFood {
   name: string;
   productCount: number;
   rankedCount: number;
+  season?: Season | null;
   top: AisleTopProduct[];
 }
 export interface AisleData {
@@ -56,6 +58,7 @@ export function FoodCard({
           <Heading className="va-food-card__name">
             <Link to={href}>{food.name}</Link>
           </Heading>
+          {food.season && <SeasonBadge season={food.season} />}
         </div>
         <span className="va-food-card__count">
           {plural(food.productCount, "product")}

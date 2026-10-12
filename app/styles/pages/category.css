@@ -43,6 +43,10 @@
   display: none;
 }
 
+.va-ranking__season {
+  margin: 8px 0 0;
+}
+
 .va-ranking__summary {
   margin: 0;
   max-width: 760px;

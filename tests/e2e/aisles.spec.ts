@@ -99,21 +99,42 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
   );
   await accessible(page);
 
+  // Home aisle cards show four foods, then "See all" (both layouts render).
+  await page.goto("/");
+  // (On phones the link sits in a closed accordion, so find it by class.)
+  await expect(
+    page
+      .locator(".va-browse__more", { hasText: "See all 9 cheese foods" })
+      .first(),
+  ).toHaveAttribute("href", "/us/cheese");
+  // A seasonal food says when it is sold.
+  await page.goto("/us/eggnog");
+  await expect(page.getByText("Seasonal · Nov–Jan").first()).toBeVisible();
+
   // An aisle's Suggest a food link starts in that aisle.
   await page.goto("/us/eggs-aisle");
   await expect(
-    page.getByRole("heading", { name: "Eggs", level: 2 }),
+    page.getByRole("heading", { name: "Eggs", exact: true, level: 2 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Eggs for Baking", level: 2 }),
   ).toBeVisible();
   await expect(
     page.getByRole("main").getByRole("link", { name: "Suggest a food" }),
   ).toHaveAttribute("href", "/propose-category?country=us&aisle=eggs-aisle");
-  // An aisle that only repeats its food is skipped in the crumbs (phones
-  // show a back link instead).
+  // Crumbs (phones show a back link instead) skip an aisle that only repeats
+  // its one food, and name a shared one "Eggs aisle" rather than repeat it.
+  await page.goto("/us/butter");
+  if (!isPhone(page)) {
+    const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
+    await expect(crumbs).not.toContainText("Butter aisle");
+    await expect(crumbs.getByRole("link")).toHaveCount(1);
+  }
   await page.goto("/us/eggs");
   if (!isPhone(page)) {
     const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
-    await expect(crumbs).not.toContainText("Eggs aisle");
-    await expect(crumbs.getByRole("link")).toHaveCount(1);
+    await expect(crumbs).toContainText("Eggs aisle");
+    await expect(crumbs.getByRole("link")).toHaveCount(2);
   }
   await expect(
     page.getByRole("link", { name: "Suggest a food" }).last(),

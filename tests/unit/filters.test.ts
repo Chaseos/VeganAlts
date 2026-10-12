@@ -141,6 +141,8 @@ describe("taxonomy shape", () => {
           name: "ground-beef",
           productCount: 4,
           rankedCount: 3,
+          ratingCount: 0,
+          season: null,
         },
         {
           id: "meatballs",
@@ -148,6 +150,8 @@ describe("taxonomy shape", () => {
           name: "meatballs",
           productCount: 0,
           rankedCount: 0,
+          ratingCount: 0,
+          season: null,
         },
       ],
     });

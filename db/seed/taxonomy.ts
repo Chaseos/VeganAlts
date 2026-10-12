@@ -5,23 +5,30 @@ import { DEFAULT_DIMENSIONS } from "../../server/ratings/domain/details";
 // No products, ratings, people or images. Reviewed before any production use.
 // Food → aisle → food (confirmed by the owner on 2026-10-12, milestone 7).
 // Aisles are non-rankable groups shared by every country; an aisle whose
-// natural slug belongs to a food takes `-aisle`. Aisles are listed by name.
+// natural slug belongs to a food takes `-aisle`. Each country orders its
+// aisles by popularity; `position` is the default store order before a
+// country has ratings (owner decision, 2026-10-12).
 export const TAXONOMY_GROUPS = [
   { slug: "food", name: "Food", parent: null },
-  { slug: "beef", name: "Beef", parent: "food" },
-  { slug: "chicken", name: "Chicken", parent: "food" },
-  { slug: "pork", name: "Pork", parent: "food" },
-  { slug: "turkey-aisle", name: "Turkey", parent: "food" },
-  { slug: "lamb-aisle", name: "Lamb", parent: "food" },
-  { slug: "fish-and-seafood", name: "Fish and seafood", parent: "food" },
-  { slug: "milk-aisle", name: "Milk", parent: "food" },
-  { slug: "cream-aisle", name: "Cream", parent: "food" },
-  { slug: "butter-aisle", name: "Butter", parent: "food" },
-  { slug: "yogurt-aisle", name: "Yogurt", parent: "food" },
-  { slug: "ice-cream-aisle", name: "Ice cream", parent: "food" },
-  { slug: "cheese", name: "Cheese", parent: "food" },
-  { slug: "eggs-aisle", name: "Eggs", parent: "food" },
-  { slug: "condiments", name: "Condiments", parent: "food" },
+  { slug: "beef", name: "Beef", parent: "food", position: 1 },
+  { slug: "chicken", name: "Chicken", parent: "food", position: 2 },
+  { slug: "pork", name: "Pork", parent: "food", position: 3 },
+  { slug: "turkey-aisle", name: "Turkey", parent: "food", position: 4 },
+  { slug: "lamb-aisle", name: "Lamb", parent: "food", position: 5 },
+  {
+    slug: "fish-and-seafood",
+    name: "Fish and seafood",
+    parent: "food",
+    position: 6,
+  },
+  { slug: "milk-aisle", name: "Milk", parent: "food", position: 7 },
+  { slug: "cream-aisle", name: "Cream", parent: "food", position: 8 },
+  { slug: "butter-aisle", name: "Butter", parent: "food", position: 9 },
+  { slug: "yogurt-aisle", name: "Yogurt", parent: "food", position: 10 },
+  { slug: "ice-cream-aisle", name: "Ice cream", parent: "food", position: 11 },
+  { slug: "cheese", name: "Cheese", parent: "food", position: 12 },
+  { slug: "eggs-aisle", name: "Eggs", parent: "food", position: 13 },
+  { slug: "condiments", name: "Condiments", parent: "food", position: 14 },
 ] as const;
 // The United States launch foods (milestone 7) start only there; a food
 // switches on elsewhere when a product for it is published there.
@@ -122,6 +129,14 @@ export const TAXONOMY_LEAVES = [
     parent: "turkey-aisle",
     aliases: ["holiday roast", "Thanksgiving roast"],
     countries: US,
+    season: { start: 10, end: 12 },
+  },
+  {
+    slug: "turkey-deli-slices",
+    name: "Turkey Deli Slices",
+    parent: "turkey-aisle",
+    aliases: ["turkey slices", "deli turkey"],
+    countries: US,
   },
   {
     slug: "fish-fillets",
@@ -149,6 +164,7 @@ export const TAXONOMY_LEAVES = [
     parent: "milk-aisle",
     aliases: ["nog", "holiday nog"],
     countries: US,
+    season: { start: 11, end: 1 },
   },
   {
     slug: "coffee-creamer",
@@ -269,7 +285,15 @@ export const TAXONOMY_LEAVES = [
     slug: "eggs",
     name: "Eggs",
     parent: "eggs-aisle",
-    aliases: ["egg alternatives", "egg replacer"],
+    // Cooked eggs (scrambled, folded); baking replacers are their own food.
+    aliases: ["egg alternatives", "scrambled eggs"],
+  },
+  {
+    slug: "eggs-for-baking",
+    name: "Eggs for Baking",
+    parent: "eggs-aisle",
+    aliases: ["egg replacer", "egg substitute"],
+    countries: US,
   },
   {
     slug: "mayonnaise",
@@ -514,11 +538,25 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
   }
   for (const category of [...TAXONOMY_GROUPS, ...TAXONOMY_LEAVES]) {
     const rankable = "aliases" in category ? 1 : 0;
+    const position = "position" in category ? category.position : null;
+    const season = "season" in category ? category.season : null;
     statements.push(
-      `INSERT INTO categories(id,parent_id,slug,name,is_rankable,is_active,created_at,updated_at)
-      SELECT ${quote(newId())},${category.parent ? `(SELECT id FROM categories WHERE slug=${quote(category.parent)})` : "NULL"},${quote(category.slug)},${quote(category.name)},${rankable},1,${now},${now}
+      `INSERT INTO categories(id,parent_id,slug,name,is_rankable,is_active,position,season_start,season_end,created_at,updated_at)
+      SELECT ${quote(newId())},${category.parent ? `(SELECT id FROM categories WHERE slug=${quote(category.parent)})` : "NULL"},${quote(category.slug)},${quote(category.name)},${rankable},1,${position ?? "NULL"},${season?.start ?? "NULL"},${season?.end ?? "NULL"},${now},${now}
       WHERE NOT EXISTS(SELECT 1 FROM categories WHERE slug=${quote(category.slug)});`,
     );
+    // An existing category gets a missing default position or season, unless
+    // an operator has ever set that field, so their choice stays.
+    const untouched = (field: string) =>
+      `NOT EXISTS(SELECT 1 FROM moderation_actions a WHERE a.kind='category_update' AND a.target_id=categories.id AND json_type(a.after_data,'$.${field}') IS NOT NULL)`;
+    if (position !== null)
+      statements.push(
+        `UPDATE categories SET position=${position} WHERE slug=${quote(category.slug)} AND position IS NULL AND ${untouched("position")};`,
+      );
+    if (season)
+      statements.push(
+        `UPDATE categories SET season_start=${season.start},season_end=${season.end} WHERE slug=${quote(category.slug)} AND season_start IS NULL AND ${untouched("seasonStart")};`,
+      );
     if ("aliases" in category)
       for (const alias of category.aliases)
         statements.push(

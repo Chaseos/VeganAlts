@@ -15,7 +15,8 @@ const PAGES = [
   ["product", "/us/products/beyond-beef"],
   ["search", "/us/search?q=beef"],
   ["food-silent-aisle", "/us/eggs"],
-  ["aisle-single-food", "/us/eggs-aisle"],
+  ["aisle-single-food", "/us/butter-aisle"],
+  ["seasonal-food", "/us/eggnog"],
   ["empty-country", "/ca"],
 ] as const;
 const WIDTHS = [

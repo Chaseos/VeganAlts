@@ -71,6 +71,13 @@ export const categories = sqliteTable(
     revision: integer("revision").notNull().default(0),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
+    // An aisle's default order where a country has no ratings yet (milestone
+    // 7); null sorts after the aisles that have one.
+    position: integer("position"),
+    // A seasonal food's months, 1–12; a season may wrap past December. Both
+    // set or both null (enforced by triggers).
+    seasonStart: integer("season_start"),
+    seasonEnd: integer("season_end"),
   },
   (table) => [
     index("ix_categories_parent_active").on(table.parentId, table.isActive),
@@ -204,6 +211,8 @@ export const products = sqliteTable(
       .default(sql.raw("'unknown'")),
     manufacturerUrl: text("manufacturer_url"),
     developmentOnly: integer("development_only").notNull().default(0),
+    // Sold for part of the year (milestone 7); never a sign of discontinuation.
+    seasonal: integer("seasonal").notNull().default(0),
     sourceCheckedAt: integer("source_checked_at"),
     dataNotes: text("data_notes"),
     publishedAt: integer("published_at"),

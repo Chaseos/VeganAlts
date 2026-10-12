@@ -557,6 +557,9 @@ export class TaxonomyService {
       parentId: input.parentId,
       isRankable: input.isRankable,
       aliases: input.aliases,
+      position: input.position ?? null,
+      seasonStart: input.season?.start ?? null,
+      seasonEnd: input.season?.end ?? null,
     };
     const guard = { sql: "1", values: [] as (string | number | null)[] };
     fenceNames(guard, [input.name, ...input.aliases], id, scope);
@@ -627,6 +630,13 @@ export class TaxonomyService {
         ? { isRankable: input.isRankable }
         : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      ...(input.position !== undefined ? { position: input.position } : {}),
+      ...(input.season !== undefined
+        ? {
+            seasonStart: input.season?.start ?? null,
+            seasonEnd: input.season?.end ?? null,
+          }
+        : {}),
       ...(input.aliases
         ? {
             aliases: input.aliases.map((a) => ({

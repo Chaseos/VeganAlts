@@ -15,7 +15,13 @@ import {
   parseCategoryView,
 } from "../domain/ranking-view";
 import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
-import { aisleTree, taxonomyShape } from "../../taxonomy/domain/shape";
+import {
+  aisleFood,
+  aisleTree,
+  byPopularity,
+  taxonomyShape,
+} from "../../taxonomy/domain/shape";
+import { seasonOf } from "../../taxonomy/domain/season";
 import { silentAisle } from "../../taxonomy/domain/display";
 import { foodChoices } from "../../taxonomy/domain/food-choices";
 import {
@@ -185,12 +191,13 @@ export class CatalogService {
   }
 
   // Every aisle, including aisles without foods yet, for choosing where a
-  // suggested food belongs.
+  // suggested food belongs, in the default store order.
   async aisles(market: Market) {
     const taxonomy = await this.repository.taxonomy(market.id);
     return [...taxonomyShape(taxonomy.categories).values()]
       .filter((node) => node.depth === 1 && !node.isRankable)
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((aisle) => ({ ...aisle, ratingCount: 0, productCount: 0 }))
+      .sort(byPopularity)
       .map((aisle) => ({ id: aisle.id, slug: aisle.slug, name: aisle.name }));
   }
 
@@ -240,7 +247,7 @@ export class CatalogService {
     if (node.depth !== 1)
       return { kind: "group" as const, aisleSlug: aisle.slug };
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
-    // Only foods that are on in this country.
+    // Only foods that are on in this country, most popular first.
     const foods = [...shape.values()]
       .filter(
         (item) =>
@@ -249,7 +256,8 @@ export class CatalogService {
           !item.outsideDepth &&
           (shared || item.available !== 0),
       )
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .map((item) => aisleFood(item, counts))
+      .sort(byPopularity);
     const top = await this.repository.topProducts(
       market.id,
       foods.map((food) => food.id),
@@ -265,8 +273,9 @@ export class CatalogService {
       foods: foods.map((food) => ({
         slug: food.slug,
         name: food.name,
-        productCount: counts.get(food.id)?.productCount ?? 0,
-        rankedCount: counts.get(food.id)?.rankedCount ?? 0,
+        productCount: food.productCount,
+        rankedCount: food.rankedCount,
+        season: food.season,
         top: top
           .filter((product) => product.categoryId === food.id)
           .map((product) => ({
@@ -338,6 +347,7 @@ export class CatalogService {
             name: food.name,
             best: top && leaderProduct(top),
             productCount: food.productCount,
+            season: food.season,
           };
         }),
       })),
@@ -405,6 +415,7 @@ export class CatalogService {
               : null,
           productCount: counts.get(food.id)?.productCount ?? 0,
           rankedCount: counts.get(food.id)?.rankedCount ?? 0,
+          season: seasonOf(food.seasonStart, food.seasonEnd),
           top: ranked.map(leaderProduct),
         };
       }),

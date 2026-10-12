@@ -10,7 +10,9 @@ import { InstantSearch } from "../components/catalog/instant-search";
 import { FoodIcon } from "../components/icons/food-icons";
 import { Icon } from "../components/icons/icon";
 import { ScoreLabel, RankFlag } from "../components/ui/score";
-import { Badge, EarlyBadge } from "../components/ui/badges";
+import { Badge, EarlyBadge, SeasonBadge } from "../components/ui/badges";
+import { BROWSE_AISLE_FOODS } from "@server/ranking/domain/display";
+import type { Season } from "@server/taxonomy/domain/season";
 import { ButtonLink } from "../components/ui/button";
 import { publicMetadata } from "../lib/metadata";
 import { formatCount, plural, shortDate } from "../lib/format";
@@ -350,10 +352,13 @@ function AisleFoods({
   aisle: Aisle;
   empty?: boolean;
 }) {
+  // Each card shows the aisle's most popular foods, then "See all" (owner
+  // decision, 2026-10-12), so cards line up whatever their size.
+  const shown = aisle.foods.slice(0, BROWSE_AISLE_FOODS);
   return (
     <div className="va-browse__foods">
       <ul className="va-divided">
-        {aisle.foods.map((food) => (
+        {shown.map((food) => (
           <li key={food.slug}>
             <FoodRow
               country={country}
@@ -369,6 +374,15 @@ function AisleFoods({
           </li>
         ))}
       </ul>
+      {aisle.foods.length > shown.length && (
+        <Link
+          className="va-link va-browse__more"
+          to={foodPath(country, aisle.slug)}
+        >
+          See all {aisle.foods.length} {aisle.name.toLowerCase()} foods
+          <Icon name="arrowRight" size={14} />
+        </Link>
+      )}
     </div>
   );
 }
@@ -436,7 +450,7 @@ function FoodRow({
   missing = "No ranked swaps yet",
 }: {
   country: string;
-  food: { slug: string; name: string };
+  food: { slug: string; name: string; season?: Season | null };
   best: Leader["best"];
   neutral?: boolean;
   prefix?: string;
@@ -447,7 +461,15 @@ function FoodRow({
   return (
     <Link className="va-row-link" to={href}>
       <span className="va-row-link__text">
-        <span className="va-row-link__title">{food.name}</span>
+        <span className="va-row-link__title">
+          {food.name}
+          {food.season && (
+            <>
+              {" "}
+              <SeasonBadge season={food.season} />
+            </>
+          )}
+        </span>
         <span className="va-small va-muted va-truncate">
           {best ? `${prefix}${best.name}` : missing}
         </span>

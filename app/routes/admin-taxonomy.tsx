@@ -216,6 +216,7 @@ export default function AdminTaxonomy({
                           isRankable: rankable,
                           isActive: form.get("active") === "on",
                           aliases: [...plain, ...display],
+                          ...seasonAndPosition(form),
                           note: form.get("note"),
                         },
                         `${c.name} updated.`,
@@ -257,6 +258,32 @@ export default function AdminTaxonomy({
                           ))}
                       </select>
                     </div>
+                    {c.isRankable === 1 ? (
+                      <SeasonFields
+                        id={c.id}
+                        start={c.seasonStart}
+                        end={c.seasonEnd}
+                      />
+                    ) : (
+                      <div className="form-field">
+                        <label htmlFor={`position-${c.id}`}>
+                          Default position (aisles)
+                        </label>
+                        <input
+                          id={`position-${c.id}`}
+                          name="position"
+                          type="number"
+                          min={0}
+                          max={999}
+                          defaultValue={c.position ?? ""}
+                          aria-describedby={`position-hint-${c.id}`}
+                        />
+                        <p id={`position-hint-${c.id}`} className="small muted">
+                          Orders aisles in a country before it has ratings;
+                          ratings then order them by popularity.
+                        </p>
+                      </div>
+                    )}
                     <label className="checkbox-label">
                       <input
                         type="checkbox"
@@ -911,5 +938,68 @@ function DimensionEditor({
         Save questions
       </button>
     </form>
+  );
+}
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+// A food's season months (both or neither) and an aisle's default position.
+function seasonAndPosition(form: FormData) {
+  const start = Number(form.get("seasonStart") || 0),
+    end = Number(form.get("seasonEnd") || 0);
+  const position = form.get("position");
+  return {
+    ...(form.has("seasonStart")
+      ? { season: start && end ? { start, end } : null }
+      : {}),
+    ...(position !== null
+      ? { position: position === "" ? null : Number(position) }
+      : {}),
+  };
+}
+
+function SeasonFields({
+  id,
+  start,
+  end,
+}: {
+  id: string;
+  start: number | null;
+  end: number | null;
+}) {
+  const month = (name: "seasonStart" | "seasonEnd", value: number | null) => (
+    <select id={`${name}-${id}`} name={name} defaultValue={value ?? ""}>
+      <option value="">Not seasonal</option>
+      {MONTHS.map((label, index) => (
+        <option key={label} value={index + 1}>
+          {label}
+        </option>
+      ))}
+    </select>
+  );
+  return (
+    <fieldset className="form-field">
+      <legend>Season (optional)</legend>
+      <p className="small muted">
+        A seasonal food stays listed all year and shows its months.
+      </p>
+      <label htmlFor={`seasonStart-${id}`}>From</label>
+      {month("seasonStart", start)}
+      <label htmlFor={`seasonEnd-${id}`}>To</label>
+      {month("seasonEnd", end)}
+    </fieldset>
   );
 }
