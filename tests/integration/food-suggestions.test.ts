@@ -33,7 +33,7 @@ async function world() {
       ).bind(user, user),
     ]),
   );
-  const shelf = (await env.DB.prepare(
+  const aisle = (await env.DB.prepare(
     "SELECT id FROM categories WHERE slug='pork'",
   ).first("id")) as string;
   const bacon = (await env.DB.prepare(
@@ -49,7 +49,7 @@ async function world() {
       administrator: false,
     },
     operator: { id: users[1]!, accountState: "active", administrator: true },
-    shelf,
+    aisle,
     bacon,
   };
 }
@@ -60,7 +60,7 @@ async function submit(w: World, food: string, extra: object = {}) {
     brand: `Grill ${tag()}`,
     country: "GB",
     categoryIds: [],
-    newFood: { name: food, shelfId: w.shelf, aliases: [`${food} links`] },
+    newFood: { name: food, aisleId: w.aisle, aliases: [`${food} links`] },
     imageSlots: ["front"],
     rating: 4,
     ...extra,
@@ -413,7 +413,7 @@ it("leaves no suggested food behind when the product can't be held", async () =>
     brand: `Grill ${tag()}`,
     country: "GB",
     categoryIds: [],
-    newFood: { name: `Weisswurst ${tag()}`, shelfId: w.shelf },
+    newFood: { name: `Weisswurst ${tag()}`, aisleId: w.aisle },
     imageSlots: ["front"],
   });
   const checked = await w.community.submissions.preflight(

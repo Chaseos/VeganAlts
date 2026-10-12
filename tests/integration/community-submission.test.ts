@@ -633,27 +633,14 @@ it("publishes a front-photo-only product with its ingredients not checked yet", 
 it("offers every placeable food, marking the ones not on in a country yet", async () => {
   const { f } = await setup();
   const [on, off] = f.categories as [string, string];
-  const shelf = `shelf-${tag()}`,
-    aisle = `aisle-${tag()}`,
+  const aisle = `aisle-${tag()}`,
     root = `root-${tag()}`;
   await env.DB.batch([
     env.DB.prepare(
-      "INSERT INTO categories(id,parent_id,slug,name,is_rankable,created_at,updated_at) VALUES(?,NULL,?,?,0,1,1),(?,?,?,?,0,1,1),(?,?,?,?,0,1,1)",
-    ).bind(
-      root,
-      root,
-      root,
-      aisle,
-      root,
-      aisle,
-      "Meat",
-      shelf,
-      aisle,
-      shelf,
-      "Beef",
-    ),
+      "INSERT INTO categories(id,parent_id,slug,name,is_rankable,created_at,updated_at) VALUES(?,NULL,?,?,0,1,1),(?,?,?,?,0,1,1)",
+    ).bind(root, root, root, aisle, root, aisle, "Beef"),
     env.DB.prepare("UPDATE categories SET parent_id=? WHERE id IN (?,?)").bind(
-      shelf,
+      aisle,
       on,
       off,
     ),
@@ -675,14 +662,10 @@ it("offers every placeable food, marking the ones not on in a country yet", asyn
     choices.foods.find((c) => c.id === categoryId);
   expect(food(off)).toMatchObject({
     inCountry: false,
-    aisle: { name: "Meat" },
-    // The aisle's only shelf is not shown as its own level.
-    shelf: { name: "Beef", silent: true },
+    aisle: { name: "Beef", silent: false },
   });
   expect(food(off)!.otherNames[0]).toMatch(/^mince/);
-  expect(choices.shelves.flatMap((a) => a.shelves).map((s) => s.id)).toContain(
-    shelf,
-  );
+  expect(choices.aisles.map((a) => a.id)).toContain(aisle);
 });
 
 it("checks large brands without a hard limit, ranks alias matches first and keeps the matched brand", async () => {

@@ -68,26 +68,20 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   return publicLoader(async () => {
     const url = new URL(request.url);
     const market = await catalog.market(country);
-    // Aisles and shelves are groups: an aisle has its own page, a shelf opens
-    // its aisle with that shelf selected, and Food itself is the home page.
+    // Aisles are groups with their own page; a deeper group (a retired shelf
+    // from the three-level shape) opens its aisle, and Food itself is the
+    // home page. The public boundary drops the old `?shelf=` parameter.
     if (!(await catalog.summary(market, params.categorySlug)).isRankable) {
       const place = await catalog.aisle(market, params.categorySlug);
       if (place.kind === "root") throw redirect(homePath(country));
-      if (place.kind === "shelf")
-        throw redirect(
-          `${foodPath(country, place.aisleSlug)}${place.shelfSlug ? `?shelf=${place.shelfSlug}` : ""}`,
-          { status: 302, headers: { "Cache-Control": "private, no-store" } },
-        );
-      const shelf = url.searchParams.get("shelf");
-      if (shelf !== null && !place.shelves.some((s) => s.slug === shelf))
-        throw redirect(foodPath(country, place.aisle.slug), {
+      if (place.kind === "group")
+        throw redirect(foodPath(country, place.aisleSlug), {
           status: 302,
           headers: { "Cache-Control": "private, no-store" },
         });
       return {
         ...place,
         market,
-        shelf,
         origin: env.APP_URL,
         staging: env.APP_ENV !== "production",
       };
@@ -259,12 +253,7 @@ function AislePage({ data }: { data: AisleData }) {
           { label: data.aisle.name },
         ]}
       />
-      <AislePanel
-        country={data.market.code}
-        data={data}
-        shelf={data.shelf}
-        mode="page"
-      />
+      <AislePanel country={data.market.code} data={data} mode="page" />
     </PageShell>
   );
 }
@@ -371,9 +360,7 @@ function FoodRankingList({ data }: { data: FoodData }) {
       phoneBack={{
         to: aislePath,
         label: data.place.aisle?.name ?? "All foods",
-        context: [data.place.aisle?.name, data.place.shelf?.name]
-          .filter(Boolean)
-          .join(" · "),
+        context: data.place.aisle?.name ?? "",
       }}
       phoneTitle={
         <p className="va-ranking__phone-title" aria-hidden="true">
@@ -403,14 +390,6 @@ function FoodRankingList({ data }: { data: FoodData }) {
                             ? `${food} aisle`
                             : data.place.aisle.name,
                         to: aislePath,
-                      },
-                    ]
-                  : []),
-                ...(data.place.shelf && data.place.aisle
-                  ? [
-                      {
-                        label: data.place.shelf.name,
-                        to: `${aislePath}?shelf=${data.place.shelf.slug}`,
                       },
                     ]
                   : []),
@@ -661,28 +640,23 @@ function FoodSidebar({
         <FoodIcon slug={aisle.slug} size={20} />
         {aisle.name}
       </Link>
-      {aisle.shelves.map((shelf) => (
-        <div key={shelf.slug}>
-          {!shelf.silent && <p className="va-overline">{shelf.name}</p>}
-          <ul>
-            {shelf.foods.map((food) => (
-              <li key={food.slug}>
-                <Link
-                  to={foodPath(country, food.slug)}
-                  aria-current={food.slug === current ? "page" : undefined}
-                >
-                  <span>{food.name}</span>
-                  {food.score !== null && (
-                    <span className="va-food-side__score">
-                      {formatScore(food.score)}
-                    </span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <ul>
+        {aisle.foods.map((food) => (
+          <li key={food.slug}>
+            <Link
+              to={foodPath(country, food.slug)}
+              aria-current={food.slug === current ? "page" : undefined}
+            >
+              <span>{food.name}</span>
+              {food.score !== null && (
+                <span className="va-food-side__score">
+                  {formatScore(food.score)}
+                </span>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
       {sidebar.otherAisles.length > 0 && (
         <div>
           <p className="va-overline">Other aisles</p>

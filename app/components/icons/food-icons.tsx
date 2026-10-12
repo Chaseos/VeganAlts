@@ -1,8 +1,8 @@
 import { PathIcon } from "./icon";
 
 // Aisle and food line icons. The taxonomy is managed data, so icons are looked
-// up by slug; a new food falls back to its shelf's or aisle's icon, then to a
-// plate.
+// up by slug; a new food falls back to its aisle's icon when one is passed,
+// then to a plate.
 const SHAPES = {
   meat: "M4 10.5C4 6.5 7.5 4 12 4s8 2.5 8 6.5zM3 14h18M4.5 17h15a2.5 2.5 0 0 1-2.5 3H7a2.5 2.5 0 0 1-2.5-3z",
   burger:
@@ -12,6 +12,8 @@ const SHAPES = {
   nugget:
     "M7 6c3-2 8-1.5 10.5 1.5S20 15 17 18s-9 3-11.5 0S4 8 7 6zM9.5 11h.01M13 9h.01M14 14h.01",
   bacon: "M3 9c3-3 6 3 9 0s6-3 9 0M3 15c3-3 6 3 9 0s6-3 9 0M3 9v6M21 9v6",
+  sausage:
+    "M5 15c0-4 4-8 9-9 3-.5 5 1.5 4.5 4.5-1 5-5 9-9 9-3 .5-4.5-1.5-4.5-4.5zM7 16.5 4.5 19M17 7l2.5-2.5",
   seafood: "M3 12c3-4.5 9-6 14-2l4-3v10l-4-3c-5 4-11 2.5-14-2zM8 11.5h.01",
   milk: "M8 2.5h8V6l2.5 3.5V21h-13V9.5L8 6zM5.5 9.5h13M8 6h8M10 14h4",
   cheese:
@@ -19,6 +21,8 @@ const SHAPES = {
   butter: "M3 14.5 6.5 9H21l-3.5 5.5zM3 14.5V18h14.5v-3.5M17.5 18 21 12.5V9",
   yogurt: "M7 10a5 5 0 0 1 10 0zM7 10l5 11 5-11",
   egg: "M12 3c3.9 0 7 6.5 7 11a7 7 0 0 1-14 0c0-4.5 3.1-11 7-11z",
+  bottle:
+    "M12 2v3M10 5h4v2h-4zM8.5 7h7l1 3v10a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1V10zM7.5 14h9",
   pantry: "M8 3h8v3H8zM7 6h10l1 3v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9zM6 12h12",
   plate:
     "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M7.5 12a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0-9 0",
@@ -27,39 +31,62 @@ const SHAPES = {
 export type FoodShape = keyof typeof SHAPES;
 
 export const FOOD_ICONS: Record<string, FoodShape> = {
-  meat: "meat",
+  // Aisles
   beef: "meat",
+  chicken: "chicken",
+  pork: "bacon",
+  "turkey-aisle": "chicken",
+  "lamb-aisle": "meat",
+  "fish-and-seafood": "seafood",
+  "milk-aisle": "milk",
+  "cream-aisle": "milk",
+  "butter-aisle": "butter",
+  "yogurt-aisle": "yogurt",
+  "ice-cream-aisle": "yogurt",
+  cheese: "cheese",
+  "eggs-aisle": "egg",
+  condiments: "bottle",
+  // Foods
   "ground-beef": "meat",
   "beef-burgers": "burger",
-  chicken: "chicken",
+  meatballs: "meat",
+  "hot-dogs": "sausage",
   "chicken-nuggets": "nugget",
-  pork: "bacon",
+  "grilled-chicken-strips": "chicken",
+  "chicken-patties": "burger",
+  "chicken-tenders": "nugget",
+  "boneless-wings": "chicken",
   bacon: "bacon",
-  "turkey-shelf": "chicken",
-  "lamb-shelf": "meat",
-  seafood: "seafood",
-  "fish-and-seafood": "seafood",
-  "fish-shelf": "seafood",
-  "shellfish-shelf": "seafood",
-  dairy: "milk",
-  "milk-shelf": "milk",
+  "breakfast-sausage": "sausage",
+  chorizo: "sausage",
+  "italian-sausage": "sausage",
+  "turkey-roast": "chicken",
+  "fish-fillets": "seafood",
   milk: "milk",
-  "butter-shelf": "butter",
+  "chocolate-milk": "milk",
+  eggnog: "milk",
+  "coffee-creamer": "milk",
+  "half-and-half": "milk",
+  "sour-cream": "yogurt",
+  "whipped-cream": "milk",
   butter: "butter",
-  "cream-shelf": "milk",
-  "yogurt-shelf": "yogurt",
-  "ice-cream-shelf": "yogurt",
-  cheese: "cheese",
-  "block-and-shredded": "cheese",
-  "soft-and-spreadable": "cheese",
-  "hard-and-grated": "cheese",
+  yogurt: "yogurt",
+  "greek-yogurt": "yogurt",
+  "ice-cream": "yogurt",
   cheddar: "cheese",
   mozzarella: "cheese",
+  "smoked-gouda": "cheese",
+  "pepper-jack": "cheese",
+  "american-cheese": "cheese",
+  "mexican-blend": "cheese",
+  parmesan: "cheese",
   "cream-cheese": "cheese",
-  "eggs-aisle": "egg",
-  "eggs-shelf": "egg",
+  queso: "cheese",
   eggs: "egg",
-  yogurt: "yogurt",
+  mayonnaise: "bottle",
+  "ranch-dressing": "bottle",
+  "caesar-dressing": "bottle",
+  "worcestershire-sauce": "bottle",
   pantry: "pantry",
 };
 
@@ -76,7 +103,7 @@ export function FoodIcon({
   className,
 }: {
   slug: string;
-  // The food's shelf and aisle slugs, nearest first.
+  // The food's aisle slug, when known.
   fallback?: (string | null | undefined)[];
   size?: number;
   className?: string;

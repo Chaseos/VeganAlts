@@ -91,7 +91,7 @@ it("distinguishes deterministic publication, actionable duplicates and manual re
   // A suggested food waits for an operator.
   expect(
     decideSubmission(
-      { ...input, newFood: { name: "Bratwurst", shelfId: "pork" } },
+      { ...input, newFood: { name: "Bratwurst", aisleId: "pork" } },
       [],
     ).decision,
   ).toBe("NEEDS_REVIEW");
@@ -117,14 +117,14 @@ it("requires only a name, brand, country, food and front photo", () => {
     submissionInput.safeParse({
       ...minimal,
       categoryIds: [],
-      newFood: { name: "Bratwurst", shelfId: "pork" },
+      newFood: { name: "Bratwurst", aisleId: "pork" },
     }).success,
   ).toBe(true);
   expect(
     submissionInput.safeParse({
       ...minimal,
       categoryIds: ["a", "b", "c", "d", "e"],
-      newFood: { name: "Bratwurst", shelfId: "pork" },
+      newFood: { name: "Bratwurst", aisleId: "pork" },
     }).success,
   ).toBe(false);
   // A front photo is required, and four photos at most.

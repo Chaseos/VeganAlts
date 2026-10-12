@@ -4,7 +4,7 @@ import type { Candidate } from "@server/community/domain/contracts";
 import { PhotoPicker } from "../community-form";
 import { Popover } from "../ui/popover";
 import { Icon } from "../icons/icon";
-import type { ShelfGroup } from "../shelf-select";
+import type { AisleOption } from "../aisle-select";
 import { FoodPicker } from "./food-picker";
 import { IdentityMatches } from "./identity-matches";
 import type { FoodChoice } from "../../lib/food-choices";
@@ -16,7 +16,7 @@ import type {
 
 export const BASICS_FIELDS = {
   food: "food-input",
-  shelf: "food-shelf",
+  aisle: "food-aisle",
   brand: "brand-name",
   name: "product-name",
   duplicate: "product-name",
@@ -30,7 +30,7 @@ export function BasicsStep({
   photos,
   setPhoto,
   foods,
-  shelves,
+  aisles,
   allowSuggest,
   brands,
   countries,
@@ -45,7 +45,7 @@ export function BasicsStep({
   photos: DraftPhotos & Partial<Record<"front", File>>;
   setPhoto: (slot: "front", file: File | undefined) => void;
   foods: readonly FoodChoice[];
-  shelves: ShelfGroup[];
+  aisles: AisleOption[];
   allowSuggest: boolean;
   brands: { id: string; name: string }[];
   countries: { code: string; iso2: string; name: string }[];
@@ -120,10 +120,10 @@ export function BasicsStep({
         countryName={countryName}
         value={draft.food}
         onChange={(food) => update({ food })}
-        shelves={shelves}
+        aisles={aisles}
         allowSuggest={allowSuggest}
         error={errors.food}
-        shelfError={errors.shelf}
+        aisleError={errors.aisle}
       />
       <label htmlFor="brand-name">Brand (required)</label>
       <input

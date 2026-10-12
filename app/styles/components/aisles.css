@@ -99,58 +99,8 @@
 
 .va-aisle__body {
   display: grid;
-  /* The shelf chips scroll sideways rather than widening the page. */
   grid-template-columns: minmax(0, 1fr);
   gap: var(--va-space-4);
-}
-
-.va-shelves ul {
-  list-style: none;
-  margin: 0 calc(-1 * var(--va-gutter));
-  padding: 0 var(--va-gutter) 4px;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.va-shelves ul::-webkit-scrollbar {
-  display: none;
-}
-
-.va-shelves li {
-  flex: none;
-}
-
-.va-shelves li > a,
-.va-shelves li > button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1.5px solid var(--va-line-strong);
-  border-radius: var(--va-radius-pill);
-  background: var(--va-surface);
-  color: var(--va-ink);
-  font-size: 14px;
-  font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.va-shelves li > a[aria-current],
-.va-shelves li > button[aria-pressed="true"] {
-  border-color: var(--va-btn);
-  background: var(--va-btn);
-  color: var(--va-on-btn);
-}
-
-.va-shelves__count {
-  font-weight: 500;
-  opacity: 0.8;
 }
 
 .va-food-grid {
@@ -180,7 +130,7 @@
   gap: 10px;
 }
 
-.va-food-card__shelf {
+.va-food-card__place {
   margin: 0 0 2px;
   font-size: 12px;
   font-weight: 700;
@@ -296,60 +246,9 @@
   justify-self: start;
 }
 
-.va-phone-block {
-  display: grid;
-}
-
-.va-shelves .va-suggest-food {
-  display: none;
-}
-
 @media (min-width: 760px) {
   .va-aisle__name {
     font-size: clamp(34px, 3.4vw, 44px);
-  }
-
-  .va-aisle__body:not(.va-aisle__body--single) {
-    grid-template-columns: 220px minmax(0, 1fr);
-    gap: 28px;
-    align-items: start;
-  }
-
-  .va-shelves ul {
-    margin: 0;
-    padding: 0;
-    flex-direction: column;
-    gap: 2px;
-    overflow: visible;
-  }
-
-  .va-shelves li > a,
-  .va-shelves li > button {
-    width: 100%;
-    padding: 0 12px;
-    border: 0;
-    border-radius: var(--va-radius-button);
-    background: transparent;
-    font-size: 15px;
-    font-weight: 500;
-  }
-
-  .va-shelves li > a:not([aria-current]):hover,
-  .va-shelves li > button:not([aria-pressed="true"]):hover {
-    background: var(--va-hover);
-  }
-
-  .va-shelves li > a[aria-current],
-  .va-shelves li > button[aria-pressed="true"] {
-    font-weight: 700;
-  }
-
-  .va-shelves .va-suggest-food {
-    display: grid;
-  }
-
-  .va-phone-block {
-    display: none;
   }
 
   .va-food-grid {

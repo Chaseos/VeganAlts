@@ -195,14 +195,6 @@ export default function Product({
                   },
                 ]
               : []),
-            ...(p.place?.shelf
-              ? [
-                  {
-                    label: p.place.shelf.name,
-                    to: `${aislePath}?shelf=${p.place.shelf.slug}`,
-                  },
-                ]
-              : []),
             ...(food
               ? [{ label: food.name, to: foodPath(code, food.slug) }]
               : []),

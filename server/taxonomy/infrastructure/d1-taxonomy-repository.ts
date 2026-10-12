@@ -291,7 +291,7 @@ export class D1TaxonomyRepository {
             ),
         ),
       );
-    // Aisles and shelves are never country-scoped. Rows a visible product
+    // Aisles are never country-scoped. Rows a visible product
     // still needs are refused before this; the guard keeps the trigger quiet.
     if (patch.isRankable === false && current.isRankable)
       statements.push(

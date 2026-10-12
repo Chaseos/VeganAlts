@@ -16,7 +16,7 @@ import {
 } from "../domain/ranking-view";
 import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
 import { aisleTree, taxonomyShape } from "../../taxonomy/domain/shape";
-import { silentShelf } from "../../taxonomy/domain/display";
+import { silentAisle } from "../../taxonomy/domain/display";
 import { foodChoices } from "../../taxonomy/domain/food-choices";
 import {
   AISLE_TOP,
@@ -184,46 +184,31 @@ export class CatalogService {
     };
   }
 
-  // Every aisle and its shelves, including shelves without foods yet, for
-  // choosing where a proposed food belongs.
-  async shelves(market: Market) {
+  // Every aisle, including aisles without foods yet, for choosing where a
+  // suggested food belongs.
+  async aisles(market: Market) {
     const taxonomy = await this.repository.taxonomy(market.id);
-    const nodes = [...taxonomyShape(taxonomy.categories).values()];
-    const byName = <T extends { name: string }>(a: T, b: T) =>
-      a.name.localeCompare(b.name);
-    return nodes
+    return [...taxonomyShape(taxonomy.categories).values()]
       .filter((node) => node.depth === 1 && !node.isRankable)
-      .sort(byName)
-      .map((aisle) => ({
-        id: aisle.id,
-        name: aisle.name,
-        shelves: nodes
-          .filter((node) => node.parentId === aisle.id && !node.isRankable)
-          .sort(byName)
-          .map((shelf) => ({
-            id: shelf.id,
-            slug: shelf.slug,
-            name: shelf.name,
-          })),
-      }))
-      .filter((aisle) => aisle.shelves.length > 0);
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((aisle) => ({ id: aisle.id, slug: aisle.slug, name: aisle.name }));
   }
 
   /**
    * What Add a product needs to pick a food in a country: every placeable
-   * food (marked when it is not on there yet), every shelf for suggesting a
+   * food (marked when it is not on there yet), every aisle for suggesting a
    * new food, and the country's stores and allergen list.
    */
   async contributionChoices(market: Market) {
-    const [taxonomy, aliases, shelves, options] = await Promise.all([
+    const [taxonomy, aliases, aisles, options] = await Promise.all([
       this.repository.taxonomy(market.id),
       this.repository.foodAliases(market.id),
-      this.shelves(market),
+      this.aisles(market),
       this.repository.filterOptions(market.id),
     ]);
     return {
       foods: foodChoices(taxonomy.categories, aliases),
-      shelves,
+      aisles,
       allergens: options.allergens,
     };
   }
@@ -236,8 +221,9 @@ export class CatalogService {
     return category;
   }
 
-  // A group category's place: Food itself, an aisle (its own page), a shelf
-  // (its aisle with the shelf selected) or a deeper group (its aisle).
+  // A group category's place: Food itself, an aisle (its own page) or a
+  // deeper group, such as a retired shelf from the three-level shape (its
+  // aisle).
   async aisle(market: Market, slug: string) {
     const [taxonomy, productCount] = await Promise.all([
       this.repository.taxonomy(market.id),
@@ -252,66 +238,46 @@ export class CatalogService {
     if (node.depth === 0) return { kind: "root" as const };
     const aisle = shape.get(node.aisleId!)!;
     if (node.depth !== 1)
-      return {
-        kind: "shelf" as const,
-        aisleSlug: aisle.slug,
-        shelfSlug: node.depth === 2 ? node.slug : null,
-      };
+      return { kind: "group" as const, aisleSlug: aisle.slug };
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
-    const byName = <T extends { name: string }>(a: T, b: T) =>
-      a.name.localeCompare(b.name);
-    const nodes = [...shape.values()];
-    // Only foods that are on in this country; shelves without one hide.
-    const placed = nodes
-      .filter((item) => item.parentId === aisle.id && !item.isRankable)
-      .sort(byName)
-      .map((shelf) => ({
-        slug: shelf.slug,
-        name: shelf.name,
-        foods: nodes
-          .filter(
-            (item) =>
-              item.parentId === shelf.id &&
-              !item.outsideDepth &&
-              (shared || item.available !== 0),
-          )
-          .sort(byName),
-      }))
-      .filter((shelf) => shelf.foods.length > 0);
-    const shelves = placed.map((shelf) => ({
-      ...shelf,
-      silent: silentShelf(aisle, shelf, shelf.foods, placed.length),
-    }));
-    const foodIds = shelves.flatMap((shelf) => shelf.foods.map((f) => f.id));
+    // Only foods that are on in this country.
+    const foods = [...shape.values()]
+      .filter(
+        (item) =>
+          item.parentId === aisle.id &&
+          item.isRankable &&
+          !item.outsideDepth &&
+          (shared || item.available !== 0),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
     const top = await this.repository.topProducts(
       market.id,
-      foodIds,
+      foods.map((food) => food.id),
       AISLE_TOP,
     );
     return {
       kind: "aisle" as const,
-      aisle: { slug: aisle.slug, name: aisle.name },
-      shelves: shelves.map((shelf) => ({
-        slug: shelf.slug,
-        name: shelf.name,
-        silent: shelf.silent,
-        foods: shelf.foods.map((food) => ({
-          slug: food.slug,
-          name: food.name,
-          productCount: counts.get(food.id)?.productCount ?? 0,
-          rankedCount: counts.get(food.id)?.rankedCount ?? 0,
-          top: top
-            .filter((product) => product.categoryId === food.id)
-            .map((product) => ({
-              slug: product.slug,
-              name: product.name,
-              brand: product.brand,
-              score: product.bayesianScore,
-              ratingCount: product.ratingCount,
-              rank: product.rank,
-              early: isEarly(product.ratingCount),
-            })),
-        })),
+      aisle: {
+        slug: aisle.slug,
+        name: aisle.name,
+        silent: silentAisle(aisle, foods),
+      },
+      foods: foods.map((food) => ({
+        slug: food.slug,
+        name: food.name,
+        productCount: counts.get(food.id)?.productCount ?? 0,
+        rankedCount: counts.get(food.id)?.rankedCount ?? 0,
+        top: top
+          .filter((product) => product.categoryId === food.id)
+          .map((product) => ({
+            slug: product.slug,
+            name: product.name,
+            brand: product.brand,
+            score: product.bayesianScore,
+            ratingCount: product.ratingCount,
+            rank: product.rank,
+            early: isEarly(product.ratingCount),
+          })),
       })),
     };
   }
@@ -334,9 +300,7 @@ export class CatalogService {
           taxonomy.categories.map((node) => ({ ...node, available: 1 })),
           counts,
         );
-    const foods = aisles.flatMap((aisle) =>
-      aisle.shelves.flatMap((shelf) => shelf.foods),
-    );
+    const foods = aisles.flatMap((aisle) => aisle.foods);
     const leaders = await this.repository.topProducts(
       market.id,
       foods.map((food) => food.id),
@@ -366,21 +330,16 @@ export class CatalogService {
       aisles: aisles.map((aisle) => ({
         slug: aisle.slug,
         name: aisle.name,
-        foodCount: aisle.shelves.reduce((n, s) => n + s.foods.length, 0),
-        shelves: aisle.shelves.map((shelf) => ({
-          slug: shelf.slug,
-          name: shelf.name,
-          silent: shelf.silent,
-          foods: shelf.foods.map((food) => {
-            const top = best(food.id);
-            return {
-              slug: food.slug,
-              name: food.name,
-              best: top && leaderProduct(top),
-              productCount: food.productCount,
-            };
-          }),
-        })),
+        foodCount: aisle.foods.length,
+        foods: aisle.foods.map((food) => {
+          const top = best(food.id);
+          return {
+            slug: food.slug,
+            name: food.name,
+            best: top && leaderProduct(top),
+            productCount: food.productCount,
+          };
+        }),
       })),
       trending: this.labelNew(trending),
       newest: this.labelNew(newest),
@@ -439,7 +398,11 @@ export class CatalogService {
         return {
           slug: food.slug,
           name: food.name,
-          aisle: aisle && aisle.id !== food.id ? aisle.name : null,
+          // An aisle that only repeats the food's name (Eggs) is left out.
+          aisle:
+            aisle && aisle.id !== food.id && aisle.name !== food.name
+              ? aisle.name
+              : null,
           productCount: counts.get(food.id)?.productCount ?? 0,
           rankedCount: counts.get(food.id)?.rankedCount ?? 0,
           top: ranked.map(leaderProduct),
@@ -622,8 +585,8 @@ export class CatalogService {
     };
   }
   /**
-   * A food's aisle and shelf, for its breadcrumb and back link. A silent
-   * shelf is left out so the crumbs never repeat a name.
+   * A food's aisle, for its breadcrumb and back link. A silent aisle (Eggs ›
+   * Eggs) is left out so the crumbs never repeat a name.
    */
   private placeOf(
     taxonomy: Awaited<ReturnType<CatalogRepository["taxonomy"]>>,
@@ -632,19 +595,14 @@ export class CatalogService {
     const shape = taxonomyShape(taxonomy.categories);
     const node = shape.get(categoryId);
     const aisle = node?.aisleId ? shape.get(node.aisleId) : undefined;
-    const listed = aisleTree(taxonomy.categories, new Map())
-      .flatMap((a) => a.shelves)
-      .find((s) => s.foods.some((food) => food.id === categoryId));
-    const shelf =
-      node?.parentId && node.depth === 3 && !listed?.silent
-        ? shape.get(node.parentId)
-        : undefined;
+    const listed = aisleTree(taxonomy.categories, new Map()).find((a) =>
+      a.foods.some((food) => food.id === categoryId),
+    );
     return {
       aisle:
-        aisle && aisle.id !== categoryId
+        aisle && aisle.id !== categoryId && !listed?.silent
           ? { slug: aisle.slug, name: aisle.name }
           : null,
-      shelf: shelf ? { slug: shelf.slug, name: shelf.name } : null,
     };
   }
   /** The food's aisle with every food's #1 score, and the other aisles. */
@@ -656,11 +614,9 @@ export class CatalogService {
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
     const aisles = aisleTree(taxonomy.categories, counts);
     const current = aisles.find((aisle) =>
-      aisle.shelves.some((shelf) =>
-        shelf.foods.some((food) => food.id === categoryId),
-      ),
+      aisle.foods.some((food) => food.id === categoryId),
     );
-    const foods = current?.shelves.flatMap((shelf) => shelf.foods) ?? [];
+    const foods = current?.foods ?? [];
     const top = await this.repository.topProducts(
       market.id,
       foods.map((food) => food.id),
@@ -671,17 +627,12 @@ export class CatalogService {
         ? {
             slug: current.slug,
             name: current.name,
-            shelves: current.shelves.map((shelf) => ({
-              slug: shelf.slug,
-              name: shelf.name,
-              silent: shelf.silent,
-              foods: shelf.foods.map((food) => ({
-                slug: food.slug,
-                name: food.name,
-                score:
-                  top.find((product) => product.categoryId === food.id)
-                    ?.bayesianScore ?? null,
-              })),
+            foods: current.foods.map((food) => ({
+              slug: food.slug,
+              name: food.name,
+              score:
+                top.find((product) => product.categoryId === food.id)
+                  ?.bayesianScore ?? null,
             })),
           }
         : null,

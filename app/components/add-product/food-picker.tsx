@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Badge } from "../ui/badges";
 import { FoodIcon } from "../icons/food-icons";
-import { ShelfSelect, type ShelfGroup } from "../shelf-select";
+import { AisleSelect, type AisleOption } from "../aisle-select";
 import {
   exactFood,
   matchFoods,
@@ -26,7 +26,7 @@ type Option =
  * Choose the food a product replaces (ARIA 1.2 combobox with a listbox
  * popup). Foods are matched by their name in the country and their other
  * names; foods not on in the country yet can still be chosen. The last
- * option can suggest a new food, which opens its shelf in place.
+ * option can suggest a new food, which opens its aisle in place.
  */
 export function FoodPicker({
   id,
@@ -35,11 +35,11 @@ export function FoodPicker({
   countryName,
   value,
   onChange,
-  shelves = [],
+  aisles = [],
   allowSuggest = false,
   exclude = [],
   error,
-  shelfError,
+  aisleError,
 }: {
   id: string;
   label: string;
@@ -47,11 +47,11 @@ export function FoodPicker({
   countryName: string;
   value: FoodPick | null;
   onChange: (value: FoodPick | null) => void;
-  shelves?: ShelfGroup[];
+  aisles?: AisleOption[];
   allowSuggest?: boolean;
   exclude?: readonly string[];
   error?: string;
-  shelfError?: string;
+  aisleError?: string;
 }) {
   const [query, setQuery] = useState(""),
     [open, setOpen] = useState(false),
@@ -98,7 +98,7 @@ export function FoodPicker({
     onChange(
       option.kind === "food"
         ? { kind: "existing", id: option.food.id }
-        : { kind: "new", name: option.name, shelfId: "", otherNames: [] },
+        : { kind: "new", name: option.name, aisleId: "", otherNames: [] },
     );
   };
 
@@ -113,7 +113,7 @@ export function FoodPicker({
           </span>
           <span className="va-food-pick__text">
             <strong>{food?.name ?? "Chosen food"}</strong>
-            {food && (
+            {food && placeLabel(food) && (
               <span className="va-small va-muted">{placeLabel(food)}</span>
             )}
           </span>
@@ -156,13 +156,13 @@ export function FoodPicker({
             {error}
           </p>
         )}
-        <ShelfSelect
-          id={`${id}-shelf`}
-          aisles={shelves}
-          value={value.shelfId}
+        <AisleSelect
+          id={`${id}-aisle`}
+          aisles={aisles}
+          value={value.aisleId}
           required
-          error={shelfError}
-          onChange={(shelfId) => onChange({ ...value, shelfId })}
+          error={aisleError}
+          onChange={(aisleId) => onChange({ ...value, aisleId })}
         />
         <label htmlFor={`${id}-other`}>
           Other names (optional, separated by commas)
@@ -281,9 +281,11 @@ export function FoodPicker({
               >
                 {option.kind === "food" ? (
                   <>
-                    <span className="va-combo__place">
-                      {placeLabel(option.food)}
-                    </span>
+                    {placeLabel(option.food) && (
+                      <span className="va-combo__place">
+                        {placeLabel(option.food)}
+                      </span>
+                    )}
                     <span className="va-combo__name">
                       {option.food.name}
                       {option.via && (

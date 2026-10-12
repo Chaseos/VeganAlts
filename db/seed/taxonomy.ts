@@ -3,45 +3,35 @@ import { DEFAULT_DIMENSIONS } from "../../server/ratings/domain/details";
 
 // Production-safe taxonomy: real conventional foods and search aliases only.
 // No products, ratings, people or images. Reviewed before any production use.
-// Food → aisle → shelf → food (confirmed by the owner on 2026-10-09). Aisles
-// and shelves are non-rankable groups shared by every country; a group whose
-// natural slug belongs to a food takes a suffix. The starter shelves from
-// 2026-10-10 take one pre-emptively wherever a food could share the name,
-// because shelves have no page of their own.
+// Food → aisle → food (confirmed by the owner on 2026-10-12, milestone 7).
+// Aisles are non-rankable groups shared by every country; an aisle whose
+// natural slug belongs to a food takes `-aisle`. Aisles are listed by name.
 export const TAXONOMY_GROUPS = [
   { slug: "food", name: "Food", parent: null },
-  { slug: "meat", name: "Meat", parent: "food" },
-  { slug: "beef", name: "Beef", parent: "meat" },
-  { slug: "chicken", name: "Chicken", parent: "meat" },
-  { slug: "pork", name: "Pork", parent: "meat" },
-  { slug: "turkey-shelf", name: "Turkey", parent: "meat" },
-  { slug: "lamb-shelf", name: "Lamb", parent: "meat" },
+  { slug: "beef", name: "Beef", parent: "food" },
+  { slug: "chicken", name: "Chicken", parent: "food" },
+  { slug: "pork", name: "Pork", parent: "food" },
+  { slug: "turkey-aisle", name: "Turkey", parent: "food" },
+  { slug: "lamb-aisle", name: "Lamb", parent: "food" },
   { slug: "fish-and-seafood", name: "Fish and seafood", parent: "food" },
-  { slug: "fish-shelf", name: "Fish", parent: "fish-and-seafood" },
-  { slug: "shellfish-shelf", name: "Shellfish", parent: "fish-and-seafood" },
-  { slug: "dairy", name: "Dairy", parent: "food" },
-  { slug: "milk-shelf", name: "Milk", parent: "dairy" },
-  { slug: "butter-shelf", name: "Butter", parent: "dairy" },
-  { slug: "cream-shelf", name: "Cream", parent: "dairy" },
-  { slug: "yogurt-shelf", name: "Yogurt", parent: "dairy" },
-  { slug: "ice-cream-shelf", name: "Ice cream", parent: "dairy" },
+  { slug: "milk-aisle", name: "Milk", parent: "food" },
+  { slug: "cream-aisle", name: "Cream", parent: "food" },
+  { slug: "butter-aisle", name: "Butter", parent: "food" },
+  { slug: "yogurt-aisle", name: "Yogurt", parent: "food" },
+  { slug: "ice-cream-aisle", name: "Ice cream", parent: "food" },
   { slug: "cheese", name: "Cheese", parent: "food" },
-  { slug: "block-and-shredded", name: "Block and shredded", parent: "cheese" },
-  {
-    slug: "soft-and-spreadable",
-    name: "Soft and spreadable",
-    parent: "cheese",
-  },
-  { slug: "hard-and-grated", name: "Hard and grated", parent: "cheese" },
   { slug: "eggs-aisle", name: "Eggs", parent: "food" },
-  { slug: "eggs-shelf", name: "Eggs", parent: "eggs-aisle" },
+  { slug: "condiments", name: "Condiments", parent: "food" },
 ] as const;
+// The United States launch foods (milestone 7) start only there; a food
+// switches on elsewhere when a product for it is published there.
+const US = ["US"] as const;
 export const TAXONOMY_LEAVES = [
   {
     slug: "ground-beef",
     name: "Ground Beef",
     parent: "beef",
-    aliases: ["mince", "ground meat"],
+    aliases: ["mince", "ground meat", "beef crumbles"],
     // Each country's own name for the food; the URL stays the same.
     displayNames: {
       GB: "Beef mince",
@@ -57,51 +47,261 @@ export const TAXONOMY_LEAVES = [
     aliases: ["hamburgers", "burger patties"],
   },
   {
+    slug: "meatballs",
+    name: "Meatballs",
+    parent: "beef",
+    aliases: ["meatless meatballs"],
+    countries: US,
+  },
+  {
+    slug: "hot-dogs",
+    name: "Hot Dogs",
+    parent: "beef",
+    aliases: ["franks", "frankfurters", "wieners", "veggie dogs"],
+    countries: US,
+  },
+  {
     slug: "chicken-nuggets",
     name: "Chicken Nuggets",
     parent: "chicken",
     aliases: ["nuggets", "chick'n nuggets"],
   },
+  {
+    slug: "grilled-chicken-strips",
+    name: "Grilled Chicken Strips",
+    parent: "chicken",
+    aliases: ["chicken strips", "chicken pieces", "chick'n strips"],
+    countries: US,
+  },
+  {
+    slug: "chicken-patties",
+    name: "Chicken Patties",
+    parent: "chicken",
+    aliases: ["chicken fillets", "chicken sandwich patties"],
+    countries: US,
+  },
+  {
+    slug: "chicken-tenders",
+    name: "Chicken Tenders",
+    parent: "chicken",
+    aliases: ["chicken fingers", "tenders"],
+    countries: US,
+  },
+  {
+    slug: "boneless-wings",
+    name: "Boneless Wings",
+    parent: "chicken",
+    aliases: ["buffalo wings", "chicken wings", "wings"],
+    countries: US,
+  },
   { slug: "bacon", name: "Bacon", parent: "pork", aliases: ["bacon strips"] },
+  {
+    slug: "breakfast-sausage",
+    name: "Breakfast Sausage",
+    parent: "pork",
+    aliases: ["sausage links", "sausage patties"],
+    countries: US,
+  },
+  {
+    slug: "chorizo",
+    name: "Chorizo",
+    parent: "pork",
+    aliases: ["soyrizo", "Mexican chorizo"],
+    countries: US,
+  },
+  {
+    slug: "italian-sausage",
+    name: "Italian Sausage",
+    parent: "pork",
+    aliases: ["sweet Italian sausage", "mild Italian sausage"],
+    countries: US,
+  },
+  {
+    slug: "turkey-roast",
+    name: "Turkey Roast",
+    parent: "turkey-aisle",
+    aliases: ["holiday roast", "Thanksgiving roast"],
+    countries: US,
+  },
+  {
+    slug: "fish-fillets",
+    name: "Fish Fillets",
+    parent: "fish-and-seafood",
+    aliases: ["fish sticks", "fish fingers", "breaded fish"],
+    countries: US,
+  },
   {
     slug: "milk",
     name: "Milk",
-    parent: "milk-shelf",
-    aliases: ["plant milk", "non-dairy milk"],
+    parent: "milk-aisle",
+    aliases: ["plant milk", "non-dairy milk", "barista milk"],
+  },
+  {
+    slug: "chocolate-milk",
+    name: "Chocolate Milk",
+    parent: "milk-aisle",
+    aliases: [],
+    countries: US,
+  },
+  {
+    slug: "eggnog",
+    name: "Eggnog",
+    parent: "milk-aisle",
+    aliases: ["nog", "holiday nog"],
+    countries: US,
+  },
+  {
+    slug: "coffee-creamer",
+    name: "Coffee Creamer",
+    parent: "cream-aisle",
+    aliases: ["creamer", "non-dairy creamer"],
+    countries: US,
+  },
+  {
+    slug: "half-and-half",
+    name: "Half-and-Half",
+    parent: "cream-aisle",
+    aliases: [],
+    countries: US,
+  },
+  {
+    slug: "sour-cream",
+    name: "Sour Cream",
+    parent: "cream-aisle",
+    aliases: [],
+    countries: US,
+  },
+  {
+    slug: "whipped-cream",
+    name: "Whipped Cream",
+    parent: "cream-aisle",
+    aliases: ["whipped topping"],
+    countries: US,
   },
   {
     slug: "butter",
     name: "Butter",
-    parent: "butter-shelf",
+    parent: "butter-aisle",
     aliases: ["buttery spread"],
+  },
+  {
+    slug: "yogurt",
+    name: "Yogurt",
+    parent: "yogurt-aisle",
+    aliases: ["yoghurt", "dairy-free yogurt"],
+    countries: US,
+  },
+  {
+    slug: "greek-yogurt",
+    name: "Greek Yogurt",
+    parent: "yogurt-aisle",
+    aliases: ["Greek-style yogurt", "Greek yoghurt"],
+    countries: US,
+  },
+  {
+    slug: "ice-cream",
+    name: "Ice Cream",
+    parent: "ice-cream-aisle",
+    aliases: ["frozen dessert", "non-dairy ice cream"],
+    countries: US,
   },
   {
     slug: "cheddar",
     name: "Cheddar",
-    parent: "block-and-shredded",
+    parent: "cheese",
     aliases: ["cheddar cheese"],
   },
   {
     slug: "mozzarella",
     name: "Mozzarella",
-    parent: "block-and-shredded",
+    parent: "cheese",
     aliases: ["mozzarella cheese"],
+  },
+  {
+    slug: "smoked-gouda",
+    name: "Smoked Gouda",
+    parent: "cheese",
+    aliases: ["gouda"],
+    countries: US,
+  },
+  {
+    slug: "pepper-jack",
+    name: "Pepper Jack",
+    parent: "cheese",
+    aliases: ["pepper jack cheese"],
+    countries: US,
+  },
+  {
+    slug: "american-cheese",
+    name: "American Cheese",
+    parent: "cheese",
+    aliases: ["American slices", "American singles"],
+    countries: US,
+  },
+  {
+    slug: "mexican-blend",
+    name: "Mexican Blend",
+    parent: "cheese",
+    aliases: ["Mexican cheese", "taco cheese", "Mexican shreds"],
+    countries: US,
+  },
+  {
+    slug: "parmesan",
+    name: "Parmesan",
+    parent: "cheese",
+    aliases: ["parm", "parmigiano", "grated parmesan"],
+    countries: US,
   },
   {
     slug: "cream-cheese",
     name: "Cream Cheese",
-    parent: "soft-and-spreadable",
+    parent: "cheese",
     aliases: ["cream cheese spread"],
+  },
+  {
+    slug: "queso",
+    name: "Queso",
+    parent: "cheese",
+    aliases: ["nacho cheese dip", "cheese dip", "cheese sauce"],
+    countries: US,
   },
   {
     slug: "eggs",
     name: "Eggs",
-    parent: "eggs-shelf",
+    parent: "eggs-aisle",
     aliases: ["egg alternatives", "egg replacer"],
   },
+  {
+    slug: "mayonnaise",
+    name: "Mayonnaise",
+    parent: "condiments",
+    aliases: ["mayo", "aioli"],
+    countries: US,
+  },
+  {
+    slug: "ranch-dressing",
+    name: "Ranch Dressing",
+    parent: "condiments",
+    aliases: ["ranch"],
+    countries: US,
+  },
+  {
+    slug: "caesar-dressing",
+    name: "Caesar Dressing",
+    parent: "condiments",
+    aliases: ["caesar"],
+    countries: US,
+  },
+  {
+    slug: "worcestershire-sauce",
+    name: "Worcestershire Sauce",
+    parent: "condiments",
+    aliases: ["worcestershire", "worcester sauce"],
+    countries: US,
+  },
 ] as const;
-// Each launch food's detail questions (owner decision, 2026-10-09). Other
-// foods start with Taste and Texture.
+// The main foods' detail questions (owner decisions, 2026-10-09; Milk and
+// Eggs revised on 2026-10-12). Every other food asks Taste and Texture.
 export const TAXONOMY_DIMENSIONS: Record<
   string,
   [key: string, label: string][]
@@ -129,7 +329,8 @@ export const TAXONOMY_DIMENSIONS: Record<
   milk: [
     ["taste", "Taste"],
     ["creaminess", "Creaminess"],
-    ["in_coffee", "In coffee"],
+    ["hot_drinks", "In hot drinks"],
+    ["baking", "Baking"],
   ],
   butter: [
     ["taste", "Taste"],
@@ -156,6 +357,7 @@ export const TAXONOMY_DIMENSIONS: Record<
     ["taste", "Taste"],
     ["texture", "Texture"],
     ["scrambling", "Scrambling"],
+    ["baking", "Baking"],
   ],
 };
 // The English-speaking launch countries (owner decision, 2026-10-09). Each
@@ -354,14 +556,21 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
       DEFAULT_DIMENSIONS.map(({ key, label }) => [key, label] as const),
     ),
   );
-  // Launch foods are on in every launch country. A food whose countries an
-  // operator has ever changed is skipped, so their choices are never undone.
+  // Each launch food is on in its launch countries: every launch country
+  // unless it names its own. A food whose countries an operator has ever
+  // changed is skipped, so their choices are never undone.
+  const launch = TAXONOMY_LEAVES.flatMap((leaf) =>
+    ("countries" in leaf
+      ? leaf.countries
+      : TAXONOMY_COUNTRIES.map((c) => c.iso2)
+    ).map((iso2) => [leaf.slug, iso2]),
+  );
   statements.push(
     `INSERT INTO category_countries(category_id,country_id,source,created_at)
-    SELECT c.id,co.id,'launch',${now} FROM categories c CROSS JOIN countries co
-    WHERE c.slug IN (${TAXONOMY_LEAVES.map((l) => quote(l.slug)).join(",")}) AND c.is_rankable=1
-    AND co.iso2 IN (${TAXONOMY_COUNTRIES.map((c) => quote(c.iso2)).join(",")})
-    AND NOT EXISTS(SELECT 1 FROM moderation_actions a WHERE a.kind='category_countries' AND a.target_id=c.id)
+    SELECT c.id,co.id,'launch',${now} FROM json_each(${quote(JSON.stringify(launch))}) j
+    JOIN categories c ON c.slug=json_extract(j.value,'$[0]') AND c.is_rankable=1
+    JOIN countries co ON co.iso2=json_extract(j.value,'$[1]')
+    WHERE NOT EXISTS(SELECT 1 FROM moderation_actions a WHERE a.kind='category_countries' AND a.target_id=c.id)
     ON CONFLICT DO NOTHING;`,
   );
   // Features are seeded per country, only where none are configured yet.

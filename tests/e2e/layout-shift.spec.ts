@@ -4,7 +4,7 @@ import { expect, test } from "./fixtures";
 // preferences (fonts use metric-matched fallbacks; filters replace the URL).
 for (const path of [
   "/",
-  "/us/meat",
+  "/us/beef",
   "/us/ground-beef",
   "/us/products/beyond-beef",
   "/us/search?q=beef",

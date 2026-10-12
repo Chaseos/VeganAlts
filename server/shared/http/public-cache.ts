@@ -155,7 +155,7 @@ export function normalizedPublicRequest(
     route.kind === "search" || route.kind === "suggest"
       ? ["q"]
       : route.kind === "category"
-        ? ["page", "unrankedPage", "view", "shelf"]
+        ? ["page", "unrankedPage", "view"]
         : route.kind === "product"
           ? ["version", "food"]
           : route.kind === "comments"

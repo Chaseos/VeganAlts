@@ -37,13 +37,13 @@ async function people() {
     },
   };
 }
-const shelf = async (slug: string) =>
+const idOf = async (slug: string) =>
   (await env.DB.prepare("SELECT id FROM categories WHERE slug=?")
     .bind(slug)
     .first("id")) as string;
 const foodsIn = async (code: string) =>
   (await catalogService(env).page(code)).aisles.flatMap((a) =>
-    a.shelves.flatMap((s) => s.foods.map((f) => f.slug)),
+    a.foods.map((f) => f.slug),
   );
 
 it("lists a suggested food only where it is on, and lets operators switch countries", async () => {
@@ -56,7 +56,7 @@ it("lists a suggested food only where it is on, and lets operators switch countr
   const s = id().slice(0, 6);
   const proposal = await service.propose(contributor, id(), {
     name: `Sausage rolls ${s}`,
-    shelfId: await shelf("pork"),
+    aisleId: await idOf("pork"),
     country: "GB",
     explanation: "Sold in most British supermarkets.",
   });
@@ -121,9 +121,9 @@ it("lists a suggested food only where it is on, and lets operators switch countr
   ).toEqual(["GB", "US"]);
   await service.reverseUpdate(operator, id(), opened.actionId, note);
   expect(await foodsIn("us")).not.toContain(slug);
-  // Aisles and shelves cannot be scoped.
+  // Aisles cannot be scoped.
   await expect(
-    service.setCountries(operator, id(), await shelf("pork"), {
+    service.setCountries(operator, id(), await idOf("pork"), {
       expectedRevision: 0,
       countries: ["GB"],
       note,
@@ -158,7 +158,7 @@ it("lists a suggested food only where it is on, and lets operators switch countr
   // Turning a Canadian suggestion into an alias opens the food in Canada.
   const alias = await service.propose(contributor, id(), {
     name: `Banger rolls ${s}`,
-    shelfId: await shelf("pork"),
+    aisleId: await idOf("pork"),
     // The explanation is optional (milestone 6).
     country: "CA",
   });
@@ -195,11 +195,9 @@ it("shows a newly opened country the shared aisles to start from", async () => {
   const home = await catalog.home(de);
   expect(home.counts.products).toBe(0);
   expect(home.aisles.map((a) => a.slug)).toEqual(
-    expect.arrayContaining(["meat", "dairy"]),
+    expect.arrayContaining(["beef", "cheese"]),
   );
-  expect(
-    home.aisles.flatMap((a) => a.shelves.flatMap((s) => s.foods)),
-  ).toContainEqual(
+  expect(home.aisles.flatMap((a) => a.foods)).toContainEqual(
     expect.objectContaining({
       slug: "ground-beef",
       best: null,
@@ -207,10 +205,10 @@ it("shows a newly opened country the shared aisles to start from", async () => {
     }),
   );
   // Its aisle pages list the same shared foods.
-  const meat = await catalog.aisle(de, "meat");
-  expect(
-    meat.kind === "aisle" && meat.shelves.flatMap((s) => s.foods).length,
-  ).toBeGreaterThan(1);
+  const beefAisle = await catalog.aisle(de, "beef");
+  expect(beefAisle.kind === "aisle" && beefAisle.foods.length).toBeGreaterThan(
+    1,
+  );
   // A first product without a rating switches its food on and counts.
   const beef = (await env.DB.prepare(
     "SELECT id FROM categories WHERE slug='ground-beef'",
@@ -228,9 +226,7 @@ it("shows a newly opened country the shared aisles to start from", async () => {
     ).bind(product, beef),
   ]);
   const started = await catalog.home(de);
-  const startedFoods = started.aisles.flatMap((a) =>
-    a.shelves.flatMap((s) => s.foods),
-  );
+  const startedFoods = started.aisles.flatMap((a) => a.foods);
   expect(startedFoods).toHaveLength(2);
   expect(startedFoods).toEqual(
     expect.arrayContaining([
@@ -262,7 +258,7 @@ it("closes a country an alias opened when it is reversed, and drops a demoted fo
   const created = (await service.create(operator, id(), {
     name: `Hot links ${s}`,
     isRankable: true,
-    parentId: await shelf("pork"),
+    parentId: await idOf("pork"),
     countries: ["US"],
     note,
   })) as { categoryId: string };
@@ -270,7 +266,7 @@ it("closes a country an alias opened when it is reversed, and drops a demoted fo
   // A British suggestion aliased to it opens it in the United Kingdom.
   const proposal = await service.propose(contributor, id(), {
     name: `Red sausages ${s}`,
-    shelfId: await shelf("pork"),
+    aisleId: await idOf("pork"),
     country: "GB",
   });
   const aliased = (await service.decideProposal(operator, id(), proposal.id, {
@@ -382,33 +378,30 @@ it("won't restore a homepage feature for a food no longer on in that country", a
   ).rejects.toMatchObject({ code: "FOOD_FEATURED" });
 });
 
-it("skips a shelf level that only repeats its aisle or food", async () => {
+it("skips an aisle that only repeats its one food", async () => {
   await env.DB.batch(
     taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
   );
   const catalog = catalogService(env);
   const gb = await catalog.market("gb");
-  const home = await catalog.home(gb);
-  const shelves = (aisle: string) =>
-    home.aisles.find((a) => a.slug === aisle)!.shelves;
-  expect(shelves("eggs-aisle").map((s) => s.silent)).toEqual([true]);
-  expect(shelves("dairy").every((s) => s.silent)).toBe(true);
-  expect(shelves("meat").some((s) => s.silent)).toBe(false);
-  // Empty starter shelves stay out of browsing but are offered for proposals.
-  expect(shelves("meat").map((s) => s.slug)).not.toContain("turkey-shelf");
-  expect(
-    (await catalog.shelves(gb)).flatMap((a) => a.shelves).map((s) => s.slug),
-  ).toContain("turkey-shelf");
-  expect((await catalog.category(gb, "eggs")).place).toEqual({
-    aisle: { slug: "eggs-aisle", name: "Eggs" },
-    shelf: null,
+  // The country's own aisle tree (the home page of a country without
+  // products lists every shared food instead).
+  const { aisles } = await catalog.page("gb");
+  const aisle = (slug: string) => aisles.find((a) => a.slug === slug);
+  // The United States launch foods are not on in the United Kingdom.
+  const beef = aisle("beef")!.foods.map((f) => f.slug);
+  expect(beef).toContain("beef-burgers");
+  expect(beef).not.toContain("meatballs");
+  expect(beef).not.toContain("hot-dogs");
+  expect(aisle("condiments")).toBeUndefined();
+  // Empty aisles stay out of browsing but are offered for suggestions.
+  expect(aisle("lamb-aisle")).toBeUndefined();
+  expect((await catalog.aisles(gb)).map((a) => a.slug)).toContain("lamb-aisle");
+  // Eggs › Eggs drops the repeated aisle from the crumbs; Beef does not.
+  expect((await catalog.category(gb, "eggs")).place).toEqual({ aisle: null });
+  expect((await catalog.category(gb, "ground-beef")).place).toEqual({
+    aisle: { slug: "beef", name: "Beef" },
   });
-  expect((await catalog.category(gb, "ground-beef")).place.shelf).toEqual({
-    slug: "beef",
-    name: "Beef",
-  });
-  const dairy = await catalog.aisle(gb, "dairy");
-  expect(dairy.kind === "aisle" && dairy.shelves.every((s) => s.silent)).toBe(
-    true,
-  );
+  const eggs = await catalog.aisle(gb, "eggs-aisle");
+  expect(eggs.kind === "aisle" && eggs.aisle.silent).toBe(true);
 });

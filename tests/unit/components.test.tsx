@@ -112,7 +112,7 @@ describe("shared presentation components", () => {
     ).toContain("No major allergens on the label");
   });
 
-  it("has a line icon for every seeded food, aisle and shelf", () => {
+  it("has a line icon for every seeded food and aisle", () => {
     const missing = [...TAXONOMY_GROUPS, ...TAXONOMY_LEAVES]
       .map((c) => c.slug)
       .filter((slug) => foodShape([slug]) === "plate" && slug !== "food");

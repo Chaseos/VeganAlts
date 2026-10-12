@@ -72,14 +72,14 @@ export async function loader({ request }: Route.LoaderArgs) {
   // `?category=` with the food's ID).
   const food = query.get("food"),
     category = query.get("category");
-  // The Suggest a food page can hand over a new food with its shelf.
+  // The Suggest a food page can hand over a new food with its aisle.
   const newFood = query.get("newFood")?.trim().slice(0, 160) ?? "";
-  const shelf = query.get("shelf") ?? "";
+  const aisle = query.get("aisle") ?? "";
   return {
     market,
     markets,
     foods: choices.foods,
-    shelves: choices.shelves,
+    aisles: choices.aisles,
     allergens: choices.allergens,
     options: options as unknown as CommunityOptions,
     preselect:
@@ -89,11 +89,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       newFood.length >= 2
         ? {
             name: newFood,
-            shelfId: choices.shelves
-              .flatMap((a) => a.shelves)
-              .some((s) => s.id === shelf)
-              ? shelf
-              : "",
+            aisleId: choices.aisles.some((a) => a.id === aisle) ? aisle : "",
           }
         : null,
     countryChosen: query.has("country") || Boolean(followUp),
@@ -126,7 +122,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     market,
     markets,
     foods,
-    shelves,
+    aisles,
     allergens,
     options,
     preselect,
@@ -476,7 +472,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                   photos={photos}
                   setPhoto={setPhoto}
                   foods={foods}
-                  shelves={shelves}
+                  aisles={aisles}
                   allowSuggest
                   brands={options.brands}
                   countries={markets}

@@ -32,7 +32,7 @@ const foodPick = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("new"),
     name: z.string(),
-    shelfId: z.string(),
+    aisleId: z.string(),
     otherNames: z.array(z.string()),
   }),
 ]);
@@ -105,7 +105,7 @@ export function emptyDraft(
 
 export type DraftField =
   | "food"
-  | "shelf"
+  | "aisle"
   | "brand"
   | "name"
   | "front"
@@ -125,8 +125,8 @@ export function basicsErrors(
     errors.food = "Choose the food it replaces, or suggest a new one.";
   else if (draft.food.kind === "new") {
     if (!enough(draft.food.name)) errors.food = "Name the food it replaces.";
-    if (!draft.food.shelfId)
-      errors.shelf = "Choose the shelf where you’d find it in a store.";
+    if (!draft.food.aisleId)
+      errors.aisle = "Choose the aisle where you’d find it in a store.";
   }
   if (!enough(draft.brand)) errors.brand = "Enter the brand.";
   if (!enough(draft.name)) errors.name = "Enter the product name.";
@@ -198,7 +198,7 @@ export function toSubmission(
       ? {
           newFood: {
             name: food.name.trim(),
-            shelfId: food.shelfId,
+            aisleId: food.aisleId,
             ...(food.otherNames.length ? { aliases: food.otherNames } : {}),
           },
         }
@@ -270,7 +270,7 @@ export function fromSubmission(
       ? {
           kind: "new",
           name: input.newFood.name,
-          shelfId: input.newFood.shelfId,
+          aisleId: input.newFood.aisleId,
           otherNames: input.newFood.aliases ?? [],
         }
       : first

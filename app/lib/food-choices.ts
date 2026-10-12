@@ -12,11 +12,9 @@ export function normalizeFood(value: string) {
     .trim();
 }
 
-/** "Meat › Chicken", or just the aisle when the shelf only repeats it. */
+/** The food's aisle ("Chicken"), or null when the aisle only repeats it. */
 export const placeLabel = (food: FoodChoice) =>
-  food.shelf.silent
-    ? food.aisle.name
-    : `${food.aisle.name} › ${food.shelf.name}`;
+  food.aisle.silent ? null : food.aisle.name;
 
 export interface FoodMatch {
   food: FoodChoice;

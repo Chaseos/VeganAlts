@@ -10,12 +10,12 @@ import { withLocalDb } from "./local-db";
 // stay local in the ignored test-results folder and are never committed.
 const PAGES = [
   ["home", "/"],
-  ["aisle", "/us/meat"],
+  ["aisle", "/us/beef"],
   ["category", "/us/ground-beef"],
   ["product", "/us/products/beyond-beef"],
   ["search", "/us/search?q=beef"],
-  ["food-silent-shelf", "/us/eggs"],
-  ["aisle-silent-shelves", "/us/dairy"],
+  ["food-silent-aisle", "/us/eggs"],
+  ["aisle-single-food", "/us/eggs-aisle"],
   ["empty-country", "/ca"],
 ] as const;
 const WIDTHS = [

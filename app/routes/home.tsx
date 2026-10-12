@@ -351,37 +351,24 @@ function AisleFoods({
   empty?: boolean;
 }) {
   return (
-    <div className="va-browse__shelves">
-      {aisle.shelves.map((shelf) => {
-        const foods = (
-          <ul className="va-divided">
-            {shelf.foods.map((food) => (
-              <li key={food.slug}>
-                <FoodRow
-                  country={country}
-                  food={food}
-                  best={food.best}
-                  // A food with an unrated product isn't waiting for one.
-                  missing={
-                    empty && !food.productCount
-                      ? "Be the first to add one"
-                      : undefined
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-        );
-        // A shelf that only repeats its aisle or food is not its own region.
-        return shelf.silent ? (
-          <div key={shelf.slug}>{foods}</div>
-        ) : (
-          <section key={shelf.slug} aria-label={`${aisle.name}: ${shelf.name}`}>
-            <p className="va-overline">{shelf.name}</p>
-            {foods}
-          </section>
-        );
-      })}
+    <div className="va-browse__foods">
+      <ul className="va-divided">
+        {aisle.foods.map((food) => (
+          <li key={food.slug}>
+            <FoodRow
+              country={country}
+              food={food}
+              best={food.best}
+              // A food with an unrated product isn't waiting for one.
+              missing={
+                empty && !food.productCount
+                  ? "Be the first to add one"
+                  : undefined
+              }
+            />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

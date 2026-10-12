@@ -70,10 +70,10 @@ const aliasList = z.array(shortText).max(10).default([]);
 export const categoryProposalInput = z
   .object({
     name: shortText,
-    // Category proposals choose the shelf the new food belongs on.
-    shelfId: id,
+    // Category proposals choose the aisle the new food belongs in.
+    aisleId: id,
     country: countryCode,
-    // Optional since milestone 6; the shelf and name carry the suggestion.
+    // Optional since milestone 6; the aisle and name carry the suggestion.
     explanation: z.string().trim().max(2000).optional(),
     exampleProducts: z.array(shortText).max(5).default([]),
     aliases: aliasList,

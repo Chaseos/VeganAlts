@@ -43,7 +43,7 @@ it("answers while typing with at most five foods and products, in one country", 
   expect(beef.foods.length).toBeLessThanOrEqual(5);
   expect(beef.products.length).toBeLessThanOrEqual(5);
   const ground = beef.foods.find((food) => food.slug === "ground-beef")!;
-  expect(ground).toMatchObject({ name: "Ground Beef", aisle: "Meat" });
+  expect(ground).toMatchObject({ name: "Ground Beef", aisle: "Beef" });
   expect(ground.top.length).toBeLessThanOrEqual(3);
   expect(ground.top.map((product) => product.rank)).toEqual(
     ground.top.map((_, index) => index + 1),
@@ -82,13 +82,11 @@ it("builds the home page from Top data only", async () => {
   expect(
     waiting.every((leader) => leader.best!.score < STILL_WAITING_BELOW),
   ).toBe(true);
-  // Every food in the browse tree sits on a shelf of an aisle.
-  const foods = home.aisles.flatMap((aisle) =>
-    aisle.shelves.flatMap((shelf) => shelf.foods),
-  );
+  // Every food in the browse tree sits in an aisle.
+  const foods = home.aisles.flatMap((aisle) => aisle.foods);
   expect(foods.length).toBe(home.counts.foods);
   expect(home.aisles.map((aisle) => aisle.name)).toEqual(
-    expect.arrayContaining(["Meat", "Cheese"]),
+    expect.arrayContaining(["Beef", "Cheese"]),
   );
   for (const product of [...home.trending, ...home.newest])
     expect(product.foodName.length).toBeGreaterThan(0);
@@ -121,7 +119,7 @@ it("describes a product for one of its foods with ranks and rating context", asy
     "beef-burgers",
   );
   expect(burgers.food).toBe("beef-burgers");
-  expect(burgers.place?.aisle?.name).toBe("Meat");
+  expect(burgers.place?.aisle?.name).toBe("Beef");
   expect(burgers.others.every((other) => other.slug !== "beyond-beef")).toBe(
     true,
   );

@@ -241,10 +241,6 @@
   padding-left: 32px;
 }
 
-.va-taxonomy-tree__row--3 {
-  padding-left: 48px;
-}
-
 .va-taxonomy-tree__summary {
   display: flex;
   flex-wrap: wrap;

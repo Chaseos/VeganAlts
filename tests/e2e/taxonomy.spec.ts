@@ -24,10 +24,8 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
       .click();
     await expect(page.getByLabel("Food name (required)")).toHaveValue(name);
     await expect(page.getByLabel("Food name (required)")).toBeEnabled();
-    // A suggestion chooses the shelf the food belongs on; the note is optional.
-    await page
-      .getByLabel("Shelf (required)")
-      .selectOption({ label: "Meat › Pork" });
+    // A suggestion chooses the aisle the food belongs in; the note is optional.
+    await page.getByLabel("Aisle (required)").selectOption({ label: "Pork" });
     await expect(
       page.getByRole("link", { name: "Add it with the product" }),
     ).toHaveAttribute("href", /newFood=Bratwurst/);

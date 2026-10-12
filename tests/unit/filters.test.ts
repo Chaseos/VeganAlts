@@ -87,32 +87,40 @@ describe("taxonomy shape", () => {
     id: string,
     parentId: string | null,
     isRankable = 0,
-  ): TaxonomyNode => ({ id, slug: id, name: id, parentId, isRankable });
+    name = id,
+  ): TaxonomyNode => ({ id, slug: id, name, parentId, isRankable });
   const nodes = [
     node("food", null),
-    node("meat", "food"),
-    node("beef", "meat"),
+    node("beef", "food"),
     node("ground-beef", "beef", 1),
-    node("eggs-aisle", "food"),
-    node("eggs-shelf", "eggs-aisle"),
-    node("eggs", "eggs-shelf", 1),
-    // A rankable food directly under an aisle is outside depth three.
-    node("bacon", "meat", 1),
-    // A group nested too deep.
-    node("deep", "beef"),
+    node("meatballs", "beef", 1),
+    node("eggs-aisle", "food", 0, "Eggs"),
+    node("eggs", "eggs-aisle", 1, "Eggs"),
+    // A rankable food directly under Food, or below a nested group, is
+    // outside depth two.
+    node("bacon", "food", 1),
+    node("old-shelf", "beef"),
+    node("deep", "old-shelf", 1),
   ];
 
-  it("derives depth, aisle and shelf from parent links", () => {
+  it("derives depth and aisle from parent links", () => {
     const shaped = taxonomyShape(nodes);
     expect(shaped.get("ground-beef")).toMatchObject({
-      depth: 3,
-      aisleId: "meat",
-      shelfId: "beef",
+      depth: 2,
+      aisleId: "beef",
       outsideDepth: false,
     });
-    expect(shaped.get("bacon")).toMatchObject({ depth: 2, outsideDepth: true });
-    expect(shaped.get("deep")).toMatchObject({ depth: 3, outsideDepth: true });
-    expect(shaped.get("meat")).toMatchObject({ depth: 1, outsideDepth: false });
+    expect(shaped.get("bacon")).toMatchObject({ depth: 1, outsideDepth: true });
+    expect(shaped.get("old-shelf")).toMatchObject({
+      depth: 2,
+      outsideDepth: true,
+    });
+    expect(shaped.get("deep")).toMatchObject({
+      depth: 3,
+      aisleId: "beef",
+      outsideDepth: true,
+    });
+    expect(shaped.get("beef")).toMatchObject({ depth: 1, outsideDepth: false });
   });
 
   it("builds the aisle tree from placeable foods only", () => {
@@ -120,25 +128,31 @@ describe("taxonomy shape", () => {
       nodes,
       new Map([["ground-beef", { productCount: 4, rankedCount: 3 }]]),
     );
-    expect(tree.map((aisle) => aisle.slug)).toEqual(["eggs-aisle", "meat"]);
-    expect(tree[1]!.shelves).toEqual([
-      {
-        id: "beef",
-        slug: "beef",
-        name: "beef",
-        // The aisle's only placeable shelf is not shown as its own level.
-        silent: true,
-        foods: [
-          {
-            id: "ground-beef",
-            slug: "ground-beef",
-            name: "ground-beef",
-            productCount: 4,
-            rankedCount: 3,
-          },
-        ],
-      },
-    ]);
+    expect(tree.map((aisle) => aisle.slug)).toEqual(["beef", "eggs-aisle"]);
+    expect(tree[0]).toEqual({
+      id: "beef",
+      slug: "beef",
+      name: "beef",
+      silent: false,
+      foods: [
+        {
+          id: "ground-beef",
+          slug: "ground-beef",
+          name: "ground-beef",
+          productCount: 4,
+          rankedCount: 3,
+        },
+        {
+          id: "meatballs",
+          slug: "meatballs",
+          name: "meatballs",
+          productCount: 0,
+          rankedCount: 0,
+        },
+      ],
+    });
+    // An aisle that only repeats its one food is silent in breadcrumbs.
+    expect(tree[1]).toMatchObject({ slug: "eggs-aisle", silent: true });
   });
 
   it("survives a cycle without looping", () => {

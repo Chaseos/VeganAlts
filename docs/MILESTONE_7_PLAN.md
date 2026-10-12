@@ -360,6 +360,8 @@ The taxonomy becomes two levels below the root: **aisle › food**. It replaces 
 - **Aisles stay non-rankable groups, and foods are the rankable leaves.**
 - **An aisle holding one food of its own name is silent in breadcrumbs,** so "All foods / Eggs" never reads "All foods / Eggs / Eggs".
 - **Slugs.** An aisle whose name is also a food's takes `-aisle` in its slug (`milk-aisle`, `eggs-aisle`).
+- **Order.** Aisles are listed by name. A store-style order (meat, fish, dairy, cheese, eggs, condiments) would need a position for each aisle; the owner decides at the checkpoint 2 review.
+- **Desktop aisle bar.** On desktop, the aisle bar wraps onto a second row; phones scroll it sideways.
 
 | Aisle            | Slug               | US foods at launch                                                                                            |
 | ---------------- | ------------------ | ------------------------------------------------------------------------------------------------------------- |
@@ -510,6 +512,7 @@ Existing foods keep their current names and other names unless a row says otherw
    - **Owner review:** screenshots.
 9. **Demo catalog, hardening and staging.**
    - Demo lines with several flavors (a yogurt with three flavors, nuggets with Original and Spicy) and Tastiest answers.
+   - Demo ratings dated relative to the seed run, so Trending always has recent activity. The fixed 2026-10-04 dates left the 7-day window on 2026-10-12, which emptied the home page's Trending section and fails its browser test.
    - `npm run check` and `npm run test:e2e` after a local reset.
    - axe at 390 px and desktop in both themes.
    - The verification record, then staging after approval.

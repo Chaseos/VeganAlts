@@ -274,13 +274,11 @@ test("suggests a missing food inline and publishes the product once a moderator 
       }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Continue" }).click();
-    // The shelf is part of the basics for a new food.
+    // The aisle is part of the basics for a new food.
     await expect(page.getByRole("alert")).toContainText(
-      "Choose the shelf where you’d find it",
+      "Choose the aisle where you’d find it",
     );
-    await page
-      .getByLabel("Shelf (required)")
-      .selectOption({ label: "Meat › Pork" });
+    await page.getByLabel("Aisle (required)").selectOption({ label: "Pork" });
     await page.getByLabel("Brand (required)").fill(`Grill House ${stamp}`);
     await page.getByLabel("Product name (required)").fill(name);
     await page

@@ -105,7 +105,7 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
                     <FoodCard
                       country={code}
                       food={food}
-                      shelf={food.aisle ?? undefined}
+                      place={food.aisle ?? undefined}
                       level={3}
                     />
                   </li>
@@ -202,23 +202,18 @@ function AllAisles({ country }: { country: string }) {
             <span className="va-browse__name">{aisle.name}</span>
           </Link>
           <ul className="va-divided">
-            {aisle.shelves.flatMap((shelf) =>
-              shelf.foods.map((food) => (
-                <li key={food.slug}>
-                  <Link
-                    className="va-row-link"
-                    to={foodPath(country, food.slug)}
-                  >
-                    <span className="va-row-link__text">
-                      <span className="va-row-link__title">{food.name}</span>
-                      <span className="va-small va-muted">
-                        {shelf.name} · {plural(food.productCount, "product")}
-                      </span>
+            {aisle.foods.map((food) => (
+              <li key={food.slug}>
+                <Link className="va-row-link" to={foodPath(country, food.slug)}>
+                  <span className="va-row-link__text">
+                    <span className="va-row-link__title">{food.name}</span>
+                    <span className="va-small va-muted">
+                      {plural(food.productCount, "product")}
                     </span>
-                  </Link>
-                </li>
-              )),
-            )}
+                  </span>
+                </Link>
+              </li>
+            ))}
           </ul>
         </li>
       ))}

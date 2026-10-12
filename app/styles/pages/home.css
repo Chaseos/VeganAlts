@@ -267,7 +267,7 @@
   transform: rotate(180deg);
 }
 
-.va-browse__shelves {
+.va-browse__foods {
   padding: 0 14px 8px;
 }
 
@@ -450,7 +450,7 @@
     font-stretch: 110%;
   }
 
-  .va-browse--desktop .va-browse__shelves {
+  .va-browse--desktop .va-browse__foods {
     padding: 0;
   }
 

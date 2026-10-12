@@ -39,7 +39,10 @@ it("seeds approved demonstration data repeatably without changing real contribut
       if (product.notes) expect(dataNotes).toContain(product.notes);
     }
   }
-  for (const category of seedCategories) {
+  // Every food the demo catalog uses holds at least three demo products; the
+  // other launch foods start empty.
+  const used = new Set(seedProducts.flatMap((product) => product.categories));
+  for (const category of seedCategories.filter((c) => used.has(c.slug))) {
     const count = await env.DB.prepare(
       "SELECT COUNT(*) AS count FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=? AND p.development_only=1",
     )

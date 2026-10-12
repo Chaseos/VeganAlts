@@ -5,8 +5,8 @@ const ancestry = `WITH RECURSIVE ancestry(leaf,id,name,parent_id) AS (
   UNION SELECT a.leaf,c.id,c.name,c.parent_id FROM ancestry a JOIN categories c ON c.id=a.parent_id WHERE c.is_active=1
 )`;
 
-// Foods only: aisles and shelves are navigation, reached through their
-// foods' ancestry ("meat" finds every food in the Meat aisle). A food is
+// Foods only: aisles are navigation, reached through their foods' ancestry
+// ("cheese" finds every food in the Cheese aisle). A food is
 // indexed only in the countries where it is on; its title is its name in that
 // country and its base name stays searchable.
 const categoryDocuments = (where: string) =>

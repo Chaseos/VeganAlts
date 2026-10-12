@@ -13,7 +13,7 @@ import { useMediaQuery } from "../../lib/use-media-query";
 
 // The header's second row. Without JavaScript and on phones each aisle is a
 // link to its aisle page (the bar scrolls sideways). On desktop, once
-// hydrated, each aisle opens a menu of its shelves and foods with their top
+// hydrated, each aisle opens a menu of its foods with their top
 // three, read from that aisle page's cached data.
 export function AisleBar() {
   const { country, aisles } = useSiteChrome();
@@ -154,15 +154,10 @@ function AisleMenuItem({
                   aisle: { slug: aisle.slug, name: aisle.name },
                   // Names and counts from the header data until the top
                   // products arrive.
-                  shelves: aisle.shelves.map((shelf) => ({
-                    slug: shelf.slug,
-                    name: shelf.name,
-                    silent: shelf.silent,
-                    foods: shelf.foods.map((food) => ({
-                      ...food,
-                      rankedCount: 0,
-                      top: [],
-                    })),
+                  foods: aisle.foods.map((food) => ({
+                    ...food,
+                    rankedCount: 0,
+                    top: [],
                   })),
                 }}
               />

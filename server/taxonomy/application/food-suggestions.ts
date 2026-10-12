@@ -13,8 +13,8 @@ export const PROPOSALS_PER_DAY = 3;
 
 /**
  * Who a category's name must differ from. Foods (rankable) share one namespace
- * with every food name and alias; an aisle or shelf only needs a name unique
- * among its siblings, so the Eggs aisle can hold an Eggs shelf and food.
+ * with every food name and alias; an aisle only needs a name unique among
+ * its siblings, so the Eggs aisle can hold the Eggs food.
  */
 export type NameScope =
   { rankable: true } | { rankable: false; parentId: string | null };
@@ -49,23 +49,23 @@ export async function assertNamesAvailable(
     );
 }
 
-// Suggested foods choose a shelf: an active group two levels below Food.
-export async function assertShelf(
+// Suggested foods choose an aisle: an active group directly below Food.
+export async function assertAisle(
   repository: Pick<Lookups, "category" | "ancestors">,
-  shelfId: string,
+  aisleId: string,
 ) {
-  const shelf = await repository.category(shelfId);
-  const ancestors = shelf ? await repository.ancestors(shelfId) : [];
-  if (!shelf || !shelf.isActive || shelf.isRankable || ancestors.length !== 2)
+  const aisle = await repository.category(aisleId);
+  const ancestors = aisle ? await repository.ancestors(aisleId) : [];
+  if (!aisle || !aisle.isActive || aisle.isRankable || ancestors.length !== 1)
     throw new ApplicationError(
-      "INVALID_SHELF",
-      "Choose the shelf the new food belongs on.",
+      "INVALID_AISLE",
+      "Choose the aisle the new food belongs in.",
     );
 }
 
 export interface SuggestedFood {
   name: string;
-  shelfId: string;
+  aisleId: string;
   country: string;
   aliases: string[];
 }
@@ -74,7 +74,7 @@ export interface SuggestedFood {
  * The deterministic checks every food suggestion passes before any automated
  * check, whether it comes from the Suggest a food page or inside Add a
  * product: a usable address, the daily allowance, names unused by any food,
- * a real shelf and an open country.
+ * a real aisle and an open country.
  */
 export class FoodSuggestions {
   readonly perDay = PROPOSALS_PER_DAY;
@@ -96,7 +96,7 @@ export class FoodSuggestions {
     await assertNamesAvailable(this.repository, [food.name, ...food.aliases], {
       rankable: true,
     });
-    await assertShelf(this.repository, food.shelfId);
+    await assertAisle(this.repository, food.aisleId);
     // Every suggestion belongs to a country people can browse.
     if (!(await this.repository.countryActive(food.country)))
       throw invalidCountry();

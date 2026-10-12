@@ -201,11 +201,11 @@ export class SubmissionRepository {
                 food.proposalId,
                 receipt.user_id,
                 input.newFood.name,
-                input.newFood.shelfId,
+                input.newFood.aisleId,
                 input.country,
                 JSON.stringify({
                   name: input.newFood.name,
-                  shelfId: input.newFood.shelfId,
+                  aisleId: input.newFood.aisleId,
                   country: input.country,
                   aliases: input.newFood.aliases ?? [],
                   exampleProducts: [`${input.brand} ${input.name}`],
@@ -377,14 +377,14 @@ export class SubmissionRepository {
   pendingFood(submissionId: string) {
     return this.db
       .prepare(
-        `SELECT cp.id,cp.name,cp.parent_id AS shelfId,cp.status,cp.resolved_category_id AS resolvedId
+        `SELECT cp.id,cp.name,cp.parent_id AS aisleId,cp.status,cp.resolved_category_id AS resolvedId
         FROM pending_submissions p JOIN category_proposals cp ON cp.id=p.category_proposal_id WHERE p.submission_id=?`,
       )
       .bind(submissionId)
       .first<{
         id: string;
         name: string;
-        shelfId: string | null;
+        aisleId: string | null;
         status: string;
         resolvedId: string | null;
       }>();

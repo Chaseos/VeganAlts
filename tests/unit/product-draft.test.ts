@@ -38,16 +38,16 @@ describe("product draft", () => {
       "front",
     ]);
     expect(basicsErrors(basics(), { front: true })).toEqual({});
-    // A suggested food needs a name and a shelf.
+    // A suggested food needs a name and an aisle.
     expect(
       basicsErrors(
         {
           ...basics(),
-          food: { kind: "new", name: "", shelfId: "", otherNames: [] },
+          food: { kind: "new", name: "", aisleId: "", otherNames: [] },
         },
         { front: true },
       ),
-    ).toMatchObject({ food: expect.any(String), shelf: expect.any(String) });
+    ).toMatchObject({ food: expect.any(String), aisle: expect.any(String) });
   });
 
   it("checks optional answers only when given", () => {
@@ -79,7 +79,7 @@ describe("product draft", () => {
     draft.food = {
       kind: "new",
       name: "Sausage rolls",
-      shelfId: "pork",
+      aisleId: "pork",
       otherNames: ["bangers"],
     };
     draft.alsoReplaces = ["a", "b", "c", "d", "e"];
@@ -95,7 +95,7 @@ describe("product draft", () => {
     const input = toSubmission(draft, { front: true, ingredients: true });
     expect(input).toMatchObject({
       categoryIds: ["a", "b", "c", "d"],
-      newFood: { name: "Sausage rolls", shelfId: "pork", aliases: ["bangers"] },
+      newFood: { name: "Sausage rolls", aisleId: "pork", aliases: ["bangers"] },
       imageSlots: ["front", "ingredients"],
       noKnownAnimalIngredients: true,
       manufacturerLabel: "plant_based",

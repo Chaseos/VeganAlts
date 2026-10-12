@@ -52,12 +52,12 @@ export const evidence = z
 export const certification = z
   .object({ name: shortText, sourceUrl: evidenceUrl })
   .strict();
-// A food suggested inside a submission (milestone 6): its shelf and any other
+// A food suggested inside a submission (milestone 6): its aisle and any other
 // names. It is decided by an operator before the product publishes.
 export const newFood = z
   .object({
     name: shortText,
-    shelfId: id,
+    aisleId: id,
     aliases: z.array(shortText).max(10).optional(),
   })
   .strict();

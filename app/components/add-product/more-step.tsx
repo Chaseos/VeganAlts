@@ -94,7 +94,9 @@ export function MoreStep({
               {draft.food?.kind === "new"
                 ? `${draft.food.name} (new food, reviewed with your product)`
                 : primary
-                  ? `${primary.name} · ${placeLabel(primary)}`
+                  ? [primary.name, placeLabel(primary)]
+                      .filter(Boolean)
+                      .join(" · ")
                   : "—"}
             </dd>
           </div>

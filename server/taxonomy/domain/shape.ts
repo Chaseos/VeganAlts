@@ -1,7 +1,7 @@
-import { silentShelf } from "./display";
+import { silentAisle } from "./display";
 
-// Food → aisle → shelf → food. Depth is derived from parent links, never
-// stored: the root is depth 0, aisles 1, shelves 2 and rankable foods 3.
+// Food → aisle → food (milestone 7). Depth is derived from parent links, never
+// stored: the root is depth 0, aisles 1 and rankable foods 2.
 export interface TaxonomyNode {
   id: string;
   slug: string;
@@ -15,9 +15,8 @@ export interface TaxonomyNode {
 export interface ShapedNode extends TaxonomyNode {
   depth: number;
   aisleId: string | null;
-  shelfId: string | null;
   // A category the aisle bar cannot place: a rankable food not at depth
-  // three, or a group at depth three or deeper. It stays reachable by URL and
+  // two, or a group at depth two or deeper. It stays reachable by URL and
   // search, and the taxonomy workspace flags it.
   outsideDepth: boolean;
 }
@@ -39,8 +38,7 @@ export function taxonomyShape(nodes: TaxonomyNode[]) {
       ...node,
       depth,
       aisleId: depth === 1 ? node.id : depth > 1 ? above!.aisleId : null,
-      shelfId: depth === 2 ? node.id : depth > 2 ? above!.shelfId : null,
-      outsideDepth: node.isRankable ? depth !== 3 : depth >= 3,
+      outsideDepth: node.isRankable ? depth !== 2 : depth >= 2,
     };
     shaped.set(node.id, result);
     return result;
@@ -56,24 +54,17 @@ export interface AisleFood {
   productCount: number;
   rankedCount: number;
 }
-export interface AisleShelf {
-  id: string;
-  slug: string;
-  name: string;
-  // Navigation skips a shelf that only repeats its aisle or food.
-  silent: boolean;
-  foods: AisleFood[];
-}
 export interface Aisle {
   id: string;
   slug: string;
   name: string;
-  shelves: AisleShelf[];
+  // Breadcrumbs skip an aisle that only repeats its one food (Eggs › Eggs).
+  silent: boolean;
+  foods: AisleFood[];
 }
 
-// The navigable tree: aisles with their shelves and foods, in name order.
-// Foods not on in the country are left out, and so are aisles and shelves
-// without a placeable food.
+// The navigable tree: aisles with their foods, in name order. Foods not on in
+// the country are left out, and so are aisles without a placeable food.
 export function aisleTree(
   nodes: TaxonomyNode[],
   counts: Map<string, { productCount: number; rankedCount: number }>,
@@ -81,43 +72,33 @@ export function aisleTree(
   const shaped = taxonomyShape(nodes);
   const byName = <T extends { name: string }>(a: T, b: T) =>
     a.name.localeCompare(b.name);
-  const children = (parentId: string) =>
-    [...shaped.values()]
-      .filter((node) => node.parentId === parentId)
-      .sort(byName);
   return [...shaped.values()]
     .filter((node) => node.depth === 1 && !node.isRankable)
     .sort(byName)
     .map((aisle) => {
-      const shelves = children(aisle.id)
-        .filter((shelf) => !shelf.isRankable)
-        .map((shelf) => ({
-          id: shelf.id,
-          slug: shelf.slug,
-          name: shelf.name,
-          foods: children(shelf.id)
-            .filter(
-              (food) =>
-                food.isRankable && !food.outsideDepth && food.available !== 0,
-            )
-            .map((food) => ({
-              id: food.id,
-              slug: food.slug,
-              name: food.name,
-              productCount: counts.get(food.id)?.productCount ?? 0,
-              rankedCount: counts.get(food.id)?.rankedCount ?? 0,
-            })),
-        }))
-        .filter((shelf) => shelf.foods.length > 0);
+      const foods = [...shaped.values()]
+        .filter(
+          (food) =>
+            food.parentId === aisle.id &&
+            food.isRankable &&
+            !food.outsideDepth &&
+            food.available !== 0,
+        )
+        .sort(byName)
+        .map((food) => ({
+          id: food.id,
+          slug: food.slug,
+          name: food.name,
+          productCount: counts.get(food.id)?.productCount ?? 0,
+          rankedCount: counts.get(food.id)?.rankedCount ?? 0,
+        }));
       return {
         id: aisle.id,
         slug: aisle.slug,
         name: aisle.name,
-        shelves: shelves.map((shelf) => ({
-          ...shelf,
-          silent: silentShelf(aisle, shelf, shelf.foods, shelves.length),
-        })),
+        silent: silentAisle(aisle, foods),
+        foods,
       };
     })
-    .filter((aisle) => aisle.shelves.length > 0);
+    .filter((aisle) => aisle.foods.length > 0);
 }

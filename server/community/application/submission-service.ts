@@ -32,7 +32,7 @@ export interface FoodChecks {
   readonly perDay: number;
   check(
     actor: Actor,
-    food: { name: string; shelfId: string; country: string; aliases: string[] },
+    food: { name: string; aisleId: string; country: string; aliases: string[] },
   ): Promise<void>;
 }
 
@@ -65,7 +65,7 @@ export class SubmissionService {
       if (
         earlier &&
         categoryKey(earlier.name) === categoryKey(food.name) &&
-        earlier.shelfId === food.shelfId
+        earlier.aisleId === food.aisleId
       ) {
         if (earlier.status === "pending")
           return { problem: null, carry: earlier.id };
@@ -87,7 +87,7 @@ export class SubmissionService {
     try {
       await this.foods.check(actor, {
         name: food.name,
-        shelfId: food.shelfId,
+        aisleId: food.aisleId,
         country: input.country,
         aliases: food.aliases ?? [],
       });

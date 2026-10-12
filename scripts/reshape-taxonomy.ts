@@ -1,7 +1,8 @@
-// Re-parents existing local or staging categories into the three-level launch
-// tree (Food → aisle → shelf → food) through the audited, reversible taxonomy
-// update path. Run the taxonomy seed first so every group exists. Production
-// never needs this: it receives the shape from the seed.
+// Re-parents existing local or staging categories into the two-level launch
+// tree (Food → aisle → food, milestone 7) through the audited, reversible
+// taxonomy update path, and retires the emptied shelves and old aisles. Run
+// the taxonomy seed first so every group exists. Production never needs this:
+// it receives the shape from the seed.
 //
 //   npm run taxonomy:reshape:local -- [--apply] [--operator=<user id>]
 //   npm run taxonomy:reshape:staging -- --operator=<allowlisted user id> [--apply]
@@ -119,7 +120,8 @@ try {
           applied: apply,
           moves: result.moves,
           actions: result.actions,
-          outsideDepthThree: result.outside,
+          retired: result.retired,
+          outsideDepth: result.outside,
         },
         null,
         2,

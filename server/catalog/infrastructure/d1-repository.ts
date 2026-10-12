@@ -56,7 +56,7 @@ function parseAllergens<T extends { allergens?: unknown }>(row: T) {
         : null,
   };
 }
-// Aisles and shelves are shared; a food is listed in a country only where it
+// Aisles are shared; a food is listed in a country only where it
 // is switched on (milestone 6). Binds the country ID once.
 const onHere = (category: string) =>
   `(${category}.is_rankable=0 OR EXISTS(SELECT 1 FROM category_countries cc WHERE cc.category_id=${category}.id AND cc.country_id=?))`;
@@ -186,14 +186,13 @@ export class D1CatalogRepository implements CatalogRepository {
     }>([
       this.db.prepare(
         // Foods have pages where they are on; an aisle has a page in a
-        // country holding one of its foods. Shelves redirect into their aisle.
+        // country holding one of its foods.
         `SELECT c.slug,c.updated_at AS updatedAt,lower(co.iso2) AS country FROM categories c
         JOIN category_countries cc ON cc.category_id=c.id JOIN countries co ON co.id=cc.country_id AND co.is_active=1
         WHERE c.is_active=1 AND c.is_rankable=1
         UNION
         SELECT a.slug,a.updated_at,lower(co.iso2) FROM categories a
-        JOIN categories shelf ON shelf.parent_id=a.id AND shelf.is_active=1
-        JOIN categories food ON food.parent_id=shelf.id AND food.is_active=1 AND food.is_rankable=1
+        JOIN categories food ON food.parent_id=a.id AND food.is_active=1 AND food.is_rankable=1
         JOIN category_countries cc ON cc.category_id=food.id JOIN countries co ON co.id=cc.country_id AND co.is_active=1
         WHERE a.is_active=1 AND a.is_rankable=0 AND a.parent_id IN (SELECT id FROM categories WHERE parent_id IS NULL AND is_active=1)
         ORDER BY 3,1 LIMIT 20000`,

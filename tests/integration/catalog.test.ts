@@ -124,9 +124,7 @@ it("preserves inactive categories and their scores in read-only formula history"
     // A retired food leaves the home page's aisles.
     expect(
       (await catalog.home(us)).aisles.some((aisle) =>
-        aisle.shelves.some((shelf) =>
-          shelf.foods.some((food) => food.slug === "ground-beef"),
-        ),
+        aisle.foods.some((food) => food.slug === "ground-beef"),
       ),
     ).toBe(false);
   } finally {

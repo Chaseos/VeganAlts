@@ -276,9 +276,14 @@
 }
 
 @media (min-width: 760px) {
+  /* Fourteen aisles wrap onto a second row rather than hiding off the edge;
+     phones keep the sideways scroll. */
   .va-aisle-bar > ul {
     padding: 0 calc(var(--va-gutter) - 8px);
     gap: 0;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    scroll-snap-type: none;
   }
 
   .va-aisle-bar > ul > li > a,

@@ -10,14 +10,13 @@ import {
 const food = (
   name: string,
   otherNames: string[] = [],
-  place: Partial<Pick<FoodChoice, "aisle" | "shelf" | "inCountry">> = {},
+  place: Partial<Pick<FoodChoice, "aisle" | "inCountry">> = {},
 ): FoodChoice => ({
   id: name.toLowerCase().replaceAll(" ", "-"),
   slug: name.toLowerCase().replaceAll(" ", "-"),
   name,
   otherNames,
-  aisle: { id: "meat", name: "Meat" },
-  shelf: { id: "beef", name: "Beef", silent: false },
+  aisle: { id: "beef", name: "Beef", silent: false },
   inCountry: true,
   ...place,
 });
@@ -25,11 +24,10 @@ const foods = [
   food("Beef mince", ["Ground Beef", "mince"]),
   food("Beef Burgers"),
   food("Chicken Nuggets", [], {
-    shelf: { id: "chicken", name: "Chicken", silent: false },
+    aisle: { id: "chicken", name: "Chicken", silent: false },
   }),
   food("Milk", [], {
-    aisle: { id: "dairy", name: "Dairy" },
-    shelf: { id: "milk-shelf", name: "Milk", silent: true },
+    aisle: { id: "milk-aisle", name: "Milk", silent: true },
     inCountry: false,
   }),
 ];
@@ -64,8 +62,8 @@ describe("food choices", () => {
     expect(exactFood(foods, "")).toBeNull();
   });
 
-  it("names the place, skipping a shelf that only repeats", () => {
-    expect(placeLabel(foods[2]!)).toBe("Meat › Chicken");
-    expect(placeLabel(foods[3]!)).toBe("Dairy");
+  it("names the aisle, skipping one that only repeats the food", () => {
+    expect(placeLabel(foods[2]!)).toBe("Chicken");
+    expect(placeLabel(foods[3]!)).toBeNull();
   });
 });

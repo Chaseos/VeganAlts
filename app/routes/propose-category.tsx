@@ -5,7 +5,7 @@ import { communityPageActor } from "@server/community/http/page";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader } from "@server/catalog/http/loader";
 import { PageShell } from "../components/layout/page-shell";
-import { ShelfSelect } from "../components/shelf-select";
+import { AisleSelect } from "../components/aisle-select";
 import {
   CommunityControls,
   CommunityFeedback,
@@ -25,8 +25,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   return {
     siteKey: env.TURNSTILE_SITE_KEY,
     market,
-    aisles: await catalog.shelves(market),
-    shelf: url.searchParams.get("shelf") ?? "",
+    aisles: await catalog.aisles(market),
+    aisle: url.searchParams.get("aisle") ?? "",
     name: url.searchParams.get("name") ?? "",
   };
 }
@@ -43,15 +43,13 @@ const list = (value: FormDataEntryValue | null) =>
     .filter(Boolean);
 
 export default function ProposeCategory({
-  loaderData: { siteKey, market, aisles, shelf, name: initialName },
+  loaderData: { siteKey, market, aisles, aisle, name: initialName },
 }: Route.ComponentProps) {
   const action = useCommunityAction();
   const [saved, setSaved] = useState<string | null>(null);
   const [name, setName] = useState(initialName);
-  const [shelfId, setShelfId] = useState(
-    aisles
-      .flatMap((a) => a.shelves)
-      .find((s) => s.slug === shelf || s.id === shelf)?.id ?? "",
+  const [aisleId, setAisleId] = useState(
+    aisles.find((a) => a.slug === aisle || a.id === aisle)?.id ?? "",
   );
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,7 +58,7 @@ export default function ProposeCategory({
     const done = await action.run(() =>
       action.request("category-proposals", {
         name,
-        shelfId,
+        aisleId,
         country: market.code,
         ...(explanation ? { explanation } : {}),
         aliases: list(form.get("aliases")).slice(0, 10),
@@ -71,7 +69,7 @@ export default function ProposeCategory({
   // A product for the food can travel with it, reviewed together.
   const withProduct = new URLSearchParams({ country: market.code });
   if (name.trim()) withProduct.set("newFood", name.trim());
-  if (shelfId) withProduct.set("shelf", shelfId);
+  if (aisleId) withProduct.set("aisle", aisleId);
   return (
     <PageShell width="narrow">
       <CommunityControls>
@@ -106,11 +104,11 @@ export default function ProposeCategory({
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <ShelfSelect
-              id="shelf"
+            <AisleSelect
+              id="aisle"
               aisles={aisles}
-              value={shelfId}
-              onChange={setShelfId}
+              value={aisleId}
+              onChange={setAisleId}
               required
             />
             <label htmlFor="category-aliases">
