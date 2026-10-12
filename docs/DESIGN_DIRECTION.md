@@ -180,3 +180,34 @@ Agreed on 2026-10-10 for the [milestone 6 specification](MILESTONE_6_PLAN.md). T
 - **Not in [country] yet.** A food page in a country where the food is not on shows an empty state with "Add a product" and links to the countries that have it. Sort and filters are hidden.
 - **Empty countries.** The home lists the shared aisles and foods with "Be the first to add one".
 - **Status chip.** "Ingredients not checked yet" uses the neutral tone with a text label and a prompt to add an ingredients photo on the product page.
+
+## 11. Milestone 7 additions
+
+Agreed on 2026-10-11 and 2026-10-12 for the [milestone 7 specification](MILESTONE_7_PLAN.md). These follow the existing patterns, and phone and desktop screenshots in both themes are reviewed at each UI checkpoint.
+
+**Aisles.**
+
+- **The aisle bar.** It holds 14 aisles. It scrolls sideways on phones and wraps on desktop, and each new aisle gets an icon in the existing style.
+- **Aisle panels.** An aisle panel lists its foods directly, each with its first three lines.
+- **Breadcrumbs.** Breadcrumbs read "All foods / Cheese / Queso", or "All foods / Eggs" when an aisle repeats its only food.
+
+**Ranking toggle.** A two-option segmented control above the list, "Closest to the original" and "Tastiest", switches views. It is a link to each view, so it works without JavaScript. Each view has its own featured #1. The other sorts stay in the sort menu.
+
+**Line rows.**
+
+- **What a row shows.** A row shows the lead flavor's photo, the line name and brand, and the score and people for the current view.
+- **Flavor disclosure.** A line with several flavors adds a "3 flavors" disclosure listing each flavor with its score or "Too few ratings yet", its New tag and allergens. Lists use dividers, not nested cards.
+- **Tastiest badge.** A line that leads Tastiest but not Closest carries a "Tastiest" badge in the Closest list.
+
+**Rating form.** The closeness question comes first, then "How tasty is it, whether or not it's like the original?" on the same 1–5 control with its own labels (Not for me, It's OK, Good, Really good, Delicious). Both save on tap. Detail and "last ate" questions follow.
+
+**Product page.** The rank card shows the line in both views, and "This flavor" when the line has several flavors. Other flavors appear as a divided list with **Add another flavor**.
+
+**Brand page.** A header with the brand and its product count, then a divided list grouped by aisle › food, each line with its ranks and flavors, ending with **Add a product from [brand]**.
+
+**Add a product, step 1.**
+
+1. **Food.** The food picker comes first.
+2. **Brand.** A brand combobox follows, styled like instant search, with product counts and "Add '[name]' as a new brand" as its last option.
+3. **"Already listed from [brand]".** A divided list of lines and flavors with **That's it, rate it**, **Add a new flavor of [line]** and **Something else from [brand]**.
+4. **Product fields.** These follow for the chosen path.

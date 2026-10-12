@@ -503,3 +503,24 @@ Follow [milestone 6](MILESTONE_6_PLAN.md).
 **Foods per country.** Availability is a canonical table maintained by triggers and the taxonomy services; catalog reads, search indexing and the sitemap join it. A food that is not on in a country renders a shared-cacheable, `noindex` page rather than a 404, so it stays cacheable and gives the country switcher a destination. Switching a food on purges that country's listings.
 
 **After publication.** Stores are confirmed inside the publication batch. The contributor's rating and allergen declaration need the rating aggregates and an automated check, so the batch records a recovery marker and the extras are applied immediately afterward, then retried by the hourly schedule until done. The hourly schedule also continues submissions whose suggested food was accepted.
+
+## Milestone 7 boundaries
+
+Follow [milestone 7](MILESTONE_7_PLAN.md).
+
+**Line aggregates.** Line statistics are rebuildable read models.
+
+- **One source of the math.** One SQL builder in `server/ranking/infrastructure` recomputes a line's rows for a food from canonical ratings. A pure reference function in `server/ranking/domain` defines the same math for tests.
+- **Same transaction.** Every writer that can change a line's membership or eligibility appends the refresh to its own fenced D1 batch, so a line is never scored from a half-applied change. These are rating writes, exclusions, catalog decisions, publication, consolidation, merges and the integrity rebuild.
+- **Hourly backstop.** The hourly job re-derives every line as well.
+- **Leaderboards never read raw ratings.** They read `family_category_stats`.
+
+**Taxonomy shape.** Depth is still derived from parent links. Aisles are depth one and foods depth two, and there are no shelves. The aisle bar, aisle panels, breadcrumbs, the food picker and Suggest a food read the same shape helper.
+
+**Brand pages.**
+
+- **Route.** `/{cc}/brand/{slug}` lives in the country layout. The gateway recognizes it and adds the country to the cache identity, as it does for food and product pages.
+- **One read.** The brand page and Add a product's "Already listed from [brand]" share one catalog read. The contribution lookup adds only its private, authenticated wrapper.
+- **One matcher.** Brand matching is one domain helper used by search, suggest and the contribution lookups.
+
+**Rankings.** Closest and Tastiest are two views of the same rows. A sort, filter or toggle never changes a stored score.

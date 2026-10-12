@@ -621,3 +621,35 @@ The approved [milestone 6 specification](MILESTONE_6_PLAN.md) adds the following
 **Ingredients not checked.** The public classification is derived by one shared read helper: `ingredients_checked = 0` reads as `unchecked`, otherwise the stored status. Writers never store `unchecked`. Any reviewed classification sets the flag to `1`, and reversal restores both values.
 
 **Starter shelves.** The taxonomy seed adds the Fish and seafood aisle (`fish-and-seafood`) and the shelves `turkey-shelf`, `lamb-shelf`, `fish-shelf`, `shellfish-shelf`, `cream-shelf`, `yogurt-shelf`, `ice-cream-shelf` and `hard-and-grated`, insert-only by slug.
+
+## Milestone 7 persistence decisions
+
+The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following append-only, additive migrations after the version 1 baseline. No parent table is rebuilt.
+
+- `0002_recipe_lines.sql`
+  - **Columns.** Adds `products.flavor`, `product_families.country_id` and `ratings.enjoyment`. Adds `enjoyment_count`, `enjoyment_sum` and `enjoyment_score` to `product_category_stats`.
+  - **Backfill.** Creates a family for every product without one, taking the product's brand, country and name, and splits any family whose products span countries.
+  - **Triggers** enforce:
+    - a product is inserted with a family and can never lose it;
+    - a product's brand and country equal its family's;
+    - a family with products cannot be deleted;
+    - a flavor is trimmed, not blank and at most 40 characters;
+    - enjoyment is between 1 and 5.
+  - **`family_category_stats`** has one row per family and food, holding:
+    - for Closest and for Tastiest: people, the sum of per-person means, the raw mean and the Bayesian score;
+    - tried and recent people;
+    - the lead product.
+  - **`family_category_dimension_stats`** has one row per family, food and dimension: people who answered and the sum of their means.
+  - **Indexes** for line reads and `products(brand_id, country_id)` for brand pages.
+- `0003_line_discovery.sql`
+  - Adds `family_category_daily_stats` (people who rated, tried and commented, and the day's per-person similarity sum) and `family_category_trends`.
+  - Drops `product_category_daily_stats` and `product_category_trends`, which are derived and no longer read.
+
+**Product family.** A family is a recipe line in one country: one brand's base recipe and its flavors. It no longer links markets. Rankings group a food's eligible products by family.
+
+**Taxonomy shape.** This replaces milestone 5's three-level shape and milestone 6's starter shelves.
+
+- **Depth.** Aisles are children of the root and foods are children of aisles.
+- **Seed.** The taxonomy seed writes the 14 aisles and the launch foods.
+- **Availability.** `TAXONOMY_LEAVES` carries an optional `countries` list for launch availability.
+- **Existing environments.** For an environment that is not reset, the reshape script re-parents foods to aisles through the audited taxonomy path and retires the emptied shelves.

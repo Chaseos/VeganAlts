@@ -12,7 +12,7 @@ It also:
 - simplifies the taxonomy to two levels, universal aisles and the foods under them;
 - sets the United States launch foods, so the owner can fill the catalog with direct replacements for meat, fish, dairy, cheese, eggs and animal-based condiments.
 
-Work starts on `feature/milestone-seven-recipe-lines`, branched from `develop` after milestone 6 (#48) merged. The launch foods can ship first on their own (checkpoint 2), so Eggnog is in place for the season.
+The plan and the implementation share one branch, `docs/milestone-seven-recipe-lines-plan`, and one pull request (#49), at the owner's request on 2026-10-12. The launch foods can ship first on their own (checkpoint 2), so Eggnog is in place for the season.
 
 ## Why
 

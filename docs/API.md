@@ -438,3 +438,83 @@ Decisions follow the milestone 6 moderation policy. A submission with `newFood` 
 - Category proposal review detail adds `country`, the shelf path and `waitingProducts`. Submission review detail adds `pendingFood`. Inbox items add `waitingFor: "food"`.
 
 **Caching.** Switching a food on in a country (by publication, operator change or proposal decision) purges that country's listings, because the aisle bar appears on every page.
+
+## Milestone 7 contract additions
+
+The [milestone 7 specification](MILESTONE_7_PLAN.md) extends the v1 contracts. Every POST keeps the milestone 3 and 4 rules. Nothing is released, so fields that milestone 7 retires are removed rather than deprecated.
+
+**Taxonomy shape.**
+
+- **Aisles replace shelves.** Foods sit directly under aisles, so every `shelf`/`shelfId` becomes `aisle`/`aisleId`:
+  - category proposals: `{name, aisleId, country, explanation?, exampleProducts[], aliases[]}`;
+  - `newFood` in submissions: `{name, aisleId, aliases[]}`;
+  - `GET /community/options`: `foods[].aisle` and the list `aisles`.
+- **No shelf parameter.** Aisle pages no longer accept `shelf`.
+- **Reserved slug.** `brand` is a reserved food slug.
+
+**Ratings.** `PUT /ratings` adds an optional `enjoyment`: an integer 1–5, or `null` to clear it. As with the other optional fields, leaving it out leaves the stored value unchanged. `overallSimilarity` stays required. The response's `rating` and `GET /me/rating-state` include `enjoyment`.
+
+**Ranking reads.** `GET /categories/:slug?country=&view=…`
+
+- **Views.** `view` adds `tastiest`. Detail views keep the `detail-<key>` form; their labels read "Closest …".
+- **Each row is a line:**
+  - `{lineId, name, brand, leadProduct: {slug, imageId}, flavorCount, closestRank, tastiestRank, score, people, early, isNew, badges, details, matchedStores, allergens?, flavors}`;
+  - `score`, `people` and `early` describe the ranking being viewed;
+  - `allergens` appears only for a single-flavor line.
+- **Each entry in `flavors`:**
+  - `{productId, slug, name, flavor, score, ratingCount, isNew, allergens, matchesFilters}`;
+  - `score` is shown from 5 answers, otherwise `null`.
+- **Discontinued flavors** are never returned.
+- **Filtered views** return only lines with a matching flavor, with `hiddenFlavorCount` for the flavors that don't match.
+
+**Product reads.** `GET /products/:slug?country=&food=` adds:
+
+- `flavor`;
+- `line: {id, name, closest: {rank, of, score, people}, tastiest: {rank, of, score, people}}` for the chosen food;
+- `flavorScores` (this product's own Closest and Tastiest scores and counts);
+- `otherFlavors[]`.
+
+The `related` list keeps only companion and successor links.
+
+**Search and brands.**
+
+| Method | Path beneath `/api/v1`   | Contract                                                                                                                                                                                                                                                                         |
+| ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/suggest?country=&q=`   | Adds up to 3 `brands`: `{slug, name, productCount}`. Foods keep their #1 line and score; products show their line's rank.                                                                                                                                                        |
+| GET    | `/search?country=&q=`    | Adds up to 10 `brands`, in the same shape.                                                                                                                                                                                                                                       |
+| GET    | `/brands/:slug?country=` | The brand page: `{brand: {slug, name}, productCount, aisles: [{aisle, foods: [{food, lines: [{lineId, name, closestRank, tastiestRank, score, flavors}]}]}]}`. A brand with no visible products in the country returns 200 with `availability: {here: false}`. Shared-cacheable. |
+
+- **Document URL.** The brand page's document URL is `/{cc}/brand/{slug}`.
+- **Brand matching.** Brand matching in search, suggest and the contribution lookups uses one shared matcher:
+  - names and other names;
+  - a word prefix, a substring, or within two edits for names of five or more letters.
+
+**Contribution lookups.** Each is authenticated, private/no-store and on the instant-answer rate limit.
+
+| Method | Path beneath `/api/v1`                              | Contract                                                                                                                                                  |
+| ------ | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/community/brands?country=&q=`                     | Up to 8 brand suggestions `{id, slug, name, productCount}` from 2 characters.                                                                             |
+| GET    | `/community/brands/:id/lines?country=&food=`        | The brand's lines in the country, those in `food` first: `{lineId, name, foods[], flavors: [{productId, slug, name, flavor}]}`.                           |
+| GET    | `/community/identity-matches?country=&brand=&name=` | Looser: any one shared word of three or more letters qualifies a similar product, and the brand matches through the shared matcher. `exact` is unchanged. |
+
+**Submissions.** `SubmissionInput` changes as follows.
+
+- **Added:** `flavor` (optional, at most 40 characters).
+- **Choosing a line.** Either `lineId`, an existing line of the same brand and country, or optionally `lineName` for a new line, which defaults to the product name. Giving both returns 422.
+- **Removed:** `productFamilyId`, `relatedProductId`, `relationship` and `specialtyFlavor`. A payload that carries them returns 422.
+- **Holds.** Joining a line never holds a submission on its own.
+
+**Changes, reports and administration.**
+
+- **`rename`** accepts an optional `flavor` and stays tier 2.
+- **`relationships`** no longer accepts `variant` or `specialty_flavor`. A change of `productFamilyId` is tier 3.
+- **Product reports** add the reasons `flavor_not_real` and `wrong_line`.
+- **`POST /admin/moderation/products/:id/line`** takes `{expectedRevision, lineId | newLineName, note}` and moves a product to another line of the same brand and country, or to a new line.
+- **`POST /admin/lines/:id`** takes `{expectedRevision, name, note}`.
+- **Both line actions** are audited, reversible through the existing reversal endpoint, and rescore the affected lines.
+
+**Caching.**
+
+- **Brand tags.** Cache tags add `brand:<cc>:<slug>`.
+- **What a product change purges.** A product change purges its brand page. A line move or rename purges the products of both lines, their foods' listings and the brand page.
+- **Ratings** still never purge.
