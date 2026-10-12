@@ -577,6 +577,8 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) groups products into recipe
 
 **Suggesting a food.** With shelves removed, a food suggestion chooses an aisle instead of a shelf. Review is otherwise unchanged in this milestone.
 
+**Seasonal tag.** A contributor can mark a product Seasonal when adding it (tier 1). Changing the tag later is a tier 2 edit. A food's season months are set by operators.
+
 **Tier table changes.**
 
 | Change                                                           | Tier          |

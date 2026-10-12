@@ -190,6 +190,9 @@ Agreed on 2026-10-11 and 2026-10-12 for the [milestone 7 specification](MILESTON
 - **The aisle bar.** It holds 14 aisles. It scrolls sideways on phones and wraps on desktop, and each new aisle gets an icon in the existing style.
 - **Aisle panels.** An aisle panel lists its foods directly, each with its first three lines.
 - **Breadcrumbs.** Breadcrumbs read "All foods / Cheese / Queso", or "All foods / Eggs" when an aisle repeats its only food.
+- **Order.** Aisles and foods follow each country's popularity order, with a default store order before ratings exist.
+- **Browse every food.** Equal-height aisle cards in a grid. Each card has the aisle icon, its name and food count, then up to four foods with their #1 swap, and "See all [n] foods" when there are more.
+- **Seasonal.** A neutral chip reads "Seasonal · Nov–Jan" on a seasonal food's page, cards and search results. A product's Seasonal tag appears on its page and ranking rows.
 
 **Ranking toggle.** A two-option segmented control above the list, "Closest to the original" and "Tastiest", switches views. It is a link to each view, so it works without JavaScript. Each view has its own featured #1. The other sorts stay in the sort menu.
 

@@ -1247,20 +1247,34 @@ Every product belongs to the one country it is added in.
 - **Repeated names.** An aisle holding one food of its own name is silent in breadcrumbs ("All foods / Eggs").
 - **Suggest a food** chooses an aisle.
 
+**Ordering and browsing (§03).**
+
+- **Popularity order.** In each country, aisles and the foods within them are ordered by popularity: most counted ratings first, from the rating aggregates.
+- **Default order.** A country without ratings uses a default store order: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments.
+- **Browse every food** shows each aisle as a card with its four most popular foods and "See all" when there are more.
+- **New aisles.** Operators can add aisles for any country, and an aisle shows only where it holds a food. Contributor aisle suggestions and per-country aisle names follow in milestone 8.
+
+**Seasons.**
+
+- **Seasonal foods.** A food can carry season months, for example Eggnog in November–January and Turkey Roast in October–December. It shows "Seasonal" with its months and stays listed and ranked all year.
+- **Seasonal products.** Any product can carry a Seasonal tag. A product in a seasonal food has it by default. A seasonal product off the shelf is not treated as discontinued.
+
+**Trending (§05).** Trending looks back a quarter, so a shopper who checks every month or two still sees what rose recently (RANKING, milestone 7).
+
 **United States launch foods.** The initial database focuses on direct replacements in the United States.
 
-- **The list.** The plan's [launch food list](MILESTONE_7_PLAN.md#united-states-launch-foods) proposes 40 foods: the 10 launch foods plus 30 United States foods. Among them, each condiment is its own food and Queso joins the Cheese aisle.
+- **The list.** The plan's [launch food list](MILESTONE_7_PLAN.md#united-states-launch-foods) proposes 42 foods: the 10 launch foods plus 32 United States foods. Among them, each condiment is its own food, Queso joins the Cheese aisle and Eggs for Baking is separate from cooked Eggs.
 - **A starting set.** The list is a starting set, not a fixed one. Foods grow through suggestions, and each country grows its own.
 - **Detail questions.** Milk's "In coffee" becomes "In hot drinks", and Milk and Eggs gain Baking.
 
-The owner confirmed the tree on 2026-10-12. The 10 launch foods stay on in all six launch countries, the 30 new foods start in the United States, and the aisles are shared by every country:
+The owner confirmed the tree on 2026-10-12. The 10 launch foods stay on in all six launch countries, the 32 new foods start in the United States, and the aisles are shared by every country. Eggs for Baking and Turkey Deli Slices were added on 2026-10-12:
 
 ```text
 Food
 ├─ Beef ── Ground Beef · Beef Burgers · Meatballs · Hot Dogs
 ├─ Chicken ── Chicken Nuggets · Grilled Chicken Strips · Chicken Patties · Chicken Tenders · Boneless Wings
 ├─ Pork ── Bacon · Breakfast Sausage · Chorizo · Italian Sausage
-├─ Turkey ── Turkey Roast
+├─ Turkey ── Turkey Roast · Turkey Deli Slices
 ├─ Lamb ── (no food yet)
 ├─ Fish and seafood ── Fish Fillets
 ├─ Milk ── Milk · Chocolate Milk · Eggnog
@@ -1269,7 +1283,7 @@ Food
 ├─ Yogurt ── Yogurt · Greek Yogurt
 ├─ Ice cream ── Ice Cream
 ├─ Cheese ── Cheddar · Mozzarella · Smoked Gouda · Pepper Jack · American Cheese · Mexican Blend · Parmesan · Cream Cheese · Queso
-├─ Eggs ── Eggs
+├─ Eggs ── Eggs · Eggs for Baking
 └─ Condiments ── Mayonnaise · Ranch Dressing · Caesar Dressing · Worcestershire Sauce
 ```
 

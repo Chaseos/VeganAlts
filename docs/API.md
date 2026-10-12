@@ -452,6 +452,13 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) extends the v1 contracts. E
 - **No shelf parameter.** Aisle pages no longer accept `shelf`.
 - **Reserved slug.** `brand` is a reserved food slug.
 
+**Order and seasons.**
+
+- **Order.** Aisle lists (the country chrome, home, aisle pages, `/community/options`) come in the country's popularity order: counted ratings, then products, then the aisle's `position`, then name. Foods within an aisle follow the same order.
+- **Seasonal foods.** Food reads add `season: {start, end} | null` (months 1–12).
+- **Seasonal products.** Product reads and ranking rows add `seasonal`. `SubmissionInput` adds an optional `seasonal` boolean, which defaults to the food's season. `ProductChange` adds kind `seasonal` (tier 2).
+- **Administration.** `POST /admin/taxonomy/categories/:id` accepts `position` for an aisle and `season` for a food.
+
 **Ratings.** `PUT /ratings` adds an optional `enjoyment`: an integer 1–5, or `null` to clear it. As with the other optional fields, leaving it out leaves the stored value unchanged. `overallSimilarity` stays required. The response's `rating` and `GET /me/rating-state` include `enjoyment`.
 
 **Ranking reads.** `GET /categories/:slug?country=&view=…`

@@ -429,10 +429,13 @@ Tastiest has its own configurable `C` and `m`, which start at 3.5 and 10.
 
 **Trending and New.**
 
-- **Trending** stays similarity-based. Each person counts once per line and food across the whole trend window.
-  - A person's activity counts on the day of their latest activity in the window, as a rating, a trial or a comment, whichever weighs most.
+- **Trending** stays similarity-based. It looks back a quarter (owner, 2026-10-12), because shoppers may check the site only every month or two. This amends the milestone 4 constants:
+  - Recent activity covers the last 90 days, with each day's weight halving every 30 days.
+  - The baseline is the mean daily activity over days 91–180.
+  - A line needs at least three people in the 90-day window to trend.
+  - Each person counts once per line and food across the whole window, on the day of their latest activity: a rating, a trial or a comment, whichever weighs most.
   - Their similarity is their mean across the line's flavors in the window.
-  - The milestone 4 formula is otherwise unchanged.
+  - The formula is otherwise unchanged.
 - **New** lists lines whose first publication in that food falls within 90 days. First publication is the earliest `published_at` of any flavor the line has had in that food, eligible or not, so it never moves later. Neither a new flavor nor a discontinued oldest flavor brings a line back into New.
 
 **Filters.**

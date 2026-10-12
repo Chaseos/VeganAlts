@@ -108,11 +108,21 @@ Most of what remains is sold as a few base recipes in several flavors:
   - The contributor picks the product if it is listed, or adds a new flavor of one of its lines with most details already filled in.
   - Brand and product matching must tolerate loose or partial names.
 
+**Ordering, browsing, trending and seasons**
+
+- **Popularity orders the aisles and foods in each country.** Most ratings come first. A country without ratings falls back to a default store order.
+- **Browse every food shows aisle cards.** Each card holds an aisle's four most popular foods and "See all" when there are more, so the grid lines up.
+- **Trending looks back a quarter.** People shop every week or two and may check the site every month or two, so what rose over the last 90 days is still news to them.
+- **Seasonal foods and products are tagged.** Eggnog and Turkey Roast are seasonal foods with their months, and any product can carry a Seasonal tag.
+- **Eggs for Baking is its own food.** Baking powders are not for scrambling. Fried and hard-boiled eggs join the watch list.
+- **Deli meats sit in their animal's aisle,** named "[Animal] Deli Slices". Turkey Deli Slices starts now.
+
 **Search and countries**
 
 - **Search finds brands as well as foods and products.** Searching "Trader Joe's" opens the brand's page, which lists all its products in that country across every food.
 - **A new food or product lands in the country being viewed.** The country is preselected from the page the contributor starts on, as milestone 6 already does.
 - **Many more countries, sooner.** The main countries for vegan shoppers, judged by market and population, are planned as [milestone 8](#next-milestone-8-countries). English is used everywhere for now. Country and language become separate settings, and translations come later.
+- **New aisles have a path everywhere.** Operators add an aisle for any country with the taxonomy tools, and it shows only where it holds a food. Milestone 8 lets contributors suggest new aisles and gives aisles per-country names.
 - **The launch foods are a starting set, not a fixed list.** Foods grow through suggestions, and each country grows its own. Japan's foods may look nothing like the United States'. The aisles are the macro categories shared by every country.
 
 ## Agreed boundaries
@@ -126,7 +136,7 @@ Most of what remains is sold as a few base recipes in several flavors:
   - With exactly one flavor per line, every Closest score, rank and order is identical to today's.
 - **Tastiest never changes Closest.** Closest to the original stays the default ranking, the home page's ranking and the primary signal.
 - **Additive data.**
-  - Migrations are append-only after the version 1 baseline: `0002_recipe_lines.sql` and `0003_line_discovery.sql`.
+  - Migrations are append-only after the version 1 baseline: `0002_aisle_order_and_seasons.sql`, `0003_recipe_lines.sql` and `0004_line_discovery.sql`.
   - No parent table (`products`, `product_versions`, `categories`) is rebuilt; columns are added with `ALTER TABLE`.
   - Derived product-level trending tables may be replaced, because they are rebuildable.
 - **Moderation automation stays advisory.** Deterministic checks run first, and a provider failure routes to review, never approval.
@@ -156,7 +166,7 @@ Most of what remains is sold as a few base recipes in several flavors:
 - **Line name.**
   - A line is named by the family's `canonical_name`.
   - A line with one product displays that product's name.
-- **Migration `0002_recipe_lines.sql`:**
+- **Migration `0003_recipe_lines.sql`:**
   - adds `products.flavor`, `product_families.country_id` and `ratings.enjoyment`;
   - creates a family for every product that has none, taking the brand, country and name from the product and building the slug from the country code and the product slug;
   - splits any family whose products span countries into one family per country;
@@ -173,7 +183,7 @@ Most of what remains is sold as a few base recipes in several flavors:
     - tried people, recent people and the lead product;
   - adds `family_category_dimension_stats`, one row per family, food and dimension: people who answered and the sum of their means;
   - adds the indexes for line reads and brand pages (`products(brand_id, country_id)`).
-- **Migration `0003_line_discovery.sql`:**
+- **Migration `0004_line_discovery.sql`:**
   - adds `family_category_daily_stats` (one row per line, food, day and person in the 14-day window) and `family_category_trends`;
   - drops `product_category_daily_stats` and `product_category_trends`, once Trending reads lines.
 
@@ -211,12 +221,13 @@ Most of what remains is sold as a few base recipes in several flavors:
   - A line's detail mean is shown, sorted on or awarded at 5 people.
   - Detail sorts and badges read "Closest taste" and "Closest texture", so they are not confused with Tastiest.
 - **Product-page statistics stay per flavor:** familiarity, the recent-eaters score and "How people rated it".
-- **Trending.** Each person counts once per line and food across the whole 14-day trend window, never once per day.
-  - The hourly rollup keeps one row per line, food, day and person (`family_category_daily_stats`), so the window can be deduplicated.
-  - A person's activity counts on the day of their latest activity in the window, as a rating, a trial or a comment, whichever weighs most.
-  - Their similarity is their mean across the line's flavors in the window.
-  - The milestone 4 formula is otherwise unchanged. One person rating three flavors on three days adds one person, not three events.
-
+- **Trending.** Trending looks back a quarter, and each person counts once per line and food across the whole window.
+  - **Recent activity** covers the last 90 days, with each day's weight halving every 30 days.
+  - **The baseline** is the mean daily activity over days 91–180.
+  - **Threshold.** A line trends only with at least three people in the 90-day window.
+  - **Per-person rows.** The hourly rollup keeps one row per line, food, day and person (`family_category_daily_stats`) for 180 days, so the window can be deduplicated.
+  - **Counting.** A person's activity counts on the day of their latest activity in the window, as a rating, a trial or a comment, whichever weighs most. Their similarity is their mean across the line's flavors in the window.
+  - One person rating three flavors on three days adds one person, not three events. The milestone 4 formula is otherwise unchanged.
 - **New.** New lists lines whose first publication in that food falls within 90 days, newest first.
   - A line's first publication is the earliest `published_at` of any flavor the line has had in that food, eligible or not (discontinued, excluded or archived included). It never moves later.
   - Neither a new flavor nor a discontinued oldest flavor brings an old line back into New.
@@ -361,7 +372,7 @@ The taxonomy becomes two levels below the root: **aisle › food**. It replaces 
 - **Aisles stay non-rankable groups, and foods are the rankable leaves.**
 - **An aisle holding one food of its own name is silent in breadcrumbs,** so "All foods / Eggs" never reads "All foods / Eggs / Eggs".
 - **Slugs.** An aisle whose name is also a food's takes `-aisle` in its slug (`milk-aisle`, `eggs-aisle`).
-- **Order.** Aisles are listed by name. A store-style order (meat, fish, dairy, cheese, eggs, condiments) would need a position for each aisle; the owner decides at the checkpoint 2 review.
+- **Order.** See [Aisle order, browsing and seasons](#aisle-order-browsing-and-seasons).
 - **Desktop aisle bar.** On desktop, the aisle bar wraps onto a second row; phones scroll it sideways.
 
 | Aisle            | Slug               | US foods at launch                                                                                            |
@@ -369,7 +380,7 @@ The taxonomy becomes two levels below the root: **aisle › food**. It replaces 
 | Beef             | `beef`             | Ground Beef, Beef Burgers, Meatballs, Hot Dogs                                                                |
 | Chicken          | `chicken`          | Chicken Nuggets, Grilled Chicken Strips, Chicken Patties, Chicken Tenders, Boneless Wings                     |
 | Pork             | `pork`             | Bacon, Breakfast Sausage, Chorizo, Italian Sausage                                                            |
-| Turkey           | `turkey-aisle`     | Turkey Roast                                                                                                  |
+| Turkey           | `turkey-aisle`     | Turkey Roast, Turkey Deli Slices                                                                              |
 | Lamb             | `lamb-aisle`       | none yet (hidden until a food has a product)                                                                  |
 | Fish and seafood | `fish-and-seafood` | Fish Fillets                                                                                                  |
 | Milk             | `milk-aisle`       | Milk, Chocolate Milk, Eggnog                                                                                  |
@@ -378,12 +389,12 @@ The taxonomy becomes two levels below the root: **aisle › food**. It replaces 
 | Yogurt           | `yogurt-aisle`     | Yogurt, Greek Yogurt                                                                                          |
 | Ice cream        | `ice-cream-aisle`  | Ice Cream                                                                                                     |
 | Cheese           | `cheese`           | Cheddar, Mozzarella, Smoked Gouda, Pepper Jack, American Cheese, Mexican Blend, Parmesan, Cream Cheese, Queso |
-| Eggs             | `eggs-aisle`       | Eggs                                                                                                          |
+| Eggs             | `eggs-aisle`       | Eggs, Eggs for Baking                                                                                         |
 | Condiments       | `condiments`       | Mayonnaise, Ranch Dressing, Caesar Dressing, Worcestershire Sauce                                             |
 
-### The 40 foods
+### The 42 foods
 
-The seed starts the United States with 40 foods: the 10 existing launch foods, which stay on in all six launch countries, and 30 new foods, switched on in the United States only. This is a starting set, not a fixed list. Foods are added through suggestions, and each country grows its own.
+The seed starts the United States with 42 foods: the 10 existing launch foods, which stay on in all six launch countries, and 32 new foods, switched on in the United States only. This is a starting set, not a fixed list. Foods are added through suggestions, and each country grows its own.
 
 Counts are distinct US recipes in mainstream chains as of October 2026, excluding sizes. They are estimates, and store brands are the least confirmed.
 
@@ -402,11 +413,12 @@ Counts are distinct US recipes in mainstream chains as of October 2026, excludin
 | Pork             | Breakfast Sausage      | new                            | 10+               | sausage links, sausage patties                 |
 | Pork             | Chorizo                | new                            | ~6                | soyrizo, Mexican chorizo                       |
 | Pork             | Italian Sausage        | new                            | ~5                | sweet Italian sausage, mild Italian sausage    |
-| Turkey           | Turkey Roast           | new (seasonal)                 | 5–6               | holiday roast, Thanksgiving roast              |
+| Turkey           | Turkey Roast           | new (seasonal Oct–Dec)         | 5–6               | holiday roast, Thanksgiving roast              |
+| Turkey           | Turkey Deli Slices     | new                            | 4–5               | turkey slices, deli turkey                     |
 | Fish and seafood | Fish Fillets           | new; breaded, plain and sticks | 3 at chains + 2–3 | fish sticks, fish fingers, breaded fish        |
 | Milk             | Milk                   | existing                       | ~40               | + barista milk                                 |
 | Milk             | Chocolate Milk         | new                            | ~10               | —                                              |
-| Milk             | Eggnog                 | new (seasonal)                 | 9–10              | nog, holiday nog                               |
+| Milk             | Eggnog                 | new (seasonal Nov–Jan)         | 9–10              | nog, holiday nog                               |
 | Cream            | Coffee Creamer         | new                            | 20+               | creamer, non-dairy creamer                     |
 | Cream            | Half-and-Half          | new                            | 8–10              | half and half                                  |
 | Cream            | Sour Cream             | new                            | ~10               | —                                              |
@@ -424,7 +436,8 @@ Counts are distinct US recipes in mainstream chains as of October 2026, excludin
 | Cheese           | Parmesan               | new                            | 9–11              | parm, parmigiano, grated parmesan              |
 | Cheese           | Cream Cheese           | existing                       | 9–10              | —                                              |
 | Cheese           | Queso                  | new                            | ~5                | nacho cheese dip, cheese dip, cheese sauce     |
-| Eggs             | Eggs                   | existing; stays one food       | 5–6               | —                                              |
+| Eggs             | Eggs                   | existing; cooked eggs          | 5–6               | scrambled eggs (replaces egg replacer)         |
+| Eggs             | Eggs for Baking        | new                            | 3–5               | egg replacer, egg substitute                   |
 | Condiments       | Mayonnaise             | new                            | 10–12             | mayo, aioli                                    |
 | Condiments       | Ranch Dressing         | new                            | ~9                | ranch                                          |
 | Condiments       | Caesar Dressing        | new                            | ~7                | caesar                                         |
@@ -453,9 +466,37 @@ Existing foods keep their current names and other names unless a row says otherw
 
 **Watch list.** These are close to the bar and are added when they reach about five recipes:
 
-- Turkey Deli Slices, Heavy Cream, Feta, Ricotta, Cottage Cheese, Steak Tips, Pepperoni, Bratwurst, Pulled Pork and Egg Replacer;
+- Heavy Cream, Feta, Ricotta, Cottage Cheese, Steak Tips, Pepperoni, Bratwurst and Pulled Pork;
+- Fried Eggs (Yo Egg, BeLeaf, regional) and Hard-Boiled Eggs (Crafty Counter WunderEggs);
+- Ham, Salami, Bologna and Chicken Deli Slices;
 - Tuna, which today has two brands, both sold online;
 - Fish Sauce, which is sold mostly online.
+
+### Aisle order, browsing and seasons
+
+- **Popularity order.**
+  - In each country, aisles are ordered by the number of counted ratings across their foods there, most first. Ties go to product count, then the default order, then name.
+  - Foods within an aisle follow the same rule.
+  - The counts come from the rating aggregates, never raw ratings. They are all-time, so the order changes slowly.
+- **Default order.** Each aisle carries a `position`, used when a country has no ratings yet: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments. Operators set it for aisles they add. An aisle without one sorts after those with one.
+- **The same order everywhere.** The aisle bar, Browse every food, aisle pages, the footer and the food picker all use it.
+- **Browse every food.**
+  - Each aisle is an equal-height card holding its four most popular foods with their #1 swap.
+  - When an aisle has more, a fifth line reads "See all 9 foods".
+  - Cards in a row line up whatever their food count.
+- **Seasonal foods.**
+  - A food can carry season months, for example Eggnog in November–January and Turkey Roast in October–December.
+  - Its ranking page, cards and search results show "Seasonal · Nov–Jan". It stays listed and ranked all year.
+  - Operators set the months in the taxonomy tools, and the seed sets the two above.
+- **Seasonal products.**
+  - A product can carry a Seasonal tag, for example a pumpkin-spice creamer.
+  - A product in a seasonal food has the tag by default.
+  - Contributors set it when adding a product, or later as a tier 2 edit.
+  - The product page and ranking rows show it. A seasonal product off the shelf is not treated as discontinued.
+- **Migration `0002_aisle_order_and_seasons.sql`** adds:
+  - `categories.position`;
+  - `categories.season_start` and `categories.season_end` (months 1–12; a season may wrap past December);
+  - `products.seasonal`.
 
 ### Confirmed defaults (2026-10-12)
 
@@ -464,10 +505,8 @@ Existing foods keep their current names and other names unless a row says otherw
    - If the 30 new foods were switched on in all six current countries, the UK, Canada and Australia pages would show empty foods such as Eggnog and Half-and-Half until someone there added a product.
    - Switched on in the US only, they appear in another country automatically when someone there adds a product for them.
    - This is not about which country a visitor lands on.
-2. **The taxonomy ships first, after the owner resets staging.**
-   - The two levels and the 40 foods can merge on their own, ahead of the line work.
-   - Staging still needs its reset to version 1 first, or anything entered before it is wiped.
-   - Products entered before lines exist become one-flavor lines, and an operator can group flavors later with Move to line.
+2. **The taxonomy ships with the rest of the milestone.** The owner chose one pull request (#49) for the whole milestone, kept as a draft until it is done.
+   - Staging still needs its reset to version 1 before real data is entered, or anything entered before it is wiped.
    - Until then, photos and names collected while shopping can wait in a spreadsheet.
 3. **People see the 14 groups as "aisles",** keeping the store feel of the swap aisle. Internally they remain categories.
 
@@ -477,64 +516,76 @@ Existing foods keep their current names and other names unless a row says otherw
    - DATABASE_BASELINE, API, ARCHITECTURE and DESIGN_DIRECTION gain milestone 7 sections.
    - PRODUCT_MASTER, RANKING and MODERATION already carry the owner decisions.
    - AGENTS.md points here.
-2. **Two-level taxonomy and US launch foods** (can ship on its own).
+2. **Two-level taxonomy and US launch foods.**
    - `server/taxonomy/domain/shape.ts` places foods at depth two, and the "outside depth" flag and workspace follow.
    - The aisle bar and aisle panel list foods directly. Breadcrumbs drop shelves, and a silent aisle hides a repeated name.
    - The food picker groups by aisle. Suggest a food chooses an aisle instead of a shelf (`shelf-select.tsx`, `propose-category.tsx`, `food-suggestions.ts`, submission contracts).
    - The admin taxonomy, an icon for each new aisle, and the reshape script for existing environments.
    - The 40 foods, US-only availability and the detail-question changes, with seed tests.
    - **Owner review:** screenshots of the aisle bar and an aisle panel.
-3. **Data foundation.**
-   - Migration `0002_recipe_lines.sql`, the Drizzle schema and migration tests: family backfill and per-country split, triggers, the flavor and enjoyment checks, and a database emptied and migrated back to the same schema.
-4. **Line aggregates.**
+3. **Aisle order, browsing and seasons.**
+   - Migration `0002_aisle_order_and_seasons.sql`, the Drizzle schema and the seed (aisle positions, Eggnog and Turkey Roast seasons, Eggs for Baking and Turkey Deli Slices).
+   - Popularity order in the taxonomy reads for the aisle bar, aisle pages, Browse every food, the footer and the food picker.
+   - The aisle cards on the home page, and the Seasonal chip on foods.
+   - Operator fields for an aisle's position and a food's season.
+   - **Owner review:** screenshots of the home page and an aisle.
+4. **Data foundation.**
+   - Migration `0003_recipe_lines.sql`, the Drizzle schema and migration tests: family backfill and per-country split, triggers, the flavor and enjoyment checks, and a database emptied and migrated back to the same schema.
+5. **Line aggregates.**
    - The reference function and the SQL refresh for both rankings and detail rows.
    - Wiring into rating writes, exclusions, merges, the integrity rebuild, every eligibility-changing catalog decision and the hourly backstop.
    - Tests: Closest equivalence with one flavor per line, one vote per person, a reformulated flavor, discontinuation, eligibility changes and rebuild equality.
-5. **Line discovery.**
-   - Migration `0003_line_discovery.sql`.
+6. **Line discovery.**
+   - Migration `0004_line_discovery.sql`.
    - People-based daily rollup and trends, New by line, and removal of the product-level trending code.
-6. **Catalog reads.**
+7. **Catalog reads.**
    - `rankedSet`, `unranked`, `trending`, `newest`, `topProducts`, `aisle`, `home`, `sidebar`, `answers`, `productPlacement`, `storeOptions`, `taxonomy` counts and `productInsights` move to lines and gain the Tastiest view.
    - Brand search and the brand read, with the shared brand matcher.
    - Flavor lists for the cards on a page are fetched in one query.
    - Filters apply per flavor.
-7. **Public pages.**
+8. **Public pages.**
    - The ranking toggle, line rows with the flavor disclosure, featured #1s, structured data, aisle panel, home, instant search and the search page.
    - Brand pages.
    - Product page with both ranks, Other flavors and Add another flavor.
    - The rating form with the Tastiest question and the flavor-aware Closest question, and the methodology page.
    - **Owner review:** phone and desktop screenshots in both themes before continuing.
-8. **Add a product and moderation.**
+9. **Add a product and moderation.**
    - Step 1 in its new order: food, the brand combobox, "Already listed from [brand]" and the product fields for each choice.
    - The brand-lines lookup and the looser similar-products matching.
    - Add another flavor.
    - Contracts and drafts, hold rules and the new report reasons.
+   - The product Seasonal tag in Add a product and as a tier 2 edit.
    - Operator Move to line and Rename line, with reversal and invalidation.
    - **Owner review:** screenshots.
-9. **Demo catalog, hardening and staging.**
-   - Demo lines with several flavors (a yogurt with three flavors, nuggets with Original and Spicy) and Tastiest answers.
-   - Demo ratings dated relative to the seed run, so Trending always has recent activity. The fixed 2026-10-04 dates left the 7-day window on 2026-10-12, which emptied the home page's Trending section and fails its browser test.
-   - `npm run check` and `npm run test:e2e` after a local reset.
-   - axe at 390 px and desktop in both themes.
-   - The verification record, then staging after approval.
+10. **Demo catalog, hardening and staging.**
+
+- Demo lines with several flavors (a yogurt with three flavors, nuggets with Original and Spicy) and Tastiest answers.
+- Demo ratings dated relative to the seed run, so Trending always has recent activity. The fixed 2026-10-04 dates left the 7-day window on 2026-10-12, which emptied the home page's Trending section and fails its browser test.
+- `npm run check` and `npm run test:e2e` after a local reset.
+- axe at 390 px and desktop in both themes.
+- The verification record, then staging after approval.
 
 ## Configurable defaults
 
-| Control                          | Default                                     |
-| -------------------------------- | ------------------------------------------- |
-| Closest prior mean / strength    | 3.5 / 10 (unchanged)                        |
-| Tastiest prior mean / strength   | 3.5 / 10                                    |
-| Early (each ranking)             | 1–9 people                                  |
-| Flavor score shown in a card     | 5 answers                                   |
-| Line detail mean, sort and badge | 5 people answering                          |
-| New view                         | Line's first eligible flavor within 90 days |
-| New tag (line and flavor)        | 30 days                                     |
-| Line refresh backstop            | Hourly, every line                          |
-| Flavor label                     | 40 characters                               |
-| New launch food availability     | United States only                          |
-| Brand suggestions                | From 2 characters, up to 2 typos            |
-| Similar products while typing    | One shared word of 3+ letters               |
-| Brands in instant answers        | 3                                           |
+| Control                          | Default                                 |
+| -------------------------------- | --------------------------------------- |
+| Closest prior mean / strength    | 3.5 / 10 (unchanged)                    |
+| Tastiest prior mean / strength   | 3.5 / 10                                |
+| Early (each ranking)             | 1–9 people                              |
+| Flavor score shown in a card     | 5 answers                               |
+| Line detail mean, sort and badge | 5 people answering                      |
+| New view                         | Line's first publication within 90 days |
+| New tag (line and flavor)        | 30 days                                 |
+| Line refresh backstop            | Hourly, every line                      |
+| Flavor label                     | 40 characters                           |
+| New launch food availability     | United States only                      |
+| Brand suggestions                | From 2 characters, up to 2 typos        |
+| Similar products while typing    | One shared word of 3+ letters           |
+| Brands in instant answers        | 3                                       |
+| Trending window / half-life      | 90 days / 30 days                       |
+| Trending baseline                | Days 91–180                             |
+| Trending minimum                 | 3 people in the window                  |
+| Foods per aisle card (home)      | 4, then "See all"                       |
 
 ## Verification and staging delivery
 
@@ -544,6 +595,7 @@ Existing foods keep their current names and other names unless a row says otherw
   - **One vote per person.** One person rating three flavors adds one person and their mean, in both rankings.
   - **Tastiest is independent.** Tastiest answers never change a Closest score, rank or order.
   - **Trending dedupes across the window.** One person rating three flavors on three different days adds one person to the line's trend.
+  - **Popularity order.** With no ratings, aisles follow the default order. Ratings in one aisle move it ahead in that country only.
   - **New never moves later.** Discontinuing a line's oldest flavor, or adding a new one, never brings the line back into New.
   - **Siblings never hold.** A new flavor of a chosen line is not held as a near-duplicate of that line's flavors; an exact duplicate is still refused.
   - **Formula versions.** A reformulated flavor drops its old ratings from the line.
@@ -615,4 +667,5 @@ Indonesia, Malaysia, the Philippines, Vietnam, Turkey, Portugal, Norway, Finland
 - **Foods start fresh in each country.**
   - A food switches on when someone there adds the first product for it.
   - Anyone can pick any existing food, or suggest a new one when the local food doesn't exist yet. Japan, for example, will grow foods the US doesn't have.
+- **Suggesting aisles.** Inside Suggest a food, "None of these, suggest a new aisle" proposes an aisle with the food, reviewed by an operator. Aisles also gain per-country names, for local wording and later translations.
 - **Food suggestions need a lighter review.** Today an operator reviews every suggestion. With many countries, that review needs to become lighter, for example automatic acceptance into an existing aisle after the automated checks, with reports to correct mistakes. Milestone 8 decides how.
