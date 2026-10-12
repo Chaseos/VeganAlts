@@ -436,6 +436,7 @@ Tastiest has its own configurable `C` and `m`, which start at 3.5 and 10.
   - Each person counts once per line and food across the whole window, on the day of their latest activity: a rating, a trial or a comment, whichever weighs most.
   - Their similarity is their mean across the line's flavors in the window.
   - The formula is otherwise unchanged.
+  - **Trending tag.** The top 3 trending lines in a food (a positive score, at least three people) carry a Trending tag in the other views and on their product pages. The tag never changes a rank or score.
 - **New** lists lines whose first publication in that food falls within 90 days. First publication is the earliest `published_at` of any flavor the line has had in that food, eligible or not, so it never moves later. Neither a new flavor nor a discontinued oldest flavor brings a line back into New.
 
 **Filters.**

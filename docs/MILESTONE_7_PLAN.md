@@ -112,6 +112,7 @@ Most of what remains is sold as a few base recipes in several flavors:
 
 - **Popularity orders the aisles and foods in each country.** Most ratings come first. A country without ratings falls back to a default store order.
 - **Browse every food shows aisle cards.** Each card holds an aisle's four most popular foods and "See all" when there are more, so the grid lines up.
+- **A Trending tag marks rising swaps everywhere.** A line that is trending in its food carries a Trending tag in every other list and on its product page, the way New already does.
 - **Trending looks back a quarter.** People shop every week or two and may check the site every month or two, so what rose over the last 90 days is still news to them.
 - **Seasonal foods and products are tagged.** Eggnog and Turkey Roast are seasonal foods with their months, and any product can carry a Seasonal tag.
 - **Eggs for Baking is its own food.** Baking powders are not for scrambling. Fried and hard-boiled eggs join the watch list.
@@ -228,6 +229,10 @@ Most of what remains is sold as a few base recipes in several flavors:
   - **Per-person rows.** The hourly rollup keeps one row per line, food, day and person (`family_category_daily_stats`) for 180 days, so the window can be deduplicated.
   - **Counting.** A person's activity counts on the day of their latest activity in the window, as a rating, a trial or a comment, whichever weighs most. Their similarity is their mean across the line's flavors in the window.
   - One person rating three flavors on three days adds one person, not three events. The milestone 4 formula is otherwise unchanged.
+  - **Trending tag.**
+    - A line among the top 3 by trending score in its food (a positive score, at least three people in the window) carries a Trending tag.
+    - The tag appears on its row in Closest, Tastiest, Newest, the detail sorts and Most rated, on home lists and on its product page.
+    - The Trending view itself needs no tag. The tag never changes a rank or score.
 - **New.** New lists lines whose first publication in that food falls within 90 days, newest first.
   - A line's first publication is the earliest `published_at` of any flavor the line has had in that food, eligible or not (discontinued, excluded or archived included). It never moves later.
   - Neither a new flavor nor a discontinued oldest flavor brings an old line back into New.
@@ -586,6 +591,7 @@ Existing foods keep their current names and other names unless a row says otherw
 | Trending baseline                | Days 91–180                             |
 | Trending minimum                 | 3 people in the window                  |
 | Foods per aisle card (home)      | 4, then "See all"                       |
+| Trending tag                     | Top 3 trending lines in a food          |
 
 ## Verification and staging delivery
 
