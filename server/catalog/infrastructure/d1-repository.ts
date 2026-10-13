@@ -1,6 +1,12 @@
 import { resolveCategoryRedirect } from "../../taxonomy/infrastructure/redirects";
 import type {
+  BrandLineRow,
+  BrandRow,
   CatalogRepository,
+  FlavorRow,
+  LineStanding,
+  LineSummary,
+  SiblingFlavor,
   CategorySummary,
   DiscoveryRow,
   FormulaSummary,
@@ -12,7 +18,6 @@ import type {
   ProductSummary,
   PublicProfile,
   RankedRow,
-  RankingRow,
   StoreOption,
   TaxonomyCounts,
   TopProduct,
@@ -20,12 +25,7 @@ import type {
 import type { RankingFilters } from "../domain/filters";
 import type { AllergenDeclaration } from "../../community/domain/allergens";
 import type { TaxonomyNode } from "../../taxonomy/domain/shape";
-import {
-  eligibleProductSql as eligible,
-  rankedMembershipSql,
-  rankedSampleSql,
-  rankingOrderSql,
-} from "../../ranking/infrastructure/read-policy";
+import { eligibleProductSql as eligible } from "../../ranking/infrastructure/read-policy";
 import {
   communityProductDetails,
   communityProductStatements,
@@ -33,13 +33,13 @@ import {
   readCanonicalRedirect,
 } from "../../community/infrastructure/public-read";
 
-// A product's identity; a recipe line shows its lead flavor's, dated by when
-// the line first appeared in the food.
-const identityWith = (
+// A product's identity, with its name and date expressions.
+const identityOf = (
+  name: string,
   publishedAt: string,
-) => `p.id,p.slug,p.name,b.name AS brand,v.id AS versionId,p.development_only AS developmentOnly,${publishedAt} AS publishedAt,
+) => `p.id,p.slug,${name} AS name,b.name AS brand,v.id AS versionId,p.development_only AS developmentOnly,${publishedAt} AS publishedAt,
   (SELECT i.id FROM product_images i WHERE i.product_version_id=v.id AND i.slot='front' AND i.state='accepted' LIMIT 1) AS imageId`;
-const identity = identityWith("p.published_at");
+const identity = identityOf("p.name", "p.published_at");
 // Every catalog read is scoped to one active country, bound as its ID.
 const productJoins = `JOIN products p ON p.id=v.product_id AND p.country_id=? JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id`;
 const visible = `p.lifecycle_status <> 'hidden'`;
@@ -116,23 +116,34 @@ function matchedStoresSql(filters: RankingFilters, product = "p"): Fragment {
 
 // A recipe line's eligible flavors in its food (milestone 7), for filters
 // that show a line when any flavor matches.
-const lineFlavorJoins = (category: string) => `products fp
-  JOIN product_versions fv ON fv.product_id=fp.id AND fv.is_current=1
-  JOIN product_categories fpc ON fpc.product_id=fp.id AND fpc.category_id=${category} AND fpc.ranking_eligible=1`;
+const lineFlavorJoins = (category: string) => `products lf
+  JOIN product_versions lfv ON lfv.product_id=lf.id AND lfv.is_current=1
+  JOIN product_categories lfc ON lfc.product_id=lf.id AND lfc.category_id=${category} AND lfc.ranking_eligible=1`;
 const lineFlavorWhere = (family: string) =>
-  `fp.product_family_id=${family} AND fp.lifecycle_status='active' AND fp.vegan_status<>'under_review'`;
+  `lf.product_family_id=${family} AND lf.lifecycle_status='active' AND lf.vegan_status<>'under_review'`;
+// True when some eligible flavor of the line passes the filters.
+function lineMatchExpr(
+  filters: RankingFilters,
+  family = "s.product_family_id",
+  category = "s.category_id",
+): Fragment {
+  const inner = filterSql(filters, "lf", "lfv");
+  return inner.sql
+    ? {
+        sql: `EXISTS(SELECT 1 FROM ${lineFlavorJoins(category)} WHERE ${lineFlavorWhere(family)}${inner.sql})`,
+        binds: inner.binds,
+      }
+    : { sql: "1", binds: [] };
+}
 function lineFilterSql(
   filters: RankingFilters,
   family = "s.product_family_id",
   category = "s.category_id",
 ): Fragment {
-  const inner = filterSql(filters, "fp", "fv");
-  return inner.sql
-    ? {
-        sql: ` AND EXISTS(SELECT 1 FROM ${lineFlavorJoins(category)} WHERE ${lineFlavorWhere(family)}${inner.sql})`,
-        binds: inner.binds,
-      }
-    : inner;
+  const match = lineMatchExpr(filters, family, category);
+  return match.sql === "1"
+    ? { sql: "", binds: [] }
+    : { sql: ` AND ${match.sql}`, binds: match.binds };
 }
 // The chosen stores where any of the line's eligible flavors is found.
 function lineMatchedStoresSql(
@@ -144,13 +155,30 @@ function lineMatchedStoresSql(
     return { sql: ",NULL AS matchedStores", binds: [] };
   return {
     sql: `,(SELECT json_group_array(DISTINCT r.slug) FROM ${lineFlavorJoins(category)}
-      JOIN product_retailers pr ON pr.product_id=fp.id AND pr.status='active'
+      JOIN product_retailers pr ON pr.product_id=lf.id AND pr.status='active'
       JOIN retailers r ON r.id=pr.retailer_id
-      JOIN retailer_markets m ON m.retailer_id=pr.retailer_id AND m.country_id=fp.country_id AND m.is_active=1
+      JOIN retailer_markets m ON m.retailer_id=pr.retailer_id AND m.country_id=lf.country_id AND m.is_active=1
       WHERE ${lineFlavorWhere(family)} AND r.slug IN (SELECT value FROM json_each(?))) AS matchedStores`,
     binds: [JSON.stringify(filters.stores)],
   };
 }
+
+// A recipe line in a food (alias s, family_category_stats), shown by its
+// lead flavor (p, v). The line's name is the flavor's own name when it has
+// one flavor in the food. Binds the country ID once.
+const lineJoins = `JOIN product_families fam ON fam.id=s.product_family_id
+  JOIN product_versions v ON v.product_id=s.lead_product_id AND v.is_current=1 ${productJoins}
+  JOIN categories c ON c.id=s.category_id AND c.is_active=1 AND c.is_rankable=1`;
+const flavorCountSql = `(SELECT COUNT(*) FROM ${lineFlavorJoins("s.category_id")} WHERE ${lineFlavorWhere("s.product_family_id")})`;
+const lineNameSql = `CASE WHEN ${flavorCountSql}>1 THEN fam.canonical_name ELSE p.name END`;
+const lineIdentity = (publishedAt = "p.published_at") =>
+  `${identityOf(lineNameSql, publishedAt)},s.product_family_id AS lineId,${flavorCountSql} AS flavorCount`;
+// Closest order (RANKING milestone 7): score, people, then the lead flavor.
+const lineOrderSql =
+  "s.bayesian_score DESC,s.people_count DESC,s.lead_product_id ASC";
+const tastiestOrderSql =
+  "s.enjoyment_score DESC,s.enjoyment_people DESC,s.lead_product_id ASC";
+const lineSampleSql = "s.people_count>0 AND s.bayesian_score IS NOT NULL";
 
 function parseStores<T extends { matchedStores?: unknown }>(rows: T[]) {
   return rows.map((row) => ({
@@ -169,9 +197,10 @@ export class D1CatalogRepository implements CatalogRepository {
     return (
       await this.db
         .prepare(
-          `SELECT co.id,co.iso2,co.name,EXISTS(SELECT 1 FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1
-            JOIN products p ON p.id=v.product_id AND p.country_id=co.id ${rankedMembershipSql}
-            WHERE ${eligible} AND ${rankedSampleSql}) AS hasRankings
+          `SELECT co.id,co.iso2,co.name,EXISTS(SELECT 1 FROM family_category_stats s
+            JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=co.id
+            JOIN categories c ON c.id=s.category_id AND c.is_active=1 AND c.is_rankable=1
+            WHERE ${lineSampleSql}) AS hasRankings
           FROM countries co WHERE co.is_active=1 ORDER BY CASE WHEN co.iso2='US' THEN 0 ELSE 1 END,co.name LIMIT 300`,
         )
         .all<MarketRow>()
@@ -190,16 +219,19 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(countryId, countryId),
       this.db
         .prepare(
-          `SELECT pc.category_id AS categoryId,COUNT(DISTINCT p.id) AS productCount,
-            COUNT(DISTINCT CASE WHEN s.rating_count>0 AND pc.ranking_eligible=1 AND ${eligible} THEN p.id END) AS rankedCount,
-            -- Popularity (milestone 7): counted ratings of the food's ranked swaps.
-            COALESCE(SUM(CASE WHEN pc.ranking_eligible=1 AND ${eligible} THEN s.rating_count END),0) AS ratingCount
+          // Products are counted as listed; ranked swaps are lines, and
+          // popularity (milestone 7) is the people who rated them.
+          `WITH lines AS (SELECT s.category_id AS categoryId,COUNT(*) AS ranked,SUM(s.people_count) AS people
+            FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=?
+            WHERE ${lineSampleSql} GROUP BY s.category_id)
+          SELECT pc.category_id AS categoryId,COUNT(DISTINCT p.id) AS productCount,
+            COALESCE(MAX(l.ranked),0) AS rankedCount,COALESCE(MAX(l.people),0) AS ratingCount
           FROM product_categories pc JOIN products p ON p.id=pc.product_id AND p.country_id=? AND ${visible}
           JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
-          LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id
+          LEFT JOIN lines l ON l.categoryId=pc.category_id
           GROUP BY pc.category_id`,
         )
-        .bind(countryId),
+        .bind(countryId, countryId),
     ]);
     return {
       categories: categories!.results as unknown as TaxonomyNode[],
@@ -309,41 +341,6 @@ export class D1CatalogRepository implements CatalogRepository {
     ).results.map((row) => row.code);
   }
 
-  // Top order is computed over the whole ranking first, so a filtered row
-  // still shows its overall rank and filters never change a score.
-  async rankings(
-    countryId: string,
-    categoryId: string,
-    filters: RankingFilters,
-    offset: number,
-    limit: number,
-  ) {
-    const filter = filterSql(filters, "ranked", "ranked_v");
-    const stores = matchedStoresSql(filters, "ranked");
-    const rows = (
-      await this.db
-        .prepare(
-          `WITH ranked AS (SELECT ${identity},s.bayesian_score AS bayesianScore,s.rating_count AS ratingCount,
-            ROW_NUMBER() OVER (ORDER BY ${rankingOrderSql}) AS topRank
-          FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
-          ${rankedMembershipSql}
-          WHERE s.category_id=? AND ${eligible} AND ${rankedSampleSql})
-          SELECT ranked.*${stores.sql} FROM ranked JOIN product_versions ranked_v ON ranked_v.id=ranked.versionId
-          WHERE 1=1${filter.sql} ORDER BY ranked.topRank LIMIT ? OFFSET ?`,
-        )
-        .bind(
-          countryId,
-          categoryId,
-          ...stores.binds,
-          ...filter.binds,
-          limit,
-          offset,
-        )
-        .all<RankingRow>()
-    ).results;
-    return parseStores(rows);
-  }
-
   // Trending reads the precomputed trends of recipe lines, never raw ratings.
   // Each line is shown by its lead flavor with the line's figures.
   async trending(
@@ -358,12 +355,11 @@ export class D1CatalogRepository implements CatalogRepository {
     const rows = (
       await this.db
         .prepare(
-          `SELECT ${identity},s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,${allergensSql()} AS allergens,
+          `SELECT ${lineIdentity()},s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,${allergensSql()} AS allergens,
             s.recent_count AS recentRatingCount${stores.sql}
           FROM family_category_trends t
           JOIN family_category_stats s ON s.product_family_id=t.product_family_id AND s.category_id=t.category_id
-          JOIN product_versions v ON v.product_id=s.lead_product_id AND v.is_current=1 ${productJoins}
-          JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1
+          ${lineJoins}
           WHERE t.category_id=?${filter.sql}
           ORDER BY t.rank LIMIT ? OFFSET ?`,
         )
@@ -395,12 +391,11 @@ export class D1CatalogRepository implements CatalogRepository {
     const rows = (
       await this.db
         .prepare(
-          `SELECT ${identityWith("f.first_published_at")},s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,${allergensSql()} AS allergens,
+          `SELECT ${lineIdentity("f.first_published_at")},s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,${allergensSql()} AS allergens,
             0 AS recentRatingCount${stores.sql}
           FROM family_category_first_published f
           JOIN family_category_stats s ON s.product_family_id=f.product_family_id AND s.category_id=f.category_id
-          JOIN product_versions v ON v.product_id=s.lead_product_id AND v.is_current=1 ${productJoins}
-          JOIN categories c ON c.id=s.category_id AND c.is_active=1 AND c.is_rankable=1
+          ${lineJoins}
           WHERE f.category_id=? AND f.first_published_at>=?${filter.sql}
           ORDER BY f.first_published_at DESC,f.product_family_id DESC LIMIT ? OFFSET ?`,
         )
@@ -418,6 +413,7 @@ export class D1CatalogRepository implements CatalogRepository {
     return parseStores(rows).map(parseAllergens);
   }
 
+  // Lines without counted ratings yet, by name.
   async unranked(
     countryId: string,
     categoryId: string,
@@ -426,34 +422,62 @@ export class D1CatalogRepository implements CatalogRepository {
     limit: number,
     publishedBefore?: number,
   ) {
-    const filter = filterSql(filters);
+    const filter = lineFilterSql(filters);
     const before = publishedBefore === undefined ? [] : [publishedBefore];
     return (
       await this.db
         .prepare(
-          `SELECT ${identity},${allergensSql()} AS allergens FROM product_categories pc
-      JOIN product_versions v ON v.product_id=pc.product_id AND v.is_current=1 ${productJoins}
-      LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id
-      WHERE pc.category_id=? AND pc.ranking_eligible=1 AND ${eligible} AND COALESCE(s.rating_count,0)=0${filter.sql}${before.length ? " AND (p.published_at IS NULL OR p.published_at<?)" : ""}
-      ORDER BY p.name,p.id LIMIT ? OFFSET ?`,
+          `SELECT ${lineIdentity()},${allergensSql()} AS allergens
+          FROM family_category_stats s ${lineJoins}
+          LEFT JOIN family_category_first_published f ON f.product_family_id=s.product_family_id AND f.category_id=s.category_id
+          WHERE s.category_id=? AND s.people_count=0${filter.sql}${before.length ? " AND (f.first_published_at IS NULL OR f.first_published_at<?)" : ""}
+          ORDER BY name,s.product_family_id LIMIT ? OFFSET ?`,
         )
         .bind(countryId, categoryId, ...filter.binds, ...before, limit, offset)
-        .all<ProductSummary & { allergens: unknown }>()
+        .all<LineSummary & { allergens: unknown }>()
     ).results.map(parseAllergens);
   }
 
-  // The first products of several foods in Top order (aggregates only, never
-  // raw ratings), for aisle menus, search previews and the home page.
+  // Each listed line's eligible flavors in the food, with their own scores
+  // and whether they pass the filters, in one query.
+  async flavors(
+    countryId: string,
+    categoryId: string,
+    lineIds: string[],
+    filters: RankingFilters,
+  ) {
+    if (!lineIds.length) return [];
+    const match = filterSql(filters, "lf", "lfv");
+    return (
+      await this.db
+        .prepare(
+          `SELECT lf.product_family_id AS lineId,lf.id,lf.slug,lf.name,lf.flavor,lfv.id AS versionId,lf.published_at AS publishedAt,
+            ps.bayesian_score AS closestScore,COALESCE(ps.rating_count,0) AS closestCount,
+            ps.enjoyment_score AS tastiestScore,COALESCE(ps.enjoyment_count,0) AS tastiestCount,
+            ${allergensSql("lfv")} AS allergens,
+            CASE WHEN 1=1${match.sql} THEN 1 ELSE 0 END AS matches
+          FROM ${lineFlavorJoins("?")}
+          LEFT JOIN product_category_stats ps ON ps.product_version_id=lfv.id AND ps.category_id=lfc.category_id
+          WHERE lf.product_family_id IN (SELECT value FROM json_each(?)) AND lf.lifecycle_status='active' AND lf.vegan_status<>'under_review' AND lf.country_id=?
+          ORDER BY lf.product_family_id,lf.id`,
+        )
+        .bind(...match.binds, categoryId, JSON.stringify(lineIds), countryId)
+        .all<FlavorRow & { allergens: unknown }>()
+    ).results.map(parseAllergens);
+  }
+
+  // The first lines of several foods in Closest order (aggregates only,
+  // never raw ratings), for aisle menus, search previews and the home page.
   async topProducts(countryId: string, categoryIds: string[], perFood: number) {
     if (!categoryIds.length) return [];
     return (
       await this.db
         .prepare(
-          `WITH ranked AS (SELECT s.category_id AS categoryId,p.id,p.slug,p.name,b.name AS brand,s.bayesian_score AS bayesianScore,s.rating_count AS ratingCount,
-            ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${rankingOrderSql}) AS rank
-          FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
-          ${rankedMembershipSql}
-          WHERE s.category_id IN (SELECT value FROM json_each(?)) AND ${eligible} AND ${rankedSampleSql})
+          `WITH ranked AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,p.id,p.slug,${lineNameSql} AS name,b.name AS brand,
+            s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,
+            ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${lineOrderSql}) AS rank
+          FROM family_category_stats s ${lineJoins}
+          WHERE s.category_id IN (SELECT value FROM json_each(?)) AND ${lineSampleSql})
           SELECT * FROM ranked WHERE rank<=? ORDER BY categoryId,rank`,
         )
         .bind(countryId, JSON.stringify(categoryIds), perFood)
@@ -461,39 +485,38 @@ export class D1CatalogRepository implements CatalogRepository {
     ).results;
   }
 
-  // Every ranked product of a food with its Top rank over the unfiltered set,
-  // whether it passes each filter, its allergen declaration and its detail
-  // answer counts. Views, filters and badges are applied in the domain, so
-  // the set is never truncated: counts, badges and later pages need all of it.
+  // Every ranked line of a food with its Closest rank over the unfiltered
+  // set, whether a flavor passes each filter, and its detail answers. Views,
+  // filters and badges are applied in the domain, so the set is never
+  // truncated: counts, badges and later pages need all of it.
   async rankedSet(
     countryId: string,
     categoryId: string,
     filters: RankingFilters,
   ) {
-    const storeFilter = filterSql({ stores: filters.stores, freeFrom: [] });
-    const allergenFilter = filterSql({
-      stores: [],
-      freeFrom: filters.freeFrom,
-    });
-    const stores = matchedStoresSql(filters);
+    const storeMatch = lineMatchExpr({ stores: filters.stores, freeFrom: [] });
+    const allMatch = lineMatchExpr(filters);
+    const stores = lineMatchedStoresSql(filters);
     const rows = (
       await this.db
         .prepare(
-          `SELECT ${identity},s.bayesian_score AS bayesianScore,s.rating_count AS ratingCount,s.recent_rating_count AS recentRatingCount,
-            ROW_NUMBER() OVER (ORDER BY ${rankingOrderSql}) AS topRank,
-            CASE WHEN 1=1${storeFilter.sql} THEN 1 ELSE 0 END AS storeMatch,
-            CASE WHEN 1=1${allergenFilter.sql} THEN 1 ELSE 0 END AS allergenMatch,
+          `SELECT ${lineIdentity()},s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,s.recent_count AS recentRatingCount,
+            s.enjoyment_score AS tastiestScore,s.enjoyment_people AS tastiestCount,
+            ROW_NUMBER() OVER (ORDER BY ${lineOrderSql}) AS topRank,
+            CASE WHEN ${storeMatch.sql} THEN 1 ELSE 0 END AS storeMatch,
+            CASE WHEN ${allMatch.sql} THEN 1 ELSE 0 END AS allergenMatch,
+            EXISTS(SELECT 1 FROM ${lineFlavorJoins("s.category_id")} JOIN product_version_allergen_declarations d ON d.product_version_id=lfv.id
+              WHERE ${lineFlavorWhere("s.product_family_id")}) AS confirmed,
             ${allergensSql()} AS allergens,
-            (SELECT json_group_object(ds.dimension_id,json_array(ds.answer_count,ds.answer_sum)) FROM product_category_dimension_stats ds
-              WHERE ds.product_version_id=v.id AND ds.category_id=s.category_id) AS details${stores.sql}
-          FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
-          ${rankedMembershipSql}
-          WHERE s.category_id=? AND ${eligible} AND ${rankedSampleSql}
+            (SELECT json_group_object(ds.dimension_id,json_array(ds.people_count,ds.mean_sum)) FROM family_category_dimension_stats ds
+              WHERE ds.product_family_id=s.product_family_id AND ds.category_id=s.category_id) AS details${stores.sql}
+          FROM family_category_stats s ${lineJoins}
+          WHERE s.category_id=? AND ${lineSampleSql}
           ORDER BY topRank`,
         )
         .bind(
-          ...storeFilter.binds,
-          ...allergenFilter.binds,
+          ...storeMatch.binds,
+          ...allMatch.binds,
           ...stores.binds,
           countryId,
           categoryId,
@@ -537,11 +560,10 @@ export class D1CatalogRepository implements CatalogRepository {
             FROM family_category_trends t
             JOIN product_families fam ON fam.id=t.product_family_id AND fam.country_id=?
             JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1)
-          SELECT ${identity},c.slug AS foodSlug,${displayName("c", "p.country_id")} AS foodName,s.bayesian_score AS bayesianScore,
+          SELECT ${lineIdentity()},c.slug AS foodSlug,${displayName("c", "p.country_id")} AS foodName,s.bayesian_score AS bayesianScore,
             s.people_count AS ratingCount,s.recent_count AS recentRatingCount
           FROM best JOIN family_category_stats s ON s.product_family_id=best.familyId AND s.category_id=best.categoryId
-          JOIN product_versions v ON v.product_id=s.lead_product_id AND v.is_current=1 ${productJoins}
-          JOIN categories c ON c.id=best.categoryId
+          ${lineJoins}
           WHERE best.n=1 ORDER BY best.trendingScore DESC,best.familyId LIMIT ?`,
         )
         .bind(countryId, countryId, limit)
@@ -563,11 +585,10 @@ export class D1CatalogRepository implements CatalogRepository {
             ROW_NUMBER() OVER (PARTITION BY fresh.familyId ORDER BY s.people_count DESC,c.name,c.id) AS n
             FROM fresh JOIN family_category_stats s ON s.product_family_id=fresh.familyId
             JOIN categories c ON c.id=s.category_id AND c.is_active=1 AND c.is_rankable=1)
-          SELECT ${identityWith("placed.firstPublished")},c.slug AS foodSlug,${displayName("c", "p.country_id")} AS foodName,
+          SELECT ${lineIdentity("placed.firstPublished")},c.slug AS foodSlug,${displayName("c", "p.country_id")} AS foodName,
             s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,0 AS recentRatingCount
           FROM placed JOIN family_category_stats s ON s.product_family_id=placed.familyId AND s.category_id=placed.categoryId
-          JOIN product_versions v ON v.product_id=s.lead_product_id AND v.is_current=1 ${productJoins}
-          JOIN categories c ON c.id=placed.categoryId
+          ${lineJoins}
           WHERE placed.n=1 ORDER BY placed.firstPublished DESC,placed.familyId DESC LIMIT ?`,
         )
         .bind(countryId, since, countryId, limit)
@@ -586,21 +607,23 @@ export class D1CatalogRepository implements CatalogRepository {
     );
   }
 
-  // Where each product stands: its best Top rank and that food, or (when it
-  // is not ranked yet) the first food it belongs to.
+  // Where each product stands: its line's best Closest rank and that food,
+  // else its first food with no rank yet.
   async productPlacement(countryId: string, productIds: string[]) {
     if (!productIds.length) return [];
     const ids = JSON.stringify(productIds);
     const [ranked, foods] = await this.db.batch<ProductPlacement>([
       this.db
         .prepare(
-          `WITH ranked AS (SELECT s.category_id AS categoryId,p.id AS productId,s.bayesian_score AS bayesianScore,s.rating_count AS ratingCount,
-            ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${rankingOrderSql}) AS rank
-            FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
-            ${rankedMembershipSql}
-            WHERE s.category_id IN (SELECT x.category_id FROM product_categories x WHERE x.product_id IN (SELECT value FROM json_each(?))) AND ${eligible} AND ${rankedSampleSql})
-          SELECT r.productId,r.rank,r.bayesianScore,r.ratingCount,c.slug AS foodSlug,${displayName("c")} AS foodName
-          FROM ranked r JOIN categories c ON c.id=r.categoryId WHERE r.productId IN (SELECT value FROM json_each(?)) ORDER BY r.productId,r.rank,c.slug`,
+          `WITH ranked AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,
+            ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${lineOrderSql}) AS rank
+            FROM family_category_stats s ${lineJoins}
+            WHERE s.category_id IN (SELECT x.category_id FROM product_categories x WHERE x.product_id IN (SELECT value FROM json_each(?))) AND ${lineSampleSql})
+          SELECT x.id AS productId,r.rank,r.bayesianScore,r.ratingCount,c.slug AS foodSlug,${displayName("c")} AS foodName
+          FROM products x JOIN ranked r ON r.lineId=x.product_family_id
+          JOIN product_categories xpc ON xpc.product_id=x.id AND xpc.category_id=r.categoryId AND xpc.ranking_eligible=1
+          JOIN categories c ON c.id=r.categoryId
+          WHERE x.id IN (SELECT value FROM json_each(?)) ORDER BY x.id,r.rank,c.slug`,
         )
         .bind(countryId, ids, countryId, ids),
       this.db
@@ -620,22 +643,24 @@ export class D1CatalogRepository implements CatalogRepository {
   }
 
   // Each store in the country's active markets with its number of ranked
-  // swaps in this food under the current Free-from choice (but not the store
-  // choice), so a count says what choosing that store adds.
+  // lines in this food that have a flavor there passing the current
+  // Free-from choice (but not the store choice), so a count says what
+  // choosing that store adds.
   async storeOptions(
     countryId: string,
     categoryId: string,
     freeFrom: string[],
   ) {
-    const filter = filterSql({ stores: [], freeFrom });
+    const filter = filterSql({ stores: [], freeFrom }, "lf", "lfv");
     return (
       await this.db
         .prepare(
-          `WITH ranked AS (SELECT p.id FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
-            ${rankedMembershipSql}
-            WHERE s.category_id=? AND ${eligible} AND ${rankedSampleSql}${filter.sql})
+          `WITH ranked AS (SELECT s.product_family_id AS lineId,s.category_id AS categoryId FROM family_category_stats s ${lineJoins}
+            WHERE s.category_id=? AND ${lineSampleSql})
           SELECT r.slug,COALESCE(m.market_name,r.canonical_name) AS name,
-            (SELECT COUNT(*) FROM product_retailers pr WHERE pr.retailer_id=r.id AND pr.status='active' AND pr.product_id IN (SELECT id FROM ranked)) AS count
+            (SELECT COUNT(*) FROM ranked WHERE EXISTS(SELECT 1 FROM ${lineFlavorJoins("ranked.categoryId")}
+              JOIN product_retailers pr ON pr.product_id=lf.id AND pr.status='active' AND pr.retailer_id=r.id
+              WHERE ${lineFlavorWhere("ranked.lineId")}${filter.sql})) AS count
           FROM retailer_markets m JOIN retailers r ON r.id=m.retailer_id
           WHERE m.country_id=? AND m.is_active=1 ORDER BY count DESC,name LIMIT 50`,
         )
@@ -671,7 +696,7 @@ export class D1CatalogRepository implements CatalogRepository {
   ): Promise<ProductDetails | null> {
     const row = await this.db
       .prepare(
-        `SELECT ${identity},country.name AS country,${publicVeganStatusSql()} AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.lifecycle_status AS lifecycleStatus,p.data_notes AS dataNotes
+        `SELECT ${identity},p.product_family_id AS lineId,p.flavor,country.name AS country,${publicVeganStatusSql()} AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.lifecycle_status AS lifecycleStatus,p.data_notes AS dataNotes
       FROM product_versions v ${productJoins} WHERE p.slug=? AND ${visible} AND ${versionId ? "v.id=?" : "v.is_current=1"}`,
       )
       .bind(countryId, slug, ...(versionId ? [versionId] : []))
@@ -689,6 +714,7 @@ export class D1CatalogRepository implements CatalogRepository {
       this.db
         .prepare(
           `SELECT c.id,c.slug,${displayName("c", "p.country_id")} AS name,c.is_active AS isActive,CASE WHEN pc.ranking_eligible=1 AND c.is_active=1 AND c.is_rankable=1 AND ${eligible} AND v.is_current=1 THEN 1 ELSE 0 END AS canRate,s.bayesian_score AS bayesianScore,COALESCE(s.rating_count,0) AS ratingCount,
+          s.enjoyment_score AS tastiestScore,COALESCE(s.enjoyment_count,0) AS tastiestCount,
         (SELECT json_group_array(json_object('key',d.key,'label',d.label)) FROM (SELECT key,label FROM category_rating_dimensions WHERE category_id=c.id AND is_active=1 ORDER BY sort_order,key) d) AS dimensions
         FROM product_categories pc JOIN categories c ON c.id=pc.category_id JOIN products p ON p.id=pc.product_id JOIN product_versions v ON v.product_id=p.id AND v.id=? LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=c.id WHERE pc.product_id=? AND (c.is_active=1 OR v.is_current=0) ORDER BY c.name LIMIT 50`,
         )
@@ -753,16 +779,26 @@ export class D1CatalogRepository implements CatalogRepository {
     >([
       this.db
         .prepare(
-          `WITH ranked AS (SELECT s.category_id AS categoryId,s.product_version_id AS versionId,
-            ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${rankingOrderSql}) AS rank,
-            COUNT(*) OVER (PARTITION BY s.category_id) AS rankedCount
-            FROM product_category_stats s JOIN product_versions v ON v.id=s.product_version_id AND v.is_current=1 ${productJoins}
-            ${rankedMembershipSql}
-            WHERE s.category_id IN (SELECT category_id FROM product_categories WHERE product_id=?) AND ${eligible} AND ${rankedSampleSql})
-          SELECT categoryId,rank,rankedCount FROM ranked WHERE versionId=?`,
+          `WITH ranked AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,s.lead_product_id AS leadId,
+            s.bayesian_score AS score,s.people_count AS people,s.enjoyment_score AS tastiestScore,s.enjoyment_people AS tastiestPeople,
+            ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${lineOrderSql}) AS rank,
+            COUNT(*) OVER (PARTITION BY s.category_id) AS rankedCount,
+            fam.canonical_name AS lineName,${flavorCountSql} AS flavorCount
+            FROM family_category_stats s ${lineJoins}
+            WHERE s.category_id IN (SELECT category_id FROM product_categories WHERE product_id=?) AND ${lineSampleSql}),
+          tasty AS (SELECT s.categoryId,s.lineId,
+            ROW_NUMBER() OVER (PARTITION BY s.categoryId ORDER BY s.tastiestScore DESC,s.tastiestPeople DESC,s.leadId) AS tastiestRank,
+            COUNT(*) OVER (PARTITION BY s.categoryId) AS tastiestCount
+            FROM ranked s WHERE s.tastiestPeople>0)
+          SELECT r.categoryId,r.rank,r.rankedCount,r.score,r.people,t.tastiestRank,COALESCE(t.tastiestCount,0) AS tastiestCount,
+            r.tastiestScore,r.tastiestPeople,r.lineName,r.flavorCount
+          FROM ranked r LEFT JOIN tasty t ON t.categoryId=r.categoryId AND t.lineId=r.lineId
+          JOIN products x ON x.id=? AND x.product_family_id=r.lineId AND x.lifecycle_status='active' AND x.vegan_status<>'under_review'
+          JOIN product_categories xpc ON xpc.product_id=x.id AND xpc.category_id=r.categoryId AND xpc.ranking_eligible=1
+          WHERE EXISTS(SELECT 1 FROM product_versions xv WHERE xv.id=? AND xv.product_id=x.id AND xv.is_current=1)`,
         )
-        // Top ranks current formulas, so an earlier formula gets no rank.
-        .bind(countryId, productId, versionId),
+        // Lines rank current formulas, so an earlier formula gets no rank.
+        .bind(countryId, productId, productId, versionId),
       this.db
         .prepare(
           `SELECT ds.category_id AS categoryId,d.key,ds.answer_count AS count,ds.answer_sum AS sum FROM product_category_dimension_stats ds
@@ -784,11 +820,7 @@ export class D1CatalogRepository implements CatalogRepository {
     ]);
     const label = allergens!.results[0];
     return {
-      ranks: ranks!.results as {
-        categoryId: string;
-        rank: number;
-        rankedCount: number;
-      }[],
+      ranks: ranks!.results as unknown as LineStanding[],
       details: details!.results as {
         categoryId: string;
         key: string;
@@ -807,6 +839,89 @@ export class D1CatalogRepository implements CatalogRepository {
       allergenConfirmations:
         typeof label?.confirmations === "number" ? label.confirmations : null,
     };
+  }
+
+  // The line's other products that aren't archived or discontinued.
+  async siblings(countryId: string, lineId: string, productId: string) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT id,slug,name,flavor FROM products WHERE product_family_id=? AND country_id=? AND id<>? AND lifecycle_status='active'
+          ORDER BY flavor IS NOT NULL,flavor,name,id LIMIT 50`,
+        )
+        .bind(lineId, countryId, productId)
+        .all<SiblingFlavor>()
+    ).results;
+  }
+
+  // Brands with products in the country and their other names; the shared
+  // matcher (catalog/domain/brand-match.ts) picks the matches.
+  async brands(countryId: string) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT b.id,b.slug,b.name,
+            (SELECT json_group_array(a.alias) FROM brand_aliases a WHERE a.brand_id=b.id) AS aliases,
+            COUNT(p.id) AS productCount
+          FROM brands b JOIN products p ON p.brand_id=b.id AND p.country_id=? AND p.lifecycle_status IN ('active','under_review')
+          GROUP BY b.id ORDER BY b.name LIMIT 5000`,
+        )
+        .bind(countryId)
+        .all<Omit<BrandRow, "aliases"> & { aliases: string }>()
+    ).results.map((row) => ({
+      ...row,
+      aliases: (JSON.parse(row.aliases) as (string | null)[]).filter(
+        (alias): alias is string => !!alias,
+      ),
+    }));
+  }
+
+  brand(countryId: string, slug: string) {
+    return this.db
+      .prepare(
+        `SELECT b.id,b.slug,b.name,(SELECT COUNT(*) FROM products p WHERE p.brand_id=b.id AND p.country_id=? AND p.lifecycle_status IN ('active','under_review')) AS productCount
+        FROM brands b WHERE b.slug=?`,
+      )
+      .bind(countryId, slug)
+      .first<Omit<BrandRow, "aliases">>();
+  }
+
+  // A brand's lines in the country, by food, with each line's Closest and
+  // Tastiest ranks there and its eligible flavors. Lines without counted
+  // ratings are listed without ranks.
+  async brandLines(countryId: string, brandId: string) {
+    const rows = (
+      await this.db
+        .prepare(
+          `WITH foods AS (SELECT DISTINCT s.category_id FROM family_category_stats s
+              JOIN product_families fam ON fam.id=s.product_family_id AND fam.brand_id=? AND fam.country_id=?),
+            ranked AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,
+              ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${lineOrderSql}) AS closestRank
+              FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=?
+              WHERE s.category_id IN (SELECT category_id FROM foods) AND ${lineSampleSql}),
+            tasty AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,
+              ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${tastiestOrderSql}) AS tastiestRank
+              FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=?
+              WHERE s.category_id IN (SELECT category_id FROM foods) AND ${lineSampleSql} AND s.enjoyment_people>0)
+          SELECT s.category_id AS categoryId,s.product_family_id AS lineId,${lineNameSql} AS name,
+            r.closestRank,CASE WHEN ${lineSampleSql} THEN s.bayesian_score END AS closestScore,s.people_count AS people,
+            t.tastiestRank,s.enjoyment_score AS tastiestScore,
+            (SELECT json_group_array(json_object('id',lf.id,'slug',lf.slug,'name',lf.name,'flavor',lf.flavor))
+              FROM (SELECT lf.id,lf.slug,lf.name,lf.flavor FROM ${lineFlavorJoins("s.category_id")}
+                WHERE ${lineFlavorWhere("s.product_family_id")} ORDER BY lf.flavor IS NOT NULL,lf.flavor,lf.name) lf) AS flavors
+          FROM family_category_stats s ${lineJoins}
+          LEFT JOIN ranked r ON r.categoryId=s.category_id AND r.lineId=s.product_family_id
+          LEFT JOIN tasty t ON t.categoryId=s.category_id AND t.lineId=s.product_family_id
+          WHERE fam.brand_id=?
+          ORDER BY s.category_id,r.closestRank IS NULL,r.closestRank,name`,
+        )
+        .bind(brandId, countryId, countryId, countryId, countryId, brandId)
+        .all<Omit<BrandLineRow, "flavors"> & { flavors: string }>()
+    ).results;
+    return rows.map((row) => ({
+      ...row,
+      flavors: JSON.parse(row.flavors) as BrandLineRow["flavors"],
+    }));
   }
 
   async search(countryId: string, iso2: string, expression: string) {

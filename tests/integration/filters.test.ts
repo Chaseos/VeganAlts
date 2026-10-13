@@ -2,7 +2,13 @@ import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
 import { CatalogService } from "../../server/catalog/application/service";
 import { D1CatalogRepository } from "../../server/catalog/infrastructure/d1-repository";
-import { catalogFixture, testMarket, productRows } from "./fixtures";
+import {
+  catalogFixture,
+  lineOf,
+  lineStatsStatement,
+  testMarket,
+  productRows,
+} from "./fixtures";
 
 const catalog = new CatalogService(new D1CatalogRepository(env.DB));
 
@@ -54,11 +60,14 @@ async function world() {
         [c, 3.6, 5],
         [twin, 4.9, 30],
       ] as const
-    ).map(([p, score, count]) =>
+    ).flatMap(([p, score, count]) => [
       env.DB.prepare(
         "INSERT INTO product_category_stats(product_version_id,category_id,rating_count,rating_sum,raw_average,bayesian_score,recomputed_at) VALUES(?,?,?,?,?,?,1)",
       ).bind(p.version, category, count, count * 4, 4, score),
-    ),
+      // Each product is its own line, ranked by the same figures.
+      lineStatsStatement(env.DB, p.id, category, count, count * 4, score),
+    ]),
+    lineStatsStatement(env.DB, d.id, category, 0, 0, null),
     ...[target, kroger, aldi, closed].map((r) =>
       env.DB.prepare(
         "INSERT INTO retailers(id,canonical_name,normalized_name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
@@ -233,15 +242,10 @@ it("resolves only active countries and builds their aisle tree", async () => {
 it("sorts by detail scores and rating counts and filters by label without changing Top", async () => {
   const w = await world();
   const q = (key: string) => `${key}-q-${w.s}`;
-  const stat = (
-    p: { version: string },
-    key: string,
-    count: number,
-    sum: number,
-  ) =>
+  const stat = (p: { id: string }, key: string, count: number, sum: number) =>
     env.DB.prepare(
-      "INSERT INTO product_category_dimension_stats(product_version_id,category_id,dimension_id,answer_count,answer_sum,recomputed_at) VALUES(?,?,?,?,?,1)",
-    ).bind(p.version, w.category, q(key), count, sum);
+      "INSERT INTO family_category_dimension_stats(product_family_id,category_id,dimension_id,people_count,mean_sum,recomputed_at) VALUES(?,?,?,?,?,1)",
+    ).bind(lineOf(p.id), w.category, q(key), count, sum);
   await env.DB.batch([
     ...["taste", "melt"].map((key, index) =>
       env.DB.prepare(
@@ -342,8 +346,8 @@ it("ranks, counts and pages every product of a food with more than 1,000", async
       `INSERT INTO product_categories(product_id,category_id,created_at,updated_at) ${series} SELECT ?||i,?,1,1 FROM n`,
     ).bind(`bulk-${s}-`, category),
     env.DB.prepare(
-      `INSERT INTO product_category_stats(product_version_id,category_id,rating_count,rating_sum,raw_average,bayesian_score,recomputed_at) ${series} SELECT ?||i,?,1,4,4,4.9-i*0.001,1 FROM n`,
-    ).bind(`bulk-v-${s}-`, category),
+      `INSERT INTO family_category_stats(product_family_id,category_id,people_count,mean_sum,raw_average,bayesian_score,lead_product_id,recomputed_at) ${series} SELECT 'line-'||?||i,?,1,4,4,4.9-i*0.001,?||i,1 FROM n`,
+    ).bind(`bulk-${s}-`, category, `bulk-${s}-`),
   ]);
   const page = (n: number) =>
     catalog.category(testMarket(f.countryId), category, { page: n });

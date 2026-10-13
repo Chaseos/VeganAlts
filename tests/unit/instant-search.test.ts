@@ -8,6 +8,7 @@ import {
 
 const answer = (query: string): Suggestions => ({
   query,
+  brands: [],
   foods: [],
   products: [],
 });

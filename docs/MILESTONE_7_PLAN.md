@@ -611,6 +611,7 @@ Existing foods keep their current names and other names unless a row says otherw
    - Filters apply per flavor.
 8. **Public pages.**
    - The ranking toggle, line rows with the flavor disclosure, featured #1s, structured data, aisle panel, home, instant search and the search page.
+   - The food page's rows take their documented API shape with the new UI: `leadProduct`, `closestRank`, and `score`, `people` and `early` for the ranking being viewed. Detail sorts and badges read "Closest …". Checkpoint 7 keeps the earlier field names so the current pages keep working.
    - Brand pages.
    - Product page with both ranks, Other flavors and Add another flavor.
    - The rating form with the Tastiest question and the flavor-aware Closest question, and the methodology page.

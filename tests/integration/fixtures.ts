@@ -25,6 +25,34 @@ export const lineStatement = (
     )
     .bind(lineOf(productId), brandId, countryId, productId, lineOf(productId));
 
+// A line's derived standing in a food, for tests that set scores directly
+// rather than through ratings. The product is the line's lead flavor.
+export const lineStatsStatement = (
+  db: D1Database,
+  productId: string,
+  categoryId: string,
+  people: number,
+  meanSum: number,
+  score: number | null,
+  tastiest: [score: number, people: number, meanSum: number] | null = null,
+) =>
+  db
+    .prepare(
+      "INSERT INTO family_category_stats(product_family_id,category_id,people_count,mean_sum,raw_average,bayesian_score,enjoyment_people,enjoyment_mean_sum,enjoyment_score,lead_product_id,recomputed_at) VALUES(?,?,?,?,?,?,?,?,?,?,1)",
+    )
+    .bind(
+      lineOf(productId),
+      categoryId,
+      people,
+      meanSum,
+      people ? meanSum / people : null,
+      score,
+      tastiest?.[1] ?? 0,
+      tastiest?.[2] ?? 0,
+      tastiest?.[0] ?? null,
+      productId,
+    );
+
 // A plain product row with the line it starts.
 export const productRows = (
   db: D1Database,

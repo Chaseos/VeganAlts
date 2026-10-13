@@ -3,6 +3,10 @@
 // Top score, eligibility or rating weight.
 export const EARLY_RATING_THRESHOLD = 10;
 export const DETAIL_MIN_ANSWERS = 5;
+// A flavor's own score shows inside its line's card from this many answers.
+export const FLAVOR_SCORE_MIN_ANSWERS = 5;
+// Brands shown in instant search answers (milestone 7).
+export const SUGGEST_BRANDS = 3;
 export const RECENT_EATERS_MIN = 10;
 export const RECENT_EATER_BUCKETS = [
   "current_or_week",

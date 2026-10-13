@@ -16,11 +16,20 @@ const row = (
   topRank: number,
   ratingCount: number,
   stats: Record<string, [number, number]>,
-) => ({ id, topRank, ratingCount, details: detailScores(stats, questions) });
+  tastiest: [number | null, number] = [null, 0],
+) => ({
+  id,
+  topRank,
+  ratingCount,
+  tastiestScore: tastiest[0],
+  tastiestCount: tastiest[1],
+  details: detailScores(stats, questions),
+});
 
 it("parses views by syntax", () => {
   expect(parseCategoryView(null)).toBe("top");
   expect(parseCategoryView("most-rated")).toBe("most-rated");
+  expect(parseCategoryView("tastiest")).toBe("tastiest");
   expect(parseCategoryView("detail-in_coffee")).toBe("detail-in_coffee");
   expect(parseCategoryView("detail-Taste")).toBeNull();
   expect(parseCategoryView("cheapest")).toBeNull();
@@ -57,6 +66,19 @@ it("orders detail sorts by mean, then the rest in Top order, and most rated by c
     "c",
     "d",
   ]);
+});
+
+it("orders Tastiest by its own score and people, then the rest in Closest order", () => {
+  const rows = [
+    row("a", 1, 40, {}, [3.9, 20]),
+    row("b", 2, 30, {}, [4.4, 10]),
+    row("c", 3, 12, {}),
+    row("d", 4, 9, {}, [4.4, 12]),
+    row("e", 5, 9, {}),
+  ];
+  const tastiest = orderRows(rows, "tastiest");
+  expect(tastiest.rows.map((r) => r.id)).toEqual(["d", "b", "a", "c", "e"]);
+  expect(tastiest.qualified).toBe(3);
 });
 
 it("awards a detail badge to the best qualifying product unless it is #1", () => {
