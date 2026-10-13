@@ -172,7 +172,11 @@ const lineJoins = `JOIN product_families fam ON fam.id=s.product_family_id
   JOIN categories c ON c.id=s.category_id AND c.is_active=1 AND c.is_rankable=1`;
 const flavorCountSql = `(SELECT COUNT(*) FROM ${lineFlavorJoins("s.category_id")} WHERE ${lineFlavorWhere("s.product_family_id")})`;
 const lineNameSql = `CASE WHEN ${flavorCountSql}>1 THEN fam.canonical_name ELSE p.name END`;
-const lineIdentity = (publishedAt = "p.published_at") =>
+// A line is dated by its first appearance in the food, which only moves
+// earlier, so a newer lead flavor never makes an old line New.
+const lineFirstPublishedSql = `COALESCE((SELECT f.first_published_at FROM family_category_first_published f
+  WHERE f.product_family_id=s.product_family_id AND f.category_id=s.category_id),p.published_at)`;
+const lineIdentity = (publishedAt = lineFirstPublishedSql) =>
   `${identityOf(lineNameSql, publishedAt)},s.product_family_id AS lineId,${flavorCountSql} AS flavorCount`;
 // Closest order (RANKING milestone 7): score, people, then the lead flavor.
 const lineOrderSql =
@@ -890,36 +894,42 @@ export class D1CatalogRepository implements CatalogRepository {
       .first<Omit<BrandRow, "aliases">>();
   }
 
-  // A brand's lines in the country, by food, with each line's Closest and
-  // Tastiest ranks there and its eligible flavors. Lines without counted
-  // ratings are listed without ranks.
+  // A brand's lines in each food where it has an active or under-review
+  // product (what its page counts), with those flavors and the line's
+  // Closest and Tastiest ranks there once it has counted ratings.
   async brandLines(countryId: string, brandId: string) {
+    const listed = (alias: string) =>
+      `${alias}.lifecycle_status IN ('active','under_review')`;
     const rows = (
       await this.db
         .prepare(
-          `WITH foods AS (SELECT DISTINCT s.category_id FROM family_category_stats s
-              JOIN product_families fam ON fam.id=s.product_family_id AND fam.brand_id=? AND fam.country_id=?),
+          `WITH placed AS (SELECT p.product_family_id AS lineId,pc.category_id AS categoryId,COUNT(*) AS flavorCount,MIN(p.name) AS onlyName
+              FROM products p JOIN product_categories pc ON pc.product_id=p.id
+              JOIN categories c ON c.id=pc.category_id AND c.is_active=1 AND c.is_rankable=1
+              WHERE p.brand_id=? AND p.country_id=? AND ${listed("p")}
+              GROUP BY p.product_family_id,pc.category_id),
             ranked AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,
               ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${lineOrderSql}) AS closestRank
               FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=?
-              WHERE s.category_id IN (SELECT category_id FROM foods) AND ${lineSampleSql}),
+              WHERE s.category_id IN (SELECT categoryId FROM placed) AND ${lineSampleSql}),
             tasty AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,
               ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${tastiestOrderSql}) AS tastiestRank
               FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=?
-              WHERE s.category_id IN (SELECT category_id FROM foods) AND ${lineSampleSql} AND s.enjoyment_people>0)
-          SELECT s.category_id AS categoryId,s.product_family_id AS lineId,${lineNameSql} AS name,
-            r.closestRank,CASE WHEN ${lineSampleSql} THEN s.bayesian_score END AS closestScore,s.people_count AS people,
+              WHERE s.category_id IN (SELECT categoryId FROM placed) AND ${lineSampleSql} AND s.enjoyment_people>0)
+          SELECT pl.categoryId,pl.lineId,CASE WHEN pl.flavorCount>1 THEN fam.canonical_name ELSE pl.onlyName END AS name,
+            r.closestRank,CASE WHEN ${lineSampleSql} THEN s.bayesian_score END AS closestScore,COALESCE(s.people_count,0) AS people,
             t.tastiestRank,s.enjoyment_score AS tastiestScore,
             (SELECT json_group_array(json_object('id',lf.id,'slug',lf.slug,'name',lf.name,'flavor',lf.flavor))
-              FROM (SELECT lf.id,lf.slug,lf.name,lf.flavor FROM ${lineFlavorJoins("s.category_id")}
-                WHERE ${lineFlavorWhere("s.product_family_id")} ORDER BY lf.flavor IS NOT NULL,lf.flavor,lf.name) lf) AS flavors
-          FROM family_category_stats s ${lineJoins}
-          LEFT JOIN ranked r ON r.categoryId=s.category_id AND r.lineId=s.product_family_id
-          LEFT JOIN tasty t ON t.categoryId=s.category_id AND t.lineId=s.product_family_id
-          WHERE fam.brand_id=?
-          ORDER BY s.category_id,r.closestRank IS NULL,r.closestRank,name`,
+              FROM (SELECT lf.id,lf.slug,lf.name,lf.flavor FROM products lf
+                JOIN product_categories lfc ON lfc.product_id=lf.id AND lfc.category_id=pl.categoryId
+                WHERE lf.product_family_id=pl.lineId AND ${listed("lf")} ORDER BY lf.flavor IS NOT NULL,lf.flavor,lf.name) lf) AS flavors
+          FROM placed pl JOIN product_families fam ON fam.id=pl.lineId
+          LEFT JOIN family_category_stats s ON s.product_family_id=pl.lineId AND s.category_id=pl.categoryId
+          LEFT JOIN ranked r ON r.categoryId=pl.categoryId AND r.lineId=pl.lineId
+          LEFT JOIN tasty t ON t.categoryId=pl.categoryId AND t.lineId=pl.lineId
+          ORDER BY pl.categoryId,r.closestRank IS NULL,r.closestRank,name`,
         )
-        .bind(brandId, countryId, countryId, countryId, countryId, brandId)
+        .bind(brandId, countryId, countryId, countryId)
         .all<Omit<BrandLineRow, "flavors"> & { flavors: string }>()
     ).results;
     return rows.map((row) => ({

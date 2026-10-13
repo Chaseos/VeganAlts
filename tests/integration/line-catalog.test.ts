@@ -331,6 +331,35 @@ it("finds brands loosely and lists a brand's lines by aisle and food", async () 
     "Strawberry",
     "Vanilla",
   ]);
+  // A product under review has no ranking row yet, but its page lists it.
+  const barista = `barista-${w.s}`;
+  await db.batch([
+    db
+      .prepare(
+        "INSERT INTO product_families(id,brand_id,country_id,canonical_name,slug,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
+      )
+      .bind(barista, w.oat, w.f.countryId, "Oat Co Barista", barista),
+    db
+      .prepare(
+        "INSERT INTO products(id,country_id,brand_id,product_family_id,name,slug,lifecycle_status,published_at,created_at,updated_at) VALUES(?,?,?,?,?,?,'under_review',1,1,1)",
+      )
+      .bind(barista, w.f.countryId, w.oat, barista, "Oat Co Barista", barista),
+    db
+      .prepare(
+        "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
+      )
+      .bind(barista, w.cat),
+  ]);
+  const reviewed = await catalog.brand(w.us, w.oat);
+  expect(reviewed.productCount).toBe(5);
+  expect(
+    reviewed.aisles[0]!.foods[0]!.lines.find((line) => line.lineId === barista),
+  ).toMatchObject({
+    name: "Oat Co Barista",
+    closestRank: null,
+    people: 0,
+    flavors: [{ id: barista, flavor: null }],
+  });
   await expect(catalog.brand(w.us, `missing-${w.s}`)).rejects.toMatchObject({
     status: 404,
   });

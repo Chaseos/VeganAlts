@@ -194,6 +194,16 @@ it("keeps a line's New date fixed when flavors come and go", async () => {
   await lines.refresh({ familyIds: [line] }, NOW);
   expect(await firstPublished()).toBe(NOW - 200 * DAY);
   expect(await fresh()).toEqual([]);
+  // Shown by its new flavor in other views, it still isn't labeled New.
+  expect(
+    (await catalog.category(testMarket(f.countryId), cat)).unranked.find(
+      (row) => row.lineId === line,
+    ),
+  ).toMatchObject({
+    leadProduct: { id: lemon.id },
+    publishedAt: NOW - 200 * DAY,
+    isNew: false,
+  });
 
   // A line new to the food is listed, dated by its first flavor.
   const newLine = `new-${f.productId}`;
