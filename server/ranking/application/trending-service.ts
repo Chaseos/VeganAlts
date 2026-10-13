@@ -1,6 +1,6 @@
 import {
   trendingScore,
-  type DailyActivity,
+  type PersonDay,
   type TrendingParameters,
 } from "../domain/trending";
 import type { RankingParameters } from "../domain/policy";
@@ -14,8 +14,8 @@ const CATEGORIES_PER_PASS = 50;
 
 /**
  * Hourly discovery refresh. Recent days are re-derived from canonical rows,
- * then each category's Trending list is recomputed from daily statistics.
- * Top ranking data is never read or written here.
+ * then each food's Trending lines are recomputed from daily statistics by
+ * person. Top ranking data is never written here.
  */
 export class TrendingService {
   constructor(
@@ -104,44 +104,35 @@ export class TrendingService {
       categoryId,
       statDate(today - (this.span - 1) * DAY),
     );
-    const formulas = new Map<
-      string,
-      { productId: string; days: DailyActivity[] }
-    >();
-    for (const row of rows) {
-      const entry = formulas.get(row.versionId) ?? {
-        productId: row.productId,
-        days: [],
-      };
-      entry.days.push({
-        daysAgo: Math.round(
-          (today - Date.parse(`${row.statDate}T00:00:00Z`)) / DAY,
-        ),
-        ratings: row.ratings,
-        ratingSum: row.ratingSum,
-        trials: row.trials,
-        commenters: row.commenters,
-      });
-      formulas.set(row.versionId, entry);
-    }
-    const scored = [...formulas.entries()]
-      .map(([versionId, { productId, days }]) => ({
-        versionId,
-        productId,
+    const lines = new Map<string, PersonDay[]>();
+    for (const row of rows)
+      lines.set(row.familyId, [
+        ...(lines.get(row.familyId) ?? []),
+        {
+          userId: row.userId,
+          daysAgo: Math.round(
+            (today - Date.parse(`${row.statDate}T00:00:00Z`)) / DAY,
+          ),
+          ratings: row.ratings,
+          similaritySum: row.similaritySum,
+          tried: row.tried === 1,
+          commented: row.commented === 1,
+        },
+      ]);
+    const scored = [...lines.entries()]
+      .map(([familyId, days]) => ({
+        familyId,
         ...trendingScore(days, this.params, this.ranking),
       }))
       .filter((r) => r.score > 0)
-      .sort(
-        (a, b) => b.score - a.score || a.productId.localeCompare(b.productId),
-      )
+      .sort((a, b) => b.score - a.score || a.familyId.localeCompare(b.familyId))
       .slice(0, this.params.limit);
     await this.repository.replaceTrends(
       categoryId,
-      scored.map((r) => ({
-        versionId: r.versionId,
-        productId: r.productId,
-        score: r.score,
-        inputs: r.inputs,
+      scored.map(({ familyId, score, inputs }) => ({
+        familyId,
+        score,
+        inputs,
       })),
       now,
     );

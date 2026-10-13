@@ -39,7 +39,8 @@ export interface RankingRow extends ProductSummary {
   // Chosen stores (slugs) where the product is commonly found.
   matchedStores: string[];
 }
-// Discovery rows show the Top score as context; it never orders them.
+// Discovery rows are recipe lines, shown by their lead flavor, with the
+// line's Top score as context; it never orders them.
 export interface DiscoveryRow extends ProductSummary {
   bayesianScore: number | null;
   ratingCount: number;
@@ -83,7 +84,8 @@ export interface TopProduct {
   rank: number;
 }
 
-// A product on the home page, in one of its foods.
+// A product on the home page, in one of its foods (Trending and New show a
+// recipe line by its lead flavor, with the line's figures).
 export interface HomeProduct extends ProductSummary {
   foodSlug: string;
   foodName: string;
@@ -169,14 +171,14 @@ export interface CatalogRepository {
   }>;
   trending(
     countryId: string,
-    categoryId: string | null,
+    categoryId: string,
     filters: RankingFilters,
     offset: number,
     limit: number,
   ): Promise<DiscoveryRow[]>;
   newest(
     countryId: string,
-    categoryId: string | null,
+    categoryId: string,
     since: number,
     filters: RankingFilters,
     offset: number,

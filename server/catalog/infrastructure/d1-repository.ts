@@ -33,8 +33,13 @@ import {
   readCanonicalRedirect,
 } from "../../community/infrastructure/public-read";
 
-const identity = `p.id,p.slug,p.name,b.name AS brand,v.id AS versionId,p.development_only AS developmentOnly,p.published_at AS publishedAt,
+// A product's identity; a recipe line shows its lead flavor's, dated by when
+// the line first appeared in the food.
+const identityWith = (
+  publishedAt: string,
+) => `p.id,p.slug,p.name,b.name AS brand,v.id AS versionId,p.development_only AS developmentOnly,${publishedAt} AS publishedAt,
   (SELECT i.id FROM product_images i WHERE i.product_version_id=v.id AND i.slot='front' AND i.state='accepted' LIMIT 1) AS imageId`;
+const identity = identityWith("p.published_at");
 // Every catalog read is scoped to one active country, bound as its ID.
 const productJoins = `JOIN products p ON p.id=v.product_id AND p.country_id=? JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id`;
 const visible = `p.lifecycle_status <> 'hidden'`;
@@ -105,6 +110,44 @@ function matchedStoresSql(filters: RankingFilters, product = "p"): Fragment {
       JOIN products fp ON fp.id=pr.product_id
       JOIN retailer_markets m ON m.retailer_id=pr.retailer_id AND m.country_id=fp.country_id AND m.is_active=1
       WHERE pr.product_id=${product}.id AND pr.status='active' AND r.slug IN (SELECT value FROM json_each(?))) AS matchedStores`,
+    binds: [JSON.stringify(filters.stores)],
+  };
+}
+
+// A recipe line's eligible flavors in its food (milestone 7), for filters
+// that show a line when any flavor matches.
+const lineFlavorJoins = (category: string) => `products fp
+  JOIN product_versions fv ON fv.product_id=fp.id AND fv.is_current=1
+  JOIN product_categories fpc ON fpc.product_id=fp.id AND fpc.category_id=${category} AND fpc.ranking_eligible=1`;
+const lineFlavorWhere = (family: string) =>
+  `fp.product_family_id=${family} AND fp.lifecycle_status='active' AND fp.vegan_status<>'under_review'`;
+function lineFilterSql(
+  filters: RankingFilters,
+  family = "s.product_family_id",
+  category = "s.category_id",
+): Fragment {
+  const inner = filterSql(filters, "fp", "fv");
+  return inner.sql
+    ? {
+        sql: ` AND EXISTS(SELECT 1 FROM ${lineFlavorJoins(category)} WHERE ${lineFlavorWhere(family)}${inner.sql})`,
+        binds: inner.binds,
+      }
+    : inner;
+}
+// The chosen stores where any of the line's eligible flavors is found.
+function lineMatchedStoresSql(
+  filters: RankingFilters,
+  family = "s.product_family_id",
+  category = "s.category_id",
+): Fragment {
+  if (!filters.stores.length)
+    return { sql: ",NULL AS matchedStores", binds: [] };
+  return {
+    sql: `,(SELECT json_group_array(DISTINCT r.slug) FROM ${lineFlavorJoins(category)}
+      JOIN product_retailers pr ON pr.product_id=fp.id AND pr.status='active'
+      JOIN retailers r ON r.id=pr.retailer_id
+      JOIN retailer_markets m ON m.retailer_id=pr.retailer_id AND m.country_id=fp.country_id AND m.is_active=1
+      WHERE ${lineFlavorWhere(family)} AND r.slug IN (SELECT value FROM json_each(?))) AS matchedStores`,
     binds: [JSON.stringify(filters.stores)],
   };
 }
@@ -301,33 +344,33 @@ export class D1CatalogRepository implements CatalogRepository {
     return parseStores(rows);
   }
 
-  // Trending reads the precomputed trends read model, never raw ratings.
+  // Trending reads the precomputed trends of recipe lines, never raw ratings.
+  // Each line is shown by its lead flavor with the line's figures.
   async trending(
     countryId: string,
-    categoryId: string | null,
+    categoryId: string,
     filters: RankingFilters,
     offset: number,
     limit: number,
   ) {
-    const filter = filterSql(filters);
-    const stores = matchedStoresSql(filters);
+    const filter = lineFilterSql(filters);
+    const stores = lineMatchedStoresSql(filters);
     const rows = (
       await this.db
         .prepare(
-          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount,${allergensSql()} AS allergens,
-        ${categoryId ? "COALESCE(s.recent_rating_count,0)" : "0"} AS recentRatingCount${stores.sql}
-      FROM product_category_trends t JOIN product_versions v ON v.id=t.product_version_id AND v.is_current=1 ${productJoins}
-      JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=t.category_id AND pc.ranking_eligible=1
-      JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1
-      LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=t.category_id
-      WHERE ${categoryId ? "t.category_id=? AND" : ""} t.trending_score>0 AND ${eligible}${filter.sql}
-      ${categoryId ? "" : "GROUP BY p.id"}
-      ORDER BY ${categoryId ? "t.trending_score" : "MAX(t.trending_score)"} DESC,p.id LIMIT ? OFFSET ?`,
+          `SELECT ${identity},s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,${allergensSql()} AS allergens,
+            s.recent_count AS recentRatingCount${stores.sql}
+          FROM family_category_trends t
+          JOIN family_category_stats s ON s.product_family_id=t.product_family_id AND s.category_id=t.category_id
+          JOIN product_versions v ON v.product_id=s.lead_product_id AND v.is_current=1 ${productJoins}
+          JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1
+          WHERE t.category_id=?${filter.sql}
+          ORDER BY t.rank LIMIT ? OFFSET ?`,
         )
         .bind(
           ...stores.binds,
           countryId,
-          ...(categoryId ? [categoryId] : []),
+          categoryId,
           ...filter.binds,
           limit,
           offset,
@@ -337,32 +380,34 @@ export class D1CatalogRepository implements CatalogRepository {
     return parseStores(rows).map(parseAllergens);
   }
 
-  // New is chronological discovery of recently published, eligible products.
+  // New lists recipe lines that first appeared in the food within the
+  // window, newest first, shown by their lead flavor.
   async newest(
     countryId: string,
-    categoryId: string | null,
+    categoryId: string,
     since: number,
     filters: RankingFilters,
     offset: number,
     limit: number,
   ) {
-    const filter = filterSql(filters);
-    const stores = matchedStoresSql(filters);
+    const filter = lineFilterSql(filters);
+    const stores = lineMatchedStoresSql(filters);
     const rows = (
       await this.db
         .prepare(
-          `SELECT ${identity},${categoryId ? "s.bayesian_score" : "NULL"} AS bayesianScore,${categoryId ? "COALESCE(s.rating_count,0)" : "0"} AS ratingCount,${allergensSql()} AS allergens,0 AS recentRatingCount${stores.sql}
-      FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
-      JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id
-      ${categoryId ? "JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=? AND pc.ranking_eligible=1 LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=pc.category_id" : ""}
-      WHERE p.country_id=? AND p.published_at>=? AND ${eligible}${filter.sql}
-      ${categoryId ? "" : "AND EXISTS(SELECT 1 FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 AND c.is_rankable=1 WHERE pc.product_id=p.id AND pc.ranking_eligible=1)"}
-      ORDER BY p.published_at DESC,p.id DESC LIMIT ? OFFSET ?`,
+          `SELECT ${identityWith("f.first_published_at")},s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,${allergensSql()} AS allergens,
+            0 AS recentRatingCount${stores.sql}
+          FROM family_category_first_published f
+          JOIN family_category_stats s ON s.product_family_id=f.product_family_id AND s.category_id=f.category_id
+          JOIN product_versions v ON v.product_id=s.lead_product_id AND v.is_current=1 ${productJoins}
+          JOIN categories c ON c.id=s.category_id AND c.is_active=1 AND c.is_rankable=1
+          WHERE f.category_id=? AND f.first_published_at>=?${filter.sql}
+          ORDER BY f.first_published_at DESC,f.product_family_id DESC LIMIT ? OFFSET ?`,
         )
         .bind(
           ...stores.binds,
-          ...(categoryId ? [categoryId] : []),
           countryId,
+          categoryId,
           since,
           ...filter.binds,
           limit,
@@ -481,66 +526,53 @@ export class D1CatalogRepository implements CatalogRepository {
     ).results;
   }
 
-  // The trending products of a country, each in the food it trends most in,
-  // with that food's Top score and this week's new ratings.
+  // The trending recipe lines of a country, each in the food it trends most
+  // in, shown by its lead flavor with the line's figures there.
   async homeTrending(countryId: string, limit: number) {
     return (
       await this.db
         .prepare(
-          `WITH best AS (SELECT t.product_version_id AS versionId,t.category_id AS categoryId,t.trending_score AS trendingScore,
-            ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY t.trending_score DESC,t.category_id) AS n
-            FROM product_category_trends t JOIN product_versions v ON v.id=t.product_version_id AND v.is_current=1 ${productJoins}
-            JOIN product_categories pc ON pc.product_id=p.id AND pc.category_id=t.category_id AND pc.ranking_eligible=1
-            JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1
-            WHERE t.trending_score>0 AND ${eligible})
+          `WITH best AS (SELECT t.product_family_id AS familyId,t.category_id AS categoryId,t.trending_score AS trendingScore,
+            ROW_NUMBER() OVER (PARTITION BY t.product_family_id ORDER BY t.trending_score DESC,t.category_id) AS n
+            FROM family_category_trends t
+            JOIN product_families fam ON fam.id=t.product_family_id AND fam.country_id=?
+            JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1)
           SELECT ${identity},c.slug AS foodSlug,${displayName("c", "p.country_id")} AS foodName,s.bayesian_score AS bayesianScore,
-            COALESCE(s.rating_count,0) AS ratingCount,COALESCE(s.recent_rating_count,0) AS recentRatingCount
-          FROM best JOIN product_versions v ON v.id=best.versionId ${productJoins} JOIN categories c ON c.id=best.categoryId
-          LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=c.id
-          WHERE best.n=1 ORDER BY best.trendingScore DESC,p.id LIMIT ?`,
+            s.people_count AS ratingCount,s.recent_count AS recentRatingCount
+          FROM best JOIN family_category_stats s ON s.product_family_id=best.familyId AND s.category_id=best.categoryId
+          JOIN product_versions v ON v.product_id=s.lead_product_id AND v.is_current=1 ${productJoins}
+          JOIN categories c ON c.id=best.categoryId
+          WHERE best.n=1 ORDER BY best.trendingScore DESC,best.familyId LIMIT ?`,
         )
         .bind(countryId, countryId, limit)
         .all<HomeProduct>()
     ).results;
   }
 
-  // Recently added products with the food most of their ratings are in.
+  // Recipe lines that first appeared within the window, each in the food
+  // where most people rated it, shown by its lead flavor.
   async homeNewest(countryId: string, since: number, limit: number) {
-    const rows = (
+    return (
       await this.db
         .prepare(
-          `SELECT ${identity},
-            (SELECT json_object('slug',c.slug,'name',${displayName("c", "p.country_id")},'score',s.bayesian_score,'ratings',COALESCE(s.rating_count,0))
-              FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 AND c.is_rankable=1
-              LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=c.id
-              WHERE pc.product_id=p.id AND pc.ranking_eligible=1 ORDER BY COALESCE(s.rating_count,0) DESC,c.name LIMIT 1) AS food
-          FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
-          JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id
-          WHERE p.country_id=? AND p.published_at>=? AND ${eligible}
-          ORDER BY p.published_at DESC,p.id DESC LIMIT ?`,
+          `WITH fresh AS (SELECT f.product_family_id AS familyId,MIN(f.first_published_at) AS firstPublished
+            FROM family_category_first_published f
+            JOIN product_families fam ON fam.id=f.product_family_id AND fam.country_id=?
+            GROUP BY f.product_family_id HAVING MIN(f.first_published_at)>=?),
+          placed AS (SELECT fresh.familyId,fresh.firstPublished,s.category_id AS categoryId,
+            ROW_NUMBER() OVER (PARTITION BY fresh.familyId ORDER BY s.people_count DESC,c.name,c.id) AS n
+            FROM fresh JOIN family_category_stats s ON s.product_family_id=fresh.familyId
+            JOIN categories c ON c.id=s.category_id AND c.is_active=1 AND c.is_rankable=1)
+          SELECT ${identityWith("placed.firstPublished")},c.slug AS foodSlug,${displayName("c", "p.country_id")} AS foodName,
+            s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,0 AS recentRatingCount
+          FROM placed JOIN family_category_stats s ON s.product_family_id=placed.familyId AND s.category_id=placed.categoryId
+          JOIN product_versions v ON v.product_id=s.lead_product_id AND v.is_current=1 ${productJoins}
+          JOIN categories c ON c.id=placed.categoryId
+          WHERE placed.n=1 ORDER BY placed.firstPublished DESC,placed.familyId DESC LIMIT ?`,
         )
-        .bind(countryId, since, limit)
-        .all<ProductSummary & { food: string | null }>()
+        .bind(countryId, since, countryId, limit)
+        .all<HomeProduct>()
     ).results;
-    return rows.flatMap((row) => {
-      if (!row.food) return [];
-      const food = JSON.parse(row.food) as {
-        slug: string;
-        name: string;
-        score: number | null;
-        ratings: number;
-      };
-      return [
-        {
-          ...row,
-          foodSlug: food.slug,
-          foodName: food.name,
-          bayesianScore: food.score,
-          ratingCount: food.ratings,
-          recentRatingCount: 0,
-        } satisfies HomeProduct,
-      ];
-    });
   }
 
   async productCount(countryId: string) {

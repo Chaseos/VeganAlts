@@ -84,8 +84,8 @@ async function world() {
     INITIAL_RANKING_PARAMETERS,
     () => crypto.randomUUID(),
   );
-  // The fixture product receives a recent burst; the steady product has an
-  // older, larger history and leads Top.
+  // The fixture product receives a recent burst; the steady product has a
+  // larger history from the quarter before and leads Top.
   const rate = (user: string, version: string, score: number, at: number) =>
     env.DB.prepare(
       "INSERT INTO ratings(id,user_id,product_version_id,category_id,overall_similarity,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
@@ -94,9 +94,16 @@ async function world() {
     ...f.users
       .slice(0, 4)
       .map((u, i) => rate(u.id, f.versionId, 4, NOW - i * 3_600_000)),
-    ...f.users.map((u) => rate(u.id, steadyVersion, 5, NOW - 40 * DAY)),
+    ...f.users.map((u) => rate(u.id, steadyVersion, 5, NOW - 120 * DAY)),
   ]);
-  await ratings.rebuildVersions([f.versionId, steadyVersion]);
+  // Rebuilding each formula also refreshes its line, as publication does.
+  await ratings.rebuildVersions([
+    f.versionId,
+    steadyVersion,
+    freshVersion,
+    goneVersion,
+    `loose-v-${s}`,
+  ]);
   return { f, s, category, steady, fresh, gone, loose };
 }
 const topHash = async (category: string) =>
@@ -156,13 +163,13 @@ it("computes Trending and New from precomputed activity without changing Top", a
   expect(home.newest.map((p) => p.id)).toContain(w.fresh);
   expect(home.newest.map((p) => p.id)).not.toContain(w.gone);
   expect(home.newest.map((p) => p.id)).not.toContain(w.loose);
-  // Without new activity the burst fades out of Trending.
-  await trendingService(rankingEnv, () => NOW + 9 * DAY).rebuild();
+  // Without new activity the burst leaves Trending after a quarter.
+  await trendingService(rankingEnv, () => NOW + 91 * DAY).rebuild();
   expect(
     (
       await new CatalogService(
         new D1CatalogRepository(env.DB),
-        () => NOW + 9 * DAY,
+        () => NOW + 91 * DAY,
       ).category(testMarket(w.f.countryId), slug, { view: "trending" })
     ).ranked,
   ).toEqual([]);
@@ -189,9 +196,9 @@ it("re-derives an older day when a comment on it changes visibility", async () =
     .run();
   const commenters = async () =>
     await env.DB.prepare(
-      "SELECT COALESCE(SUM(comment_count),0) AS n FROM product_category_daily_stats WHERE stat_date=? AND product_version_id=? AND category_id=?",
+      "SELECT COALESCE(SUM(commented),0) AS n FROM family_category_daily_stats WHERE stat_date=? AND product_family_id=? AND category_id=?",
     )
-      .bind(date, w.f.versionId, w.category)
+      .bind(date, lineOf(w.f.productId), w.category)
       .first<number>("n");
   // Outside the midnight pass only today and yesterday are re-derived.
   await trendingService(rankingEnv, () => NOW).rebuild();

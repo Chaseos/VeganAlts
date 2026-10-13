@@ -650,9 +650,10 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following append-o
   - **`family_category_dimension_stats`** has one row per family, food and dimension: people who answered and the sum of their means.
   - **Indexes:** `products(product_family_id)` for a line's flavors, `product_families(brand_id, country_id)` for a brand's lines, and the existing `products(brand_id, country_id)` for brand pages.
 - `0004_line_discovery.sql`
-  - Adds `family_category_daily_stats`, one row per line, food, day and person over the last 180 days (the 90-day trend window and its baseline), so Trending counts each person once across the window.
-  - Adds `family_category_trends`.
-  - Drops `product_category_daily_stats` and `product_category_trends`, which are derived and no longer read.
+  - Adds `family_category_daily_stats`, one row per line, food, day and person over the last 180 days (the 90-day trend window and its baseline), so Trending counts each person once across the window. A row holds that day's counted ratings of the line's eligible flavors and their similarity sum, and whether the person tried a flavor or left a visible comment.
+  - Adds `family_category_trends`, with each trending line's `rank` in its food. The top three carry the Trending tag.
+  - Adds `family_category_first_published`: when a line first appeared in a food, from any flavor it has had there. Refreshes only move it earlier, so New never brings a line back. The migration fills it from current memberships.
+  - Drops `product_category_daily_stats`, `product_category_trends` and the unused `product_category_stats.trending_score` with its index. All three are derived and no longer read.
 
 **Product family.** A family is a recipe line in one country: one brand's base recipe and its flavors. It no longer links markets. Rankings group a food's eligible products by family.
 

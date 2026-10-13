@@ -89,6 +89,15 @@ INSERT INTO family_category_dimension_stats(product_family_id,category_id,dimens
 SELECT family_id,category_id,dimension_id,COUNT(*),SUM(mean),?4
 FROM answers GROUP BY family_id,category_id,dimension_id`;
 
+// A line's first publication in each food only ever moves earlier.
+const FIRST_PUBLISHED = `WITH ${TARGETS}
+INSERT INTO family_category_first_published(product_family_id,category_id,first_published_at)
+SELECT p.product_family_id,pc.category_id,MIN(p.published_at)
+FROM targets t JOIN products p ON p.product_family_id=t.id JOIN product_categories pc ON pc.product_id=p.id
+WHERE p.published_at IS NOT NULL
+GROUP BY p.product_family_id,pc.category_id
+ON CONFLICT(product_family_id,category_id) DO UPDATE SET first_published_at=MIN(first_published_at,excluded.first_published_at)`;
+
 export class LineRefresh {
   constructor(
     private readonly db: D1Database,
@@ -127,6 +136,7 @@ export class LineRefresh {
         )
         .bind(...lists),
       this.db.prepare(INSERT_DIMENSIONS).bind(...lists, now),
+      this.db.prepare(FIRST_PUBLISHED).bind(...lists),
     ];
   }
 

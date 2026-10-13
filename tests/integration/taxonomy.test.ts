@@ -282,7 +282,7 @@ it("re-derives Trending activity when a merge and its reversal move older rating
     .run();
   const daily = async (category: string) =>
     await env.DB.prepare(
-      "SELECT COALESCE(SUM(new_rating_count),0) AS n FROM product_category_daily_stats WHERE category_id=? AND stat_date=? AND product_version_id=?",
+      "SELECT COALESCE(SUM(rating_count),0) AS n FROM family_category_daily_stats WHERE category_id=? AND stat_date=? AND product_family_id=(SELECT p.product_family_id FROM product_versions v JOIN products p ON p.id=v.product_id WHERE v.id=?)",
     )
       .bind(category, date, w.V3)
       .first<number>("n");
