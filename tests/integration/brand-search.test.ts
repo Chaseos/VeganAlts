@@ -33,6 +33,25 @@ it("keeps the brand index current through brand and alias writes", async () => {
   expect(await found(`kiteil${s}`)).toEqual([[name, []]]);
   // Fewer than three letters in a row look nothing up.
   expect(await found("ki")).toEqual([]);
+  // A swap in a short name leaves no trigram ("Dayia" for "Daiya"); brands
+  // with the same first letter still reach the matcher.
+  const letters = [..."bcdfghjklmnpqrstvwxz"]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 5);
+  const short = letters.join("");
+  const swapped = [
+    letters[0],
+    letters[2],
+    letters[1],
+    ...letters.slice(3),
+  ].join("");
+  await db
+    .prepare(
+      "INSERT INTO brands(id,name,normalized_name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+    )
+    .bind(`short-${s}`, short, short, `short-${s}`)
+    .run();
+  expect(await found(swapped)).toContainEqual([short, []]);
 
   const alias = `Hillside${s}`;
   await db

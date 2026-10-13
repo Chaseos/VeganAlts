@@ -498,7 +498,7 @@ The `related` list keeps only companion and successor links.
 - **Brand matching.** Brand matching in search, suggest and the contribution lookups uses one shared matcher:
   - names and other names;
   - a word prefix, a substring, or within two edits for names of five or more letters;
-  - candidates come from the `brand_search` trigram index (sharing three letters in a row with the typed text), so a lookup needs three letters or digits and never reads every brand;
+  - candidates come from the `brand_search` trigram index (sharing three letters in a row with the typed text) and, from five letters, from the brands whose name or other name starts with a typed word's first letter (for typos such as "Dayia" that share no trigram), so a lookup needs three letters or digits and never reads every brand;
   - a brand's `productCount` is its active and under-review products in the country, counted only for the brands that match.
 
 **Contribution lookups.** Each is authenticated, private/no-store and on the instant-answer rate limit.

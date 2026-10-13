@@ -90,7 +90,7 @@ Remote databases were not touched; remote reads and writes need the owner's own 
 ## Limits and follow-ups
 
 - **Rename line** is an action on a product (`/admin/moderation/products/:id/line-name`), not `/admin/lines/:id`, so the existing reversal undoes it. The API document records this.
-- **Brand lookups use an index.** Search, instant answers and Add a product find brands through the `brand_search` trigram index, from three characters, and count products only for the matches. A typo that leaves no three letters in a row intact isn't found. Loose "Is it one of these?" matching still scans the country's products, on the instant-answer rate limit.
+- **Brand lookups use an index.** Search, instant answers and Add a product find brands through the `brand_search` trigram index, from three characters, and count products only for the matches. From five letters, brands starting with a typed word's first letter also reach the matcher, so a typo that leaves no three letters in a row ("Dayia") is still found; a typo in the first letter isn't. Loose "Is it one of these?" matching still scans the country's products, on the instant-answer rate limit.
 - **Demo Oatly line.** Original and Full Fat stay one line in the demo to show how unlabeled flavors are named, although by the line test Full Fat is its own base.
 - **Add a product has no Foods menu,** as before: pages outside a country have no aisles in the header.
 - **Seeding stays outside the processing allowance.** Seeding the demo's 39 images used to spend most of the 50 processing attempts a UTC day that web uploads share. Version 1's `media_attempts.counted` marks the seed's attempts uncounted, so a reseed neither waits for nor spends that allowance in any environment.
