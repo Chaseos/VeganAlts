@@ -91,10 +91,35 @@ it("seeds default positions and seasons, fills only what an operator never set, 
     "lamb-aisle",
   ]);
 
-  // Ratings in one aisle move it, and its food, ahead.
-  const cheddar = (await category("cheddar"))!.id;
+  // Ratings in one aisle move it, and its food, ahead: counted ratings
+  // (seven for Cheddar), not products (two in Milk, with three ratings).
+  const cheddar = (await category("cheddar"))!.id,
+    milk = (await category("milk"))!.id;
   const product = `p-${id()}`;
+  const listed = (key: string, food: string, ratings: number | null) => [
+    env.DB.prepare(
+      "INSERT INTO product_families(id,country_id,canonical_name,slug,created_at,updated_at) SELECT 'line-'||?,id,?,'line-'||?,1,1 FROM countries WHERE iso2='US'",
+    ).bind(key, key, key),
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,product_family_id,name,slug,created_at,updated_at) SELECT ?,id,'line-'||?,?,?,1,1 FROM countries WHERE iso2='US'",
+    ).bind(key, key, key, key),
+    env.DB.prepare(
+      "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
+    ).bind(`${key}-v`, key),
+    env.DB.prepare(
+      "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
+    ).bind(key, food),
+    ...(ratings === null
+      ? []
+      : [
+          env.DB.prepare(
+            "INSERT INTO product_category_stats(product_version_id,category_id,rating_count,rating_sum,raw_average,bayesian_score,tried_count,recent_rating_count,recomputed_at) VALUES(?,?,?,?,4,3.8,0,0,1)",
+          ).bind(`${key}-v`, food, ratings, ratings * 4),
+        ]),
+  ];
   await env.DB.batch([
+    ...listed(`m1-${id()}`, milk, 3),
+    ...listed(`m2-${id()}`, milk, null),
     env.DB.prepare(
       "INSERT INTO product_families(id,country_id,canonical_name,slug,created_at,updated_at) SELECT 'line-'||?,id,'Sharp shreds','line-'||?,1,1 FROM countries WHERE iso2='US'",
     ).bind(product, product),
@@ -111,9 +136,14 @@ it("seeds default positions and seasons, fills only what an operator never set, 
       "INSERT INTO product_category_stats(product_version_id,category_id,rating_count,rating_sum,raw_average,bayesian_score,tried_count,recent_rating_count,recomputed_at) VALUES(?,?,7,28,4,3.8,7,0,1)",
     ).bind(`${product}-v`, cheddar),
   ]);
-  expect((await order())[0]).toBe("cheese");
+  expect((await order()).slice(0, 2)).toEqual(["cheese", "milk-aisle"]);
   const cheese = (await catalog.page("us")).aisles[0]!;
   expect(cheese.foods[0]!.slug).toBe("cheddar");
+  // Suggest a food's aisle choice follows the same order.
+  expect((await catalog.aisles(us)).map((a) => a.slug).slice(0, 3)).toEqual([
+    ...(await order()).slice(0, 2),
+    "beef",
+  ]);
   // The food's own page carries its season.
   expect((await catalog.category(us, "eggnog")).category).toMatchObject({
     seasonStart: 11,

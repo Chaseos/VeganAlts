@@ -66,7 +66,7 @@ export interface AisleFood {
 export interface FoodCounts {
   productCount: number;
   rankedCount: number;
-  // Counted ratings of the food's ranked swaps in the country.
+  // Counted ratings of the current formulas listed in the food there.
   ratingCount?: number;
 }
 
@@ -120,10 +120,12 @@ export function aisleFood(
 
 // The navigable tree: aisles with their foods, both in popularity order.
 // Foods not on in the country are left out, and so are aisles without a
-// placeable food.
+// placeable food unless `withEmpty` (Suggest a food can place the first
+// one); those take their default place among aisles without ratings.
 export function aisleTree(
   nodes: TaxonomyNode[],
   counts: Map<string, FoodCounts>,
+  { withEmpty = false }: { withEmpty?: boolean } = {},
 ): Aisle[] {
   const shaped = taxonomyShape(nodes);
   return [...shaped.values()]
@@ -150,7 +152,7 @@ export function aisleTree(
         productCount: foods.reduce((n, f) => n + f.productCount, 0),
       };
     })
-    .filter((aisle) => aisle.foods.length > 0)
+    .filter((aisle) => withEmpty || aisle.foods.length > 0)
     .sort(byPopularity)
     .map(({ id, slug, name, silent, foods }) => ({
       id,

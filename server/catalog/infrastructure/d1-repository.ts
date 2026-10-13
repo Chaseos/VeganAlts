@@ -226,15 +226,18 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(countryId, countryId),
       this.db
         .prepare(
-          // Products are counted as listed; ranked swaps are lines, and
-          // popularity (milestone 7) is the people who rated them.
-          `WITH lines AS (SELECT s.category_id AS categoryId,COUNT(*) AS ranked,SUM(s.people_count) AS people
+          // Products are counted as listed and ranked swaps are lines.
+          // Popularity (milestone 7) is the counted ratings of the current
+          // formulas, from the rating aggregates: someone who rated several
+          // flavors counts each rating here, unlike in a line's score.
+          `WITH lines AS (SELECT s.category_id AS categoryId,COUNT(*) AS ranked
             FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=?
             WHERE ${lineSampleSql} GROUP BY s.category_id)
           SELECT pc.category_id AS categoryId,COUNT(DISTINCT p.id) AS productCount,
-            COALESCE(MAX(l.ranked),0) AS rankedCount,COALESCE(MAX(l.people),0) AS ratingCount
+            COALESCE(MAX(l.ranked),0) AS rankedCount,COALESCE(SUM(st.rating_count),0) AS ratingCount
           FROM product_categories pc JOIN products p ON p.id=pc.product_id AND p.country_id=? AND ${visible}
           JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
+          LEFT JOIN product_category_stats st ON st.product_version_id=v.id AND st.category_id=pc.category_id
           LEFT JOIN lines l ON l.categoryId=pc.category_id
           GROUP BY pc.category_id`,
         )

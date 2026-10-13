@@ -171,12 +171,8 @@ export class CatalogService {
         404,
       );
     const taxonomy = await this.repository.taxonomy(found.market.id);
-    const counts = new Map(
-      taxonomy.counts.map((row) => [
-        row.categoryId,
-        { productCount: row.productCount, rankedCount: row.rankedCount },
-      ]),
-    );
+    // Rating counts included: the header and footer use popularity order.
+    const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
     return {
       market: found.market,
       countries: markets.map((row): MarketSummary => ({
@@ -207,14 +203,13 @@ export class CatalogService {
   }
 
   // Every aisle, including aisles without foods yet, for choosing where a
-  // suggested food belongs, in the default store order.
+  // suggested food belongs, in the site's popularity order.
   async aisles(market: Market) {
     const taxonomy = await this.repository.taxonomy(market.id);
-    return [...taxonomyShape(taxonomy.categories).values()]
-      .filter((node) => node.depth === 1 && !node.isRankable)
-      .map((aisle) => ({ ...aisle, ratingCount: 0, productCount: 0 }))
-      .sort(byPopularity)
-      .map((aisle) => ({ id: aisle.id, slug: aisle.slug, name: aisle.name }));
+    const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
+    return aisleTree(taxonomy.categories, counts, { withEmpty: true }).map(
+      (aisle) => ({ id: aisle.id, slug: aisle.slug, name: aisle.name }),
+    );
   }
 
   /**
