@@ -7,6 +7,7 @@ import { RatingsService } from "../../server/ratings/application/service";
 import { D1RatingsRepository } from "../../server/ratings/infrastructure/d1-repository";
 import { INITIAL_SCORING } from "../../server/ranking/domain/policy";
 import { rebuildSearchIndex } from "../../server/catalog/infrastructure/search-index";
+import { brandResponse } from "../../server/catalog/http/brand-response";
 
 const db = env.DB;
 const catalog = new CatalogService(new D1CatalogRepository(db));
@@ -320,6 +321,14 @@ it("finds brands loosely and lists a brand's lines by aisle and food", async () 
   });
   expect(brand.aisles).toHaveLength(1);
   const food = brand.aisles[0]!.foods[0]!;
+  expect(food.lines[0]).toMatchObject({
+    people: 3,
+    tastiestPeople: 1,
+    rankedFlavorCount: 3,
+  });
+  const response = brandResponse(brand).aisles[0]!.foods[0]!.lines[0]!;
+  expect(response).not.toHaveProperty("tastiestPeople");
+  expect(response).not.toHaveProperty("rankedFlavorCount");
   expect(
     food.lines.map((line) => [line.name, line.closestRank, line.tastiestRank]),
   ).toEqual([

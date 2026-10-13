@@ -189,7 +189,9 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
     // it is waits for how close.
     const tasty = page.getByRole("button", { name: "5 Delicious (5 of 5)" });
     await expect(tasty).toBeDisabled();
-    await page.getByRole("button", { name: "4 Very close (4 of 5)" }).click();
+    await page
+      .getByRole("button", { name: "4 Very close (4 of 5)", exact: true })
+      .click();
     await tasty.click();
     await page.waitForTimeout(100);
     // A reload keeps the picked photo too (phones often reload after the
@@ -210,7 +212,7 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
     await page.getByRole("button", { name: "Continue" }).click();
     // Extras: the ratings and a store, saved once the product is live.
     await expect(
-      page.getByRole("button", { name: "4 Very close (4 of 5)" }),
+      page.getByRole("button", { name: "4 Very close (4 of 5)", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
     await openOptional(page, "Where it’s sold");
     await page.getByText(store.name, { exact: true }).click();
@@ -325,7 +327,9 @@ test("suggests a missing food inline and publishes the product once a moderator 
     await expect(page.getByRole("main")).toContainText(
       `${food} (new food, reviewed with your product)`,
     );
-    await page.getByRole("button", { name: "4 Very close (4 of 5)" }).click();
+    await page
+      .getByRole("button", { name: "4 Very close (4 of 5)", exact: true })
+      .click();
     await page
       .getByRole("button", { name: "Submit product", exact: true })
       .click();
@@ -369,5 +373,42 @@ test("suggests a missing food inline and publishes the product once a moderator 
     await page.close();
     await contributor.dispose();
     await operator.dispose();
+  }
+});
+
+test("a failed brand lookup offers a retry, never a new brand", async ({
+  page,
+  context,
+}) => {
+  const session = await createBrowserSession();
+  try {
+    await context.addCookies([session.cookie]);
+    await page.goto("/add-product?country=us");
+    await chooseFood(page, "Ground Beef");
+    // While lookups fail, a misspelled listed brand is never offered as new:
+    // the server would only match its exact name.
+    let failing = true;
+    await page.route(
+      (url) => url.pathname.endsWith("/community/brands"),
+      (route) => (failing ? route.abort() : route.continue()),
+    );
+    await page
+      .getByRole("combobox", { name: "Brand (required)" })
+      .fill("Impossibl");
+    const retry = page.getByRole("button", { name: "Try again" });
+    await expect(retry).toBeVisible();
+    await expect(page.getByRole("option", { name: /new brand/ })).toHaveCount(
+      0,
+    );
+    await accessible(page);
+    failing = false;
+    await retry.click();
+    await expect(
+      page.getByRole("option", { name: /^Impossible Foods/ }),
+    ).toBeVisible();
+    await expect(retry).toHaveCount(0);
+  } finally {
+    await page.close();
+    await session.dispose();
   }
 });

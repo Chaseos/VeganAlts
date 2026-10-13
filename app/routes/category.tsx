@@ -46,7 +46,7 @@ import {
   FreeFromChecklist,
   SortMenu,
   StoreChecklist,
-  resultCount,
+  RankingResultCount,
 } from "../components/catalog/ranking-filters";
 import {
   filteredHref,
@@ -459,6 +459,7 @@ function FoodRankingList({ data }: { data: FoodData }) {
             <SortMenu options={sorts} current={data.view} />
             <StoreChecklist
               country={code}
+              countryName={data.market.name}
               stores={data.storeOptions}
               filters={data.filters}
             />
@@ -469,16 +470,12 @@ function FoodRankingList({ data }: { data: FoodData }) {
                 filters={data.filters}
               />
             )}
-            <span className="va-filter-bar__count">
-              {resultCount(data.shownCount, data.summary.rankedCount, filtered)}
-            </span>
+            <RankingResultCount
+              shown={data.shownCount}
+              total={data.summary.rankedCount}
+              filtered={filtered}
+            />
           </div>
-          <p className="va-filter-note">
-            Your stores and filters are saved on this device and apply to every
-            ranking. A product shows if it’s commonly found at any of your
-            stores. Stores listed are the ones members report in{" "}
-            {data.market.name}.
-          </p>
           {data.filters.freeFrom.length > 0 && (
             <CheckThePackage>
               Allergens come from package labels, confirmed by members against

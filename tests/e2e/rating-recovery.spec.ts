@@ -26,16 +26,21 @@ test("reauthentication saves the latest score selected during an expired in-flig
     });
     await page.route("**/api/v1/ratings", (route) => receiveRequest(route));
     await page
-      .getByRole("button", { name: "2 Slightly similar (2 of 5)" })
+      .getByRole("button", { name: "2 Slightly similar (2 of 5)", exact: true })
       .click();
     const inFlight = await firstRequest;
     expect(inFlight.request().postDataJSON().overallSimilarity).toBe(2);
-    await page.getByRole("button", { name: "3 Fairly close (3 of 5)" }).click();
     await page
-      .getByRole("button", { name: "5 Extremely close (5 of 5)" })
+      .getByRole("button", { name: "3 Fairly close (3 of 5)", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "5 Extremely close (5 of 5)", exact: true })
       .click();
     await expect(
-      page.getByRole("button", { name: "5 Extremely close (5 of 5)" }),
+      page.getByRole("button", {
+        name: "5 Extremely close (5 of 5)",
+        exact: true,
+      }),
     ).toHaveAttribute("aria-pressed", "true");
     await context.clearCookies();
     await inFlight.fulfill({
@@ -79,7 +84,7 @@ test("session loss and a cancelled sign-in retain the score for a later successf
     await expectSignedIn(page);
     await context.clearCookies();
     await page
-      .getByRole("button", { name: "2 Slightly similar (2 of 5)" })
+      .getByRole("button", { name: "2 Slightly similar (2 of 5)", exact: true })
       .click();
     await expect(page).toHaveURL(/\/sign-in\?returnTo=/);
     const returnTo = new URL(page.url()).searchParams.get("returnTo")!;
@@ -126,7 +131,9 @@ test("a formula conflict after sign-in requires a fresh selection", async ({
   const session = await createBrowserSession();
   try {
     await page.goto("/us/products/beyond-burger");
-    await page.getByRole("button", { name: "3 Fairly close (3 of 5)" }).click();
+    await page
+      .getByRole("button", { name: "3 Fairly close (3 of 5)", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/sign-in\?returnTo=/);
     const returnTo = new URL(page.url()).searchParams.get("returnTo")!;
     await context.addCookies([session.cookie]);
@@ -145,7 +152,10 @@ test("a formula conflict after sign-in requires a fresh selection", async ({
       page.getByRole("complementary", { name: "Your pending rating" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "3 Fairly close (3 of 5)" }),
+      page.getByRole("button", {
+        name: "3 Fairly close (3 of 5)",
+        exact: true,
+      }),
     ).toBeDisabled();
     const saved = await page.request.get("/api/v1/me/ratings");
     expect((await saved.json()).data).toEqual([]);
@@ -156,12 +166,14 @@ test("a formula conflict after sign-in requires a fresh selection", async ({
       })
       .click();
     await expect(
-      page.getByRole("button", { name: "4 Very close (4 of 5)" }),
+      page.getByRole("button", { name: "4 Very close (4 of 5)", exact: true }),
     ).toBeEnabled();
     await expect(
       page.getByRole("complementary", { name: "Your pending rating" }),
     ).toHaveCount(0);
-    await page.getByRole("button", { name: "4 Very close (4 of 5)" }).click();
+    await page
+      .getByRole("button", { name: "4 Very close (4 of 5)", exact: true })
+      .click();
     await expect(
       page.getByRole("status").filter({ hasText: "Saved 4/5" }),
     ).toBeVisible();
@@ -200,7 +212,7 @@ test("rate limits and an unavailable security check preserve a recoverable selec
       }),
     );
     await page
-      .getByRole("button", { name: "2 Slightly similar (2 of 5)" })
+      .getByRole("button", { name: "2 Slightly similar (2 of 5)", exact: true })
       .click();
     await expect(
       page.getByRole("status").filter({ hasText: "Please wait a minute" }),
@@ -214,7 +226,9 @@ test("rate limits and an unavailable security check preserve a recoverable selec
     );
     await expect(retry).toBeDisabled();
     await page.unroute("**/api/v1/ratings");
-    await page.getByRole("button", { name: "4 Very close (4 of 5)" }).click();
+    await page
+      .getByRole("button", { name: "4 Very close (4 of 5)", exact: true })
+      .click();
     await expect(
       page.getByRole("status").filter({ hasText: "Saved 4/5" }),
     ).toBeVisible();

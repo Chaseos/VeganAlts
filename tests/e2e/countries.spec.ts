@@ -187,7 +187,10 @@ test("a product added from Ireland is published, rated and ranked in Ireland onl
       .getByRole("link", { name: /Be the first to rate/ })
       .click();
     await expect(page).toHaveURL(/\/ie\/products\/.+\?food=beef-burgers/);
-    const four = page.getByRole("button", { name: "4 Very close (4 of 5)" });
+    const four = page.getByRole("button", {
+      name: "4 Very close (4 of 5)",
+      exact: true,
+    });
     await expect(four).toBeEnabled();
     await four.click();
     await expect(

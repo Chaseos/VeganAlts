@@ -356,6 +356,14 @@
   text-align: right;
 }
 
+.va-flavors__rate {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
 .va-flavors__hidden {
   margin: 6px 0 4px;
 }
@@ -577,6 +585,27 @@
   align-items: center;
   gap: 12px;
   padding: 10px 0;
+  flex-wrap: wrap;
+}
+
+.va-brand__scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+
+.va-brand__score {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: 4px;
+  font-size: 14px;
+}
+
+@media (max-width: 759px) {
+  .va-brand__line > .va-row-link__text {
+    flex-basis: 100%;
+  }
 }
 
 .va-brand__flavors {

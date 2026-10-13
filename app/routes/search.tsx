@@ -172,12 +172,17 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
                           {[
                             product.brand,
                             product.rank
-                              ? `#${product.rank} for ${product.food.name.toLowerCase()}`
+                              ? `Closest #${product.rank} for ${product.food.name.toLowerCase()}`
                               : `Not ranked yet for ${product.food.name.toLowerCase()}`,
                           ]
                             .filter(Boolean)
                             .join(" · ")}
                         </span>
+                        {product.rank !== null && (
+                          <span className="va-small va-muted">
+                            Score includes this recipe’s flavors
+                          </span>
+                        )}
                       </span>
                       {product.early && <Badge tone="early">Early</Badge>}
                       {product.rank !== null && product.score !== null && (

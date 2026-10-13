@@ -1,6 +1,9 @@
 // Line icons on a 24-unit grid. They inherit color from text, so CSS decides
 // whether they read as tag yellow on kale or green on the page.
 export const UI_ICONS = {
+  // Lucide camera; see THIRD_PARTY.md for artwork and license.
+  camera:
+    "M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z",
   search: "M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13zM20 20l-4.7-4.7",
   chevronDown: "M6 9l6 6 6-6",
   chevronUp: "M18 15l-6-6-6 6",
@@ -34,11 +37,13 @@ export function PathIcon({
   size = 20,
   strokeWidth = 2,
   className,
+  children,
 }: {
-  path: string;
+  path: string | readonly string[];
   size?: number;
   strokeWidth?: number;
   className?: string;
+  children?: React.ReactNode;
 }) {
   return (
     <svg
@@ -54,7 +59,12 @@ export function PathIcon({
       aria-hidden="true"
       focusable="false"
     >
-      <path d={path} />
+      {typeof path === "string" ? (
+        <path d={path} />
+      ) : (
+        path.map((d, i) => <path key={i} d={d} />)
+      )}
+      {children}
     </svg>
   );
 }
@@ -68,5 +78,9 @@ export function Icon({
   strokeWidth?: number;
   className?: string;
 }) {
-  return <PathIcon path={UI_ICONS[name]} {...props} />;
+  return (
+    <PathIcon path={UI_ICONS[name]} {...props}>
+      {name === "camera" && <circle cx="12" cy="13" r="3" />}
+    </PathIcon>
+  );
 }

@@ -217,3 +217,28 @@ Agreed on 2026-10-11 and 2026-10-12 for the [milestone 7 specification](MILESTON
 2. **Brand.** A brand combobox follows, styled like instant search, with product counts and "Add '[name]' as a new brand" as its last option.
 3. **"Already listed from [brand]".** A divided list of lines and flavors with **That's it, rate it**, **Add a new flavor of [line]** and **Something else from [brand]**.
 4. **Product fields.** These follow for the chosen path.
+
+## 12. UI refinements after the milestone 7 audit
+
+Approved on 2026-10-12. These refine presentation and navigation while retaining the visual identity, rating calculations, API payloads and authentication providers.
+
+- **One score control.** Similarity, tastiness and every detail question use the same row of five numbered buttons and selected state. Each question retains its meanings: Not close–Extremely close for similarity and details, Not for me–Delicious for tastiness. Phones and compact product editors show endpoint labels; wider contribution forms show each meaning. Optional answers clear on a second tap. Product ratings still save immediately; Add a product saves its answers only after publication.
+- **Rating context.** Every rating form names the product and its flavor. A multi-flavor “I’ve tried it” or “Be the first to rate” shortcut opens the existing flavor disclosure, with a rating link for each flavor. Single-product shortcuts remain direct. Escape closes the flavor list and restores focus to its summary.
+- **Sign-in.** Google and Apple use official, locally hosted artwork with their approved treatments. Both buttons are full width and 48px tall, with colors suited to each theme. The native authentication forms remain. Successful sign-in resumes the intended task; Continue browsing retains a public return page or uses the task’s country home, falling back to `/`.
+- **Phone hierarchy.** Closed sort, store and Free-from controls wrap as compact chips. Open panels hold the detailed explanations and expand to the available width. The product identity and primary score precede the gallery; the initial phone photo is 220px tall, with its full-size link and all canonical slots retained.
+- **Score context.** Brand and product pages label Closest and Tastiest separately and show each metric’s own people count. Combined scores say “Across N flavors”; a product’s own scores say “This flavor.” Search identifies a product’s Closest rank and explains that its score includes the recipe’s flavors. Counts come from the existing aggregates, never by summing flavor counts or querying raw ratings on a page view.
+- **Phone country selection.** The header shows the country code with the full country name as its accessible label. The country popover supports the same keyboard dismissal and focus restoration as desktop. In the phone menu, Country and Account precede Aisles, followed by Appearance.
+
+Provider sources and asset provenance are recorded in `app/assets/auth/README.md`. Screenshots remain in the ignored `test-results/captures` directory.
+
+
+## 13. Product detail and visual refinements
+
+Requested on 2026-10-13, extending the audit refinements above.
+
+- **Product overview.** On desktop the gallery sits beside the identity, two scores, main rating action, store controls and flavor choices. The editor lives below the overview, alongside the rating breakdown, with community notes beneath it. Product facts, ingredient evidence, availability and formula history use aligned headings and dividers. Alternative swaps follow the product's own information. Native section links preserve direct access and searchable page content.
+- **Compact ratings.** Closest and Tastiest remain five numbered buttons with the same interactions. The product editor uses 48px targets, endpoint labels and two question columns where space allows. Optional detail questions and “last ate” open from a native disclosure after choosing an overall score. The summary indicates existing answers; closing it never clears them. Immediate saving, clearing optional answers, sign-in recovery and contribution submission timing are unchanged.
+- **Score styling.** Closest keeps its yellow score label. Tastiest uses the same type hierarchy and a mint treatment from the existing success palette, including on brand pages and flavor scores. Every score keeps its label, rank where applicable and its own people count. The breakdown explicitly describes this flavor, independently of the combined recipe-line standing.
+- **Photos.** Existing photos appear as real thumbnail selectors with native radio keyboard behavior and a visible focus ring. Missing slots use a camera indicator and their type label; the selected empty view links to adding that specific slot. The five canonical slots, full-size/evidence links, replacement proposals and reporting remain. “Add or improve photos” expands compact contribution tools beside the gallery. Switching products resets the selected photo to the first available image.
+- **Result counts.** Ranking totals and filter matches have a compact numeric badge beside their descriptive text. Zero remains an honest empty result, with the existing filter recovery actions.
+- **Food icons.** Chicken, turkey, yogurt and ice cream use clearer library artwork in the existing rounded stroke style. Yogurt and ice cream have distinct symbols. Source links and licenses live in `app/components/icons/THIRD_PARTY.md`.

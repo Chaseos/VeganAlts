@@ -922,6 +922,7 @@ export class D1CatalogRepository implements CatalogRepository {
           SELECT pl.categoryId,pl.lineId,CASE WHEN pl.flavorCount>1 THEN fam.canonical_name ELSE pl.onlyName END AS name,
             r.closestRank,CASE WHEN ${lineSampleSql} THEN s.bayesian_score END AS closestScore,COALESCE(s.people_count,0) AS people,
             t.tastiestRank,s.enjoyment_score AS tastiestScore,
+            COALESCE(s.enjoyment_people,0) AS tastiestPeople,${flavorCountSql} AS rankedFlavorCount,
             (SELECT json_group_array(json_object('id',lf.id,'slug',lf.slug,'name',lf.name,'flavor',lf.flavor))
               FROM (SELECT lf.id,lf.slug,lf.name,lf.flavor FROM products lf
                 JOIN product_categories lfc ON lfc.product_id=lf.id AND lfc.category_id=pl.categoryId

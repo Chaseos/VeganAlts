@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { useId } from "react";
 import type { AllergenDeclaration } from "@server/community/domain/allergens";
 import type { StoreOption } from "@server/catalog/domain/contracts";
 import type { DetailScore } from "@server/catalog/domain/ranking-view";
@@ -122,6 +123,7 @@ export function FlavorList({
   food,
   line,
   labels,
+  id,
 }: {
   country: string;
   food: string;
@@ -130,15 +132,26 @@ export function FlavorList({
     "flavors" | "hiddenFlavorCount" | "flavorCount" | "name"
   >;
   labels: Labels;
+  id?: string;
 }) {
   if (line.flavorCount < 2) return null;
   return (
-    <details className="va-flavors">
+    <details
+      className="va-flavors"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && event.currentTarget.open) {
+          event.stopPropagation();
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector("summary")?.focus();
+        }
+      }}
+    >
       <summary>
         {plural(line.flavorCount, "flavor")}
         <span className="sr-only"> of {line.name}</span>
       </summary>
-      <ul className="va-flavors__list">
+      {/* A fragment inside the disclosure reveals it even before hydration. */}
+      <ul className="va-flavors__list" id={id}>
         {line.flavors.map((flavor) => {
           const allergens = allergenSummary(flavor.allergens, labels);
           return (
@@ -169,6 +182,13 @@ export function FlavorList({
                   <span className="va-small va-muted">Too few ratings yet</span>
                 )}
               </span>
+              <Link
+                className="va-link va-flavors__rate"
+                to={`${productPath(country, flavor.slug, food)}#scores-title`}
+                aria-label={`Rate it: ${flavor.name}${flavor.flavor ? ` · ${flavor.flavor}` : ""}`}
+              >
+                Rate it
+              </Link>
             </li>
           );
         })}
@@ -182,6 +202,16 @@ export function FlavorList({
       )}
     </details>
   );
+}
+
+/** With several flavors, keep the choice here instead of choosing the lead. */
+function openFlavors(event: React.MouseEvent<HTMLAnchorElement>, id: string) {
+  const disclosure = document.getElementById(id)?.closest("details");
+  if (!(disclosure instanceof HTMLDetailsElement)) return;
+  event.preventDefault();
+  disclosure.open = true;
+  disclosure.querySelector("summary")?.focus();
+  disclosure.scrollIntoView({ block: "nearest" });
 }
 
 function LineChips({
@@ -232,6 +262,7 @@ export function FeaturedSwap({
 }) {
   const href = productPath(country, line.leadProduct.slug, food);
   const titleId = `featured-${line.lineId}`;
+  const flavorsId = useId();
   return (
     <article className="va-featured" aria-labelledby={titleId}>
       <span className="va-featured__flag">
@@ -262,12 +293,28 @@ export function FeaturedSwap({
           )}
         </div>
         <DetailBars details={line.details} />
-        <FlavorList country={country} food={food} line={line} labels={labels} />
+        <FlavorList
+          id={flavorsId}
+          country={country}
+          food={food}
+          line={line}
+          labels={labels}
+        />
         <div className="button-row">
           <ButtonLink to={href}>View product</ButtonLink>
-          <ButtonLink variant="secondary" to={`${href}#scores-title`}>
-            I’ve tried it
-          </ButtonLink>
+          {line.flavorCount > 1 ? (
+            <a
+              className="button secondary"
+              href={`#${flavorsId}`}
+              onClick={(event) => openFlavors(event, flavorsId)}
+            >
+              I’ve tried it
+            </a>
+          ) : (
+            <ButtonLink variant="secondary" to={`${href}#scores-title`}>
+              I’ve tried it
+            </ButtonLink>
+          )}
         </div>
       </div>
     </article>
@@ -387,6 +434,7 @@ export function UnratedRow({
 }) {
   const allergens = allergenSummary(line.allergens, labels);
   const href = productPath(country, line.leadProduct.slug, food);
+  const flavorsId = useId();
   return (
     <li className="va-unrated">
       <span className="va-unrated__main">
@@ -407,11 +455,25 @@ export function UnratedRow({
             </>
           )}
         </span>
-        <FlavorList country={country} food={food} line={line} labels={labels} />
+        <FlavorList
+          id={flavorsId}
+          country={country}
+          food={food}
+          line={line}
+          labels={labels}
+        />
       </span>
-      <ButtonLink variant="secondary" small to={`${href}#scores-title`}>
+      <a
+        className="button secondary small-button"
+        href={line.flavorCount > 1 ? `#${flavorsId}` : `${href}#scores-title`}
+        onClick={
+          line.flavorCount > 1
+            ? (event) => openFlavors(event, flavorsId)
+            : undefined
+        }
+      >
         Be the first to rate<span className="sr-only">: {line.name}</span>
-      </ButtonLink>
+      </a>
     </li>
   );
 }

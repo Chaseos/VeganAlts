@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { Link } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { flavorLabel } from "@server/catalog/domain/flavor-label";
+import { isEarly } from "@server/ranking/domain/display";
 import {
   publicLoader,
   requireCatalogPreview,
@@ -19,7 +20,7 @@ import { ButtonLink } from "../components/ui/button";
 import { ScoreLabel } from "../components/ui/score";
 import { EarlyBadge } from "../components/ui/badges";
 import { FoodIcon } from "../components/icons/food-icons";
-import { formatScore, plural } from "../lib/format";
+import { plural } from "../lib/format";
 import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/brand";
 
@@ -115,21 +116,15 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
                           <span className="va-row-link__title">
                             {line.name}
                           </span>
-                          <span className="va-small va-muted">
-                            {line.closestRank !== null
-                              ? [
-                                  `Closest #${line.closestRank}`,
-                                  line.tastiestRank !== null &&
-                                  line.tastiestScore !== null
-                                    ? `Tastiest #${line.tastiestRank} · ${formatScore(line.tastiestScore)}`
-                                    : null,
-                                  plural(line.people, "person", "people"),
-                                ]
-                                  .filter(Boolean)
-                                  .join(" · ")
-                              : "Not rated yet"}
-                          </span>
-                          {line.early && <EarlyBadge count={line.people} />}
+                          {line.closestRank !== null && (
+                            <span className="va-small va-muted">
+                              {line.rankedFlavorCount > 1
+                                ? `Across ${line.rankedFlavorCount} flavors`
+                                : line.flavors.length === 1
+                                  ? "This flavor"
+                                  : "1 ranked flavor"}
+                            </span>
+                          )}
                           <span className="va-brand__flavors">
                             {line.flavors.map((flavor, index) => (
                               <span key={flavor.id}>
@@ -144,13 +139,52 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
                             ))}
                           </span>
                         </span>
-                        {line.closestScore !== null && (
-                          <ScoreLabel
-                            value={line.closestScore}
-                            size="compact"
-                            tone={line.closestRank === 1 ? "tag" : "neutral"}
-                          />
-                        )}
+                        <div className="va-brand__scores">
+                          {[
+                            {
+                              label: "Closest",
+                              rank: line.closestRank,
+                              score: line.closestScore,
+                              people: line.people,
+                            },
+                            {
+                              label: "Tastiest",
+                              rank: line.tastiestRank,
+                              score: line.tastiestScore,
+                              people: line.tastiestPeople,
+                            },
+                          ].map((score) => (
+                            <div className="va-brand__score" key={score.label}>
+                              <strong>
+                                {score.label}
+                                {score.rank !== null ? ` #${score.rank}` : ""}
+                              </strong>
+                              {score.rank !== null && score.score !== null ? (
+                                <ScoreLabel
+                                  value={score.score}
+                                  size="compact"
+                                  tone={
+                                    score.label === "Tastiest"
+                                      ? "tasty"
+                                      : score.rank === 1
+                                        ? "tag"
+                                        : "neutral"
+                                  }
+                                />
+                              ) : (
+                                <span className="va-small va-muted">
+                                  Not rated yet
+                                </span>
+                              )}
+                              <span className="va-small va-muted">
+                                {plural(score.people, "person", "people")}
+                              </span>
+                              {isEarly(score.people) && (
+                                <EarlyBadge count={score.people} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </li>
                     ))}
                   </ul>

@@ -62,7 +62,9 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
     page.getByRole("heading", { level: 1, name: "Beyond Beef" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "4 Very close (4 of 5)" }).first(),
+    page
+      .getByRole("button", { name: "4 Very close (4 of 5)", exact: true })
+      .first(),
   ).toBeEnabled();
   expect(
     await page.evaluate(
@@ -84,7 +86,7 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
     page.getByText("Historical formula · Read only", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "4 Very close (4 of 5)" }),
+    page.getByRole("button", { name: "4 Very close (4 of 5)", exact: true }),
   ).toHaveCount(0);
   await page.goto("/us/bacon");
   await expect(

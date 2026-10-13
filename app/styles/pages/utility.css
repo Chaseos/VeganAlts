@@ -9,9 +9,60 @@
   gap: var(--va-space-3);
 }
 
-.va-sign-in__providers .button {
+.va-provider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   width: 100%;
-  min-height: 48px;
+  height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--va-google-line);
+  border-radius: var(--va-radius-button);
+  cursor: pointer;
+}
+
+.va-provider--google {
+  font:
+    500 14px/20px "Google Sans",
+    Arial,
+    sans-serif;
+  background: var(--va-google-bg);
+  color: var(--va-google-text);
+}
+
+.va-provider__google-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.va-provider--apple {
+  border-color: var(--va-apple-bg);
+  background: var(--va-apple-bg);
+}
+
+.va-provider--apple img {
+  max-width: 100%;
+  height: 46px;
+  object-fit: contain;
+}
+
+.va-provider__apple-light {
+  display: var(--va-apple-light);
+}
+
+.va-provider__apple-dark {
+  display: var(--va-apple-dark);
+}
+
+.va-provider:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.va-provider:enabled:hover {
+  box-shadow: inset 0 0 0 2px var(--va-google-line);
 }
 
 .va-sign-in__terms {

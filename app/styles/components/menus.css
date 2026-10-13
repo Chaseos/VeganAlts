@@ -347,3 +347,27 @@
     font-size: 28px;
   }
 }
+
+@media (max-width: 759px) {
+  .va-country-menu {
+    position: static;
+  }
+
+  .va-country-menu > summary,
+  .va-country-button {
+    justify-content: center;
+    min-width: 44px;
+    padding: 0 8px;
+  }
+
+  .va-country-menu > .va-popover__panel {
+    position: absolute;
+    z-index: 40;
+    top: 100%;
+    left: var(--va-gutter);
+    right: var(--va-gutter);
+    max-height: 70dvh;
+    overflow-y: auto;
+    box-shadow: var(--va-shadow);
+  }
+}

@@ -62,6 +62,7 @@ const TEXT: [string, string][] = [
   ["--va-good", "--va-good-bg"],
   ["--va-warn", "--va-warn-bg"],
   ["--va-ink", "--va-warn-bg"],
+  ["--va-google-text", "--va-google-bg"],
 ];
 
 const NON_TEXT: [string, string][] = [

@@ -35,3 +35,11 @@
   descent-override: 21.28%;
   line-gap-override: 0%;
 }
+/* The Google sign-in treatment uses the provider's specified typeface. */
+@font-face {
+  font-family: "Google Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/auth/google-sans-medium.ttf") format("truetype");
+}

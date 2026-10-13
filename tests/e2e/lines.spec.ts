@@ -14,7 +14,8 @@ test("a recipe line lists its flavors, and its brand has a page", async ({
   const flavors = page.locator(".va-flavors").first();
   await expect(flavors.locator("summary")).toContainText("2 flavors");
   await flavors.locator("summary").click();
-  await expect(flavors.getByRole("link")).toHaveCount(2);
+  await expect(flavors.locator(".va-flavors__name")).toHaveCount(2);
+  await expect(flavors.getByRole("link", { name: /^Rate it:/ })).toHaveCount(2);
   await accessible(page);
 
   // Instant answers find the brand from part of its name.

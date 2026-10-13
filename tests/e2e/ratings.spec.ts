@@ -28,7 +28,7 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
         saves.push(request.postDataJSON().overallSimilarity);
     });
     await page
-      .getByRole("button", { name: "4 Very close (4 of 5)" })
+      .getByRole("button", { name: "4 Very close (4 of 5)", exact: true })
       .first()
       .click();
     await expect(page).toHaveURL(/\/sign-in\?returnTo=/);
@@ -44,7 +44,9 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
     expect(saves).toEqual([4]);
     await page.reload();
     await expect(
-      page.getByRole("button", { name: "4 Very close (4 of 5)" }).first(),
+      page
+        .getByRole("button", { name: "4 Very close (4 of 5)", exact: true })
+        .first(),
     ).toHaveAttribute("aria-pressed", "true");
     expect(saves).toEqual([4]);
     await openAccountLink(page, "My ratings");
@@ -54,7 +56,7 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
     await expect(page.getByText("As beef burgers ·")).toBeVisible();
     await page.getByRole("link", { name: "Edit rating", exact: true }).click();
     await page
-      .getByRole("button", { name: "5 Extremely close (5 of 5)" })
+      .getByRole("button", { name: "5 Extremely close (5 of 5)", exact: true })
       .first()
       .click();
     await expect(
@@ -104,10 +106,10 @@ test("rapid changes, a lost response and retry preserve one authoritative rating
       page.getByRole("status").filter({ hasText: "Saved 1/5" }),
     ).toBeVisible();
     await page
-      .getByRole("button", { name: "2 Slightly similar (2 of 5)" })
+      .getByRole("button", { name: "2 Slightly similar (2 of 5)", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "5 Extremely close (5 of 5)" })
+      .getByRole("button", { name: "5 Extremely close (5 of 5)", exact: true })
       .click();
     await expect(
       page.getByRole("status").filter({ hasText: "Saved 5/5" }),
@@ -146,13 +148,33 @@ test("detail answers and last ate save on tap, clear on a second tap and survive
     const status = form.getByRole("status");
     // Optional questions appear only once the overall score is chosen.
     await expect(form.getByRole("group", { name: "Juiciness" })).toHaveCount(0);
-    await form.getByRole("button", { name: "3 Fairly close (3 of 5)" }).click();
+    await form
+      .getByRole("button", { name: "3 Fairly close (3 of 5)", exact: true })
+      .click();
     await expect(status).toHaveText("Saved 3/5. You’ve tried this formula.");
-    await form.getByRole("button", { name: "Taste 4 of 5" }).click();
+    const details = form.locator(".va-rate__more");
+    await expect(details).not.toHaveAttribute("open", "");
+    await details.locator("summary").press("Enter");
+    await expect(details).toHaveAttribute("open", "");
+    for (const scale of await form.locator(".va-numbered-scale").all())
+      await expect(scale.locator(".va-rate__number")).toHaveText([
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+      ]);
+    await form
+      .getByRole("button", { name: "Taste: 4 Very close (4 of 5)" })
+      .click();
     await expect(status).toContainText("Saved 3/5 with 1 detail");
-    await form.getByRole("button", { name: "Juiciness 5 of 5" }).click();
+    await form
+      .getByRole("button", { name: "Juiciness: 5 Extremely close (5 of 5)" })
+      .click();
     await expect(status).toContainText("with 2 details");
-    await form.getByRole("button", { name: "Taste 4 of 5" }).click();
+    await form
+      .getByRole("button", { name: "Taste: 4 Very close (4 of 5)" })
+      .click();
     await expect(status).toContainText("with 1 detail");
     await form.getByRole("button", { name: "This month" }).click();
     await expect(
@@ -172,15 +194,21 @@ test("detail answers and last ate save on tap, clear on a second tap and survive
       conventionalRecency: "within_month",
       enjoyment: 5,
     });
-    await accessible(page);
+    await accessible(page, { extraRules: true });
 
     await page.reload();
     const again = page.getByRole("region", { name: "Rate it as beef burgers" });
+    await expect(again.locator(".va-rate__more summary")).toContainText(
+      "your answers",
+    );
+    await again.locator(".va-rate__more summary").click();
     await expect(
-      again.getByRole("button", { name: "Juiciness 5 of 5" }),
+      again.getByRole("button", {
+        name: "Juiciness: 5 Extremely close (5 of 5)",
+      }),
     ).toHaveAttribute("aria-pressed", "true");
     await expect(
-      again.getByRole("button", { name: "Taste 4 of 5" }),
+      again.getByRole("button", { name: "Taste: 4 Very close (4 of 5)" }),
     ).toHaveAttribute("aria-pressed", "false");
     await expect(
       again.getByRole("button", { name: "This month" }),

@@ -74,21 +74,41 @@ export function CountryMenu() {
   const { country, countries } = useSiteChrome();
   const summary = (
     <>
-      <Icon name="globe" size={18} strokeWidth={1.8} className="va-tag-icon" />
-      <span>{country.name}</span>
+      <Icon
+        name="globe"
+        size={18}
+        strokeWidth={1.8}
+        className="va-tag-icon va-desktop-only"
+      />
+      <span className="va-desktop-only">{country.name}</span>
+      <span className="va-phone-only" aria-hidden="true">
+        {country.code.toUpperCase()}
+      </span>
       {countries.length > 1 && (
-        <Icon name="chevronDown" size={12} strokeWidth={3} />
+        <Icon
+          name="chevronDown"
+          size={12}
+          strokeWidth={3}
+          className="va-desktop-only"
+        />
       )}
     </>
   );
   if (countries.length <= 1)
-    return <span className="va-country-button">{summary}</span>;
+    return (
+      <span className="va-country-button">
+        {summary}
+        <span className="sr-only va-phone-only">
+          Country: {country.name} ({country.code.toUpperCase()})
+        </span>
+      </span>
+    );
   return (
     <Popover
       align="end"
       tone="kale"
       className="va-country-menu"
-      summaryLabel={`Country: ${country.name}. Change country`}
+      summaryLabel={`Country: ${country.name} (${country.code.toUpperCase()}). Change country`}
       panelLabel="Choose a country"
       summary={summary}
     >

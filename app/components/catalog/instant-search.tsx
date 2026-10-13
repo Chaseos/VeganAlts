@@ -333,9 +333,14 @@ function ProductOption({ product }: { product: SuggestedProduct }) {
         <span className="va-instant__name">{product.name}</span>
         <span className="va-instant__meta">
           {product.rank
-            ? `#${product.rank} for ${product.food.name.toLowerCase()}`
+            ? `Closest #${product.rank} for ${product.food.name.toLowerCase()}`
             : `Not ranked yet for ${product.food.name.toLowerCase()}`}
         </span>
+        {product.rank !== null && (
+          <span className="va-instant__meta">
+            Score includes this recipe’s flavors
+          </span>
+        )}
       </span>
       {product.score !== null && product.rank !== null && (
         <ScoreLabel value={product.score} size="mini" tone="neutral" />

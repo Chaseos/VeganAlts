@@ -238,6 +238,8 @@ export interface BrandLineRow {
   people: number;
   tastiestRank: number | null;
   tastiestScore: number | null;
+  tastiestPeople: number;
+  rankedFlavorCount: number;
   flavors: { id: string; slug: string; name: string; flavor: string | null }[];
 }
 

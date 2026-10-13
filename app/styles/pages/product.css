@@ -1,4 +1,4 @@
-/* A product page about one food (canvas: Product5, PProduct5). */
+/* Product overview, ratings and product information are separate page sections. */
 .va-product {
   display: flex;
   flex-direction: column;
@@ -6,175 +6,300 @@
 }
 
 .va-product__top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 24px 48px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 20px 40px;
 }
 
-.va-product__photos {
-  display: flex;
-  flex: 0 1 420px;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-  max-width: 420px;
-}
-
+.va-product__photos,
 .va-product__summary {
   display: flex;
-  flex: 999 1 480px;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   min-width: 0;
 }
 
 .va-product__labels {
   gap: 8px 10px;
+  margin: 0 0 12px;
 }
-
 .va-product__brand {
-  margin-right: 4px;
   font-size: 17px;
   font-weight: 700;
   color: var(--va-ink-2);
 }
-
 .va-product__name {
   margin: 6px 0 0;
   font-size: 36px;
   font-weight: 800;
   font-stretch: 115%;
-  line-height: 1;
+  line-height: 1.05;
   letter-spacing: -0.025em;
   overflow-wrap: anywhere;
 }
-
-/* Score card: the chosen food's score with its rank flag. */
-.va-score-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  margin-top: 8px;
-  padding: 24px 18px 18px;
-  border: 1px solid var(--va-line);
-  border-radius: var(--va-radius-card-lg);
-  background: var(--va-surface);
+.va-product__flavor {
+  margin: 8px 0 0;
 }
 
+/* Equal score hierarchy, distinct metric colors; counts always stay with scores. */
+.va-score-card {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
 .va-score-card__flag {
-  position: absolute;
-  top: -12px;
-  left: 18px;
+  justify-self: start;
   text-decoration: none;
 }
 
-.va-score-card__head {
+.va-score-card__standing {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px 22px;
+  gap: 8px 14px;
 }
-
-.va-score-card__text {
-  display: flex;
-  flex: 1 1 240px;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+.va-score-card__context {
+  margin: 0;
+  font-size: 14px;
+  color: var(--va-muted);
+}
+.va-score-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.va-score-card__metric {
+  display: grid;
+  align-content: start;
+  gap: 10px;
   min-width: 0;
 }
-
-.va-score-card__text > strong {
-  font-size: 17px;
+.va-score-card__metric-title {
+  font-size: 16px;
 }
-
+.va-score-card__metric-title > span {
+  display: block;
+  font-size: 13px;
+  color: var(--va-muted);
+}
+.va-score-card__metric-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.va-score-card .va-score--large {
+  min-width: 76px;
+  padding: 8px 10px;
+}
+.va-score-card .va-score--large .va-score__value {
+  font-size: 44px;
+}
+.va-score-card__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  font-size: 13px;
+}
 .va-score-card__text > span {
   color: var(--va-ink-2);
 }
-
-.va-score-card__details {
-  padding-top: 16px;
+.va-score-card__text .va-badge {
+  font-size: 11px;
+}
+.va-score-card__unrated {
+  font-size: 15px;
+  color: var(--va-muted);
+}
+.va-score-card__flavor {
+  display: grid;
+  gap: 10px;
+  padding: 14px 0;
   border-top: 1px solid var(--va-line);
+  border-bottom: 1px solid var(--va-line);
+  font-size: 14px;
+}
+.va-score-card__flavor-scores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+}
+.va-score-card__flavor-scores > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.va-score-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
 }
 
-.va-score-card__details p {
-  margin: 10px 0 0;
-}
-
-/* The visitor's own stores, saved on the device. */
 .va-store-toggles {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-
 .va-store-toggles p {
   margin: 0;
 }
-
 .va-store-toggles__row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
-
 .va-store-toggles__row ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-
 .va-store-toggles__lead {
   margin-right: 4px;
   font-size: 15px;
   font-weight: 700;
 }
-
 .va-store-toggles .va-chip {
   min-height: 40px;
 }
-
 .va-store-toggles__yours {
   font-weight: 500;
 }
 
-.va-product__cards {
+.va-product__variants {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-  align-items: start;
-  gap: 20px;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--va-line);
 }
-
-.va-product__card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 20px;
-}
-
-.va-product__card h2,
-.va-product__card > p {
+.va-product__variants h2,
+.va-product__variants p {
   margin: 0;
 }
-
+.va-product__variants h2 {
+  font-size: 16px;
+}
+.va-product__variants .va-divided {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.va-product__variants .va-divided > li {
+  padding: 0;
+  border: 0;
+}
 .va-product__also {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-
 .va-product__also .va-row-link {
-  padding: 12px 14px;
-  border: 1.5px solid var(--va-line);
-  border-radius: 12px;
+  padding: 8px 0;
 }
-
 .va-product__also .va-row-link > svg {
   flex: none;
   color: var(--va-good);
+}
+
+/* Native anchor navigation keeps every section searchable and deep-linkable. */
+.va-product__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 24px;
+  padding: 4px 0;
+  border-top: 1px solid var(--va-line-strong);
+  border-bottom: 1px solid var(--va-line-strong);
+}
+.va-product__nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.va-product__nav a:hover {
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+.va-product
+  :is(
+    #scores-title,
+    #comments-title,
+    #facts-title,
+    #retailers,
+    #formula-history
+  ) {
+  scroll-margin-top: 24px;
+}
+.va-product__ratings {
+  display: grid;
+  gap: 28px 40px;
+  min-width: 0;
+}
+.va-product__editor {
+  min-width: 0;
+}
+.va-product__editor .va-rate {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.va-product__editor .va-rate__product {
+  color: var(--va-muted);
+  font-size: 14px;
+}
+.va-product__editor .va-rate__title,
+.va-product__editor .va-rate__tasty > legend {
+  margin-bottom: 12px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+  font-stretch: 100%;
+}
+.va-product__editor .va-numbered-scale button {
+  min-height: 48px;
+  padding: 8px 4px;
+}
+.va-product__editor .va-rate__number {
+  font-size: 24px;
+}
+.va-product__editor .va-rate__meaning {
+  display: none;
+}
+.va-product__editor .va-rate__ends {
+  display: flex;
+}
+.va-product__breakdown {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--va-line);
+}
+.va-product__breakdown h2,
+.va-product__breakdown p {
+  margin: 0;
+}
+.va-product__detail-scores {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--va-line);
+}
+.va-product__detail-scores h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.va-product__notes {
+  min-width: 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--va-line);
 }
 
 .va-product__section-head {
@@ -185,11 +310,9 @@
   gap: 8px 20px;
   margin-bottom: 14px;
 }
-
 .va-product__section-head h2 {
   margin: 0;
 }
-
 .va-product__others {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
@@ -199,63 +322,58 @@
   list-style: none;
 }
 
-/* Product facts. */
+/* Information uses aligned labels and dividers instead of a grid of cards. */
 .va-product__facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px 48px;
+  display: grid;
+  gap: 20px 40px;
   padding-top: 28px;
   border-top: 1px solid var(--va-line);
 }
-
-.va-product__facts > div {
-  flex: 0 1 280px;
-}
-
 .va-product__facts h2,
 .va-product__facts p {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
 }
-
 .va-facts {
   display: grid;
-  flex: 1 1 520px;
   grid-template-columns: minmax(0, 1fr);
   gap: 4px 16px;
   margin: 0;
   font-size: 15px;
 }
-
 .va-facts dt {
   color: var(--va-muted);
 }
-
 .va-facts dd {
   margin: 0 0 10px;
   font-weight: 600;
 }
-
 .va-facts dd .va-muted,
 .va-facts dd .va-link {
   font-weight: 500;
 }
-
 .va-product__more {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-  align-items: start;
-  gap: 20px;
+  gap: 0;
 }
-
+.va-product__section {
+  display: grid;
+  gap: 10px;
+  padding: 24px 0;
+  border-top: 1px solid var(--va-line);
+}
+.va-product__section h2,
+.va-product__section-body > p {
+  margin: 0;
+}
 .va-product__details {
-  padding: 16px 20px;
+  padding: 16px 0;
+  border-top: 1px solid var(--va-line);
 }
-
 .va-product__details summary {
   font-weight: 700;
   cursor: pointer;
+  min-height: 28px;
 }
-
 .va-product__retailer,
 .va-product__formula {
   display: flex;
@@ -266,26 +384,117 @@
 
 @media (min-width: 760px) {
   .va-product__name {
-    font-size: clamp(40px, 4vw, 56px);
+    font-size: clamp(36px, 3.6vw, 48px);
   }
-
-  .va-score-card {
-    padding: 26px 24px 22px;
+  .va-product__top {
+    grid-template-columns: minmax(240px, 38%) minmax(0, 1fr);
+    gap: 20px 32px;
   }
-
+  .va-product__identity {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .va-product__top > .va-score-card {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .va-product__photos {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+  .va-product__summary {
+    grid-column: 2;
+    grid-row: 3;
+  }
   .va-facts {
     grid-template-columns: 140px minmax(0, 1fr);
     gap: 12px 16px;
   }
-
   .va-facts dd {
     margin: 0;
   }
 }
 
-/* Phones navigate back through the header link instead. */
+@media (min-width: 1000px) {
+  .va-product__top {
+    grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
+    gap: 20px 48px;
+  }
+  .va-product__ratings {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+  .va-product__editor {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .va-product__breakdown {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    border-top: 0;
+    border-left: 1px solid var(--va-line);
+    padding: 0 0 0 28px;
+  }
+  .va-product__notes {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .va-product__editor .va-rate__scores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .va-product__editor .va-rate__title,
+  .va-product__editor .va-rate__tasty > legend {
+    min-height: 48px;
+  }
+  .va-product__editor .va-rate__more > fieldset {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 24px;
+  }
+  .va-product__editor .va-rate__last {
+    grid-column: 1 / -1;
+  }
+  .va-product__facts,
+  .va-product__section {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+  .va-product__section > h2 {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .va-product__section > :not(h2) {
+    grid-column: 2;
+  }
+}
+
 @media (max-width: 759px) {
+  .va-product {
+    gap: 24px;
+  }
+  .va-gallery__stage {
+    height: 220px;
+    aspect-ratio: auto;
+  }
   .va-product > .va-breadcrumb {
     display: none;
   }
+  .va-score-card__metrics {
+    gap: 12px;
+  }
+  .va-score-card__flavor-scores > div > :last-child {
+    flex-basis: 100%;
+  }
+  .va-product__nav {
+    gap: 0 18px;
+  }
+}
+
+.va-product__section-body {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.va-product__ratings:not(:has(.va-product__breakdown)) {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 960px;
 }

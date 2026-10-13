@@ -81,7 +81,7 @@ test("stores narrow a ranking with OR, are saved per country and never change To
     await expect(rows.first()).toContainText(
       `Commonly found at ${stores[0]!.name}`,
     );
-    await accessible(page);
+    await accessible(page, { extraRules: true });
 
     // Several stores combine with OR; rows keep their overall rank.
     await page.getByLabel(/^Commonly found at: /).click();

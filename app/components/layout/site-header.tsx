@@ -79,11 +79,7 @@ export function SiteHeader({
           </div>
         )}
         <div className="va-header__tools">
-          {countryMenu && (
-            <span className="va-desktop-only">
-              <CountryMenu />
-            </span>
-          )}
+          {countryMenu && <CountryMenu />}
           <span className="va-desktop-only">
             <AppearanceMenu />
           </span>

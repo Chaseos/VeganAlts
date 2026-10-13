@@ -113,6 +113,10 @@ export function MoreStep({
       </p>
 
       <section className="va-add__rating" aria-labelledby="rate-title">
+        <p className="va-rate__product">
+          {draft.name.trim()}
+          {draft.flavor.trim() ? ` · ${draft.flavor.trim()}` : ""}
+        </p>
         <h3 id="rate-title" className="va-heading-s">
           Tried it? How close is it to {foodName.toLowerCase()}?{" "}
           <span className="va-optional__tag">Optional</span>

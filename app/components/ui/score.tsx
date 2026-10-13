@@ -14,13 +14,14 @@ export function ScoreLabel({
   size?: ScoreSize;
   // "neutral" is for a non-leading score shown beside a #1 (runner-ups,
   // Still waiting), so only the closest match carries the yellow label.
-  tone?: "tag" | "neutral";
+  // "tasty" identifies enjoyment beside a Closest score on detail pages.
+  tone?: "tag" | "neutral" | "tasty";
   className?: string;
 }) {
   const classes = [
     "va-score",
     `va-score--${size}`,
-    tone === "neutral" ? "va-score--neutral" : "",
+    tone !== "tag" ? `va-score--${tone}` : "",
     className ?? "",
   ]
     .filter(Boolean)
