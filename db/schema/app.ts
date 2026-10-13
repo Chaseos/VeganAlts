@@ -166,7 +166,7 @@ export const brands = sqliteTable(
 
 // A recipe line (milestone 7): one brand's base recipe in one country and
 // its flavors. Every product belongs to exactly one, sharing its brand and
-// country (enforced by triggers in 0003_recipe_lines). `canonical_name` is
+// country (enforced by triggers in version 1). `canonical_name` is
 // the line's name.
 export const productFamilies = sqliteTable(
   "product_families",

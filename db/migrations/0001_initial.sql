@@ -1,7 +1,8 @@
 -- VeganAlts schema, version 1.
 -- The pre-release migrations were folded into this baseline before the first
--- release (owner decision, 2026-10-10). Every database starts here; later
--- schema changes are new, append-only migrations.
+-- release (owner decisions, 2026-10-10 and 2026-10-12, which added milestone
+-- 7's recipe lines). Every database starts here; later schema changes are
+-- new, append-only migrations.
 CREATE TABLE `account` (
 	`id` text PRIMARY KEY NOT NULL,
 	`account_id` text NOT NULL,
@@ -83,7 +84,7 @@ CREATE TABLE `categories` (
 	`is_rankable` integer DEFAULT 0 NOT NULL,
 	`is_active` integer DEFAULT 1 NOT NULL,
 	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL, `revision` integer DEFAULT 0 NOT NULL,
+	`updated_at` integer NOT NULL, `revision` integer DEFAULT 0 NOT NULL, `position` integer, `season_start` integer, `season_end` integer,
 	FOREIGN KEY (`parent_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE restrict,
 	CONSTRAINT "ck_categories_1" CHECK(is_rankable IN (0, 1)),
 	CONSTRAINT "ck_categories_2" CHECK(is_active IN (0, 1))
@@ -181,23 +182,6 @@ CREATE TABLE `product_categories` (
 	CONSTRAINT "ck_product_categories_1" CHECK(ranking_eligible IN (0, 1))
 );
 --> statement-breakpoint
-CREATE TABLE `product_category_daily_stats` (
-	`stat_date` text NOT NULL,
-	`product_version_id` text NOT NULL,
-	`category_id` text NOT NULL,
-	`new_rating_count` integer DEFAULT 0 NOT NULL,
-	`rating_sum` integer DEFAULT 0 NOT NULL,
-	`new_trial_count` integer DEFAULT 0 NOT NULL,
-	`comment_count` integer DEFAULT 0 NOT NULL,
-	PRIMARY KEY(`stat_date`, `product_version_id`, `category_id`),
-	FOREIGN KEY (`product_version_id`) REFERENCES `product_versions`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE cascade,
-	CONSTRAINT "ck_product_category_daily_stats_1" CHECK(new_rating_count >= 0),
-	CONSTRAINT "ck_product_category_daily_stats_2" CHECK(rating_sum >= 0),
-	CONSTRAINT "ck_product_category_daily_stats_3" CHECK(new_trial_count >= 0),
-	CONSTRAINT "ck_product_category_daily_stats_4" CHECK(comment_count >= 0)
-);
---> statement-breakpoint
 CREATE TABLE `product_category_stats` (
 	`product_version_id` text NOT NULL,
 	`category_id` text NOT NULL,
@@ -207,8 +191,7 @@ CREATE TABLE `product_category_stats` (
 	`bayesian_score` real,
 	`tried_count` integer DEFAULT 0 NOT NULL,
 	`recent_rating_count` integer DEFAULT 0 NOT NULL,
-	`trending_score` real,
-	`recomputed_at` integer NOT NULL,
+	`recomputed_at` integer NOT NULL, `enjoyment_count` integer DEFAULT 0 NOT NULL, `enjoyment_sum` integer DEFAULT 0 NOT NULL, `enjoyment_score` real,
 	PRIMARY KEY(`product_version_id`, `category_id`),
 	FOREIGN KEY (`product_version_id`) REFERENCES `product_versions`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE cascade,
@@ -224,7 +207,7 @@ CREATE TABLE `product_families` (
 	`canonical_name` text NOT NULL,
 	`slug` text NOT NULL,
 	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL,
+	`updated_at` integer NOT NULL, `country_id` text REFERENCES countries(id) ON DELETE restrict,
 	FOREIGN KEY (`brand_id`) REFERENCES `brands`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
@@ -321,7 +304,7 @@ CREATE TABLE `products` (
 	`created_by` text,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL, development_only integer NOT NULL DEFAULT 0
-  CONSTRAINT ck_products_development CHECK(development_only IN (0, 1)), source_checked_at integer, data_notes text, `published_at` integer,
+  CONSTRAINT ck_products_development CHECK(development_only IN (0, 1)), source_checked_at integer, data_notes text, `published_at` integer, `seasonal` integer DEFAULT 0 NOT NULL, `flavor` text,
 	FOREIGN KEY (`country_id`) REFERENCES `countries`(`id`) ON UPDATE no action ON DELETE restrict,
 	FOREIGN KEY (`brand_id`) REFERENCES `brands`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`product_family_id`) REFERENCES `product_families`(`id`) ON UPDATE no action ON DELETE set null,
@@ -368,7 +351,7 @@ CREATE TABLE `ratings` (
 	`is_counted` integer DEFAULT 1 NOT NULL,
 	`moderation_note` text,
 	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL,
+	`updated_at` integer NOT NULL, `enjoyment` integer,
 	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`product_version_id`) REFERENCES `product_versions`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE restrict,
@@ -790,20 +773,6 @@ CREATE TABLE `category_slug_history` (
 	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE restrict
 );
 --> statement-breakpoint
-CREATE TABLE `product_category_trends` (
-	`category_id` text NOT NULL,
-	`product_version_id` text NOT NULL,
-	`product_id` text NOT NULL,
-	`trending_score` real NOT NULL,
-	`inputs` text NOT NULL,
-	`computed_at` integer NOT NULL,
-	PRIMARY KEY(`category_id`, `product_version_id`),
-	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`product_version_id`) REFERENCES `product_versions`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON UPDATE no action ON DELETE cascade,
-	CONSTRAINT "ck_trends_inputs" CHECK(json_valid(inputs))
-);
---> statement-breakpoint
 CREATE TABLE `allergens` (
 	`key` text PRIMARY KEY NOT NULL,
 	`label` text NOT NULL,
@@ -944,10 +913,6 @@ CREATE UNIQUE INDEX `ux_product_aliases_product_id_alias` ON `product_aliases` (
 --> statement-breakpoint
 CREATE INDEX `ix_product_categories_category_eligible` ON `product_categories` (`category_id`,`ranking_eligible`,`product_id`);
 --> statement-breakpoint
-CREATE INDEX `ix_daily_stats_category_date` ON `product_category_daily_stats` (`category_id`,"stat_date" desc);
---> statement-breakpoint
-CREATE INDEX `ix_product_category_stats_trending` ON `product_category_stats` (`category_id`,"trending_score" desc);
---> statement-breakpoint
 CREATE INDEX `ix_product_category_stats_top` ON `product_category_stats` (`category_id`,"bayesian_score" desc,"rating_count" desc);
 --> statement-breakpoint
 CREATE UNIQUE INDEX `ux_product_families_slug` ON `product_families` (`slug`);
@@ -1073,8 +1038,6 @@ CREATE INDEX `ix_category_merge_survivor` ON `category_merges` (`survivor_id`,`a
 CREATE INDEX `ix_category_proposals_queue` ON `category_proposals` (`status`,`created_at`);
 --> statement-breakpoint
 CREATE INDEX `ix_category_proposals_user` ON `category_proposals` (`submitted_by`,`created_at`);
---> statement-breakpoint
-CREATE INDEX `ix_trends_category_score` ON `product_category_trends` (`category_id`,"trending_score" desc,`product_id`);
 --> statement-breakpoint
 CREATE INDEX `ix_product_trials_created` ON `product_trials` (`created_at`);
 --> statement-breakpoint
@@ -1291,3 +1254,164 @@ WHEN OLD.lifecycle_status='hidden' AND NEW.lifecycle_status<>'hidden' BEGIN
   WHERE pc.product_id=NEW.id
   AND NOT EXISTS(SELECT 1 FROM category_countries x WHERE x.category_id=pc.category_id AND x.country_id=NEW.country_id);
 END;
+--> statement-breakpoint
+-- Milestone 7: a food's season is two months (1-12, possibly wrapping past
+-- December) or none; an aisle's default position is never negative. Each
+-- test is null-safe, so a half season can't slip through as NULL.
+CREATE TRIGGER categories_order_season_insert BEFORE INSERT ON categories
+WHEN (NEW.season_start IS NULL) <> (NEW.season_end IS NULL)
+  OR (NEW.season_start IS NOT NULL AND NEW.season_start NOT BETWEEN 1 AND 12)
+  OR (NEW.season_end IS NOT NULL AND NEW.season_end NOT BETWEEN 1 AND 12)
+  OR (NEW.position IS NOT NULL AND NEW.position < 0)
+BEGIN SELECT RAISE(ABORT, 'invalid category position or season'); END;
+--> statement-breakpoint
+CREATE TRIGGER categories_order_season_update BEFORE UPDATE OF position, season_start, season_end ON categories
+WHEN (NEW.season_start IS NULL) <> (NEW.season_end IS NULL)
+  OR (NEW.season_start IS NOT NULL AND NEW.season_start NOT BETWEEN 1 AND 12)
+  OR (NEW.season_end IS NOT NULL AND NEW.season_end NOT BETWEEN 1 AND 12)
+  OR (NEW.position IS NOT NULL AND NEW.position < 0)
+BEGIN SELECT RAISE(ABORT, 'invalid category position or season'); END;
+--> statement-breakpoint
+CREATE TRIGGER products_seasonal_insert BEFORE INSERT ON products
+WHEN NEW.seasonal NOT IN (0, 1)
+BEGIN SELECT RAISE(ABORT, 'seasonal must be 0 or 1'); END;
+--> statement-breakpoint
+CREATE TRIGGER products_seasonal_update BEFORE UPDATE OF seasonal ON products
+WHEN NEW.seasonal NOT IN (0, 1)
+BEGIN SELECT RAISE(ABORT, 'seasonal must be 0 or 1'); END;
+--> statement-breakpoint
+CREATE TABLE `family_category_dimension_stats` (
+	`product_family_id` text NOT NULL,
+	`category_id` text NOT NULL,
+	`dimension_id` text NOT NULL,
+	`people_count` integer NOT NULL,
+	`mean_sum` real NOT NULL,
+	`recomputed_at` integer NOT NULL,
+	PRIMARY KEY(`product_family_id`, `category_id`, `dimension_id`),
+	FOREIGN KEY (`product_family_id`) REFERENCES `product_families`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`dimension_id`) REFERENCES `category_rating_dimensions`(`id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "ck_family_category_dimension_stats_1" CHECK(people_count > 0 AND mean_sum BETWEEN people_count - 0.000001 AND people_count * 5 + 0.000001)
+);
+--> statement-breakpoint
+CREATE INDEX `ix_family_category_dimension_stats_category` ON `family_category_dimension_stats` (`category_id`,`dimension_id`);
+--> statement-breakpoint
+CREATE TABLE `family_category_stats` (
+	`product_family_id` text NOT NULL,
+	`category_id` text NOT NULL,
+	`people_count` integer DEFAULT 0 NOT NULL,
+	`mean_sum` real DEFAULT 0 NOT NULL,
+	`raw_average` real,
+	`bayesian_score` real,
+	`enjoyment_people` integer DEFAULT 0 NOT NULL,
+	`enjoyment_mean_sum` real DEFAULT 0 NOT NULL,
+	`enjoyment_average` real,
+	`enjoyment_score` real,
+	`tried_count` integer DEFAULT 0 NOT NULL,
+	`recent_count` integer DEFAULT 0 NOT NULL,
+	`lead_product_id` text,
+	`recomputed_at` integer NOT NULL,
+	PRIMARY KEY(`product_family_id`, `category_id`),
+	FOREIGN KEY (`product_family_id`) REFERENCES `product_families`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`lead_product_id`) REFERENCES `products`(`id`) ON UPDATE no action ON DELETE set null,
+	CONSTRAINT "ck_family_category_stats_1" CHECK(people_count >= 0 AND enjoyment_people >= 0 AND tried_count >= 0 AND recent_count >= 0),
+	CONSTRAINT "ck_family_category_stats_2" CHECK(mean_sum >= 0 AND enjoyment_mean_sum >= 0)
+);
+--> statement-breakpoint
+CREATE INDEX `ix_family_category_stats_closest` ON `family_category_stats` (`category_id`,"bayesian_score" desc,"people_count" desc);
+--> statement-breakpoint
+CREATE INDEX `ix_family_category_stats_tastiest` ON `family_category_stats` (`category_id`,"enjoyment_score" desc,"enjoyment_people" desc);
+--> statement-breakpoint
+CREATE INDEX `ix_product_families_brand_country` ON `product_families` (`brand_id`,`country_id`);
+--> statement-breakpoint
+CREATE INDEX `ix_products_family` ON `products` (`product_family_id`);
+--> statement-breakpoint
+-- Milestone 7: a recipe line (product family) has a country. The column
+-- allows NULL only because it joined the table later; this trigger requires
+-- it on every new line.
+CREATE TRIGGER product_families_country_insert BEFORE INSERT ON product_families
+WHEN NEW.country_id IS NULL
+BEGIN SELECT RAISE(ABORT, 'a line needs a country'); END;
+--> statement-breakpoint
+CREATE TRIGGER product_families_line_update BEFORE UPDATE OF brand_id, country_id ON product_families
+WHEN (NEW.country_id IS NULL AND OLD.country_id IS NOT NULL)
+  OR EXISTS(SELECT 1 FROM products p WHERE p.product_family_id = NEW.id AND (p.country_id IS NOT NEW.country_id OR p.brand_id IS NOT NEW.brand_id))
+BEGIN SELECT RAISE(ABORT, 'a line keeps its products'' brand and country'); END;
+--> statement-breakpoint
+CREATE TRIGGER product_families_in_use BEFORE DELETE ON product_families
+WHEN EXISTS(SELECT 1 FROM products WHERE product_family_id = OLD.id)
+BEGIN SELECT RAISE(ABORT, 'a line with products cannot be deleted'); END;
+--> statement-breakpoint
+-- A product is inserted into a line of its own brand and country and never
+-- leaves one; moving to another line of the same brand and country is fine.
+CREATE TRIGGER products_line_insert BEFORE INSERT ON products
+WHEN NOT EXISTS(SELECT 1 FROM product_families f WHERE f.id = NEW.product_family_id AND f.country_id = NEW.country_id AND f.brand_id IS NEW.brand_id)
+BEGIN SELECT RAISE(ABORT, 'a product needs a line of its brand and country'); END;
+--> statement-breakpoint
+CREATE TRIGGER products_line_update BEFORE UPDATE OF product_family_id, brand_id, country_id ON products
+WHEN NOT EXISTS(SELECT 1 FROM product_families f WHERE f.id = NEW.product_family_id AND f.country_id = NEW.country_id AND f.brand_id IS NEW.brand_id)
+BEGIN SELECT RAISE(ABORT, 'a product needs a line of its brand and country'); END;
+--> statement-breakpoint
+-- A flavor label is trimmed, never blank and at most 40 characters; NULL is
+-- the line's original.
+CREATE TRIGGER products_flavor_insert BEFORE INSERT ON products
+WHEN NEW.flavor IS NOT NULL AND (typeof(NEW.flavor) <> 'text' OR NEW.flavor <> trim(NEW.flavor, ' ' || char(9) || char(10) || char(13)) OR NEW.flavor = '' OR length(NEW.flavor) > 40)
+BEGIN SELECT RAISE(ABORT, 'a flavor is trimmed, not blank and at most 40 characters'); END;
+--> statement-breakpoint
+CREATE TRIGGER products_flavor_update BEFORE UPDATE OF flavor ON products
+WHEN NEW.flavor IS NOT NULL AND (typeof(NEW.flavor) <> 'text' OR NEW.flavor <> trim(NEW.flavor, ' ' || char(9) || char(10) || char(13)) OR NEW.flavor = '' OR length(NEW.flavor) > 40)
+BEGIN SELECT RAISE(ABORT, 'a flavor is trimmed, not blank and at most 40 characters'); END;
+--> statement-breakpoint
+-- The optional Tastiest answer is a whole number from 1 to 5.
+CREATE TRIGGER ratings_enjoyment_insert BEFORE INSERT ON ratings
+WHEN NEW.enjoyment IS NOT NULL AND (typeof(NEW.enjoyment) <> 'integer' OR NEW.enjoyment NOT BETWEEN 1 AND 5)
+BEGIN SELECT RAISE(ABORT, 'enjoyment must be a whole number from 1 to 5'); END;
+--> statement-breakpoint
+CREATE TRIGGER ratings_enjoyment_update BEFORE UPDATE OF enjoyment ON ratings
+WHEN NEW.enjoyment IS NOT NULL AND (typeof(NEW.enjoyment) <> 'integer' OR NEW.enjoyment NOT BETWEEN 1 AND 5)
+BEGIN SELECT RAISE(ABORT, 'enjoyment must be a whole number from 1 to 5'); END;
+--> statement-breakpoint
+CREATE TABLE `family_category_daily_stats` (
+	`stat_date` text NOT NULL,
+	`product_family_id` text NOT NULL,
+	`category_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`rating_count` integer DEFAULT 0 NOT NULL,
+	`similarity_sum` integer DEFAULT 0 NOT NULL,
+	`tried` integer DEFAULT 0 NOT NULL,
+	`commented` integer DEFAULT 0 NOT NULL,
+	PRIMARY KEY(`stat_date`, `product_family_id`, `category_id`, `user_id`),
+	FOREIGN KEY (`product_family_id`) REFERENCES `product_families`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "ck_family_category_daily_stats_1" CHECK(rating_count >= 0 AND similarity_sum BETWEEN rating_count AND rating_count * 5 AND tried IN (0, 1) AND commented IN (0, 1))
+);
+--> statement-breakpoint
+CREATE INDEX `ix_family_daily_category_date` ON `family_category_daily_stats` (`category_id`,"stat_date" desc);
+--> statement-breakpoint
+CREATE TABLE `family_category_first_published` (
+	`product_family_id` text NOT NULL,
+	`category_id` text NOT NULL,
+	`first_published_at` integer NOT NULL,
+	PRIMARY KEY(`product_family_id`, `category_id`),
+	FOREIGN KEY (`product_family_id`) REFERENCES `product_families`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `ix_family_first_published_category` ON `family_category_first_published` (`category_id`,"first_published_at" desc);
+--> statement-breakpoint
+CREATE TABLE `family_category_trends` (
+	`category_id` text NOT NULL,
+	`product_family_id` text NOT NULL,
+	`trending_score` real NOT NULL,
+	`rank` integer NOT NULL,
+	`inputs` text NOT NULL,
+	`computed_at` integer NOT NULL,
+	PRIMARY KEY(`category_id`, `product_family_id`),
+	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`product_family_id`) REFERENCES `product_families`(`id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "ck_family_category_trends_1" CHECK(json_valid(inputs) AND trending_score > 0 AND rank >= 1)
+);
+--> statement-breakpoint
+CREATE INDEX `ix_family_trends_category_rank` ON `family_category_trends` (`category_id`,`rank`);

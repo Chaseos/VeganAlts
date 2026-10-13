@@ -53,18 +53,20 @@ test("Add another flavor joins the product's line and publishes without review",
   const flavor = `Maple ${testInfo.project.name} ${Date.now()}`;
   try {
     await context.addCookies([session.cookie]);
-    await page.goto("/us/products/beyond-beef?food=ground-beef");
+    // The demo Nuggs line already has flavors, so adding one more leaves
+    // other tests' single-flavor lines alone.
+    await page.goto("/us/products/simulate-nuggs?food=chicken-nuggets");
     await page.getByRole("link", { name: "Add another flavor" }).click();
     // The food, brand and line come chosen; the name follows the flavor.
     await expect(
-      page.getByRole("button", { name: "Change Ground Beef" }),
+      page.getByRole("button", { name: "Change Chicken Nuggets" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("group", { name: "A new flavor of Beyond Beef" }),
+      page.getByRole("group", { name: "A new flavor of Nuggs" }),
     ).toBeVisible();
     await page.getByLabel("Flavor (required)").fill(flavor);
     await expect(page.getByLabel("Product name (required)")).toHaveValue(
-      `Beyond Beef, ${flavor}`,
+      `Nuggs, ${flavor}`,
     );
     await page
       .getByLabel("Front of pack photo (required)")
@@ -76,7 +78,7 @@ test("Add another flavor joins the product's line and publishes without review",
       .click();
     // Its line's flavors are siblings, so nothing holds it.
     await expect(
-      page.getByRole("heading", { level: 1, name: `Beyond Beef, ${flavor}` }),
+      page.getByRole("heading", { level: 1, name: `Nuggs, ${flavor}` }),
     ).toBeVisible();
     await expect(page.getByText("Your product is live")).toBeVisible();
     await expect(page.getByText(`Flavor: ${flavor}`)).toBeVisible();

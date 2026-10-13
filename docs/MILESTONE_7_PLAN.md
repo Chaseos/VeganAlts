@@ -166,8 +166,8 @@ Most of what remains is sold as a few base recipes in several flavors:
   - With exactly one flavor per line, every Closest score, rank and order is identical to today's.
 - **Tastiest never changes Closest.** Closest to the original stays the default ranking, the home page's ranking and the primary signal.
 - **Additive data.**
-  - Migrations are append-only after the version 1 baseline: `0002_aisle_order_and_seasons.sql`, `0003_recipe_lines.sql` and `0004_line_discovery.sql`.
-  - No parent table (`products`, `product_versions`, `categories`) is rebuilt; columns are added with `ALTER TABLE`.
+  - The schema changes were built as migrations `0002_aisle_order_and_seasons.sql`, `0003_recipe_lines.sql` and `0004_line_discovery.sql`, then folded into version 1 before staging (checkpoint 10).
+  - No parent table (`products`, `product_versions`, `categories`) is rebuilt; columns are added at the end of each table, as `ALTER TABLE` placed them.
   - Derived product-level trending tables may be replaced, because they are rebuildable.
 - **Moderation automation stays advisory.** Deterministic checks run first, and a provider failure routes to review, never approval.
 - **Not in this milestone:**

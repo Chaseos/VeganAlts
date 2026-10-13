@@ -624,18 +624,14 @@ The approved [milestone 6 specification](MILESTONE_6_PLAN.md) adds the following
 
 ## Milestone 7 persistence decisions
 
-The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following append-only, additive migrations after the version 1 baseline. No parent table is rebuilt.
+The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following. They were built as migrations `0002`–`0004` and folded into version 1, `0001_initial.sql`, before staging (owner decision, 2026-10-12). Every database is reset to version 1, so their backfills went with them. The folded file produces exactly the schema the four migrations produced.
 
-- `0002_aisle_order_and_seasons.sql`
+- **Aisle order and seasons**
   - Adds `categories.position`, the default order of an aisle where a country has no ratings yet, seeded for the 18 aisles.
   - Adds `categories.season_start` and `categories.season_end`, both months 1–12; a season may wrap past December. Both are null for a food without a season, and a check keeps them both set or both null.
   - Adds `products.seasonal` (0 or 1).
-- `0003_recipe_lines.sql`
-  - **Columns.** Adds `products.flavor`, `product_families.country_id` and `ratings.enjoyment`. Adds `enjoyment_count`, `enjoyment_sum` and `enjoyment_score` to `product_category_stats`.
-  - **Backfill.**
-    - A product without a family starts its own, `line-<product id>`, with the product's brand, country and name. Its slug is the country code and the product slug.
-    - A family whose products span countries or brands splits into one family per country and brand. The group with the family's own brand (then the earliest product) keeps the family, which takes that group's country and brand. Each other group gets a copy with the same name, `line-<its first product id>`.
-    - A family without products keeps a NULL country; new families always have one.
+- **Recipe lines**
+  - **Columns.** Adds `products.flavor`, `product_families.country_id` and `ratings.enjoyment`. Adds `enjoyment_count`, `enjoyment_sum` and `enjoyment_score` to `product_category_stats`. `product_families.country_id` allows NULL only because it joined the table later; a trigger requires it on every new line.
   - **Writers.** A submission outside a chosen line starts its own line in the same batch, and a chosen line must have the product's brand and country. A relationships proposal without a line keeps the product's current one.
   - **Triggers** enforce:
     - a product is inserted with a family and can never lose it;
@@ -649,11 +645,11 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following append-o
     - the lead product.
   - **`family_category_dimension_stats`** has one row per family, food and dimension: people who answered and the sum of their means.
   - **Indexes:** `products(product_family_id)` for a line's flavors, `product_families(brand_id, country_id)` for a brand's lines, and the existing `products(brand_id, country_id)` for brand pages.
-- `0004_line_discovery.sql`
+- **Line discovery**
   - Adds `family_category_daily_stats`, one row per line, food, day and person over the last 180 days (the 90-day trend window and its baseline), so Trending counts each person once across the window. A row holds that day's counted ratings of the line's eligible flavors and their similarity sum, and whether the person tried a flavor or left a visible comment.
   - Adds `family_category_trends`, with each trending line's `rank` in its food. The top three carry the Trending tag.
-  - Adds `family_category_first_published`: when a line first appeared in a food, from any flavor it has had there. Refreshes only move it earlier, so New never brings a line back. The migration fills it from current memberships.
-  - Drops `product_category_daily_stats`, `product_category_trends` and the unused `product_category_stats.trending_score` with its index. All three are derived and no longer read.
+  - Adds `family_category_first_published`: when a line first appeared in a food, from any flavor it has had there. Refreshes only move it earlier, so New never brings a line back.
+  - Removes `product_category_daily_stats`, `product_category_trends` and the unused `product_category_stats.trending_score` with its index. All three were derived and are no longer read.
 
 **Product family.** A family is a recipe line in one country: one brand's base recipe and its flavors. It no longer links markets. Rankings group a food's eligible products by family.
 

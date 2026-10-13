@@ -6,7 +6,9 @@ test("the desktop Foods menu opens from the keyboard, shows each aisle's foods a
   page,
 }) => {
   test.skip(isPhone(page), "Phones open aisle pages from the aisle chips.");
-  await page.goto("/");
+  // Aisles follow popularity, so the page sets which aisle comes first: the
+  // one being viewed.
+  await page.goto("/us/beef-burgers");
   const foods = page.getByRole("button", { name: "Foods", exact: true });
   await expect(foods).toHaveAttribute("aria-expanded", "false");
   await foods.focus();
@@ -14,10 +16,13 @@ test("the desktop Foods menu opens from the keyboard, shows each aisle's foods a
   await expect(foods).toHaveAttribute("aria-expanded", "true");
   const menu = page.getByRole("region", { name: "Foods" });
   await expect(menu).toBeVisible();
-  // Tab reaches the aisle shown (the first, off an aisle page), and its
-  // foods sit beside the list.
+  // Tab reaches the aisle shown, and its foods sit beside the list.
   const aisles = menu.getByRole("list", { name: "Aisles" });
   const beef = aisles.getByRole("link", { name: "Beef", exact: true });
+  const names = (await aisles.getByRole("link").allInnerTexts()).map((n) =>
+    n.trim(),
+  );
+  const next = names[(names.indexOf("Beef") + 1) % names.length]!;
   await page.keyboard.press("Tab");
   await expect(beef).toBeFocused();
   await expect(
@@ -32,9 +37,11 @@ test("the desktop Foods menu opens from the keyboard, shows each aisle's foods a
   // The arrow keys move between aisles, showing each one's foods.
   await page.keyboard.press("ArrowDown");
   await expect(
-    aisles.getByRole("link", { name: "Cheese", exact: true }),
+    aisles.getByRole("link", { name: next, exact: true }),
   ).toBeFocused();
-  await expect(menu.getByRole("heading", { name: "Cheddar" })).toBeVisible();
+  await expect(
+    menu.getByRole("heading", { level: 2, name: next, exact: true }),
+  ).toBeVisible();
   await page.keyboard.press("ArrowUp");
   await expect(beef).toBeFocused();
 
@@ -70,10 +77,12 @@ test("the desktop Foods menu opens from the keyboard, shows each aisle's foods a
   await expect(menu).toBeHidden();
 
   await foods.click();
+  await aisles.getByRole("link", { name: "Cheese", exact: true }).hover();
+  await expect(menu.getByRole("heading", { name: "Cheddar" })).toBeVisible();
   await menu.getByRole("link", { name: "See the whole aisle" }).click();
-  await expect(page).toHaveURL(/\/us\/beef$/);
+  await expect(page).toHaveURL(/\/us\/cheese$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "Beef" }),
+    page.getByRole("heading", { level: 1, name: "Cheese" }),
   ).toBeVisible();
 });
 
@@ -96,21 +105,20 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
   await expect(
     page.getByRole("heading", { name: "Ground Beef" }),
   ).toBeVisible();
-  // The filter box narrows the cards in place once the page is interactive
-  // (on desktop, the Foods link turns into the menu button then).
-  if (!isPhone(page))
+  // The filter box narrows the cards in place once the page is interactive.
+  // Text typed before hydration can be dropped, so type again until it
+  // filters (phones have no other sign of hydration).
+  const filter = page.getByRole("searchbox", { name: "Find a food in Beef" });
+  await expect(async () => {
+    await filter.fill("");
+    await filter.fill("burg");
     await expect(
-      page.getByRole("button", { name: "Foods", exact: true }),
-    ).toBeVisible();
-  await page
-    .getByRole("searchbox", { name: "Find a food in Beef" })
-    .fill("burg");
+      page.getByRole("heading", { name: "Ground Beef" }),
+    ).toHaveCount(0, { timeout: 1000 });
+  }).toPass();
   await expect(
     page.getByRole("heading", { name: "Beef Burgers" }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Ground Beef" })).toHaveCount(
-    0,
-  );
   await accessible(page);
 
   // Home aisle cards show three foods, then "See all" (both layouts render).
