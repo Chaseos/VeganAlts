@@ -33,6 +33,11 @@ export function TrendingBadge() {
   return <Badge tone="new">Trending</Badge>;
 }
 
+// A product sold only part of the year (milestone 7).
+export function SeasonalProductBadge() {
+  return <Badge tone="neutral">Seasonal</Badge>;
+}
+
 // A seasonal food stays listed all year; the badge says when it is sold.
 export function SeasonBadge({ season }: { season: Season }) {
   return <Badge tone="neutral">Seasonal · {seasonLabel(season)}</Badge>;

@@ -118,6 +118,13 @@ export type CommunityAction = ReturnType<typeof useCommunityAction>;
 export function friendly(value: string) {
   return value.replaceAll("_", " ");
 }
+// Report reasons whose code doesn't read well on its own (milestone 7).
+const REPORT_REASONS: Record<string, string> = {
+  flavor_not_real: "This flavor doesn’t exist",
+  wrong_line: "Not part of this line",
+};
+export const reportReasonLabel = (reason: string) =>
+  REPORT_REASONS[reason] ?? friendly(reason);
 export function dateLabel(value: number | null) {
   return value
     ? new Date(value).toLocaleDateString("en-US", {

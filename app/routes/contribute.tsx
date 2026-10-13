@@ -36,6 +36,7 @@ import {
   communityRequest,
   type CommunityOptions,
   friendly,
+  reportReasonLabel,
 } from "../lib/community";
 import { PhotoProposalForm } from "../components/photo-proposal-form";
 import type { Route } from "./+types/contribute";
@@ -48,6 +49,15 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const image = query.get("image");
   return {
     product,
+    // The brand's lines here, for proposing another line (milestone 7).
+    lines: product.brandId
+      ? await services.submissions.brandLines(
+          actor,
+          product.brandId,
+          product.countryCode.toUpperCase(),
+          null,
+        )
+      : [],
     options: (await services.contributions.options(
       actor,
       "",
@@ -93,13 +103,14 @@ const labels = {
   packaging: "Packaging update",
   discontinue: "Discontinued product",
   reintroduce: "Reintroduced product",
-  relationships: "Family, variants and which foods it’s ranked for",
+  relationships: "Line, related products and which foods it’s ranked for",
   retailer_status: "Retailer availability concern",
   allergens: "Allergens on the label",
 };
 export default function Contribute({
   loaderData: {
     product,
+    lines,
     countryName,
     options,
     siteKey,
@@ -265,7 +276,11 @@ export default function Contribute({
       if (kind === "relationships") {
         const related = String(form.get("related") ?? "");
         details = {
-          productFamilyId: form.get("family") || null,
+          // The current line keeps it where it is.
+          productFamilyId:
+            form.get("family") && form.get("family") !== product.familyId
+              ? form.get("family")
+              : null,
           ...(related
             ? {
                 relatedProductId: related,
@@ -370,7 +385,7 @@ export default function Contribute({
                 {reportReasons[image ? "product_image" : "product"].map(
                   (reason) => (
                     <option key={reason} value={reason}>
-                      {friendly(reason)}
+                      {reportReasonLabel(reason)}
                     </option>
                   ),
                 )}
@@ -662,17 +677,22 @@ export default function Contribute({
               )}
               {kind === "relationships" && (
                 <>
-                  <CatalogSelect
+                  <label htmlFor="change-family">Recipe line</label>
+                  <select
                     id="change-family"
                     name="family"
-                    label="Product family"
-                    kind="families"
-                    options={options.families}
                     defaultValue={product.familyId ?? ""}
-                  />
+                  >
+                    {lines.map((line) => (
+                      <option key={line.lineId} value={line.lineId}>
+                        {line.name} ({line.flavors.length}{" "}
+                        {line.flavors.length === 1 ? "flavor" : "flavors"})
+                      </option>
+                    ))}
+                  </select>
                   <p className="small muted">
-                    Families can connect country-specific products without
-                    combining their ratings.
+                    Flavors of one base recipe share a line and one ranking. An
+                    operator reviews a move to another line.
                   </p>
                   <CatalogSelect
                     id="change-related"
@@ -684,8 +704,6 @@ export default function Contribute({
                   />
                   <label htmlFor="change-relation">Relationship</label>
                   <select id="change-relation" name="relationship">
-                    <option value="variant">Variant</option>
-                    <option value="specialty_flavor">Specialty flavor</option>
                     <option value="companion">Companion</option>
                     <option value="successor">Successor</option>
                   </select>
@@ -704,8 +722,8 @@ export default function Contribute({
                       </label>
                     ))}
                     <p className="small muted">
-                      Leave specialty flavors out of foods where ranking them
-                      would mislead. Existing ratings are kept.
+                      Leave a flavor out of foods where ranking it would
+                      mislead. Existing ratings are kept.
                     </p>
                   </fieldset>
                 </>
@@ -717,6 +735,8 @@ export default function Contribute({
                   key={kind}
                   kind={kind}
                   currentName={product.name}
+                  currentFlavor={product.flavor}
+                  seasonal={product.seasonal}
                   categories={options.categories}
                   existing={product.categories.map((c) => c.categoryId)}
                 />

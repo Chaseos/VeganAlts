@@ -463,7 +463,7 @@ export class D1CatalogRepository implements CatalogRepository {
     return (
       await this.db
         .prepare(
-          `SELECT lf.product_family_id AS lineId,lf.id,lf.slug,lf.name,lf.flavor,lfv.id AS versionId,lf.published_at AS publishedAt,
+          `SELECT lf.product_family_id AS lineId,lf.id,lf.slug,lf.name,lf.flavor,lf.seasonal,lfv.id AS versionId,lf.published_at AS publishedAt,
             ps.bayesian_score AS closestScore,COALESCE(ps.rating_count,0) AS closestCount,
             ps.enjoyment_score AS tastiestScore,COALESCE(ps.enjoyment_count,0) AS tastiestCount,
             ${allergensSql("lfv")} AS allergens,
@@ -709,7 +709,7 @@ export class D1CatalogRepository implements CatalogRepository {
   ): Promise<ProductDetails | null> {
     const row = await this.db
       .prepare(
-        `SELECT ${identity},p.product_family_id AS lineId,p.flavor,country.name AS country,${publicVeganStatusSql()} AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.lifecycle_status AS lifecycleStatus,p.data_notes AS dataNotes
+        `SELECT ${identity},p.product_family_id AS lineId,p.flavor,p.seasonal,country.name AS country,${publicVeganStatusSql()} AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.lifecycle_status AS lifecycleStatus,p.data_notes AS dataNotes
       FROM product_versions v ${productJoins} WHERE p.slug=? AND ${visible} AND ${versionId ? "v.id=?" : "v.is_current=1"}`,
       )
       .bind(countryId, slug, ...(versionId ? [versionId] : []))

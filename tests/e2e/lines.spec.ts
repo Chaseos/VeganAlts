@@ -1,5 +1,6 @@
 import { expect, test } from "./fixtures";
 import { accessible } from "./a11y";
+import { createBrowserSession } from "./session-fixture";
 
 // Milestone 7: a brand's recipe and its flavors rank as one line.
 test("a recipe line lists its flavors, and its brand has a page", async ({
@@ -40,4 +41,56 @@ test("a recipe line lists its flavors, and its brand has a page", async ({
   const elsewhere = await request.get("/ca/brand/oatly");
   expect(elsewhere.status()).toBe(200);
   expect(await elsewhere.text()).toContain("No Oatly products in Canada yet");
+});
+
+test("Add another flavor joins the product's line and publishes without review", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(Boolean(process.env.TEST_BASE_URL), "Sessions are local.");
+  test.setTimeout(120000);
+  const session = await createBrowserSession();
+  const flavor = `Maple ${testInfo.project.name} ${Date.now()}`;
+  try {
+    await context.addCookies([session.cookie]);
+    await page.goto("/us/products/beyond-beef?food=ground-beef");
+    await page.getByRole("link", { name: "Add another flavor" }).click();
+    // The food, brand and line come chosen; the name follows the flavor.
+    await expect(
+      page.getByRole("button", { name: "Change Ground Beef" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("group", { name: "A new flavor of Beyond Beef" }),
+    ).toBeVisible();
+    await page.getByLabel("Flavor (required)").fill(flavor);
+    await expect(page.getByLabel("Product name (required)")).toHaveValue(
+      `Beyond Beef, ${flavor}`,
+    );
+    await page
+      .getByLabel("Front of pack photo (required)")
+      .setInputFiles("tests/fixtures/small.jpg");
+    await accessible(page);
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page
+      .getByRole("button", { name: "Submit product", exact: true })
+      .click();
+    // Its line's flavors are siblings, so nothing holds it.
+    await expect(
+      page.getByRole("heading", { level: 1, name: `Beyond Beef, ${flavor}` }),
+    ).toBeVisible();
+    await expect(page.getByText("Your product is live")).toBeVisible();
+    await expect(page.getByText(`Flavor: ${flavor}`)).toBeVisible();
+
+    // A brand page's link starts with its brand and lists its lines.
+    await page.goto("/add-product?country=us&brand=oatly");
+    await expect(
+      page.getByRole("button", { name: "Change brand Oatly" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Already listed from Oatly" }),
+    ).toContainText("Oatly Oatmilk");
+  } finally {
+    await page.close();
+    await session.dispose();
+  }
 });

@@ -555,6 +555,84 @@
   font-weight: 700;
 }
 
+/* "Already listed from [brand]" and the product's fields (milestone 7) */
+.va-listed {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--va-line);
+  border-radius: var(--va-radius-card);
+}
+
+.va-listed > h3,
+.va-listed > p {
+  margin: 0;
+}
+
+.va-listed__lines {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.va-listed__line {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--va-radius-field);
+  background: var(--va-field);
+}
+
+.va-listed__name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.va-listed__flavors > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 6px 0;
+}
+
+.va-listed__line > .link-button {
+  justify-self: start;
+}
+
+.va-listed__more > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.va-listed > .button {
+  justify-self: start;
+}
+
+.va-add__product {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--va-line);
+  border-radius: var(--va-radius-card);
+}
+
+.va-add__product > legend {
+  padding: 0 6px;
+  font-weight: 800;
+}
+
+.va-add__product > .link-button {
+  justify-self: start;
+}
+
 .va-error-summary {
   margin-bottom: var(--va-space-4);
   padding: 14px 16px;

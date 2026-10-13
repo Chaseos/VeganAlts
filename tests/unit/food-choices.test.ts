@@ -18,6 +18,7 @@ const food = (
   otherNames,
   aisle: { id: "beef", name: "Beef", silent: false },
   inCountry: true,
+  seasonal: false,
   ...place,
 });
 const foods = [

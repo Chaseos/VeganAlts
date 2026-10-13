@@ -989,6 +989,7 @@ export function lineFlavors(
       score: count >= FLAVOR_SCORE_MIN_ANSWERS ? score : null,
       allergens: row.allergens,
       isNew: isNewProduct(row.publishedAt, now),
+      seasonal: row.seasonal === 1,
       matchesFilters: !!row.matches,
     };
   });
@@ -1004,5 +1005,7 @@ export function lineFlavors(
     flavors: matching,
     // Flavors hidden because they don't pass the filters.
     hiddenFlavorCount: flavors.length - matching.length,
+    // A line every listed flavor of which is sold only part of the year.
+    seasonal: matching.length > 0 && matching.every((f) => f.seasonal),
   };
 }

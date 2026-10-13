@@ -28,6 +28,33 @@ export const LAST_ATE: { value: ConventionalRecency; label: string }[] = [
   { value: "over_year", label: "Over a year ago" },
   { value: "prefer_not_to_say", label: "Prefer not to say" },
 ];
+/** The Tastiest answer's five buttons; tapping the chosen one clears it. */
+export function TasteScale({
+  selected,
+  onChoose,
+}: {
+  selected: number | null | undefined;
+  onChoose: (value: number | null) => void;
+}) {
+  return (
+    <span className="va-rate__pills">
+      {TASTE_MEANINGS.map((meaning, index) => {
+        const chosen = selected === index + 1;
+        return (
+          <button
+            type="button"
+            key={meaning}
+            aria-label={`${index + 1} ${meaning} (${index + 1} of 5)`}
+            aria-pressed={chosen}
+            onClick={() => onChoose(chosen ? null : index + 1)}
+          >
+            {meaning}
+          </button>
+        );
+      })}
+    </span>
+  );
+}
 /** The five overall-similarity buttons, labeled with what each score means. */
 export function OverallScale({
   selected,
@@ -163,22 +190,10 @@ export function RatingControl({
           How tasty is it, whether or not it’s like the original?{" "}
           <span>optional</span>
         </legend>
-        <span className="va-rate__pills">
-          {TASTE_MEANINGS.map((meaning, index) => {
-            const chosen = enjoyment === index + 1;
-            return (
-              <button
-                type="button"
-                key={meaning}
-                aria-label={`${index + 1} ${meaning} (${index + 1} of 5)`}
-                aria-pressed={chosen}
-                onClick={() => save({ enjoyment: chosen ? null : index + 1 })}
-              >
-                {meaning}
-              </button>
-            );
-          })}
-        </span>
+        <TasteScale
+          selected={enjoyment}
+          onChoose={(value) => save({ enjoyment: value })}
+        />
         {!state?.selected && (
           <p className="va-rate__note">Say how close it is first.</p>
         )}

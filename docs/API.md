@@ -501,26 +501,28 @@ The `related` list keeps only companion and successor links.
 
 **Contribution lookups.** Each is authenticated, private/no-store and on the instant-answer rate limit.
 
-| Method | Path beneath `/api/v1`                              | Contract                                                                                                                                                                                                                                                                              |
-| ------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/community/brands?country=&q=`                     | Up to 8 brand suggestions `{id, slug, name, productCount}` from 2 characters.                                                                                                                                                                                                         |
-| GET    | `/community/brands/:id/lines?country=&food=`        | The brand's lines in the country, those in `food` first: `{lineId, name, foods[], flavors: [{productId, slug, name, flavor}]}`.                                                                                                                                                       |
-| GET    | `/community/identity-matches?country=&brand=&name=` | Looser: any one shared word of three or more letters qualifies a similar product, and the brand matches through the shared matcher. `exact` is unchanged. These matches are for display only; the near-duplicate hold keeps its milestone 6 rule and skips the chosen line's flavors. |
+| Method | Path beneath `/api/v1`                                    | Contract                                                                                                                                                                                                                                                                                                                                        |
+| ------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/community/brands?country=&q=`                           | Up to 8 brand suggestions `{id, slug, name, productCount}` from 2 characters, including brands with nothing in the country yet (`productCount` 0).                                                                                                                                                                                              |
+| GET    | `/community/brands/:id/lines?country=&food=`              | The brand's lines in the country, those in `food` (a food ID) first: `{lineId, name, foods: [{id, slug, name}], flavors: [{productId, slug, name, flavor}]}`. Discontinued and archived products are left out.                                                                                                                                  |
+| GET    | `/community/identity-matches?country=&brand=&name=&line=` | Looser: any one shared word of three or more letters qualifies a similar product, and the brand matches through the shared matcher. `exact` is unchanged. These matches are for display only; the near-duplicate hold keeps its milestone 6 rule and skips the chosen line's flavors. The optional `line` leaves that line's other flavors out. |
 
 **Submissions.** `SubmissionInput` changes as follows.
 
-- **Added:** `flavor` (optional, at most 40 characters).
+- **Added:** `flavor` (optional, at most 40 characters); `enjoyment` (optional, 1–5, only with `rating`), saved with the rating once the product is live; `seasonal` (optional), which otherwise follows the primary food's season.
 - **Choosing a line.** Either `lineId`, an existing line of the same brand and country, or optionally `lineName` for a new line, which defaults to the product name. Giving both returns 422.
 - **Removed:** `productFamilyId`, `relatedProductId`, `relationship` and `specialtyFlavor`. A payload that carries them returns 422.
 - **Holds.** Joining a line never holds a submission on its own.
 
 **Changes, reports and administration.**
 
-- **`rename`** accepts an optional `flavor` and stays tier 2.
+- **`rename`** accepts an optional `flavor` (`null` marks the line's original) and stays tier 2.
+- **`seasonal`** takes `{seasonal: boolean}` and is tier 2.
 - **`relationships`** no longer accepts `variant` or `specialty_flavor`. A change of `productFamilyId` is tier 3.
 - **Product reports** add the reasons `flavor_not_real` and `wrong_line`.
-- **`POST /admin/moderation/products/:id/line`** takes `{expectedRevision, lineId | newLineName, note}` and moves a product to another line of the same brand and country, or to a new line.
-- **`POST /admin/lines/:id`** takes `{expectedRevision, name, note}`.
+- **`POST /admin/moderation/products/:id/line`** takes `{expectedRevision, lineId | newLineName, note}` and moves a product to another line of the same brand and country, or to a new line. A reversal moves it back and leaves a new line in place, empty.
+- **`POST /admin/moderation/products/:id/line-name`** takes `{expectedRevision, name, note}` and renames the product's line. It is anchored on a product (whose revision fences it) so the existing reversal endpoint, which reverses product actions, can undo it.
+- **`GET /admin/moderation/products/:id`** adds `lines: [{lineId, name, flavorCount}]`, the brand's lines in the product's country.
 - **Both line actions** are audited, reversible through the existing reversal endpoint, and rescore the affected lines.
 
 **Caching.**

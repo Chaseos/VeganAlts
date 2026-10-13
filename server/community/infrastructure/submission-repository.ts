@@ -39,6 +39,9 @@ export interface PublicationExtrasMarker {
   versionId: string;
   categoryId: string | null;
   rating: number | null;
+  // The Tastiest answer given with the rating (milestone 7); absent in
+  // markers written before it.
+  enjoyment?: number | null;
   allergens: AllergenDeclaration | null;
   citedImageId: string | null;
 }
@@ -542,7 +545,6 @@ export class SubmissionRepository {
       AND EXISTS(SELECT 1 FROM profiles WHERE user_id=? AND account_state='active')
       AND EXISTS(SELECT 1 FROM countries WHERE id=? AND is_active=1)
       AND (SELECT COUNT(*) FROM categories WHERE id IN (SELECT value FROM json_each(?)) AND is_active=1 AND is_rankable=1)=?
-      AND (?='' OR EXISTS(SELECT 1 FROM products WHERE id=? AND country_id=? AND lifecycle_status<>'hidden'))
       AND (?='' OR EXISTS(SELECT 1 FROM product_families WHERE id=? AND country_id=? AND brand_id=?))`;
     const fence = [
       receipt.id,
@@ -553,19 +555,17 @@ export class SubmissionRepository {
       context.countryId,
       JSON.stringify(input.categoryIds),
       input.categoryIds.length,
-      input.relatedProductId ?? "",
-      input.relatedProductId ?? "",
-      context.countryId,
-      input.productFamilyId ?? "",
-      input.productFamilyId ?? "",
+      input.lineId ?? "",
+      input.lineId ?? "",
       context.countryId,
       context.brandId ?? "",
     ];
     const productId = receipt.planned_product_id,
       versionId = receipt.planned_version_id;
     const productSlug = `${slug(`${context.brandName} ${input.name}`)}-${productId.slice(-8)}`;
-    // A product outside a chosen line starts its own, named after it.
-    const familyId = input.productFamilyId ?? `line-${productId}`;
+    // A product outside a chosen line starts its own, named by the
+    // contributor ("Name without the flavor") or after the product.
+    const familyId = input.lineId ?? `line-${productId}`;
     const status = classification.veganStatus;
     const statements: D1PreparedStatement[] = [];
     if (!context.brandId)
@@ -584,7 +584,7 @@ export class SubmissionRepository {
             ...fence,
           ),
       );
-    if (!input.productFamilyId)
+    if (!input.lineId)
       statements.push(
         this.db
           .prepare(
@@ -596,7 +596,7 @@ export class SubmissionRepository {
             context.brandId,
             normalizeName(context.brandName),
             context.countryId,
-            input.name,
+            input.lineName ?? input.name,
             context.countryId,
             productSlug,
             now,
@@ -607,8 +607,8 @@ export class SubmissionRepository {
     statements.push(
       this.db
         .prepare(
-          `INSERT INTO products(id,country_id,brand_id,product_family_id,name,slug,vegan_status,manufacturer_label,manufacturer_url,created_by,published_at,created_at,updated_at)
-        SELECT ?,?,COALESCE(?,(SELECT id FROM brands WHERE normalized_name=?)),?,?,?,?,?,?,?,?,?,? WHERE ${guard}`,
+          `INSERT INTO products(id,country_id,brand_id,product_family_id,name,flavor,seasonal,slug,vegan_status,manufacturer_label,manufacturer_url,created_by,published_at,created_at,updated_at)
+        SELECT ?,?,COALESCE(?,(SELECT id FROM brands WHERE normalized_name=?)),?,?,?,COALESCE(?,(SELECT season_start IS NOT NULL FROM categories WHERE id=?),0),?,?,?,?,?,?,?,? WHERE ${guard}`,
         )
         .bind(
           productId,
@@ -619,6 +619,10 @@ export class SubmissionRepository {
           normalizeName(context.brandName),
           familyId,
           input.name,
+          input.flavor ?? null,
+          // Unsaid, a product follows its food's season.
+          input.seasonal === undefined ? null : Number(input.seasonal),
+          input.categoryIds[0] ?? null,
           productSlug,
           status,
           input.manufacturerLabel ?? "unknown",
@@ -655,7 +659,8 @@ export class SubmissionRepository {
           .bind(
             productId,
             categoryId,
-            input.specialtyFlavor ? 0 : 1,
+            // Every flavor counts (milestone 7); operators can exclude one.
+            1,
             receipt.user_id,
             now,
             now,
@@ -697,21 +702,6 @@ export class SubmissionRepository {
         fence,
       ),
     );
-    if (input.relatedProductId && input.relationship)
-      statements.push(
-        this.db
-          .prepare(
-            `INSERT INTO product_relationships(from_product_id,to_product_id,relation_type,created_by,created_at) SELECT ?,?,?,?,? WHERE ${guard}`,
-          )
-          .bind(
-            productId,
-            input.relatedProductId,
-            input.relationship,
-            receipt.user_id,
-            now,
-            ...fence,
-          ),
-      );
     if (operation)
       statements.push(
         this.db
@@ -765,6 +755,7 @@ export class SubmissionRepository {
               versionId,
               categoryId: input.categoryIds[0] ?? null,
               rating: input.rating ?? null,
+              enjoyment: input.enjoyment ?? null,
               allergens: input.allergens ?? null,
               citedImageId:
                 images.find((i) => i.slot === "ingredients")?.imageId ??

@@ -68,6 +68,22 @@ export async function chooseFood(page: Page, food: string) {
     .click();
 }
 
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Add a product, step 1 (milestone 7): type a brand and choose it, or add the
+// typed text as a new brand when no brand has that name.
+export async function chooseBrand(page: Page, brand: string) {
+  await page.getByRole("combobox", { name: "Brand (required)" }).fill(brand);
+  const listed = page.getByRole("option", {
+    name: new RegExp(`^${escaped(brand)}\\s*(\\d+ products?|Nothing) `),
+  });
+  const added = page.getByRole("option", {
+    name: `Add “${brand}” as a new brand`,
+  });
+  await expect(listed.or(added).first()).toBeVisible();
+  await ((await listed.count()) ? listed.first() : added).click();
+}
+
 export async function fillBasics(
   page: Page,
   {
@@ -78,8 +94,17 @@ export async function fillBasics(
   }: { food: string; brand: string; name: string; photo?: string },
 ) {
   await chooseFood(page, food);
-  await page.getByLabel("Brand (required)", { exact: true }).fill(brand);
-  await page.getByLabel("Product name (required)", { exact: true }).fill(name);
+  await chooseBrand(page, brand);
+  // A listed brand shows its lines first; this adds something else.
+  const somethingElse = page.getByRole("button", {
+    name: `Something else from ${brand}`,
+  });
+  const nameField = page.getByLabel("Product name (required)", {
+    exact: true,
+  });
+  await expect(somethingElse.or(nameField)).toBeVisible();
+  if (await somethingElse.isVisible()) await somethingElse.click();
+  await nameField.fill(name);
   await page.getByLabel("Front of pack photo (required)").setInputFiles(photo);
 }
 

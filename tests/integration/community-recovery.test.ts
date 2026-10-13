@@ -22,6 +22,16 @@ import { readMedia } from "../../server/media/infrastructure/media-reader";
 import { moderationDecisions } from "../../server/moderation/infrastructure/composition";
 import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
 
+// A label listing an animal-derived allergen holds a submission for review
+// (joining a line or giving a flavor never does, milestone 7).
+const HOLD = {
+  allergens: {
+    status: "declared" as const,
+    contains: ["milk"],
+    mayContain: [] as string[],
+  },
+};
+
 const id = () => crypto.randomUUID(),
   bytes = () =>
     Uint8Array.from(atob(env.TEST_IMAGES.jpeg), (c) => c.charCodeAt(0));
@@ -149,16 +159,15 @@ it("enforces staged byte and concurrent attempt quotas before expensive processi
 it("fences expired processing leases and removes delayed writes while retaining held evidence until expiration", async () => {
   const { actor, service, input, media, staged, clock, storage } =
     await setup();
-  const receipt = (
-    await service.preflight(actor, id(), { ...input, specialtyFlavor: true })
-  ).receiptId!;
+  const receipt = (await service.preflight(actor, id(), { ...input, ...HOLD }))
+    .receiptId!;
   const photo = await media.upload(actor, {
     receiptId: receipt,
     slot: "front",
     idempotencyKey: id(),
     bytes: bytes(),
   });
-  await service.finalize(actor, receipt, { ...input, specialtyFlavor: true });
+  await service.finalize(actor, receipt, { ...input, ...HOLD });
   const full = (await staged.attachments(receipt))[0]!.derivatives[0]!.key;
   expect(
     await mayDeleteCommunityObject(env.DB, full, clock.now + DAY * 2),

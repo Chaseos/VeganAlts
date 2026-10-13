@@ -15,6 +15,7 @@ import {
   AllergenLabel,
   Badge,
   EarlyBadge,
+  SeasonalProductBadge,
   TrendingBadge,
   NewBadge,
   VeganStatusChip,
@@ -230,6 +231,7 @@ export default function Product({
                 <AllergenLabel allergens={allergens} />
                 {p.isNew && <NewBadge />}
                 {food?.line?.trending && <TrendingBadge />}
+                {p.seasonal === 1 && <SeasonalProductBadge />}
                 {!!p.developmentOnly && <Badge>Demo product</Badge>}
               </p>
               <h1 className="va-product__name">{p.name}</h1>

@@ -11,6 +11,8 @@ export interface FoodChoice {
   aisle: { id: string; name: string; silent: boolean };
   // Not on in the country yet: adding a product there switches it on.
   inCountry: boolean;
+  // A seasonal food: a product added to it is seasonal unless said otherwise.
+  seasonal: boolean;
 }
 
 /**
@@ -49,6 +51,7 @@ export function foodChoices(
           silent: silent.get(aisle.id) ?? false,
         },
         inCountry: food.available !== 0,
+        seasonal: food.seasonStart != null,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

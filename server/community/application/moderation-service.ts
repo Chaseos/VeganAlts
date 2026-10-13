@@ -5,6 +5,8 @@ import {
   submissionInput,
   type Actor,
   type ConsolidationInput,
+  type LineMoveInput,
+  type LineRenameInput,
   type ReviewDecision,
   type ReviewKind,
   type InboxFilter,
@@ -14,6 +16,7 @@ import {
   active,
   identityKey,
   onlyUnreadablePhoto,
+  slug,
   SYSTEM_ACTOR,
   SYSTEM_ACTOR_ID,
 } from "../domain/policy";
@@ -204,10 +207,176 @@ export class ModerationService {
   }
   async product(actor: Actor, productId: string) {
     administrator(actor);
+    const product = await this.repository.snapshot(productId);
     return {
-      product: await this.repository.snapshot(productId),
+      product,
       actions: await this.repository.actions(productId),
+      // The brand's other lines here, for Move to line (milestone 7).
+      lines: product.brandId
+        ? (
+            await this.submissions.brandLines(
+              actor,
+              product.brandId,
+              product.countryCode.toUpperCase(),
+              null,
+            )
+          ).map((line) => ({
+            lineId: line.lineId,
+            name: line.name,
+            flavorCount: line.flavors.length,
+          }))
+        : [],
     };
+  }
+  /**
+   * Operator line tools (milestone 7), on a product's moderation view: move
+   * the product to another line of its brand and country, or to a new line.
+   * Both lines are rescored in the same batch; the reversal moves it back and
+   * leaves a new line in place, empty.
+   */
+  async moveLine(
+    actor: Actor,
+    key: string,
+    productId: string,
+    input: LineMoveInput,
+  ) {
+    administrator(actor);
+    const now = this.clock(),
+      receipt = await receiptWrite(
+        actor.id,
+        "line_move",
+        key,
+        { productId, ...input },
+        now,
+      );
+    const prior = await this.repository.replay<{
+      actionId: string;
+      productId: string | null;
+    }>(receipt);
+    if (prior) return prior;
+    const snapshot = await this.lineSnapshot(productId, input.expectedRevision);
+    if (input.lineId === snapshot.familyId)
+      throw new ApplicationError(
+        "NO_CHANGE",
+        "The product is already in this line.",
+      );
+    if (input.lineId) await this.catalog.assertLine(snapshot, input.lineId);
+    const newLine = input.newLineName
+      ? (() => {
+          const id = `line-${this.newId()}`;
+          return {
+            id,
+            name: input.newLineName,
+            slug: `${snapshot.countryCode}-${slug(input.newLineName)}-${id.slice(-8)}`,
+          };
+        })()
+      : undefined;
+    const after: CatalogPatch = newLine
+      ? { newLine, familyId: newLine.id }
+      : { familyId: input.lineId! };
+    const guard = {
+      sql: "EXISTS(SELECT 1 FROM catalog_revisions WHERE product_id=? AND revision=?)",
+      values: [snapshot.id, snapshot.revision] as (string | number | null)[],
+    };
+    if (input.lineId) {
+      guard.sql +=
+        " AND EXISTS(SELECT 1 FROM product_families WHERE id=? AND country_id=? AND brand_id IS ?)";
+      guard.values.push(input.lineId, snapshot.countryId, snapshot.brandId);
+    }
+    return this.repository.commit(
+      {
+        id: this.newId(),
+        actor,
+        kind: "line_move",
+        targetId: snapshot.id,
+        productId: snapshot.id,
+        before: { familyId: snapshot.familyId },
+        after,
+        note: input.note,
+        now,
+      },
+      guard,
+      (fence) =>
+        this.catalog.patchStatements(snapshot, after, actor, now, fence),
+      receipt,
+    );
+  }
+  /** Renames the product's line (milestone 7); reversible like a move. */
+  async renameLine(
+    actor: Actor,
+    key: string,
+    productId: string,
+    input: LineRenameInput,
+  ) {
+    administrator(actor);
+    const now = this.clock(),
+      receipt = await receiptWrite(
+        actor.id,
+        "line_rename",
+        key,
+        { productId, ...input },
+        now,
+      );
+    const prior = await this.repository.replay<{
+      actionId: string;
+      productId: string | null;
+    }>(receipt);
+    if (prior) return prior;
+    const snapshot = await this.lineSnapshot(productId, input.expectedRevision);
+    if (!snapshot.familyId || snapshot.lineName === null)
+      throw new ApplicationError("NOT_FOUND", "This product has no line.", 404);
+    if (input.name === snapshot.lineName)
+      throw new ApplicationError(
+        "NO_CHANGE",
+        "The line already has this name.",
+      );
+    const before: CatalogPatch = {
+        lineName: { lineId: snapshot.familyId, name: snapshot.lineName },
+      },
+      after: CatalogPatch = {
+        lineName: { lineId: snapshot.familyId, name: input.name },
+      };
+    return this.repository.commit(
+      {
+        id: this.newId(),
+        actor,
+        kind: "line_rename",
+        targetId: snapshot.familyId,
+        productId: snapshot.id,
+        before,
+        after,
+        note: input.note,
+        now,
+      },
+      {
+        sql: "EXISTS(SELECT 1 FROM catalog_revisions WHERE product_id=? AND revision=?) AND EXISTS(SELECT 1 FROM product_families WHERE id=? AND canonical_name=?)",
+        values: [
+          snapshot.id,
+          snapshot.revision,
+          snapshot.familyId,
+          snapshot.lineName,
+        ],
+      },
+      (fence) =>
+        this.catalog.patchStatements(snapshot, after, actor, now, fence),
+      receipt,
+    );
+  }
+  private async lineSnapshot(productId: string, expectedRevision: number) {
+    const snapshot = await this.repository.snapshot(productId);
+    if (snapshot.revision !== expectedRevision)
+      throw new ApplicationError(
+        "STALE_PRODUCT",
+        "Refresh the current product before changing its line.",
+        409,
+      );
+    if (snapshot.lifecycleStatus === "hidden")
+      throw new ApplicationError(
+        "ARCHIVED_PRODUCT",
+        "Archived products cannot change lines.",
+        409,
+      );
+    return snapshot;
   }
   async decide(
     actor: Actor,

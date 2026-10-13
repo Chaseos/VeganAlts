@@ -48,9 +48,18 @@ it("normalizes punctuation and package quantities without conflating flavor and 
 });
 it("distinguishes deterministic publication, actionable duplicates and manual review", () => {
   expect(decideSubmission(input, []).decision).toBe("READY");
+  // Joining a line, naming a new one or giving a flavor never holds
+  // (milestone 7).
   expect(
-    decideSubmission({ ...input, specialtyFlavor: true }, []).decision,
-  ).toBe("NEEDS_REVIEW");
+    decideSubmission({ ...input, lineId: "line", flavor: "Vanilla" }, [])
+      .decision,
+  ).toBe("READY");
+  expect(
+    decideSubmission(
+      { ...input, flavor: "Spicy", lineName: "Smoky Burger" },
+      [],
+    ).decision,
+  ).toBe("READY");
   // Unconfirmed ingredients publish as "not checked yet" (milestone 6).
   expect(
     decideSubmission({ ...input, noKnownAnimalIngredients: false }, [])
@@ -198,6 +207,9 @@ const snapshot: ProductSnapshot = {
   countryCode: "us",
   brandId: "brand",
   familyId: null,
+  lineName: null,
+  flavor: null,
+  seasonal: false,
   lifecycleStatus: "active",
   veganStatus: "appears_vegan",
   manufacturerLabel: "vegan",

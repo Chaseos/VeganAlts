@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { test } from "./fixtures";
 import { createBrowserSession } from "./session-fixture";
 import { withLocalDb } from "./local-db";
+import { chooseBrand } from "./site";
 
 // Screenshots for comparing pages with the Round 5 canvas boards by eye, and
 // for the owner's review of milestone 6 screens.
@@ -169,7 +170,7 @@ test("capture add-product", async ({ page, context }, testInfo) => {
             quality: 70,
             fullPage: true,
           });
-        await page.goto("/add-product?country=gb");
+        await page.goto("/add-product?country=us");
         await page.evaluate(() => sessionStorage.clear());
         await page.reload();
         await page.locator("main").waitFor();
@@ -179,17 +180,34 @@ test("capture add-product", async ({ page, context }, testInfo) => {
           .getByRole("combobox", {
             name: "What food does it replace? (required)",
           })
-          .fill("bee");
+          .fill("ground");
         await page.waitForTimeout(200);
         await shot("picker");
         await page.getByRole("option").first().click();
-        await page.getByLabel("Brand (required)").fill("Richmond");
+        // Milestone 7: the brand, then what's already listed from it.
         await page
-          .getByLabel("Product name (required)")
-          .fill("Meat Free Sausages");
+          .getByRole("combobox", { name: "Brand (required)" })
+          .fill("Beyon");
+        await page
+          .getByRole("option", { name: /^Beyond/ })
+          .first()
+          .waitFor();
+        await page.waitForTimeout(200);
+        await shot("brand");
+        await chooseBrand(page, "Beyond");
+        await page
+          .getByRole("region", { name: "Already listed from Beyond" })
+          .waitFor();
+        await shot("listed");
+        await page
+          .getByRole("button", { name: "Add a new flavor of Beyond Beef" })
+          .click();
+        await page.getByLabel("Flavor (required)").fill("Peppercorn");
         await page
           .getByLabel("Front of pack photo (required)")
           .setInputFiles("tests/fixtures/small.jpg");
+        await page.waitForTimeout(800);
+        await shot("flavor");
         await page.getByRole("button", { name: "Continue" }).click();
         await page
           .locator("details.va-optional")

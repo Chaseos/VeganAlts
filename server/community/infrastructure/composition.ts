@@ -128,12 +128,13 @@ export function communityServices(
     account: (userId) => repository.accountState(userId),
     rated: (userId, versionId, categoryId) =>
       new D1RatingsRepository(env.DB).hasRated(userId, versionId, categoryId),
-    rate: async (userId, versionId, categoryId, score) => {
+    rate: async (userId, versionId, categoryId, score, enjoyment) => {
       await ratingsService(env as Cloudflare.Env).rate(
         { id: userId, accountState: "active" },
         versionId,
         categoryId,
         score,
+        enjoyment === null ? {} : { enjoyment },
       );
     },
     revision: async (productId) =>

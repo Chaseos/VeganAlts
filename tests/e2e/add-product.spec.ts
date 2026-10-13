@@ -1,7 +1,7 @@
 import { expect, test } from "./fixtures";
 import { accessible } from "./a11y";
 import { createBrowserSession } from "./session-fixture";
-import { chooseFood, fillBasics, openOptional } from "./site";
+import { chooseBrand, chooseFood, openOptional } from "./site";
 import { withLocalDb } from "./local-db";
 
 test.skip(
@@ -24,12 +24,11 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
     await page.getByRole("button", { name: "Continue" }).click();
     const summary = page.getByRole("alert");
     await expect(summary).toBeFocused();
-    await expect(summary).toContainText("4 things to fix");
+    // The product's own fields wait for the food and brand (milestone 7).
+    await expect(summary).toContainText("2 things to fix");
     await expect(summary.getByRole("link")).toHaveText([
       "Choose the food it replaces, or suggest a new one.",
       "Enter the brand.",
-      "Enter the product name.",
-      "Add a photo of the front of the package.",
     ]);
 
     // The picker uses the country's names and is usable from the keyboard.
@@ -46,10 +45,13 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
     await expect(
       page.getByRole("button", { name: "Change Beef mince" }),
     ).toBeVisible();
-    await expect(summary).toContainText("3 things to fix");
+    await expect(summary).toContainText("One thing to fix");
 
+    // A brand that isn't listed is added as a new one, straight to the
+    // product's fields.
+    await chooseBrand(page, "Draft Brand");
+    await expect(page.getByText("New brand", { exact: true })).toBeVisible();
     // Text survives a reload; photos are chosen again.
-    await page.getByLabel("Brand (required)").fill("Draft Brand");
     await page.getByLabel("Product name (required)").fill("Draft Crumbles");
     await page.waitForTimeout(100);
     await page.reload();
@@ -60,8 +62,12 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
       page.getByRole("button", { name: "Change Beef mince" }),
     ).toBeVisible();
 
-    // An exact duplicate is pointed out before anything is sent.
-    await page.getByLabel("Brand (required)").fill("Beyond");
+    // An exact duplicate is pointed out before anything is sent. Beyond has
+    // nothing listed in the United Kingdom, so its fields follow at once.
+    await page
+      .getByRole("button", { name: "Change brand Draft Brand" })
+      .click();
+    await chooseBrand(page, "Beyond");
     await page.getByLabel("Product name (required)").fill("Beyond Beef");
     await page.waitForTimeout(100);
     await page.goto("/add-product?country=us");
@@ -86,19 +92,37 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
     await expect(
       page.getByText("You have an unfinished product"),
     ).toBeVisible();
+    await chooseBrand(page, "Kept Photo");
     await page
       .getByLabel("Front of pack photo (required)")
       .setInputFiles("tests/fixtures/small.jpg");
     await page.getByRole("button", { name: "Start a new one" }).click();
-    await page.getByLabel("Brand (required)").fill("Kept Photo");
+    await page.getByLabel("Product name (required)").fill("Kept Crumbles");
     await page.waitForTimeout(200);
     await page.reload();
     await expect(page.getByText("Selected: small.jpg")).toBeVisible();
-    await fillBasics(page, {
-      food: "Ground Beef",
-      brand: "Beyond",
-      name: "Beyond Beef",
+    await page.getByRole("button", { name: "Change brand Kept Photo" }).click();
+    // Change hands focus back to the brand field.
+    await expect(
+      page.getByRole("combobox", { name: "Brand (required)" }),
+    ).toBeFocused();
+    // A listed brand shows what's already listed from it, this food first.
+    await chooseFood(page, "Ground Beef");
+    await chooseBrand(page, "Beyond");
+    const listed = page.getByRole("region", {
+      name: "Already listed from Beyond",
     });
+    await expect(listed).toContainText("Beyond Beef");
+    await expect(
+      listed.getByRole("link", {
+        name: /^That’s it, rate it\s*: Beyond Beef$/,
+      }),
+    ).toHaveAttribute("href", /\/us\/products\/beyond-beef.*#scores-title/);
+    await accessible(page);
+    await listed
+      .getByRole("button", { name: "Something else from Beyond" })
+      .click();
+    await page.getByLabel("Product name (required)").fill("Beyond Beef");
     await expect(page.getByText("Already on VeganAlts")).toBeVisible();
     await expect(page.getByRole("link", { name: "Rate it" })).toHaveAttribute(
       "href",
@@ -147,7 +171,7 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
     ).toBeVisible();
     await page.getByRole("button", { name: /^Change/ }).click();
     await chooseFood(page, "Chicken Nuggets");
-    await page.getByLabel("Brand (required)").fill(`Plain Farm ${Date.now()}`);
+    await chooseBrand(page, `Plain Farm ${Date.now()}`);
     await page.getByLabel("Product name (required)").fill(name);
     await page
       .getByLabel("Front of pack photo (required)")
@@ -161,12 +185,12 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
       "Everything here is optional",
     );
     await accessible(page);
-    // A related product chosen before a reload is still shown after it.
-    await openOptional(page, "Variants and other foods");
-    const related = page.getByLabel("Related product", { exact: true });
-    await related.selectOption({ index: 1 });
-    const relatedId = await related.inputValue();
-    expect(relatedId).not.toBe("");
+    // Ratings chosen before a reload are still chosen after it; how tasty
+    // it is waits for how close.
+    const tasty = page.getByRole("button", { name: "5 Delicious (5 of 5)" });
+    await expect(tasty).toBeDisabled();
+    await page.getByRole("button", { name: "4 Very close (4 of 5)" }).click();
+    await tasty.click();
     await page.waitForTimeout(100);
     // A reload keeps the picked photo too (phones often reload after the
     // camera), so step 2 stays open.
@@ -179,16 +203,15 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
     await expect(
       page.getByRole("button", { name: "Submit product", exact: true }),
     ).toBeEnabled();
-    await openOptional(page, "Variants and other foods");
-    await expect(related).toHaveValue(relatedId);
-    // Cleared again so this product publishes without a relationship review.
-    await related.selectOption("");
+    await expect(tasty).toHaveAttribute("aria-pressed", "true");
     // Back returns to the basics with everything kept.
     await page.goBack();
     await expect(page.getByLabel("Product name (required)")).toHaveValue(name);
     await page.getByRole("button", { name: "Continue" }).click();
-    // Extras: a rating and a store, saved once the product is live.
-    await page.getByRole("button", { name: "4 Very close (4 of 5)" }).click();
+    // Extras: the ratings and a store, saved once the product is live.
+    await expect(
+      page.getByRole("button", { name: "4 Very close (4 of 5)" }),
+    ).toHaveAttribute("aria-pressed", "true");
     await openOptional(page, "Where it’s sold");
     await page.getByText(store.name, { exact: true }).click();
     await page
@@ -279,7 +302,7 @@ test("suggests a missing food inline and publishes the product once a moderator 
       "Choose the aisle where you’d find it",
     );
     await page.getByLabel("Aisle (required)").selectOption({ label: "Pork" });
-    await page.getByLabel("Brand (required)").fill(`Grill House ${stamp}`);
+    await chooseBrand(page, `Grill House ${stamp}`);
     await page.getByLabel("Product name (required)").fill(name);
     await page
       .getByLabel("Front of pack photo (required)")

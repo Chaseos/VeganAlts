@@ -18,6 +18,16 @@ import { communityServices } from "../../server/community/infrastructure/composi
 import { moderationDecisions } from "../../server/moderation/infrastructure/composition";
 import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
 
+// A label listing an animal-derived allergen holds a submission for review
+// (joining a line or giving a flavor never does, milestone 7).
+const HOLD = {
+  allergens: {
+    status: "declared" as const,
+    contains: ["milk"],
+    mayContain: [] as string[],
+  },
+};
+
 const id = () => crypto.randomUUID();
 async function setup() {
   const f = await catalogFixture(env.DB, 2);
@@ -148,7 +158,7 @@ it("publishes atomically from private media, replays keys and rejects package-si
 
 it("holds ambiguous submissions without canonical records and publishes only after operator review", async () => {
   const { repo, media, service, input, actor } = await setup();
-  const held = { ...input, specialtyFlavor: true };
+  const held = { ...input, ...HOLD };
   const checked = await service.preflight(actor, id(), held),
     receipt = (await repo.get(checked.receiptId!))!;
   await media.upload(actor, {
@@ -192,20 +202,21 @@ it("holds ambiguous submissions without canonical records and publishes only aft
       .bind(receipt.planned_product_id)
       .first("n"),
   ).toBe(1);
+  // Every flavor counts (milestone 7); operators can exclude one later.
   expect(
     await env.DB.prepare(
       "SELECT ranking_eligible FROM product_categories WHERE product_id=?",
     )
       .bind(receipt.planned_product_id)
       .first("ranking_eligible"),
-  ).toBe(0);
+  ).toBe(1);
 });
 
 it("accepts an owned follow-up once, preserving original evidence and requiring another operator review", async () => {
   const { f, repo, media, service, transformer, input, actor } = await setup();
   const { moderation } = communityServices(env, id);
   const admin = { ...f.users[1]!, administrator: true };
-  const held = { ...input, specialtyFlavor: true };
+  const held = { ...input, ...HOLD };
   const originalId = (await service.preflight(actor, id(), held)).receiptId!;
   const original = (await repo.get(originalId))!;
   const bytes = Uint8Array.from(atob(env.TEST_IMAGES.jpeg), (c) =>
@@ -353,7 +364,7 @@ it("fences a follow-up against an operator decision made during finalization", a
   const { f, repo, media, service, input, actor } = await setup();
   const { moderation } = communityServices(env, id);
   const admin = { ...f.users[1]!, administrator: true };
-  const held = { ...input, specialtyFlavor: true };
+  const held = { ...input, ...HOLD };
   const originalId = (await service.preflight(actor, id(), held)).receiptId!;
   const bytes = Uint8Array.from(atob(env.TEST_IMAGES.jpeg), (c) =>
     c.charCodeAt(0),
@@ -416,7 +427,7 @@ it("replays a preflight key with the receipt's actual outcome", async () => {
   const held = {
     ...input,
     name: `Replay held ${tag()}`,
-    specialtyFlavor: true,
+    ...HOLD,
   };
   const key = id(),
     first = await service.preflight(actor, key, held);
@@ -513,7 +524,7 @@ it("publishes unconfirmed ingredients as not checked yet, and an operator's choi
   const seasonal = {
     ...unconfirmed,
     name: `Seasonal ${tag()}`,
-    specialtyFlavor: true,
+    ...HOLD,
   };
   const second = await publish(seasonal);
   expect(second.checked.decision).toBe("NEEDS_REVIEW");

@@ -9,6 +9,7 @@ import {
   Badge,
   EarlyBadge,
   NewBadge,
+  SeasonalProductBadge,
   TrendingBadge,
 } from "../ui/badges";
 import { DetailBars, DetailCells } from "../ui/bars";
@@ -30,6 +31,8 @@ export interface ListedFlavor {
   score: number | null;
   allergens: AllergenDeclaration | null;
   isNew: boolean;
+  // Sold only part of the year.
+  seasonal: boolean;
   matchesFilters: boolean;
 }
 // A recipe line in a food's list (milestone 7), shown by its lead flavor.
@@ -56,6 +59,8 @@ export interface ListedLine {
   badges: string[];
   flavors: ListedFlavor[];
   hiddenFlavorCount: number;
+  // Every listed flavor is seasonal.
+  seasonal: boolean;
 }
 type Labels = Record<string, string>;
 
@@ -147,6 +152,9 @@ export function FlavorList({
               </Link>
               <span className="va-flavors__meta va-small va-muted">
                 {flavor.isNew && <NewBadge />}
+                {flavor.seasonal && line.flavorCount > 1 && (
+                  <SeasonalProductBadge />
+                )}
                 {allergens && (
                   <AllergenLabel allergens={allergens} variant="line" />
                 )}
@@ -191,6 +199,7 @@ function LineChips({
       {line.early && <EarlyBadge count={line.people} />}
       {line.isNew && <NewBadge />}
       {line.trending && <TrendingBadge />}
+      {line.seasonal && <SeasonalProductBadge />}
       {line.badges.map((badge) => (
         <Badge key={badge} tone="good">
           {badge}

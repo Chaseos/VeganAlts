@@ -80,6 +80,8 @@ export interface FlavorRow {
   name: string;
   // Null marks the line's original.
   flavor: string | null;
+  // Sold only part of the year (0 or 1).
+  seasonal: number;
   versionId: string;
   publishedAt: number | null;
   closestScore: number | null;
@@ -181,6 +183,8 @@ export interface ProductDetails
   extends ProductSummary, CommunityProductDetails {
   lineId: string;
   flavor: string | null;
+  // Sold only part of the year (0 or 1), milestone 7.
+  seasonal: number;
   country: string;
   veganStatus: string;
   manufacturerLabel: string;

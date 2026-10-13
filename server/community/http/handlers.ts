@@ -28,6 +28,8 @@ import {
   inboxFilter,
   consolidationInput,
   countryCode,
+  lineMoveInput,
+  lineRenameInput,
   note,
   type Actor,
 } from "../domain/contracts";
@@ -116,7 +118,8 @@ export async function communityApi(
     if (path === "community/identity-matches") {
       await enforceLimit(env.SUGGEST_RATE_LIMIT, `identity:${actor.id}`);
       const name = url.searchParams.get("name")?.trim() ?? "",
-        brand = url.searchParams.get("brand")?.trim() ?? "";
+        brand = url.searchParams.get("brand")?.trim() ?? "",
+        line = url.searchParams.get("line");
       if (name.length < 2 || brand.length < 2) return respond([]);
       return respond(
         await services.submissions.identityMatches(
@@ -125,7 +128,38 @@ export async function communityApi(
             name,
             brand,
             country: url.searchParams.get("country") ?? "US",
+            ...(line ? { lineId: line } : {}),
           }),
+        ),
+      );
+    }
+    // Add a product's brand choice and "Already listed from [brand]"
+    // (milestone 7): read-only, private, on the same limit.
+    if (path === "community/brands") {
+      await enforceLimit(env.SUGGEST_RATE_LIMIT, `brands:${actor.id}`);
+      return respond(
+        await services.submissions.brandSuggestions(
+          actor,
+          parse(countryCode, url.searchParams.get("country") ?? "US"),
+          (url.searchParams.get("q") ?? "").slice(0, 80),
+        ),
+      );
+    }
+    if (
+      root === "community" &&
+      second === "brands" &&
+      third &&
+      fourth === "lines" &&
+      parts.length === 4
+    ) {
+      await enforceLimit(env.SUGGEST_RATE_LIMIT, `brands:${actor.id}`);
+      const food = url.searchParams.get("food");
+      return respond(
+        await services.submissions.brandLines(
+          actor,
+          parse(id, third),
+          parse(countryCode, url.searchParams.get("country") ?? "US"),
+          food ? parse(id, food) : null,
         ),
       );
     }
@@ -333,6 +367,27 @@ export async function communityApi(
           body,
         ),
       );
+    else if (
+      admin &&
+      third === "products" &&
+      fourth &&
+      (fifth === "line" || fifth === "line-name") &&
+      parts.length === 5
+    )
+      result =
+        fifth === "line"
+          ? await services.moderation.moveLine(
+              actor,
+              requestKey,
+              parse(id, fourth),
+              parse(lineMoveInput, body),
+            )
+          : await services.moderation.renameLine(
+              actor,
+              requestKey,
+              parse(id, fourth),
+              parse(lineRenameInput, body),
+            );
     else if (path === "admin/moderation/consolidations")
       result = await services.moderation.consolidate(
         actor,

@@ -37,8 +37,13 @@ test("submission, private receipt, operator publication, reporting, formula hist
       .fill(
         "The ingredient source lists only plants. This synthetic browser fixture requires manual category review.",
       );
-    await openOptional(page, "Variants and other foods");
-    await page.getByLabel(/Specialty flavor/).check();
+    // Milk on the label holds the product for an operator.
+    await openOptional(page, "Allergens");
+    await page.getByRole("radio", { name: "It lists allergens" }).check();
+    await page
+      .getByRole("group", { name: "Contains" })
+      .getByRole("checkbox", { name: "Milk" })
+      .check();
     await page
       .getByRole("button", { name: "Submit product", exact: true })
       .click();
@@ -128,8 +133,6 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await expect(page.getByLabel(/Link to the ingredients/)).toHaveValue(
       "https://example.com/corrected-ingredients",
     );
-    await openOptional(page, "Variants and other foods");
-    await page.getByLabel(/Specialty flavor/).uncheck();
     await accessible(page);
     await page.screenshot({
       path: testInfo.outputPath("submission-follow-up.png"),

@@ -33,6 +33,7 @@ import {
   basicsErrors,
   clearDraft,
   draftKey,
+  editDraft,
   emptyDraft,
   extrasErrors,
   forCountry,
@@ -64,9 +65,17 @@ export async function loader({ request }: Route.LoaderArgs) {
     markets.find((m) => m.code === wanted) ??
     markets.find((m) => m.code === "us") ??
     markets[0]!;
-  const [choices, options] = await Promise.all([
+  // "Add another flavor" links a product's line (`?line=`), and a brand page
+  // links its brand (`?brand=`), milestone 7.
+  const [choices, options, start] = await Promise.all([
     catalog.contributionChoices(market),
     services.contributions.options(actor, "", market.iso2),
+    followUp
+      ? { brand: null, line: null }
+      : services.submissions.start(market.iso2, {
+          line: query.get("line"),
+          brand: query.get("brand"),
+        }),
   ]);
   // A food page links here with its food chosen (`?food=`, or the older
   // `?category=` with the food's ID).
@@ -85,6 +94,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     preselect:
       choices.foods.find((f) => f.slug === food || f.id === category)?.id ??
       null,
+    start,
     suggested:
       newFood.length >= 2
         ? {
@@ -115,7 +125,8 @@ const storage = () => {
 
 /**
  * Add a product (milestone 6): the basics, then optional details, then one
- * submit. Step 2 is `?step=more`, so Back returns to the basics.
+ * submit. Step 2 is `?step=more`, so Back returns to the basics. Milestone 7:
+ * the basics run food, brand, what's listed from it, then the product.
  */
 export default function AddProduct({ loaderData }: Route.ComponentProps) {
   const {
@@ -127,6 +138,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     options,
     preselect,
     suggested,
+    start,
     countryChosen,
     siteKey,
     followUp,
@@ -141,14 +153,15 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
           submissionId: followUp.submissionId,
           expectedRevision: followUp.expectedRevision,
         })
-      : emptyDraft(
-          market.iso2,
-          suggested
+      : emptyDraft(market.iso2, {
+          food: suggested
             ? { kind: "new", ...suggested, otherNames: [] }
             : preselect
               ? { kind: "existing", id: preselect }
               : null,
-        );
+          brand: start.brand,
+          line: start.line,
+        });
   const [draft, setDraft] = useState<ProductDraft>(initial);
   const [photos, setPhotos] = useState<Photos>({});
   // Photos come back from IndexedDB asynchronously after hydration.
@@ -191,13 +204,19 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
         stored.followUp.expectedRevision !== followUp.expectedRevision)
         ? null
         : stored;
+    // A saved draft continues only where the link agrees with it: its food,
+    // and the line or brand the link chose.
     const same =
       saved &&
       saved.country === market.iso2 &&
       !suggested &&
       (!preselect ||
         saved.startedFrom === preselect ||
-        (saved.food?.kind === "existing" && saved.food.id === preselect));
+        (saved.food?.kind === "existing" && saved.food.id === preselect)) &&
+      (!start.line ||
+        (saved.line?.kind === "flavor" &&
+          saved.line.lineId === start.line.lineId)) &&
+      (!start.brand || saved.brandId === start.brand.id);
     if (saved && same) {
       setDraft(saved);
       void loadDraftPhotos(saved.id).then((stored) => {
@@ -221,6 +240,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     markets,
     navigate,
     preselect,
+    start,
     suggested,
   ]);
   // The country comes from the page, and so do its stores and allergen list.
@@ -241,6 +261,11 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
 
   const update = useCallback(
     (patch: Partial<ProductDraft>) => setDraft((d) => ({ ...d, ...patch })),
+    [],
+  );
+  const edit = useCallback(
+    (patch: Parameters<typeof editDraft>[1]) =>
+      setDraft((d) => editDraft(d, patch)),
     [],
   );
   const setPhoto = (slot: PhotoSlot, file: File | undefined) => {
@@ -469,12 +494,12 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                 <BasicsStep
                   draft={draft}
                   update={update}
+                  edit={edit}
                   photos={photos}
                   setPhoto={setPhoto}
                   foods={foods}
                   aisles={aisles}
                   allowSuggest
-                  brands={options.brands}
                   countries={markets}
                   countryName={market.name}
                   errors={errors}

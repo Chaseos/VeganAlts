@@ -387,7 +387,7 @@ Most of what remains is sold as a few base recipes in several flavors:
   - Companion and successor links remain as edit proposals, limited to the product's own country.
 - **Operator line tools** sit on the product's moderation view:
   - **Move to line:** an existing line of the same brand and country, or a new line with a name.
-  - **Rename line.**
+  - **Rename line.** Like a move, it is an action on the product it was made from (`/admin/moderation/products/:id/line-name`), so the existing reversal, which reverses product actions, undoes it.
   - Both are tier 3. Each is audited in `moderation_actions` with before and after, and is reversible.
   - A move refreshes both lines' scores and purges both lines' pages.
 - **Proposal tiers.**
@@ -623,6 +623,7 @@ Existing foods keep their current names and other names unless a row says otherw
    - Contracts and drafts, hold rules and the new report reasons.
    - The product Seasonal tag in Add a product and as a tier 2 edit.
    - Operator Move to line and Rename line, with reversal and invalidation.
+   - Built (2026-10-13): step 1 shows the product's fields once the food and brand say what it is; a brand with nothing listed in the country, or a new brand, goes straight to them. Brand suggestions include brands with nothing in the country yet. Submissions add `enjoyment` with the rating and `seasonal`, which follows the food's season unless set.
    - **Owner review:** screenshots.
 10. **Demo catalog, hardening and staging.**
 

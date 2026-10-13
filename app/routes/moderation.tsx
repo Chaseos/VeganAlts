@@ -118,7 +118,8 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
       archivedContributions: Record<string, number>;
       policy: string;
     } | null>(null),
-    [reverseId, setReverseId] = useState<string | null>(null);
+    [reverseId, setReverseId] = useState<string | null>(null),
+    [moveTo, setMoveTo] = useState("");
   async function decide(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (data.view !== "detail") return;
@@ -182,6 +183,32 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         note: form.get("note"),
       });
       setReverseId(null);
+      await revalidator.revalidate();
+    });
+  }
+  // Operator line tools (milestone 7): audited, reversible actions.
+  async function lineAction(
+    event: FormEvent<HTMLFormElement>,
+    kind: "line" | "line-name",
+  ) {
+    event.preventDefault();
+    if (data.view !== "product") return;
+    const form = new FormData(event.currentTarget),
+      target = String(form.get("line") ?? "");
+    await action.run(async () => {
+      await action.request(
+        `admin/moderation/products/${data.product.id}/${kind}`,
+        {
+          expectedRevision: data.product.revision,
+          ...(kind === "line-name"
+            ? { name: form.get("name") }
+            : target === "new"
+              ? { newLineName: form.get("newLineName") }
+              : { lineId: target }),
+          note: form.get("note"),
+        },
+      );
+      setMoveTo("");
       await revalidator.revalidate();
     });
   }
@@ -569,6 +596,95 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                 Duplicate preview
               </Link>
             </div>
+            <section aria-labelledby="line-title">
+              <h2 id="line-title">Recipe line</h2>
+              <p>
+                {data.product.lineName ?? "No line"}
+                {data.product.flavor
+                  ? ` · Flavor: ${data.product.flavor}`
+                  : " · The line’s original"}
+                {data.product.seasonal ? " · Seasonal" : ""}
+              </p>
+              <form
+                className="community-form"
+                onSubmit={(event) => void lineAction(event, "line")}
+              >
+                <h3>Move to line</h3>
+                <label htmlFor="move-line">Line</label>
+                <select
+                  id="move-line"
+                  name="line"
+                  required
+                  value={moveTo}
+                  onChange={(e) => setMoveTo(e.target.value)}
+                >
+                  <option value="" disabled>
+                    Choose a line
+                  </option>
+                  {data.lines
+                    .filter((line) => line.lineId !== data.product.familyId)
+                    .map((line) => (
+                      <option key={line.lineId} value={line.lineId}>
+                        {line.name} ({line.flavorCount}{" "}
+                        {line.flavorCount === 1 ? "flavor" : "flavors"})
+                      </option>
+                    ))}
+                  <option value="new">A new line</option>
+                </select>
+                {moveTo === "new" && (
+                  <>
+                    <label htmlFor="move-new-name">New line’s name</label>
+                    <input
+                      id="move-new-name"
+                      name="newLineName"
+                      required
+                      minLength={2}
+                      maxLength={160}
+                    />
+                  </>
+                )}
+                <label htmlFor="move-note">Reason</label>
+                <textarea
+                  id="move-note"
+                  name="note"
+                  required
+                  minLength={8}
+                  maxLength={2000}
+                />
+                <p className="small muted">
+                  Both lines are rescored. The move can be reversed below.
+                </p>
+                <button className="button" disabled={action.busy}>
+                  Move to line
+                </button>
+              </form>
+              <form
+                className="community-form"
+                onSubmit={(event) => void lineAction(event, "line-name")}
+              >
+                <h3>Rename line</h3>
+                <label htmlFor="line-rename">Line name</label>
+                <input
+                  id="line-rename"
+                  name="name"
+                  required
+                  minLength={2}
+                  maxLength={160}
+                  defaultValue={data.product.lineName ?? ""}
+                />
+                <label htmlFor="line-rename-note">Reason</label>
+                <textarea
+                  id="line-rename-note"
+                  name="note"
+                  required
+                  minLength={8}
+                  maxLength={2000}
+                />
+                <button className="button" disabled={action.busy}>
+                  Rename line
+                </button>
+              </form>
+            </section>
             <h2>Decision history</h2>
             {data.product.images.length > 0 && (
               <details>

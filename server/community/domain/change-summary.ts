@@ -10,7 +10,13 @@ export function describeChange(
 ) {
   switch (change.kind) {
     case "rename":
-      return `Rename to “${change.name}”`;
+      return change.flavor === undefined
+        ? `Rename to “${change.name}”`
+        : `Rename to “${change.name}”, ${change.flavor === null ? "the original flavor" : `flavor “${change.flavor}”`}`;
+    case "seasonal":
+      return change.seasonal
+        ? "Sold only part of the year"
+        : "Sold all year, not seasonal";
     case "alias":
       return `Also findable as “${change.alias}”`;
     case "source_url":
@@ -34,7 +40,7 @@ export function describeChange(
     case "classification":
       return `Classification: ${label(change.veganStatus)}`;
     case "relationships":
-      return "Family, variant or category eligibility";
+      return "Line, related product or category eligibility";
     case "retailer_status":
       return `Retailer availability: ${label(change.status)}`;
     case "allergens":

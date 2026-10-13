@@ -508,7 +508,7 @@ it("keeps relationship changes acceptable after a linked product is archived as 
       relationship,
       categoryEligibility: [],
     });
-  await accept((await link(variant, "variant")).id);
+  await accept((await link(variant, "successor")).id);
   await moderation.consolidate(admin, id(), {
     donorId: variant,
     survivorId: survivor,
@@ -519,7 +519,7 @@ it("keeps relationship changes acceptable after a linked product is archived as 
   await accept((await link(companion, "companion")).id);
   expect((await repository.snapshot(f.productId)).relationships).toEqual(
     expect.arrayContaining([
-      { productId: variant, type: "variant" },
+      { productId: variant, type: "successor" },
       { productId: companion, type: "companion" },
     ]),
   );

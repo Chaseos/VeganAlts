@@ -28,8 +28,11 @@ export function hasCatalogChanges(value: unknown) {
       "currentVersionId",
       "classification",
       "familyId",
+      "lineName",
       "categories",
       "name",
+      "flavor",
+      "seasonal",
       "manufacturerUrl",
       "aliases",
       "addedCategories",
@@ -100,7 +103,9 @@ export function proposalBaseline(
             ?.status ?? null,
       };
     case "rename":
-      return { name: snapshot.name };
+      return { name: snapshot.name, flavor: snapshot.flavor };
+    case "seasonal":
+      return { seasonal: snapshot.seasonal };
     case "alias":
       return { aliases: snapshot.aliases };
     case "source_url":
@@ -283,14 +288,34 @@ export function planProductChange(
       after.retailer = { retailerId: input.retailerId, status: input.status };
       break;
     }
-    case "rename":
-      if (input.name === snapshot.name)
+    case "rename": {
+      const flavorChanges =
+        input.flavor !== undefined && input.flavor !== snapshot.flavor;
+      if (input.name === snapshot.name && !flavorChanges)
         throw new ApplicationError(
           "NO_CHANGE",
-          "The product already has this name.",
+          "The product already has this name and flavor.",
         );
-      before.name = snapshot.name;
-      after.name = input.name;
+      if (input.name !== snapshot.name) {
+        before.name = snapshot.name;
+        after.name = input.name;
+      }
+      if (flavorChanges) {
+        before.flavor = snapshot.flavor;
+        after.flavor = input.flavor ?? null;
+      }
+      break;
+    }
+    case "seasonal":
+      if (input.seasonal === snapshot.seasonal)
+        throw new ApplicationError(
+          "NO_CHANGE",
+          input.seasonal
+            ? "The product is already marked seasonal."
+            : "The product isn't marked seasonal.",
+        );
+      before.seasonal = snapshot.seasonal;
+      after.seasonal = input.seasonal;
       break;
     case "alias": {
       if (
@@ -465,6 +490,16 @@ export function assertCompensable(
   )
     conflict();
   if (patch.name !== undefined && patch.name !== snapshot.name) conflict();
+  if (patch.flavor !== undefined && patch.flavor !== snapshot.flavor)
+    conflict();
+  if (patch.seasonal !== undefined && patch.seasonal !== snapshot.seasonal)
+    conflict();
+  if (
+    patch.lineName &&
+    (patch.lineName.lineId !== snapshot.familyId ||
+      patch.lineName.name !== snapshot.lineName)
+  )
+    conflict();
   if (
     patch.manufacturerUrl !== undefined &&
     patch.manufacturerUrl !== snapshot.manufacturerUrl
