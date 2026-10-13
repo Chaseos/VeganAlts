@@ -256,28 +256,78 @@
   }
 }
 
-/* Desktop aisle menu: full width under the aisle bar. */
-.va-aisle-menu {
+/* Desktop Foods menu: every aisle down the left, the shown aisle's foods
+   beside them, full width under the header. It takes its full height and
+   scrolls with the page (the header isn't sticky), so nothing in it is
+   clipped. */
+.va-foods-menu {
   --va-ring: var(--va-focus);
   position: absolute;
   z-index: 40;
   top: 100%;
   left: 0;
   right: 0;
-  max-height: calc(100vh - 150px);
-  overflow-y: auto;
   border-top: 1px solid var(--va-line);
   background: var(--va-ground);
   color: var(--va-ink);
   box-shadow: var(--va-shadow);
 }
 
-.va-aisle-menu__inner {
+.va-foods-menu__inner {
   max-width: calc(var(--va-page-max) + 2 * var(--va-gutter));
   margin: 0 auto;
-  padding: var(--va-space-6) var(--va-gutter);
+  padding: 0 var(--va-gutter);
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
 }
 
-.va-aisle-bar > ul > li > button > svg:last-child {
-  color: var(--va-on-kale-muted);
+.va-foods-menu__aisles {
+  margin: 0;
+  padding: var(--va-space-4) var(--va-space-4) var(--va-space-4) 0;
+  list-style: none;
+  border-right: 1px solid var(--va-line);
+}
+
+.va-foods-menu__aisle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: var(--va-radius-button);
+  color: var(--va-ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.va-foods-menu__aisle > span {
+  flex: 1;
+}
+
+.va-foods-menu__aisle .va-tag-icon {
+  color: var(--va-good);
+}
+
+.va-foods-menu__aisle > svg:last-child {
+  opacity: 0;
+}
+
+.va-foods-menu__aisle:hover {
+  background: var(--va-hover);
+}
+
+.va-foods-menu__aisle.is-shown {
+  background: var(--va-kale);
+  color: var(--va-on-kale);
+}
+
+.va-foods-menu__aisle.is-shown .va-tag-icon,
+.va-foods-menu__aisle.is-shown > svg:last-child {
+  color: var(--va-tag);
+  opacity: 1;
+}
+
+.va-foods-menu__preview {
+  padding: var(--va-space-6) 0 var(--va-space-6) var(--va-space-6);
 }

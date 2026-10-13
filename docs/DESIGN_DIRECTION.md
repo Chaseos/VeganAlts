@@ -187,12 +187,13 @@ Agreed on 2026-10-11 and 2026-10-12 for the [milestone 7 specification](MILESTON
 
 **Aisles.**
 
-- **The aisle bar.** It holds 18 aisles. It scrolls sideways on phones and wraps on desktop, and each new aisle gets an icon in the existing style.
+- **Foods menu (desktop).** One "Foods" button in the header row, beside a wide search box, opens every aisle down the left. The aisle under the pointer or keyboard focus shows its foods, each with its top three, beside the list (owner decision, 2026-10-12). The menu works for any number of aisles, where a bar of 18 aisles wrapped onto two rows. Without JavaScript the button links to the page listing every aisle. Between 760 and 1099 pixels wide, the search takes its own row under the header row.
+- **Aisle chips (phone).** Phones keep the aisle chips under the header, scrolling sideways. Each new aisle gets an icon in the existing style.
 - **Aisle panels.** An aisle panel lists its foods directly, each with its first three lines.
 - **Breadcrumbs.** Breadcrumbs read "All foods / Dips and spreads / Queso", or "All foods / Eggs" when an aisle repeats its only food.
 - **Order.** Aisles and foods follow each country's popularity order, with a default store order before ratings exist.
 - **Browse every food.** Aisle cards in a grid, each as tall as its content. Each card has the aisle icon, its name and food count, then up to three foods with their #1 swap, and "See all [n] foods" when there are more.
-- **Aisle menus on hover.** On desktop, resting the mouse on an aisle opens its menu after a short pause, and leaving it closes the menu after one. Touch and the keyboard open it on press.
+- **Opening on hover.** On desktop, resting the mouse on Foods opens the menu after a short pause, and leaving it closes the menu after one. Resting on an aisle shows its foods, so a pointer crossing aisles on its way to the foods doesn't switch them. Touch and the keyboard open the menu on press; Tab reaches the aisle shown, the arrow keys move between aisles, and Tab or the right arrow moves on to its foods.
 - **Trending tag.** A small "Trending" badge, styled like New, marks a line that is trending in its food on ranking rows, home lists and its product page.
 - **Seasonal.** A neutral chip reads "Seasonal · Nov–Jan" on a seasonal food's page, cards and search results. A product's Seasonal tag appears on its page and ranking rows.
 

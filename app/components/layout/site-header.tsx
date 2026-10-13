@@ -8,6 +8,7 @@ import { AppearanceMenu } from "./appearance-menu";
 import { CountryMenu } from "./country-menu";
 import { PhoneMenu } from "./phone-menu";
 import { AisleBar } from "./aisle-bar";
+import { FoodsMenu } from "./foods-menu";
 import { homePath, searchPath, useSiteChrome } from "../../lib/site-chrome";
 
 export interface PhoneBack {
@@ -60,6 +61,11 @@ export function SiteHeader({
         {phoneBack?.context && (
           <span className="va-header__context va-phone-only">
             {phoneBack.context}
+          </span>
+        )}
+        {aisles && (
+          <span className="va-desktop-only">
+            <FoodsMenu />
           </span>
         )}
         {search && (

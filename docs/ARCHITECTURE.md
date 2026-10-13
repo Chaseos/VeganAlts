@@ -490,7 +490,7 @@ Follow [milestone 5](MILESTONE_5_PLAN.md) and the [design direction](DESIGN_DIRE
 
 **Device preferences.** Public HTML stays identical for every visitor. Theme, remembered country, chosen stores and Free-from allergens live in `localStorage` (per country where relevant), never in cookies. They are applied after hydration: a saved filter replaces the URL with its normalized form, and client-rendered links carry it forward. Only the theme is applied before first paint, by a small inline script that carries the per-request nonce and sets `data-theme` on the document.
 
-**Presentation.** Every color is a `--va-*` token defined once for light and dark; components never use literal colors. The content security policy forbids inline styles, so proportional bars are SVG presentation attributes and components use classes only. Archivo is self-hosted as a hashed asset. The aisle menu reads each aisle's top products from that aisle page's cached route data on first open. Instant search calls the cached `/api/v1/suggest` endpoint with debouncing and request cancellation, and the full results page works without JavaScript.
+**Presentation.** Every color is a `--va-*` token defined once for light and dark; components never use literal colors. The content security policy forbids inline styles, so proportional bars are SVG presentation attributes and components use classes only. Archivo is self-hosted as a hashed asset. The desktop Foods menu reads each aisle's top products from that aisle page's cached route data when the aisle is first shown. Instant search calls the cached `/api/v1/suggest` endpoint with debouncing and request cancellation, and the full results page works without JavaScript.
 
 **Derived reads.** Detail-dimension and familiarity statistics are rebuildable read models written in the same fenced batch as rating aggregates. Category listings compute the overall Top rank before applying sorts and filters, so narrowing a view never changes a score. Store filtering joins only active product–retailer reports in an active market of the product's country.
 
@@ -515,7 +515,7 @@ Follow [milestone 7](MILESTONE_7_PLAN.md).
 - **Hourly backstop.** The hourly job re-derives every line as well.
 - **Leaderboards never read raw ratings.** They read `family_category_stats`.
 
-**Taxonomy shape.** Depth is still derived from parent links. Aisles are depth one and foods depth two, and there are no shelves. The aisle bar, aisle panels, breadcrumbs, the food picker and Suggest a food read the same shape helper.
+**Taxonomy shape.** Depth is still derived from parent links. Aisles are depth one and foods depth two, and there are no shelves. The Foods menu, the phone aisle chips, aisle panels, breadcrumbs, the food picker and Suggest a food read the same shape helper.
 
 **Brand pages.**
 

@@ -140,7 +140,7 @@ Most of what remains is sold as a few base recipes in several flavors:
 
 - **Popularity orders the aisles and foods in each country.** Most ratings come first. A country without ratings falls back to a default store order.
 - **Browse every food shows aisle cards.** Each card holds an aisle's three most popular foods and "See all" when there are more. A card is only as tall as its foods; a one-food aisle isn't padded out to match its row.
-- **Aisle menus open on hover.** On desktop a mouse opens an aisle's menu by resting on it. Touch and the keyboard still open it on press.
+- **One Foods menu on desktop.** A "Foods" button in the header row opens every aisle, with the aisle under the pointer or focus showing its foods beside them, so the header stays one row with a wider search however many aisles a country has (owner decision, 2026-10-12). A mouse opens it by resting on it. Touch and the keyboard open it on press.
 - **A Trending tag marks rising swaps everywhere.** A line that is trending in its food carries a Trending tag in every other list and on its product page, the way New already does.
 - **Trending looks back a quarter.** People shop every week or two and may check the site every month or two, so what rose over the last 90 days is still news to them.
 - **Seasonal foods and products are tagged.** Eggnog and Turkey Roast are seasonal foods with their months, and any product can carry a Seasonal tag.
@@ -407,7 +407,7 @@ The taxonomy becomes two levels below the root: **aisle › food**. It replaces 
 - **An aisle holding one food of its own name is silent in breadcrumbs,** so "All foods / Eggs" never reads "All foods / Eggs / Eggs".
 - **Slugs.** An aisle whose name is also a food's takes `-aisle` in its slug (`milk-aisle`, `eggs-aisle`).
 - **Order.** See [Aisle order, browsing and seasons](#aisle-order-browsing-and-seasons).
-- **Desktop aisle bar.** On desktop, the aisle bar wraps onto a second row; phones scroll it sideways.
+- **Desktop Foods menu.** Desktop opens aisles from the Foods menu in the header row; phones keep the sideways-scrolling aisle chips.
 
 | Aisle               | Slug                  | US foods at launch                                                                                                                   |
 | ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |

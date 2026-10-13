@@ -72,6 +72,8 @@
 
 /* Header */
 .va-header {
+  /* The desktop Foods menu opens full width under the header. */
+  position: relative;
   background: var(--va-kale);
   color: var(--va-on-kale);
   border-bottom: 1px solid var(--va-kale-line);
@@ -134,8 +136,45 @@
 }
 
 .va-header__search {
-  flex: 1 1 320px;
-  max-width: 560px;
+  flex: 1 1 360px;
+  max-width: 760px;
+}
+
+.va-header__search > .va-instant {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Desktop Foods menu button (a link to every aisle until hydrated) */
+.va-foods__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--va-kale-line);
+  border-radius: var(--va-radius-button);
+  background: transparent;
+  color: var(--va-on-kale);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.va-foods__button:hover {
+  background: var(--va-hover-on-kale);
+}
+
+.va-foods__button[aria-expanded="true"] {
+  background: var(--va-kale-2);
+  border-color: var(--va-tag);
+}
+
+.va-foods__button > svg:last-child {
+  color: var(--va-on-kale-muted);
 }
 
 .va-header__tools {
@@ -169,6 +208,7 @@
 
 .va-header-link {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   gap: 6px;
   min-height: 44px;
@@ -217,7 +257,21 @@
   }
 }
 
-/* Aisle bar */
+/* Narrow desktops: the search takes its own full-width row under the
+   wordmark, Foods menu and tools rather than squeezing between them. */
+@media (min-width: 760px) and (max-width: 1099px) {
+  .va-header__row {
+    flex-wrap: wrap;
+  }
+
+  .va-header__search {
+    order: 1;
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+
+/* Phone aisle chips */
 .va-aisle-bar {
   position: relative;
   border-top: 1px solid var(--va-kale-line);
@@ -244,8 +298,7 @@
   scroll-snap-align: start;
 }
 
-.va-aisle-bar > ul > li > a,
-.va-aisle-bar > ul > li > button {
+.va-aisle-bar > ul > li > a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -262,65 +315,20 @@
 }
 
 .va-aisle-bar > ul > li > a[aria-current="page"],
-.va-aisle-bar > ul > li > a.active,
-.va-aisle-bar > ul > li > button[aria-expanded="true"] {
+.va-aisle-bar > ul > li > a.active {
   background: var(--va-tag);
   border-color: var(--va-tag);
   color: var(--va-on-tag);
 }
 
 .va-aisle-bar > ul > li > a[aria-current="page"] .va-tag-icon,
-.va-aisle-bar > ul > li > a.active .va-tag-icon,
-.va-aisle-bar > ul > li > button[aria-expanded="true"] .va-tag-icon {
+.va-aisle-bar > ul > li > a.active .va-tag-icon {
   color: var(--va-on-tag);
 }
 
 @media (min-width: 760px) {
-  /* The aisles wrap onto a second row rather than hiding off the edge;
-     phones keep the sideways scroll. */
-  .va-aisle-bar > ul {
-    padding: 0 calc(var(--va-gutter) - 8px);
-    gap: 0;
-    flex-wrap: wrap;
-    overflow-x: visible;
-    scroll-snap-type: none;
-  }
-
-  .va-aisle-bar > ul > li > a,
-  .va-aisle-bar > ul > li > button {
-    min-height: 52px;
-    padding: 0 11px;
-    border: 0;
-    border-bottom: 3px solid transparent;
-    border-radius: 0;
-    font-size: 15px;
-    font-weight: 600;
-  }
-
-  /* A server-rendered link keeps room for the chevron its menu button gains
-     on hydration (8px gap + 12px icon), so the rows wrap the same and the page
-     doesn't shift. */
-  .va-aisle-bar > ul > li > a {
-    padding-right: 31px;
-  }
-
-  .va-aisle-bar > ul > li > a:hover,
-  .va-aisle-bar > ul > li > button:hover {
-    background: var(--va-hover-on-kale);
-  }
-
-  .va-aisle-bar > ul > li > a[aria-current="page"],
-  .va-aisle-bar > ul > li > a.active,
-  .va-aisle-bar > ul > li > button[aria-expanded="true"] {
-    background: var(--va-kale-2);
-    color: var(--va-on-kale);
-    border-bottom-color: var(--va-tag);
-  }
-
-  .va-aisle-bar > ul > li > a[aria-current="page"] .va-tag-icon,
-  .va-aisle-bar > ul > li > a.active .va-tag-icon,
-  .va-aisle-bar > ul > li > button[aria-expanded="true"] .va-tag-icon {
-    color: var(--va-tag);
+  .va-aisle-bar {
+    display: none;
   }
 }
 
