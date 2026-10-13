@@ -214,6 +214,18 @@ it("suggests brands loosely, lists a brand's lines with the food's first and mat
     name: w.brand,
     productCount: 3,
   });
+  // Its other names come along, so typing one never offers a new brand.
+  const alias = `Orchardo ${brandId.slice(0, 8)}`;
+  await env.DB.prepare(
+    "INSERT INTO brand_aliases(normalized_name,alias,brand_id) VALUES(?,?,?)",
+  )
+    .bind(alias.toLowerCase(), alias, brandId)
+    .run();
+  expect(
+    (
+      await w.services.submissions.brandSuggestions(w.contributor, "US", alias)
+    ).find((b) => b.id === brandId)?.aliases,
+  ).toEqual([alias]);
   const lines = await w.services.submissions.brandLines(
     w.contributor,
     brandId,

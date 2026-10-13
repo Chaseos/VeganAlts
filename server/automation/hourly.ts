@@ -24,9 +24,10 @@ export async function runAutomation(env: Cloudflare.Env) {
     "trendingCategories",
     async () => (await trendingService(env).refresh()).categories,
   );
-  // Writes refresh their lines as they happen; this re-derives every line so
-  // a missed write or the moving recent window can't leave one stale.
-  await step("refreshedLines", () => lineRefresh(env).refreshAll());
+  // Writes refresh their lines as they happen; this re-derives up to 5,000
+  // lines a run in turn, so a missed write or the moving recent window can't
+  // leave one stale for long.
+  await step("refreshedLines", () => lineRefresh(env).refreshRotating());
   const decisions = moderationDecisions(env);
   await step("expiredDecisionLeases", () => decisions.expireLeases());
   await step("releasedComments", () => commentServices(env).reevaluateHeld());

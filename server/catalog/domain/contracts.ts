@@ -217,6 +217,8 @@ export interface SiblingFlavor {
   slug: string;
   name: string;
   flavor: string | null;
+  // Slugs of the active foods it's listed in.
+  foods: string[];
 }
 // A brand with its products in a country, for search and brand pages.
 export interface BrandRow {
@@ -362,8 +364,8 @@ export interface CatalogRepository {
     iso2: string,
     expression: string,
   ): Promise<{ categories: CategorySummary[]; products: ProductSummary[] }>;
-  // Brands with products in the country, for the shared brand matcher.
-  brands(countryId: string): Promise<BrandRow[]>;
+  // Brands with products in the country matching typed text, best first.
+  brands(countryId: string, query: string, limit: number): Promise<BrandRow[]>;
   // A brand by slug, with its product count in the country (maybe 0).
   brand(
     countryId: string,

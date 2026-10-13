@@ -259,8 +259,10 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
       saveDraft(storage(), draft, Date.now(), key);
   }, [draft, held, restored]);
 
+  // Choosing a line also fills the names that follow the flavor.
   const update = useCallback(
-    (patch: Partial<ProductDraft>) => setDraft((d) => ({ ...d, ...patch })),
+    (patch: Partial<ProductDraft>) =>
+      setDraft((d) => editDraft({ ...d, ...patch }, {})),
     [],
   );
   const edit = useCallback(

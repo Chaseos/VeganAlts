@@ -155,10 +155,10 @@ export function withoutFlavor(name: string, flavor: string) {
 }
 
 /**
- * A text change with what follows from it: a new flavor's name is "[line],
+ * A change with what follows from it: a new flavor's name is "[line],
  * [flavor]" and a flavored new product's line is its name without the
- * flavor, each until typed over. A new brand undoes the brand choice and the
- * line chosen with it.
+ * flavor, each until typed over (even emptied, to retype it). A new brand
+ * undoes the brand choice and the line chosen with it.
  */
 export function editDraft(
   draft: ProductDraft,
@@ -170,9 +170,8 @@ export function editDraft(
     next.brandChosen = false;
     next.line = null;
   }
-  if (patch.name !== undefined) next.nameEdited = patch.name.trim() !== "";
-  if (patch.lineName !== undefined)
-    next.lineNameEdited = patch.lineName.trim() !== "";
+  if (patch.name !== undefined) next.nameEdited = true;
+  if (patch.lineName !== undefined) next.lineNameEdited = true;
   const flavor = next.flavor.trim();
   if (next.line?.kind === "flavor" && !next.nameEdited)
     next.name = flavor ? `${next.line.lineName}, ${flavor}` : "";

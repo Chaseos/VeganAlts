@@ -141,7 +141,7 @@ export class StagedMediaRepository {
         .prepare(
           `INSERT INTO staged_attempts(id,blob_id,user_id,state,input_bytes,lease_expires_at,created_at)
         SELECT ?,id,?,'processing',input_bytes,?,? FROM staged_blobs WHERE id=? AND state IN ('pending','failed','expired')
-        AND (SELECT COUNT(*) FROM staged_attempts WHERE created_at>=?)+(SELECT COUNT(*) FROM media_attempts WHERE created_at>=?) < ?
+        AND (SELECT COUNT(*) FROM staged_attempts WHERE created_at>=?)+(SELECT COUNT(*) FROM media_attempts WHERE created_at>=? AND counted=1) < ?
         AND (SELECT COUNT(*) FROM staged_attempts WHERE user_id=? AND created_at>=?) < ?
         AND (SELECT COUNT(*) FROM staged_attempts WHERE blob_id=? AND state<>'committed' AND created_at>=?) < ?
         AND (SELECT COUNT(*) FROM staged_attempts WHERE user_id=? AND state='processing' AND lease_expires_at>?) < ?

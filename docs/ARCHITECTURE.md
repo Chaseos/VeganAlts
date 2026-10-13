@@ -512,7 +512,7 @@ Follow [milestone 7](MILESTONE_7_PLAN.md).
 
 - **One source of the math.** One SQL builder in `server/ranking/infrastructure` recomputes a line's rows for a food from canonical ratings. A pure reference function in `server/ranking/domain` defines the same math for tests.
 - **Same transaction.** Every writer that can change a line's membership or eligibility appends the refresh to its own fenced D1 batch, so a line is never scored from a half-applied change. These are rating writes, exclusions, catalog decisions, publication, consolidation, merges and the integrity rebuild.
-- **Hourly backstop.** The hourly job re-derives every line as well.
+- **Hourly backstop.** The hourly job re-derives lines as well, up to 5,000 a run in turn.
 - **Leaderboards never read raw ratings.** They read `family_category_stats`.
 
 **Taxonomy shape.** Depth is still derived from parent links. Aisles are depth one and foods depth two, and there are no shelves. The Foods menu, the phone aisle chips, aisle panels, breadcrumbs, the food picker and Suggest a food read the same shape helper.

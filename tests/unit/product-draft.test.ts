@@ -130,6 +130,13 @@ describe("product draft", () => {
       editDraft(editDraft(flavor, { name: "Own name" }), { flavor: "Smoky" })
         .name,
     ).toBe("Own name");
+    // Emptied to retype, it stays empty rather than refilling.
+    expect(editDraft(flavor, { name: "" }).name).toBe("");
+    // A line chosen after the flavor was typed fills the name at once.
+    expect(
+      editDraft({ ...flavor, name: "", nameEdited: false, flavor: "Smoky" }, {})
+        .name,
+    ).toBe("Meat Free Sausages, Smoky");
     // Something else, flavored: its line drops the flavor's words.
     const spicy = editDraft(
       editDraft(basics(), { name: "Meat Free Sausages Spicy" }),

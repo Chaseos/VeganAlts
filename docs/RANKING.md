@@ -437,7 +437,7 @@ Tastiest has its own configurable `C` and `m`, which start at 3.5 and 10.
   - Their similarity is their mean across the line's flavors in the window.
   - The baseline counts each person once in days 91–180, the same way.
   - The formula is otherwise unchanged.
-  - **Trending tag.** The top 3 trending lines in a food (a positive score, at least three people) carry a Trending tag in the other views and on their product pages. The tag never changes a rank or score.
+  - **Trending tag.** The top 3 trending lines in a food (a positive score, at least three people) carry a Trending tag in the other views and on their product pages; `RANKING_TRENDING.taggedLines` changes the 3. The tag never changes a rank or score.
 - **New** lists lines whose first publication in that food falls within 90 days, stored in `family_category_first_published` so it can only move earlier. First publication is the earliest `published_at` of any flavor the line has had in that food, eligible or not, so it never moves later. Neither a new flavor nor a discontinued oldest flavor brings a line back into New.
 
 **Filters.**
@@ -449,7 +449,7 @@ Tastiest has its own configurable `C` and `m`, which start at 3.5 and 10.
 
 - **Tables.** `family_category_stats`, `family_category_dimension_stats`, `family_category_daily_stats` and `family_category_trends` are rebuildable from canonical rows.
 - **When line rows are recomputed.** Line rows are recomputed in the same transaction as any rating write or exclusion, and any catalog decision that changes a product's family, current formula, lifecycle, classification, food membership or eligibility.
-- **Backstop and rebuild.** An hourly pass and the integrity rebuild (§20) re-derive every line.
+- **Backstop and rebuild.** The hourly pass re-derives up to 5,000 lines a run, resuming where the last run stopped, so it stays bounded as the catalog grows; the integrity rebuild (§20) re-derives every line.
 - **Implementation.**
   - `ranking/domain/lines.ts` (`aggregateLine`) is the reference definition. `ranking/infrastructure/line-refresh.ts` stores the same figures in SQL, and tests hold the two equal.
   - A line has one row per food where it has an eligible flavor: the current formula of an active product that isn't under review and is ranking-eligible in that food. A row holds the lead flavor even before anyone rates.

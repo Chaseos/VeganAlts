@@ -134,6 +134,18 @@ it("counts a person once per line across the Trending window and ranks lines for
   // two ratings with the same score; the main product was never published,
   // so the earlier-published Spicy leads.
   expect(view.ranked[0]!.leadProduct.id).toBe(spicy.id);
+  // Other views tag as many of the top trending lines as configured.
+  const tagged = async (taggedLines?: number) =>
+    (
+      await new CatalogService(
+        new D1CatalogRepository(db),
+        () => NOW,
+        undefined,
+        taggedLines,
+      ).category(testMarket(f.countryId), cat)
+    ).ranked.filter((row) => row.trending).length;
+  expect(await tagged()).toBe(3);
+  expect(await tagged(1)).toBe(1);
 });
 
 it("keeps a line's New date fixed when flavors come and go", async () => {

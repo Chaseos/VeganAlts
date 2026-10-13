@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { BrandSuggestion } from "@server/community/domain/contracts";
 import { communityRequest } from "../../lib/community";
 import { plural } from "../../lib/format";
+import { useCombobox } from "../../lib/use-combobox";
 
 type Option =
   { kind: "brand"; brand: BrandSuggestion } | { kind: "new"; name: string };
@@ -50,13 +51,6 @@ export function BrandPicker({
   // The text the suggestions answer; until it matches, they're loading, so
   // "Add as a new brand" never shows before a listed brand could.
   const [answered, setAnswered] = useState("");
-  const [open, setOpen] = useState(false),
-    [active, setActive] = useState(-1);
-  const root = useRef<HTMLDivElement>(null),
-    field = useRef<HTMLInputElement>(null);
-  const optionId = useId(),
-    listId = `${id}-listbox`,
-    errorId = `${id}-error`;
   const typed = value.trim();
   const loading = typed.length >= 2 && answered !== typed;
   useEffect(() => {
@@ -82,15 +76,33 @@ export function BrandPicker({
       clearTimeout(timer);
     };
   }, [country, typed, chosen]);
-  useEffect(() => setActive(-1), [typed]);
-  useEffect(() => {
-    if (!open) return;
-    const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, [open]);
+  const shown = loading ? [] : suggestions;
+  // A listed brand's name or other name is never offered as a new brand.
+  const exact = shown.some((b) =>
+    [b.name, ...b.aliases].some((name) => compact(name) === compact(typed)),
+  );
+  const options: Option[] = [
+    ...shown.map((brand) => ({ kind: "brand" as const, brand })),
+    ...(typed.length >= 2 && !exact && !loading
+      ? [{ kind: "new" as const, name: typed }]
+      : []),
+  ];
+  const combo = useCombobox({
+    id,
+    text: typed,
+    options,
+    error,
+    ready: typed.length >= 2,
+    onChoose: (option) => {
+      setPicked(option.kind === "brand" ? option.brand : null);
+      onChoose(
+        option.kind === "brand"
+          ? { id: option.brand.id, name: option.brand.name }
+          : { id: null, name: option.name },
+      );
+    },
+  });
+  const { showing, field, errorId } = combo;
 
   if (chosen) {
     const brand = picked?.name === value ? picked : null;
@@ -123,76 +135,18 @@ export function BrandPicker({
     );
   }
 
-  const shown = loading ? [] : suggestions;
-  const exact = shown.some((b) => compact(b.name) === compact(typed));
-  const options: Option[] = [
-    ...shown.map((brand) => ({ kind: "brand" as const, brand })),
-    ...(typed.length >= 2 && !exact && !loading
-      ? [{ kind: "new" as const, name: typed }]
-      : []),
-  ];
-  const showing = open && typed.length >= 2;
-  const highlighted = options[active];
-  const choose = (option: Option) => {
-    setOpen(false);
-    setPicked(option.kind === "brand" ? option.brand : null);
-    onChoose(
-      option.kind === "brand"
-        ? { id: option.brand.id, name: option.brand.name }
-        : { id: null, name: option.name },
-    );
-  };
   return (
-    <div
-      className="va-food-pick va-combo"
-      ref={root}
-      onBlur={(event) => {
-        if (!root.current?.contains(event.relatedTarget as Node))
-          setOpen(false);
-      }}
-    >
+    <div className="va-food-pick va-combo" {...combo.rootProps}>
       <label htmlFor={`${id}-input`} className="va-food-pick__label">
         Brand (required)
       </label>
       <input
-        ref={field}
-        id={`${id}-input`}
-        type="text"
-        role="combobox"
-        autoComplete="off"
+        {...combo.inputProps}
         maxLength={160}
         value={value}
-        aria-autocomplete="list"
-        aria-expanded={showing}
-        aria-controls={listId}
-        aria-activedescendant={
-          showing && highlighted ? `${optionId}-${active}` : undefined
-        }
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
         onChange={(e) => {
           onType(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            if (!options.length) return;
-            event.preventDefault();
-            setOpen(true);
-            const step = event.key === "ArrowDown" ? 1 : -1;
-            setActive((index) =>
-              index === -1 && step === -1
-                ? options.length - 1
-                : (index + step + options.length) % options.length,
-            );
-          } else if (event.key === "Enter" && showing && highlighted) {
-            event.preventDefault();
-            choose(highlighted);
-          } else if (event.key === "Escape" && showing) {
-            event.preventDefault();
-            setOpen(false);
-          }
+          combo.setOpen(true);
         }}
       />
       {error && (
@@ -208,7 +162,7 @@ export function BrandPicker({
       {showing && (
         <div className="va-combo__panel">
           <div
-            id={listId}
+            id={combo.listId}
             role="listbox"
             aria-label={`Brands matching ${typed}`}
             className="va-combo__list"
@@ -216,13 +170,8 @@ export function BrandPicker({
             {options.map((option, index) => (
               <div
                 key={option.kind === "brand" ? option.brand.id : "new"}
-                id={`${optionId}-${index}`}
-                role="option"
-                aria-selected={index === active}
+                {...combo.optionProps(index)}
                 className={`va-combo__option${option.kind === "new" ? " va-combo__option--suggest" : ""}`}
-                onPointerMove={() => setActive(index)}
-                onPointerDown={(event) => event.preventDefault()}
-                onClick={() => choose(option)}
               >
                 {option.kind === "brand" ? (
                   <>

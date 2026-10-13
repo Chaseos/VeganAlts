@@ -267,6 +267,39 @@ it("gives a flavor's page its line's ranks, its siblings and other lines", async
   expect(found.products.find((p) => p.slug === w.strawberry.id)).toMatchObject({
     rank: 2,
   });
+  // A flavor listed only in another food never links to this one.
+  const other = w.f.categories[1]!,
+    chocolate = `chocolate-${w.s}`;
+  await db.batch([
+    db
+      .prepare(
+        "INSERT INTO products(id,country_id,brand_id,product_family_id,name,flavor,slug,published_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,1,1,1)",
+      )
+      .bind(
+        chocolate,
+        w.f.countryId,
+        w.oat,
+        w.oatMilk.id,
+        "Oat Co Oatmilk Chocolate",
+        "Chocolate",
+        chocolate,
+      ),
+    db
+      .prepare(
+        "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
+      )
+      .bind(chocolate, other),
+  ]);
+  expect(
+    (await catalog.product(w.us, w.vanilla.id, null)).otherFlavors.map((f) => [
+      f.id,
+      f.food,
+    ]),
+  ).toEqual([
+    [w.original.id, w.cat],
+    [chocolate, null],
+    [w.strawberry.id, w.cat],
+  ]);
 });
 
 it("finds brands loosely and lists a brand's lines by aisle and food", async () => {
@@ -276,6 +309,10 @@ it("finds brands loosely and lists a brand's lines by aisle and food", async () 
     slug: w.oat,
     productCount: 4,
   });
+  // A brand's page is in the sitemap only where something of it is listed.
+  const listed = async () =>
+    (await catalog.sitemap()).brands.some((b) => b.slug === w.oat);
+  expect(await listed()).toBe(true);
   const brand = await catalog.brand(w.us, w.oat);
   expect(brand).toMatchObject({
     productCount: 4,
@@ -297,6 +334,13 @@ it("finds brands loosely and lists a brand's lines by aisle and food", async () 
   await expect(catalog.brand(w.us, `missing-${w.s}`)).rejects.toMatchObject({
     status: 404,
   });
+  await db
+    .prepare(
+      "UPDATE products SET lifecycle_status='discontinued' WHERE brand_id=?",
+    )
+    .bind(w.oat)
+    .run();
+  expect(await listed()).toBe(false);
   // A line's ID is a product family; it never leaks into the line's name.
   expect(lineOf("x")).toBe("line-x");
 });

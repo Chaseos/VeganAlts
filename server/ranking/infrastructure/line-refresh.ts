@@ -9,7 +9,7 @@ import { RECENT_WINDOW_MS } from "../domain/lines";
 // `family_category_dimension_stats`) from canonical rows, following
 // `aggregateLine` in ranking/domain/lines.ts. The statements join the batch
 // that changes a line, so a D1 transaction never leaves a line stale; the
-// hourly job re-derives every line as a backstop.
+// hourly job re-derives lines in turn as a backstop.
 
 export interface LineTargets {
   familyIds?: readonly (string | null | undefined)[];
@@ -159,6 +159,34 @@ export class LineRefresh {
       refreshed: ids.length,
       next: ids.length === limit ? ids.at(-1)! : null,
     };
+  }
+
+  /**
+   * The hourly backstop: up to `pages` pages from where the last run
+   * stopped, starting over after the last line, so each run stays bounded
+   * however large the catalog grows.
+   */
+  async refreshRotating(pages = 25, now = Date.now()) {
+    let after =
+        (await this.db
+          .prepare(
+            "SELECT cursor FROM community_recovery WHERE prefix='line-refresh'",
+          )
+          .first<string | null>("cursor")) ?? null,
+      refreshed = 0;
+    for (let page = 0; page < pages; page++) {
+      const result = await this.refreshPage(after, 200, now);
+      refreshed += result.refreshed;
+      after = result.next;
+      if (!after) break;
+    }
+    await this.db
+      .prepare(
+        "INSERT INTO community_recovery(prefix,cursor) VALUES('line-refresh',?) ON CONFLICT(prefix) DO UPDATE SET cursor=excluded.cursor",
+      )
+      .bind(after)
+      .run();
+    return refreshed;
   }
 
   /** Every line, a page at a time. */

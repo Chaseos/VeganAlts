@@ -6,7 +6,7 @@ import type {
   SubmissionIdentity,
 } from "../domain/contracts";
 import { identityKey, normalizeName, productName } from "../domain/policy";
-import { matchBrands } from "../../catalog/domain/brand-match";
+import { matchingBrands } from "../../catalog/infrastructure/brand-rows";
 
 export interface SubmissionContext {
   countryId: string;
@@ -14,7 +14,6 @@ export interface SubmissionContext {
   brandName: string;
   identity: string;
 }
-const BRAND_LIMIT = 5000;
 
 export class CommunityLookupRepository {
   constructor(private readonly db: D1Database) {}
@@ -169,30 +168,19 @@ export class CommunityLookupRepository {
     limit = 8,
   ): Promise<BrandSuggestion[]> {
     if (query.trim().length < 2) return [];
-    const rows = await this.db
-      .prepare(
-        `SELECT b.id,b.slug,b.name,
-          (SELECT json_group_array(a.alias) FROM brand_aliases a WHERE a.brand_id=b.id) AS aliases,
-          COUNT(p.id) AS productCount
-        FROM brands b LEFT JOIN products p ON p.brand_id=b.id AND p.lifecycle_status IN ('active','under_review')
-          AND p.country_id=(SELECT id FROM countries WHERE iso2=? AND is_active=1)
-        GROUP BY b.id ORDER BY b.name LIMIT ${BRAND_LIMIT}`,
-      )
+    const countryId = await this.db
+      .prepare("SELECT id FROM countries WHERE iso2=? AND is_active=1")
       .bind(country)
-      .all<BrandSuggestion & { aliases: string }>();
-    return matchBrands(
-      query,
-      rows.results.map((row) => ({
-        ...row,
-        aliases: (JSON.parse(row.aliases) as (string | null)[]).filter(
-          (alias): alias is string => !!alias,
-        ),
-      })),
-      limit,
-    ).map(({ id, slug, name, productCount }) => ({
+      .first<string>("id");
+    return (
+      await matchingBrands(this.db, countryId ?? "", query, limit, {
+        everyBrand: true,
+      })
+    ).map(({ id, slug, name, aliases, productCount }) => ({
       id,
       slug,
       name,
+      aliases,
       productCount,
     }));
   }
@@ -271,13 +259,15 @@ export class CommunityLookupRepository {
         foods: [],
         flavors: [],
       };
-      for (const food of JSON.parse(row.foods) as BrandLine["foods"])
+      const foods = JSON.parse(row.foods) as BrandLine["foods"];
+      for (const food of foods)
         if (!line.foods.some((f) => f.id === food.id)) line.foods.push(food);
       line.flavors.push({
         productId: row.productId,
         slug: row.slug,
         name: row.name,
         flavor: row.flavor,
+        foods: foods.map((food) => food.slug),
       });
       lines.set(row.lineId, line);
     }
@@ -324,11 +314,9 @@ export class CommunityLookupRepository {
         .join("+") || "0";
     // While typing, brands matching the typed one loosely come first.
     const brandIds = loose
-      ? matchBrands(
-          input.brand,
-          await this.countryBrands(context.countryId),
-          20,
-        ).map((brand) => brand.id)
+      ? (await matchingBrands(this.db, context.countryId, input.brand, 20)).map(
+          (brand) => brand.id,
+        )
       : [];
     if (context.brandId && loose) brandIds.push(context.brandId);
     const rows = await this.db
@@ -394,27 +382,5 @@ export class CommunityLookupRepository {
       )
       .slice(0, 12)
       .map((c) => c.candidate);
-  }
-  // Brands with visible products in a country, for loose matching.
-  private async countryBrands(countryId: string) {
-    const rows = await this.db
-      .prepare(
-        `SELECT b.id,b.name,(SELECT json_group_array(a.alias) FROM brand_aliases a WHERE a.brand_id=b.id) AS aliases,COUNT(p.id) AS productCount
-        FROM brands b JOIN products p ON p.brand_id=b.id AND p.country_id=? AND p.lifecycle_status<>'hidden'
-        GROUP BY b.id LIMIT ${BRAND_LIMIT}`,
-      )
-      .bind(countryId)
-      .all<{
-        id: string;
-        name: string;
-        aliases: string;
-        productCount: number;
-      }>();
-    return rows.results.map((row) => ({
-      ...row,
-      aliases: (JSON.parse(row.aliases) as (string | null)[]).filter(
-        (alias): alias is string => !!alias,
-      ),
-    }));
   }
 }

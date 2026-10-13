@@ -32,6 +32,7 @@ import {
   publicVeganStatusSql,
   readCanonicalRedirect,
 } from "../../community/infrastructure/public-read";
+import { matchingBrands } from "./brand-rows";
 
 // A product's identity, with its name and date expressions.
 const identityOf = (
@@ -283,10 +284,11 @@ export class D1CatalogRepository implements CatalogRepository {
         `SELECT p.slug,p.updated_at AS updatedAt,lower(country.iso2) AS country FROM products p JOIN countries country ON country.id=p.country_id AND country.is_active=1
         WHERE ${visible} ORDER BY country.iso2,p.slug LIMIT 40000`,
       ),
-      // A brand has a page in each country where it has a visible product.
+      // A brand's page is indexed in each country where it has an active or
+      // under-review product (as the page counts them); otherwise noindex.
       this.db.prepare(
         `SELECT b.slug,MAX(p.updated_at) AS updatedAt,lower(country.iso2) AS country FROM brands b
-        JOIN products p ON p.brand_id=b.id AND ${visible} JOIN countries country ON country.id=p.country_id AND country.is_active=1
+        JOIN products p ON p.brand_id=b.id AND p.lifecycle_status IN ('active','under_review') JOIN countries country ON country.id=p.country_id AND country.is_active=1
         GROUP BY b.id,country.id ORDER BY country.iso2,b.slug LIMIT 20000`,
       ),
     ]);
@@ -854,39 +856,28 @@ export class D1CatalogRepository implements CatalogRepository {
     };
   }
 
-  // The line's other products that aren't archived or discontinued.
+  // The line's other products that aren't archived or discontinued, with
+  // the active foods each is listed in (a line's flavors may differ).
   async siblings(countryId: string, lineId: string, productId: string) {
     return (
       await this.db
         .prepare(
-          `SELECT id,slug,name,flavor FROM products WHERE product_family_id=? AND country_id=? AND id<>? AND lifecycle_status='active'
-          ORDER BY flavor IS NOT NULL,flavor,name,id LIMIT 50`,
+          `SELECT p.id,p.slug,p.name,p.flavor,
+            COALESCE((SELECT json_group_array(c.slug) FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 WHERE pc.product_id=p.id),'[]') AS foods
+          FROM products p WHERE p.product_family_id=? AND p.country_id=? AND p.id<>? AND p.lifecycle_status='active'
+          ORDER BY p.flavor IS NOT NULL,p.flavor,p.name,p.id LIMIT 50`,
         )
         .bind(lineId, countryId, productId)
-        .all<SiblingFlavor>()
-    ).results;
-  }
-
-  // Brands with products in the country and their other names; the shared
-  // matcher (catalog/domain/brand-match.ts) picks the matches.
-  async brands(countryId: string) {
-    return (
-      await this.db
-        .prepare(
-          `SELECT b.id,b.slug,b.name,
-            (SELECT json_group_array(a.alias) FROM brand_aliases a WHERE a.brand_id=b.id) AS aliases,
-            COUNT(p.id) AS productCount
-          FROM brands b JOIN products p ON p.brand_id=b.id AND p.country_id=? AND p.lifecycle_status IN ('active','under_review')
-          GROUP BY b.id ORDER BY b.name LIMIT 5000`,
-        )
-        .bind(countryId)
-        .all<Omit<BrandRow, "aliases"> & { aliases: string }>()
+        .all<Omit<SiblingFlavor, "foods"> & { foods: string }>()
     ).results.map((row) => ({
       ...row,
-      aliases: (JSON.parse(row.aliases) as (string | null)[]).filter(
-        (alias): alias is string => !!alias,
-      ),
+      foods: JSON.parse(row.foods) as string[],
     }));
+  }
+
+  // Brands with products in the country matching typed text (brand-rows.ts).
+  brands(countryId: string, query: string, limit: number) {
+    return matchingBrands(this.db, countryId, query, limit);
   }
 
   brand(countryId: string, slug: string) {

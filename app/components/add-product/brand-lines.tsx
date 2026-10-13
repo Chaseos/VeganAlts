@@ -1,19 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import type { BrandLine } from "@server/community/domain/contracts";
+import { flavorLabel } from "@server/catalog/domain/flavor-label";
 import { communityRequest } from "../../lib/community";
 import { plural } from "../../lib/format";
 import { productPath } from "../../lib/site-chrome";
 
 export type { BrandLine };
-
-// A flavor's name in its line: the flavor, "Original", or the product name
-// when several have no flavor (as on food pages).
-const flavorLabel = (line: BrandLine, flavor: BrandLine["flavors"][number]) =>
-  flavor.flavor ??
-  (line.flavors.filter((f) => f.flavor === null).length > 1
-    ? flavor.name
-    : "Original");
 
 /**
  * "Already listed from [brand]" (milestone 7): the brand's lines in the
@@ -92,10 +85,10 @@ export function BrandLines({
   const elsewhere = lines.filter((line) => !here.includes(line));
   // `other`: a line in another food, named with its foods.
   const card = (line: BrandLine, other = false) => {
-    const foodSlug =
-      food && line.foods.some((f) => f.id === food.id)
-        ? food.slug
-        : line.foods[0]?.slug;
+    // A flavor opens in the chosen food where it's listed there, else in
+    // its first food.
+    const foodOf = (flavor: BrandLine["flavors"][number]) =>
+      food && flavor.foods.includes(food.slug) ? food.slug : flavor.foods[0];
     return (
       <li key={line.lineId} className="va-listed__line">
         <p className="va-listed__name">
@@ -110,10 +103,10 @@ export function BrandLines({
         <ul className="va-divided va-listed__flavors">
           {line.flavors.map((flavor) => (
             <li key={flavor.productId}>
-              <span>{flavorLabel(line, flavor)}</span>
+              <span>{flavorLabel(flavor, line.flavors)}</span>
               <Link
                 className="button secondary small-button"
-                to={`${productPath(code, flavor.slug, foodSlug)}#scores-title`}
+                to={`${productPath(code, flavor.slug, foodOf(flavor))}#scores-title`}
               >
                 That’s it, rate it
                 <span className="sr-only">: {flavor.name}</span>

@@ -314,4 +314,28 @@ it("claims one attempt under concurrency and enforces retry and daily budgets at
   expect(
     await repository.claim(another.id, id(), now + 86_400_000),
   ).not.toBeNull();
+  // Owner-run seeding isn't held to the allowance, and doesn't spend it.
+  const seeding = new D1MediaRepository(env.DB, { counted: false });
+  const seed = async (at: number) =>
+    seeding.claim(
+      (await seeding.reserve({ ...input, idempotencyKey: id() }, id(), at)).id,
+      id(),
+      at,
+    );
+  expect(await seed(now)).not.toBeNull();
+  const later = now + 2 * 86_400_000;
+  expect(await seed(later)).not.toBeNull();
+  await env.DB.batch(
+    Array.from({ length: 49 }, () =>
+      env.DB.prepare(
+        "INSERT INTO media_attempts(id,upload_id,state,lease_expires_at,created_at) VALUES (?,?,'abandoned',?,?)",
+      ).bind(id(), upload.id, later, later),
+    ),
+  );
+  const last = await repository.reserve(
+    { ...input, idempotencyKey: id() },
+    id(),
+    later,
+  );
+  expect(await repository.claim(last.id, id(), later)).not.toBeNull();
 });

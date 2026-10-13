@@ -158,6 +158,8 @@ export interface BrandSuggestion {
   id: string;
   slug: string;
   name: string;
+  // Its other names, so typing one is never offered as a new brand.
+  aliases: string[];
   productCount: number;
 }
 // A brand's line in a country, as "Already listed from [brand]" shows it.
@@ -170,6 +172,8 @@ export interface BrandLine {
     slug: string;
     name: string;
     flavor: string | null;
+    // Slugs of the line's foods this flavor is listed in.
+    foods: string[];
   }[];
 }
 export interface Candidate {

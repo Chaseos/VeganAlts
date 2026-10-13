@@ -17,7 +17,7 @@ import { D1TaxonomyRepository } from "../server/taxonomy/infrastructure/d1-taxon
 import { ModerationRepository } from "../server/community/infrastructure/moderation-repository";
 import { RatingsService } from "../server/ratings/application/service";
 import { D1RatingsRepository } from "../server/ratings/infrastructure/d1-repository";
-import { validateRankingParameters } from "../server/ranking/domain/policy";
+import { scoringFromEnv } from "../server/ranking/infrastructure/line-refresh";
 import { rebuildSearchIndex } from "../server/catalog/infrastructure/search-index";
 import { reshapeTaxonomy } from "../server/taxonomy/application/reshape";
 import { SYSTEM_ACTOR_ID } from "../server/community/domain/policy";
@@ -72,13 +72,14 @@ try {
   });
   try {
     const db = proxy.env.DB;
+    // Both rankings' priors, so rebuilt lines keep the environment's Tastiest.
+    const scoring = scoringFromEnv(target.vars);
     const ratings = new RatingsService(
       new D1RatingsRepository(db),
-      validateRankingParameters({
-        priorMean: Number(target.vars.RANKING_PRIOR_MEAN),
-        priorStrength: Number(target.vars.RANKING_PRIOR_STRENGTH),
-      }),
+      scoring.closest,
       uuid,
+      Date.now,
+      scoring.tastiest,
     );
     const service = new TaxonomyService(
       new D1TaxonomyRepository(new ModerationRepository(db), uuid),

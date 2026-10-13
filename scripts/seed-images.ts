@@ -16,7 +16,8 @@ if (environment !== "local" && environment !== "staging")
   );
 await withCatalogPlatform(environment, async (env) => {
   const service = new UploadService(
-    new D1MediaRepository(env.DB),
+    // Seeding is the owner's; it never spends the day's upload allowance.
+    new D1MediaRepository(env.DB, { counted: false }),
     new R2MediaStorage(env.MEDIA_BUCKET),
     new CloudflareImageTransformer(env.IMAGES),
     () => crypto.randomUUID(),

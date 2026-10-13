@@ -422,4 +422,14 @@ it("counts each person once, keeps Tastiest apart and rebuilds to the same rows"
   const incremental = await storedLine(line);
   await lines.refreshAll();
   expect(await storedLine(line)).toEqual(incremental);
+  // The hourly backstop re-derives a page a run here, resuming where the
+  // last run stopped, and reaches every line with the same rows.
+  const total = (await db
+    .prepare("SELECT COUNT(*) AS n FROM product_families")
+    .first<number>("n"))!;
+  let covered = 0;
+  for (let run = 0; run <= Math.ceil(total / 200); run++)
+    covered += await lines.refreshRotating(1);
+  expect(covered).toBeGreaterThanOrEqual(total);
+  expect(await storedLine(line)).toEqual(incremental);
 });

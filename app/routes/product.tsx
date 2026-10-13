@@ -418,7 +418,7 @@ export default function Product({
                   {p.otherFlavors.map((other) => (
                     <li key={other.id}>
                       <Link
-                        to={`${productPath(code, other.slug)}${food ? `?food=${food.slug}` : ""}`}
+                        to={productPath(code, other.slug, other.food)}
                       >
                         {other.flavor ?? other.name}
                       </Link>

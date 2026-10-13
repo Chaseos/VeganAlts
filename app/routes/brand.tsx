@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { Link } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
+import { flavorLabel } from "@server/catalog/domain/flavor-label";
 import {
   publicLoader,
   requireCatalogPreview,
@@ -137,10 +138,7 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
                                   className="va-link"
                                   to={productPath(code, flavor.slug, food.slug)}
                                 >
-                                  {flavor.flavor ??
-                                    (line.flavors.length > 1
-                                      ? flavor.name
-                                      : "View product")}
+                                  {flavorLabel(flavor, line.flavors)}
                                 </Link>
                               </span>
                             ))}

@@ -683,6 +683,15 @@ export default function Contribute({
                     name="family"
                     defaultValue={product.familyId ?? ""}
                   >
+                    {/* A discontinued product's line isn't listed; keep it
+                    chosen so submitting never proposes a move. */}
+                    {!lines.some(
+                      (line) => line.lineId === product.familyId,
+                    ) && (
+                      <option value={product.familyId ?? ""}>
+                        {product.lineName ?? product.name} (its line now)
+                      </option>
+                    )}
                     {lines.map((line) => (
                       <option key={line.lineId} value={line.lineId}>
                         {line.name} ({line.flavors.length}{" "}

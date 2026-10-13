@@ -276,7 +276,7 @@ Most of what remains is sold as a few base recipes in several flavors:
   - category-merge rebuilds (`rebuildVersions`) and the integrity rebuild (`rebuildPage`, `scripts/rebuild-rankings.ts`);
   - every catalog decision that changes a product's family, current formula, lifecycle, classification, food membership or eligibility. That includes submission publication, `patchStatements`, duplicate consolidation and its reversal.
 
-  Because a D1 batch is one transaction, concurrent writes to two flavors of one line cannot lose each other's ratings. The hourly job also re-derives every line row as a backstop.
+  Because a D1 batch is one transaction, concurrent writes to two flavors of one line cannot lose each other's ratings. The hourly job also re-derives line rows in turn, up to 5,000 lines a run, as a backstop.
 
 - **Reference implementation.** A pure function in `server/ranking/domain` defines the line math for both rankings. Tests prove that the SQL, the reference function and the integrity rebuild agree.
 
@@ -333,7 +333,7 @@ Most of what remains is sold as a few base recipes in several flavors:
   - It ends with **Add a product from [brand]**, which opens Add a product with the brand chosen.
   - It is shared-cacheable and tagged per brand and country. A product change purges its brand's page.
   - A brand with no products in a country renders "No [brand] products in [country] yet" with `noindex` and an add link.
-  - Brand pages with visible products are in the sitemap.
+  - Brand pages with active or under-review products in a country are in the sitemap, the same products the page counts.
 - **One read for both uses.** The brand page and Add a product's "Already listed from [brand]" use the same read.
 
 ### Add a product

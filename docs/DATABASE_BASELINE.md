@@ -659,3 +659,5 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following. They we
 - **Seed.** The taxonomy seed writes the 18 aisles and the launch foods.
 - **Availability.** `TAXONOMY_LEAVES` carries an optional `countries` list for launch availability.
 - **Existing environments.** For an environment that is not reset, the reshape script re-parents foods to aisles through the audited taxonomy path and retires the emptied shelves.
+
+**Seed processing (`0002_uncounted_seed_attempts`).** Adds `media_attempts.counted` (default 1). Owner-run demo seeding (`scripts/seed-images.ts`) records 0, so a reseed is neither held to nor spends the environment's daily processing allowance that web uploads share; both allowance checks count only `counted=1`.

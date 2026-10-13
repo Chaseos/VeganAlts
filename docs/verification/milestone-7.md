@@ -60,6 +60,7 @@ Recorded on 2026-10-13 against the approved [Milestone 7 specification](../MILES
 - **How it was built:** the four migrations were applied to an empty SQLite database. The tables the later migrations altered (`categories`, `products`, `product_families`, `ratings`, `product_category_stats`) took their final definitions from `sqlite_master`, exactly as SQLite rewrote them. The tables and indexes `0004` dropped were removed. The later migrations' tables, indexes and triggers were appended; their backfills, `ALTER`s and drops were left out, because every database is reset.
 - **Proof it matches:** the folded `0001_initial.sql` applied to a second empty database matched the four-migration result in every table, index and trigger, 240 objects, definitions included. `drizzle-kit generate` reports no schema changes, so the single snapshot matches the TypeScript schema; the journal has one entry.
 - **What was removed:** `0002_aisle_order_and_seasons.sql`, `0003_recipe_lines.sql`, `0004_line_discovery.sql`, their snapshots, and the test of the `0003` backfill.
+- **After the fold:** code review added `0002_uncounted_seed_attempts.sql`, the first migration after version 1 (see [Limits and follow-ups](#limits-and-follow-ups)).
 
 ## Demo catalog
 
@@ -89,8 +90,8 @@ Remote databases were not touched; remote reads and writes need the owner's own 
 ## Limits and follow-ups
 
 - **Rename line** is an action on a product (`/admin/moderation/products/:id/line-name`), not `/admin/lines/:id`, so the existing reversal undoes it. The API document records this.
-- **Lookups scan in memory.** Brand suggestions match up to 5,000 brands, and loose "Is it one of these?" matching scans the country's products, both on the instant-answer rate limit. A search index will be worth it once the catalog is large.
+- **Lookups match brands in memory.** Search, instant answers and Add a product read up to 5,000 brands' names and aliases in one query and count products only for the brands that match; loose "Is it one of these?" matching scans the country's products. Both are on the instant-answer rate limit. A search index will be worth it once the catalog is large.
 - **Demo Oatly line.** Original and Full Fat stay one line in the demo to show how unlabeled flavors are named, although by the line test Full Fat is its own base.
 - **Add a product has no Foods menu,** as before: pages outside a country have no aisles in the header.
-- **Local processing allowance.** Seeding the demo's 39 images spends most of the default 50 processing attempts a UTC day, so a full browser run after a reset ran out. Local development now allows 200 (`wrangler.jsonc`, top-level `COMMUNITY_LIMITS`); staging and production keep the default. On staging, the day of a reseed leaves about 11 uploads for the running-app pass.
+- **Seeding stays outside the processing allowance.** Seeding the demo's 39 images used to spend most of the 50 processing attempts a UTC day that web uploads share. Migration `0002_uncounted_seed_attempts` marks the seed's attempts uncounted, so a reseed neither waits for nor spends that allowance in any environment. Staging needs `npm run db:migrate:staging` after its version 1 reset, before seeding images.
 - **One dev server at a time.** A browser run starts its own dev server; a second one running beside it rebuilds Vite's shared dependency cache and turns every page into a 500. Stop other dev servers before `npm run test:e2e`.

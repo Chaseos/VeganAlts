@@ -497,14 +497,15 @@ The `related` list keeps only companion and successor links.
 - **Document URL.** The brand page's document URL is `/{cc}/brand/{slug}`.
 - **Brand matching.** Brand matching in search, suggest and the contribution lookups uses one shared matcher:
   - names and other names;
-  - a word prefix, a substring, or within two edits for names of five or more letters.
+  - a word prefix, a substring, or within two edits for names of five or more letters;
+  - a brand's `productCount` is its active and under-review products in the country, counted only for the brands that match.
 
 **Contribution lookups.** Each is authenticated, private/no-store and on the instant-answer rate limit.
 
 | Method | Path beneath `/api/v1`                                    | Contract                                                                                                                                                                                                                                                                                                                                        |
 | ------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/community/brands?country=&q=`                           | Up to 8 brand suggestions `{id, slug, name, productCount}` from 2 characters, including brands with nothing in the country yet (`productCount` 0).                                                                                                                                                                                              |
-| GET    | `/community/brands/:id/lines?country=&food=`              | The brand's lines in the country, those in `food` (a food ID) first: `{lineId, name, foods: [{id, slug, name}], flavors: [{productId, slug, name, flavor}]}`. Discontinued and archived products are left out.                                                                                                                                  |
+| GET    | `/community/brands?country=&q=`                           | Up to 8 brand suggestions `{id, slug, name, aliases, productCount}` from 2 characters, including brands with nothing in the country yet (`productCount` 0). Text equal to a suggestion's name or alias is never offered as a new brand.                                                                                                         |
+| GET    | `/community/brands/:id/lines?country=&food=`              | The brand's lines in the country, those in `food` (a food ID) first: `{lineId, name, foods: [{id, slug, name}], flavors: [{productId, slug, name, flavor, foods}]}`, where a flavor's `foods` are the slugs of the foods it's listed in. Discontinued and archived products are left out.                                                       |
 | GET    | `/community/identity-matches?country=&brand=&name=&line=` | Looser: any one shared word of three or more letters qualifies a similar product, and the brand matches through the shared matcher. `exact` is unchanged. These matches are for display only; the near-duplicate hold keeps its milestone 6 rule and skips the chosen line's flavors. The optional `line` leaves that line's other flavors out. |
 
 **Submissions.** `SubmissionInput` changes as follows.

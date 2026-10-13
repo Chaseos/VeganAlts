@@ -1,6 +1,8 @@
 import { expect, test } from "./fixtures";
 import { accessible } from "./a11y";
 import { createBrowserSession } from "./session-fixture";
+import { withLocalDb } from "./local-db";
+import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
 
 // Milestone 7: a brand's recipe and its flavors rank as one line.
 test("a recipe line lists its flavors, and its brand has a page", async ({
@@ -53,8 +55,8 @@ test("Add another flavor joins the product's line and publishes without review",
   const flavor = `Maple ${testInfo.project.name} ${Date.now()}`;
   try {
     await context.addCookies([session.cookie]);
-    // The demo Nuggs line already has flavors, so adding one more leaves
-    // other tests' single-flavor lines alone.
+    // The demo Nuggs line already has flavors; the new one is taken out
+    // again below.
     await page.goto("/us/products/simulate-nuggs?food=chicken-nuggets");
     await page.getByRole("link", { name: "Add another flavor" }).click();
     // The food, brand and line come chosen; the name follows the flavor.
@@ -94,5 +96,19 @@ test("Add another flavor joins the product's line and publishes without review",
   } finally {
     await page.close();
     await session.dispose();
+    // The demo line ends as it began: the added flavor is hidden and its line
+    // re-derived, so other tests never read it.
+    await withLocalDb(async (db) => {
+      const added = await db
+        .prepare("SELECT id FROM products WHERE name=?")
+        .bind(`Nuggs, ${flavor}`)
+        .first<string>("id");
+      if (!added) return;
+      await db
+        .prepare("UPDATE products SET lifecycle_status='hidden' WHERE id=?")
+        .bind(added)
+        .run();
+      await lineRefresh({ DB: db }).refresh({ productIds: [added] });
+    });
   }
 });
