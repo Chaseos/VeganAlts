@@ -1,14 +1,14 @@
-export interface ShelfGroup {
+export interface AisleOption {
   id: string;
+  slug: string;
   name: string;
-  shelves: { id: string; slug: string; name: string }[];
 }
 
 /**
- * Where a suggested food belongs: every shared shelf grouped by aisle,
- * including shelves that have no food yet.
+ * Where a suggested food belongs: every shared aisle, including aisles that
+ * have no food yet.
  */
-export function ShelfSelect({
+export function AisleSelect({
   id,
   aisles,
   value,
@@ -19,9 +19,9 @@ export function ShelfSelect({
   hint = "Where would you find it in a store?",
 }: {
   id: string;
-  aisles: ShelfGroup[];
+  aisles: AisleOption[];
   value?: string;
-  onChange?: (shelfId: string) => void;
+  onChange?: (aisleId: string) => void;
   name?: string;
   required?: boolean;
   error?: string;
@@ -31,7 +31,7 @@ export function ShelfSelect({
     errorId = `${id}-error`;
   return (
     <>
-      <label htmlFor={id}>Shelf{required ? " (required)" : ""}</label>
+      <label htmlFor={id}>Aisle{required ? " (required)" : ""}</label>
       <select
         id={id}
         name={name}
@@ -42,17 +42,11 @@ export function ShelfSelect({
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${hintId} ${errorId}` : hintId}
       >
-        <option value="">Choose a shelf</option>
+        <option value="">Choose an aisle</option>
         {aisles.map((aisle) => (
-          <optgroup key={aisle.id} label={aisle.name}>
-            {aisle.shelves.map((shelf) => (
-              <option key={shelf.id} value={shelf.id}>
-                {shelf.name === aisle.name
-                  ? shelf.name
-                  : `${aisle.name} › ${shelf.name}`}
-              </option>
-            ))}
-          </optgroup>
+          <option key={aisle.id} value={aisle.id}>
+            {aisle.name}
+          </option>
         ))}
       </select>
       <p id={hintId} className="small muted">

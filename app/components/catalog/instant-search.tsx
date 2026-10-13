@@ -7,13 +7,20 @@ import { plural } from "../../lib/format";
 import { useHydrated } from "../../lib/use-hydrated";
 import {
   useInstantSearch,
+  type SuggestedBrand,
   type SuggestedFood,
   type SuggestedProduct,
 } from "../../lib/instant-search";
-import { foodPath, productPath, searchPath } from "../../lib/site-chrome";
+import {
+  brandPath,
+  foodPath,
+  productPath,
+  searchPath,
+} from "../../lib/site-chrome";
 
 type Option =
   | { kind: "food"; href: string; food: SuggestedFood }
+  | { kind: "brand"; href: string; brand: SuggestedBrand }
   | { kind: "product"; href: string; product: SuggestedProduct };
 
 /**
@@ -56,6 +63,11 @@ export function InstantSearch({
           href: foodPath(country, food.slug),
           food,
         })),
+        ...result.brands.map((brand) => ({
+          kind: "brand" as const,
+          href: brandPath(country, brand.slug),
+          brand,
+        })),
         ...result.products.map((product) => ({
           kind: "product" as const,
           href: productPath(country, product.slug, product.food.slug),
@@ -91,7 +103,7 @@ export function InstantSearch({
   const announcement =
     state.status === "ready" && open
       ? options.length
-        ? `${plural(foods.length, "food")} and ${plural(result!.products.length, "product")} found. Use the arrow keys to choose.`
+        ? `${plural(foods.length, "food")}${result!.brands.length ? `, ${plural(result!.brands.length, "brand")}` : ""} and ${plural(result!.products.length, "product")} found. Use the arrow keys to choose.`
         : `No foods match ${state.query} yet.`
       : "";
   return (
@@ -202,7 +214,7 @@ export function InstantSearch({
               aria-busy={stale}
               className="va-instant__list"
             >
-              {(["food", "product"] as const).map((kind) => {
+              {(["food", "brand", "product"] as const).map((kind) => {
                 const group = options
                   .map((option, index) => ({ option, index }))
                   .filter(({ option }) => option.kind === kind);
@@ -213,7 +225,9 @@ export function InstantSearch({
                     <p id={heading} className="va-instant__group">
                       {kind === "food"
                         ? "Foods · closest swap shown"
-                        : "Products"}
+                        : kind === "brand"
+                          ? "Brands"
+                          : "Products"}
                     </p>
                     {group.map(({ option, index }) => (
                       <div
@@ -229,6 +243,8 @@ export function InstantSearch({
                       >
                         {option.kind === "food" ? (
                           <FoodOption food={option.food} />
+                        ) : option.kind === "brand" ? (
+                          <BrandOption brand={option.brand} />
                         ) : (
                           <ProductOption product={option.product} />
                         )}
@@ -299,6 +315,17 @@ function FoodOption({ food }: { food: SuggestedFood }) {
   );
 }
 
+function BrandOption({ brand }: { brand: SuggestedBrand }) {
+  return (
+    <span className="va-instant__food">
+      <span className="va-instant__name">{brand.name}</span>
+      <span className="va-instant__meta">
+        {plural(brand.productCount, "product")}
+      </span>
+    </span>
+  );
+}
+
 function ProductOption({ product }: { product: SuggestedProduct }) {
   return (
     <>
@@ -306,9 +333,14 @@ function ProductOption({ product }: { product: SuggestedProduct }) {
         <span className="va-instant__name">{product.name}</span>
         <span className="va-instant__meta">
           {product.rank
-            ? `#${product.rank} for ${product.food.name.toLowerCase()}`
+            ? `Closest #${product.rank} for ${product.food.name.toLowerCase()}`
             : `Not ranked yet for ${product.food.name.toLowerCase()}`}
         </span>
+        {product.rank !== null && (
+          <span className="va-instant__meta">
+            Score includes this recipe’s flavors
+          </span>
+        )}
       </span>
       {product.score !== null && product.rank !== null && (
         <ScoreLabel value={product.score} size="mini" tone="neutral" />

@@ -14,8 +14,9 @@ import { Badge } from "../components/ui/badges";
 import { ButtonLink } from "../components/ui/button";
 import { EmptyState } from "../components/ui/feedback";
 import { publicMetadata } from "../lib/metadata";
-import { plural } from "../lib/format";
+import { joinList, plural } from "../lib/format";
 import {
+  brandPath,
   foodPath,
   productPath,
   searchPath,
@@ -66,7 +67,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 // with where each ranks. Without a query it lists every aisle.
 export default function Search({ loaderData: data }: Route.ComponentProps) {
   const code = data.market.code;
-  const found = data.foods.length + data.products.length;
+  const found = data.foods.length + data.brands.length + data.products.length;
   return (
     <PageShell search={false}>
       <header className="va-search-page__head">
@@ -75,8 +76,15 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
         </h1>
         {data.query && (
           <p className="va-muted">
-            {plural(data.foods.length, "food")} and{" "}
-            {plural(data.products.length, "product")} in {data.market.name}
+            {joinList([
+              plural(data.foods.length, "food"),
+              // Brands are named only when some match.
+              ...(data.brands.length
+                ? [plural(data.brands.length, "brand")]
+                : []),
+              plural(data.products.length, "product"),
+            ])}{" "}
+            in {data.market.name}
           </p>
         )}
         <InstantSearch
@@ -105,9 +113,37 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
                     <FoodCard
                       country={code}
                       food={food}
-                      shelf={food.aisle ?? undefined}
+                      place={food.aisle ?? undefined}
                       level={3}
                     />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {data.brands.length > 0 && (
+            <section
+              className="va-search-page__section"
+              aria-labelledby="brands-title"
+            >
+              <h2 id="brands-title" className="va-heading-m">
+                Brands
+              </h2>
+              <ul className="va-divided va-card va-search-page__products">
+                {data.brands.map((brand) => (
+                  <li key={brand.slug}>
+                    <Link
+                      className="va-row-link"
+                      to={brandPath(code, brand.slug)}
+                    >
+                      <span className="va-row-link__text">
+                        <span className="va-row-link__title">{brand.name}</span>
+                        <span className="va-small va-muted">
+                          {plural(brand.productCount, "product")} in{" "}
+                          {data.market.name}
+                        </span>
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -136,12 +172,17 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
                           {[
                             product.brand,
                             product.rank
-                              ? `#${product.rank} for ${product.food.name.toLowerCase()}`
+                              ? `Closest #${product.rank} for ${product.food.name.toLowerCase()}`
                               : `Not ranked yet for ${product.food.name.toLowerCase()}`,
                           ]
                             .filter(Boolean)
                             .join(" · ")}
                         </span>
+                        {product.rank !== null && (
+                          <span className="va-small va-muted">
+                            Score includes this recipe’s flavors
+                          </span>
+                        )}
                       </span>
                       {product.early && <Badge tone="early">Early</Badge>}
                       {product.rank !== null && product.score !== null && (
@@ -159,7 +200,7 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
           )}
           {!found && (
             <EmptyState
-              title={`No foods or products match “${data.query}” yet`}
+              title={`No foods, brands or products match “${data.query}” yet`}
               actions={
                 <>
                   <ButtonLink
@@ -202,23 +243,18 @@ function AllAisles({ country }: { country: string }) {
             <span className="va-browse__name">{aisle.name}</span>
           </Link>
           <ul className="va-divided">
-            {aisle.shelves.flatMap((shelf) =>
-              shelf.foods.map((food) => (
-                <li key={food.slug}>
-                  <Link
-                    className="va-row-link"
-                    to={foodPath(country, food.slug)}
-                  >
-                    <span className="va-row-link__text">
-                      <span className="va-row-link__title">{food.name}</span>
-                      <span className="va-small va-muted">
-                        {shelf.name} · {plural(food.productCount, "product")}
-                      </span>
+            {aisle.foods.map((food) => (
+              <li key={food.slug}>
+                <Link className="va-row-link" to={foodPath(country, food.slug)}>
+                  <span className="va-row-link__text">
+                    <span className="va-row-link__title">{food.name}</span>
+                    <span className="va-small va-muted">
+                      {plural(food.productCount, "product")}
                     </span>
-                  </Link>
-                </li>
-              )),
-            )}
+                  </span>
+                </Link>
+              </li>
+            ))}
           </ul>
         </li>
       ))}

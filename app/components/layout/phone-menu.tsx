@@ -17,7 +17,7 @@ export function openPhoneMenu() {
   if (dialog instanceof HTMLDialogElement && !dialog.open) dialog.showModal();
 }
 
-// The phone site menu: aisles, country, appearance and account. A modal
+// The phone site menu: country and account before aisles and appearance. A modal
 // <dialog> gives focus containment and Escape. Before hydration the menu
 // control jumps to the footer, which lists the same destinations.
 export function PhoneMenu() {
@@ -70,31 +70,6 @@ export function PhoneMenu() {
                 <Icon name="close" size={22} />
               </button>
             </div>
-            {aisles.length > 0 && (
-              <section aria-labelledby="sheet-aisles">
-                <h2 id="sheet-aisles" className="va-menu-heading">
-                  Aisles
-                </h2>
-                <ul className="va-sheet__list">
-                  {aisles.map((aisle) => (
-                    <li key={aisle.slug}>
-                      <Link
-                        to={foodPath(country.code, aisle.slug)}
-                        onClick={close}
-                      >
-                        <FoodIcon
-                          slug={aisle.slug}
-                          size={20}
-                          className="va-good-icon"
-                        />
-                        <span>{aisle.name}</span>
-                        <Icon name="chevronRight" size={14} />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
             {countries.length > 1 && (
               <section aria-labelledby="sheet-country">
                 <h2 id="sheet-country" className="va-menu-heading">
@@ -107,9 +82,6 @@ export function PhoneMenu() {
                 />
               </section>
             )}
-            <section aria-label="Appearance">
-              <AppearanceControl name="appearance-phone" />
-            </section>
             <section aria-labelledby="sheet-account">
               <h2 id="sheet-account" className="va-menu-heading">
                 Account
@@ -136,6 +108,34 @@ export function PhoneMenu() {
                   </li>
                 )}
               </ul>
+            </section>
+            {aisles.length > 0 && (
+              <section aria-labelledby="sheet-aisles">
+                <h2 id="sheet-aisles" className="va-menu-heading">
+                  Aisles
+                </h2>
+                <ul className="va-sheet__list">
+                  {aisles.map((aisle) => (
+                    <li key={aisle.slug}>
+                      <Link
+                        to={foodPath(country.code, aisle.slug)}
+                        onClick={close}
+                      >
+                        <FoodIcon
+                          slug={aisle.slug}
+                          size={20}
+                          className="va-good-icon"
+                        />
+                        <span>{aisle.name}</span>
+                        <Icon name="chevronRight" size={14} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            <section aria-label="Appearance">
+              <AppearanceControl name="appearance-phone" />
             </section>
             <nav aria-label="About VeganAlts" className="va-sheet__about">
               {ABOUT_LINKS.map((link) => (

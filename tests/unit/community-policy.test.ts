@@ -48,9 +48,18 @@ it("normalizes punctuation and package quantities without conflating flavor and 
 });
 it("distinguishes deterministic publication, actionable duplicates and manual review", () => {
   expect(decideSubmission(input, []).decision).toBe("READY");
+  // Joining a line, naming a new one or giving a flavor never holds
+  // (milestone 7).
   expect(
-    decideSubmission({ ...input, specialtyFlavor: true }, []).decision,
-  ).toBe("NEEDS_REVIEW");
+    decideSubmission({ ...input, lineId: "line", flavor: "Vanilla" }, [])
+      .decision,
+  ).toBe("READY");
+  expect(
+    decideSubmission(
+      { ...input, flavor: "Spicy", lineName: "Smoky Burger" },
+      [],
+    ).decision,
+  ).toBe("READY");
   // Unconfirmed ingredients publish as "not checked yet" (milestone 6).
   expect(
     decideSubmission({ ...input, noKnownAnimalIngredients: false }, [])
@@ -91,7 +100,7 @@ it("distinguishes deterministic publication, actionable duplicates and manual re
   // A suggested food waits for an operator.
   expect(
     decideSubmission(
-      { ...input, newFood: { name: "Bratwurst", shelfId: "pork" } },
+      { ...input, newFood: { name: "Bratwurst", aisleId: "pork" } },
       [],
     ).decision,
   ).toBe("NEEDS_REVIEW");
@@ -117,14 +126,14 @@ it("requires only a name, brand, country, food and front photo", () => {
     submissionInput.safeParse({
       ...minimal,
       categoryIds: [],
-      newFood: { name: "Bratwurst", shelfId: "pork" },
+      newFood: { name: "Bratwurst", aisleId: "pork" },
     }).success,
   ).toBe(true);
   expect(
     submissionInput.safeParse({
       ...minimal,
       categoryIds: ["a", "b", "c", "d", "e"],
-      newFood: { name: "Bratwurst", shelfId: "pork" },
+      newFood: { name: "Bratwurst", aisleId: "pork" },
     }).success,
   ).toBe(false);
   // A front photo is required, and four photos at most.
@@ -198,6 +207,9 @@ const snapshot: ProductSnapshot = {
   countryCode: "us",
   brandId: "brand",
   familyId: null,
+  lineName: null,
+  flavor: null,
+  seasonal: false,
   lifecycleStatus: "active",
   veganStatus: "appears_vegan",
   manufacturerLabel: "vegan",

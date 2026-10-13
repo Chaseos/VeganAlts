@@ -174,14 +174,11 @@ export function decideSubmission(
   const reasons = [];
   if (input.followUp)
     reasons.push("Updated evidence must be reviewed by an operator.");
+  // Joining a line, starting one or giving a flavor never holds a product
+  // on its own (milestone 7); the chosen line's flavors are left out of the
+  // candidates.
   if (candidates.length)
     reasons.push("A related catalog entry needs an identity check.");
-  if (input.specialtyFlavor)
-    reasons.push(
-      "A specialty flavor needs a review of which foods it's ranked for.",
-    );
-  if (input.relatedProductId || input.productFamilyId)
-    reasons.push("The proposed product relationship needs review.");
   // A label that lists milk, egg, fish, crustacean or mollusc contradicts an
   // animal-free classification.
   if (input.allergens && needsClassificationReview(input.allergens))

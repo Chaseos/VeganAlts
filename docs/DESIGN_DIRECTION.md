@@ -180,3 +180,65 @@ Agreed on 2026-10-10 for the [milestone 6 specification](MILESTONE_6_PLAN.md). T
 - **Not in [country] yet.** A food page in a country where the food is not on shows an empty state with "Add a product" and links to the countries that have it. Sort and filters are hidden.
 - **Empty countries.** The home lists the shared aisles and foods with "Be the first to add one".
 - **Status chip.** "Ingredients not checked yet" uses the neutral tone with a text label and a prompt to add an ingredients photo on the product page.
+
+## 11. Milestone 7 additions
+
+Agreed on 2026-10-11 and 2026-10-12 for the [milestone 7 specification](MILESTONE_7_PLAN.md). These follow the existing patterns, and phone and desktop screenshots in both themes are reviewed at each UI checkpoint.
+
+**Aisles.**
+
+- **Foods menu (desktop).** One "Foods" button in the header row, beside a wide search box, opens every aisle down the left. The aisle under the pointer or keyboard focus shows its foods, each with its top three, beside the list (owner decision, 2026-10-12). The menu works for any number of aisles, where a bar of 18 aisles wrapped onto two rows. Without JavaScript the button links to the page listing every aisle. Between 760 and 1099 pixels wide, the search takes its own row under the header row.
+- **Aisle chips (phone).** Phones keep the aisle chips under the header, scrolling sideways. Each new aisle gets an icon in the existing style.
+- **Aisle panels.** An aisle panel lists its foods directly, each with its first three lines.
+- **Breadcrumbs.** Breadcrumbs read "All foods / Dips and spreads / Queso", or "All foods / Eggs" when an aisle repeats its only food.
+- **Order.** Aisles and foods follow each country's popularity order, with a default store order before ratings exist.
+- **Browse every food.** Aisle cards in a grid, each as tall as its content. Each card has the aisle icon, its name and food count, then up to three foods with their #1 swap, and "See all [n] foods" when there are more.
+- **Opening on hover.** On desktop, resting the mouse on Foods opens the menu after a short pause, and leaving it closes the menu after one. Resting on an aisle shows its foods, so a pointer crossing aisles on its way to the foods doesn't switch them. Touch and the keyboard open the menu on press; Tab reaches the aisle shown, the arrow keys move between aisles, and Tab or the right arrow moves on to its foods.
+- **Trending tag.** A small "Trending" badge, styled like New, marks a line that is trending in its food on ranking rows, home lists and its product page.
+- **Seasonal.** A neutral chip reads "Seasonal · Nov–Jan" on a seasonal food's page, cards and search results. A product's Seasonal tag appears on its page and ranking rows.
+
+**Ranking toggle.** A two-option segmented control above the list, "Closest to the original" and "Tastiest", switches views. It is a link to each view, so it works without JavaScript. Each view has its own featured #1. The other sorts stay in the sort menu.
+
+**Line rows.**
+
+- **What a row shows.** A row shows the lead flavor's photo, the line name and brand, and the score and people for the current view.
+- **Flavor disclosure.** A line with several flavors adds a "3 flavors" disclosure listing each flavor with its score or "Too few ratings yet", its New tag and allergens. Lists use dividers, not nested cards.
+- **Tastiest badge.** A line that leads Tastiest but not Closest carries a "Tastiest" badge in the Closest list.
+
+**Rating form.** The closeness question comes first, then "How tasty is it, whether or not it's like the original?" on the same 1–5 control with its own labels (Not for me, It's OK, Good, Really good, Delicious). Both save on tap. Detail and "last ate" questions follow.
+
+**Product page.** The rank card shows the line in both views, and "This flavor" when the line has several flavors. Other flavors appear as a divided list with **Add another flavor**.
+
+**Brand page.** A header with the brand and its product count, then a divided list grouped by aisle › food, each line with its ranks and flavors, ending with **Add a product from [brand]**.
+
+**Add a product, step 1.**
+
+1. **Food.** The food picker comes first.
+2. **Brand.** A brand combobox follows, styled like instant search, with product counts and "Add '[name]' as a new brand" as its last option.
+3. **"Already listed from [brand]".** A divided list of lines and flavors with **That's it, rate it**, **Add a new flavor of [line]** and **Something else from [brand]**.
+4. **Product fields.** These follow for the chosen path.
+
+## 12. UI refinements after the milestone 7 audit
+
+Approved on 2026-10-12. These refine presentation and navigation while retaining the visual identity, rating calculations, API payloads and authentication providers.
+
+- **One score control.** Similarity, tastiness and every detail question use the same row of five numbered buttons and selected state. Each question retains its meanings: Not close–Extremely close for similarity and details, Not for me–Delicious for tastiness. Phones and compact product editors show endpoint labels; wider contribution forms show each meaning. Optional answers clear on a second tap. Product ratings still save immediately; Add a product saves its answers only after publication.
+- **Rating context.** Every rating form names the product and its flavor. A multi-flavor “I’ve tried it” or “Be the first to rate” shortcut opens the existing flavor disclosure, with a rating link for each flavor. Single-product shortcuts remain direct. Escape closes the flavor list and restores focus to its summary.
+- **Sign-in.** Google and Apple use official, locally hosted artwork with their approved treatments. Both buttons are full width and 48px tall, with colors suited to each theme. The native authentication forms remain. Successful sign-in resumes the intended task; Continue browsing retains a public return page or uses the task’s country home, falling back to `/`.
+- **Phone hierarchy.** Closed sort, store and Free-from controls wrap as compact chips. Open panels hold the detailed explanations and expand to the available width. The product identity and primary score precede the gallery; the initial phone photo is 220px tall, with its full-size link and all canonical slots retained.
+- **Score context.** Brand and product pages label Closest and Tastiest separately and show each metric’s own people count. Combined scores say “Across N flavors”; a product’s own scores say “This flavor.” Search identifies a product’s Closest rank and explains that its score includes the recipe’s flavors. Counts come from the existing aggregates, never by summing flavor counts or querying raw ratings on a page view.
+- **Phone country selection.** The header shows the country code with the full country name as its accessible label. The country popover supports the same keyboard dismissal and focus restoration as desktop. In the phone menu, Country and Account precede Aisles, followed by Appearance.
+
+Provider sources and asset provenance are recorded in `app/assets/auth/README.md`. Screenshots remain in the ignored `test-results/captures` directory.
+
+
+## 13. Product detail and visual refinements
+
+Requested on 2026-10-13, extending the audit refinements above.
+
+- **Product overview.** On desktop the gallery sits beside the identity, two scores, main rating action, store controls and flavor choices. The editor lives below the overview, alongside the rating breakdown, with community notes beneath it. Product facts, ingredient evidence, availability and formula history use aligned headings and dividers. Alternative swaps follow the product's own information. Native section links preserve direct access and searchable page content.
+- **Compact ratings.** Closest and Tastiest remain five numbered buttons with the same interactions. The product editor uses 48px targets, endpoint labels and two question columns where space allows. Optional detail questions and “last ate” open from a native disclosure after choosing an overall score. The summary indicates existing answers; closing it never clears them. Immediate saving, clearing optional answers, sign-in recovery and contribution submission timing are unchanged.
+- **Score styling.** Closest keeps its yellow score label. Tastiest uses the same type hierarchy and a mint treatment from the existing success palette, including on brand pages and flavor scores. Every score keeps its label, rank where applicable and its own people count. The breakdown explicitly describes this flavor, independently of the combined recipe-line standing.
+- **Photos.** Existing photos appear as real thumbnail selectors with native radio keyboard behavior and a visible focus ring. Missing slots use a camera indicator and their type label; the selected empty view links to adding that specific slot. The five canonical slots, full-size/evidence links, replacement proposals and reporting remain. “Add or improve photos” expands compact contribution tools beside the gallery. Switching products resets the selected photo to the first available image.
+- **Result counts.** Ranking totals and filter matches have a compact numeric badge beside their descriptive text. Zero remains an honest empty result, with the existing filter recovery actions.
+- **Food icons.** Chicken, turkey, yogurt and ice cream use clearer library artwork in the existing rounded stroke style. Yogurt and ice cream have distinct symbols. Source links and licenses live in `app/components/icons/THIRD_PARTY.md`.

@@ -365,3 +365,101 @@ The approved [milestone 6 specification](MILESTONE_6_PLAN.md) changes who can co
 - **Ingredients not checked yet.** A product published without confirmed ingredients is ranking-eligible like any provisionally classified product. Only Under Review removes a product from rankings.
 - **Foods per country.** A food's ranking exists in a country only where the food is switched on, and every visible product's foods are on in its country, so no ranked product is ever hidden by availability. Switching a food on or off never changes a score, weight or `product_category_stats` row.
 - **Contribution extras.** The rating collected with a new product is an ordinary rating written through the canonical rating path once the product is published; it counts exactly like any other rating and is never written twice.
+
+## Milestone 7 decisions
+
+The [milestone 7 specification](MILESTONE_7_PLAN.md) changes the ranked unit from a product formula to a **recipe line**: a product family, which belongs to one country. It also adds a second, independent ranking, Tastiest. The owner decided both on 2026-10-11 and 2026-10-12.
+
+Rating identity (§2), the 1–5 scale, formula transitions (§10) and the Closest prior constants are unchanged.
+
+**What is ranked.** A ranking row is a line in a food.
+
+- **Eligible flavors.** A line's eligible flavors are its products that meet §9 in that food.
+- **A line ranks** when at least one eligible flavor has a counted answer for that ranking.
+- **Flavor aggregates.** `product_category_stats` and the per-formula detail and familiarity statistics still describe each flavor.
+- **Discontinued flavors.**
+  - A discontinued flavor is not active (§9), so it leaves its line's score and card when it is marked discontinued.
+  - Its ratings are kept, and count again if it returns with the same formula.
+  - A line whose flavors are all discontinued leaves the ranking.
+
+**Two rankings.** This amends §1.
+
+- **Closest to the original.** It answers §1's question. It is the default and primary ranking, and it alone drives the home page, Start with these, Still waiting and Trending.
+- **Tastiest.** It answers a second question: how much people enjoyed a swap, whether or not it is like the original. The answer is an optional 1–5 enjoyment score stored on the same rating row.
+- **Independence.** Neither ranking ever changes the other's score, rank or order.
+
+**Line score.** The same calculation runs for each ranking, over similarity for Closest and over enjoyment for Tastiest. For each person, take the mean of their counted answers for the line's eligible flavors in that food.
+
+```text
+v     = number of such people
+R     = mean of those per-person means
+score = (v / (v + m)) × R + (m / (v + m)) × C
+```
+
+Tastiest has its own configurable `C` and `m`, which start at 3.5 and 10.
+
+**Properties of the score:**
+
+- **One vote per person per line.** A person counts once however many flavors they rate.
+- **Weighting.** Flavors that more people eat carry more weight. Rating more flavors never adds weight.
+- **Never the best flavor alone.** The score is never taken from the best-scoring flavor.
+- **Old formulas never count.** A reformulated flavor's earlier formula never enters the line's score.
+- **Tried and recent** count distinct people.
+
+**Order and labels.**
+
+- **Sort order.** Each ranking sorts by full-precision score descending, then people descending, then the lead flavor's product ID.
+- **Early** applies at 1–9 people, per ranking.
+- **Most rated** sorts by people.
+- **The lead flavor** supplies the row's photo and link: the eligible flavor with the most counted ratings in that food, with ties going to its Closest score and then the earliest published.
+- **Equivalence.** With exactly one flavor per line, every Closest score, rank and order equals the §8 and §13 result for that product.
+
+**Flavors inside a line.**
+
+- **Scores.** Each flavor shows its own score in the current ranking once it has 5 answers.
+- **Order.** Flavors with a shown score are listed by it, then the rest by counted ratings, then flavor name.
+- **Product-page statistics stay per flavor:** familiarity, the recent-eaters score and the score distribution.
+
+**Detail questions.**
+
+- **Defaults.** New foods use the default Taste and Texture. The ten launch foods keep their own lists.
+- **Per person.** A person's detail answer for a line is the mean of their answers across its flavors.
+- **Line means.** Line detail means are shown, sorted on and awarded at 5 people answering.
+- **Labels.** Detail sorts and badges are labeled "Closest taste", "Closest texture" and so on, so they read as closeness rather than tastiness.
+
+**Trending and New.**
+
+- **Trending** stays similarity-based. It looks back a quarter (owner, 2026-10-12), because shoppers may check the site only every month or two. This amends the milestone 4 constants:
+  - Recent activity covers the last 90 days, with each day's weight halving every 30 days.
+  - The baseline is the mean daily activity over days 91–180.
+  - A line needs at least three people with a rating or a trial in the 90-day window to trend. Commenters add activity but never count toward the three.
+  - Each person counts once per line and food across the whole window, on the day of their latest activity: a rating, a trial or a comment, whichever weighs most.
+  - Their similarity is their mean across the line's flavors in the window.
+  - The baseline counts each person once in days 91–180, the same way.
+  - The formula is otherwise unchanged.
+  - **Trending tag.** The top 3 trending lines in a food (a positive score, at least three people) carry a Trending tag in the other views and on their product pages; `RANKING_TRENDING.taggedLines` changes the 3. The tag never changes a rank or score.
+- **New** lists lines whose first publication in that food falls within 90 days, stored in `family_category_first_published` so it can only move earlier. First publication is the earliest `published_at` of any flavor the line has had in that food, eligible or not, so it never moves later. Neither a new flavor nor a discontinued oldest flavor brings a line back into New.
+
+**Filters.**
+
+- **Matching.** A line appears when any eligible flavor matches the store or Free-from filter, and its card lists the matching flavors.
+- **No effect on scores.** Filters never change a line's score or rank, in either ranking.
+
+**Derived data.**
+
+- **Tables.** `family_category_stats`, `family_category_dimension_stats`, `family_category_daily_stats` and `family_category_trends` are rebuildable from canonical rows.
+- **When line rows are recomputed.** Line rows are recomputed in the same transaction as any rating write or exclusion, and any catalog decision that changes a product's family, current formula, lifecycle, classification, food membership or eligibility.
+- **Clock and rebuild.** The only figure that changes with time alone is "people this week" (`recent_count`): a person leaves it when their latest rating turns seven days old. The hourly pass re-derives just the lines with a rating that crossed that mark since its last run, found through `ratings.created_at`. The integrity rebuild (§20) re-derives every line.
+- **Implementation.**
+  - `ranking/domain/lines.ts` (`aggregateLine`) is the reference definition. `ranking/infrastructure/line-refresh.ts` stores the same figures in SQL, and tests hold the two equal.
+  - A line has one row per food where it has an eligible flavor: the current formula of an active product that isn't under review and is ranking-eligible in that food. A row holds the lead flavor even before anyone rates.
+  - A food's and a country's active state are applied when lines are read, as they are for products, so retiring or restoring a food needs no line refresh.
+  - Each flavor's own Tastiest figures (`enjoyment_count`, `enjoyment_sum`, `enjoyment_score`) sit on `product_category_stats` beside its Closest figures.
+  - Tastiest's prior comes from `RANKING_TASTIEST_PRIOR_MEAN` and `RANKING_TASTIEST_PRIOR_STRENGTH`, which start at 3.5 and 10.
+
+**Invariants added to §22:**
+
+- One vote per person per line and food, in each ranking.
+- Tastiest never affects Closest.
+- Joining or leaving a line never moves ratings; it only regroups them.
+- A line never spans countries.

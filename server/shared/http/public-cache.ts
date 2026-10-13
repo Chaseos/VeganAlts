@@ -12,6 +12,7 @@ export interface PublicRoute {
     | "suggest"
     | "category"
     | "product"
+    | "brand"
     | "comments"
     | "profile"
     | "policy"
@@ -105,6 +106,12 @@ export function publicRoute(url: URL): PublicRoute | null {
   );
   if (match)
     return { ...canonical, kind: "product", ttl: 900, slug: match[1], country };
+  // A brand's page (milestone 7), purged when one of its products changes.
+  match = path.match(
+    new RegExp(`^/(?:${COUNTRY}/brand|api/v1/brands)/([a-z0-9-]+)$`),
+  );
+  if (match)
+    return { ...canonical, kind: "brand", ttl: 900, slug: match[1], country };
   match = path.match(
     new RegExp(`^/(?:${COUNTRY}|api/v1/categories)/([a-z0-9-]+)$`),
   );
@@ -155,7 +162,7 @@ export function normalizedPublicRequest(
     route.kind === "search" || route.kind === "suggest"
       ? ["q"]
       : route.kind === "category"
-        ? ["page", "unrankedPage", "view", "shelf"]
+        ? ["page", "unrankedPage", "view"]
         : route.kind === "product"
           ? ["version", "food"]
           : route.kind === "comments"
@@ -230,6 +237,8 @@ export function publicCacheTags(route: PublicRoute) {
   if (route.slug) {
     if (route.kind === "category")
       tags.push(`category:${route.slug}`, `category:${country}:${route.slug}`);
+    else if (route.kind === "brand")
+      tags.push(`brand:${route.slug}`, `brand:${country}:${route.slug}`);
     else if (route.kind === "product" || route.kind === "comments")
       // Product slugs are unique only within a country.
       tags.push(`product:${country}:${route.slug}`);
@@ -264,6 +273,8 @@ export interface MaterialCatalogChange {
   // Required for products: their slugs are unique only within a country.
   country?: string;
   categorySlugs?: string[];
+  // A product's brand, whose page lists it.
+  brandSlug?: string | null;
   // How far a product change reaches: its own page; its page and its foods'
   // rankings (retailer reports feed the store filter); or everything that
   // lists it (default).
@@ -276,6 +287,7 @@ export function invalidationTags(change: MaterialCatalogChange) {
     (change.categorySlugs ?? []).some(
       (slug) => !/^[a-z0-9-]{1,100}$/.test(slug),
     ) ||
+    (change.brandSlug && !/^[a-z0-9-]{1,100}$/.test(change.brandSlug)) ||
     (change.kind === "product" && !change.country)
   )
     throw new ApplicationError(
@@ -297,6 +309,7 @@ export function invalidationTags(change: MaterialCatalogChange) {
   return [
     ...new Set([
       `product:${country}:${change.slug}`,
+      ...(change.brandSlug ? [`brand:${country}:${change.brandSlug}`] : []),
       ...(scope === "page"
         ? []
         : (change.categorySlugs ?? []).map(

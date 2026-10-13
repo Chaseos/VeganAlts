@@ -3,7 +3,8 @@ import { Form, Link } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
 import { Icon } from "../icons/icon";
 import { ScoreLabel } from "../ui/score";
-import { Badge } from "../ui/badges";
+import { Badge, SeasonBadge } from "../ui/badges";
+import type { Season } from "@server/taxonomy/domain/season";
 import { plural } from "../../lib/format";
 import { useFoodHref } from "../../lib/ranking-filters";
 import { foodPath, productPath, searchPath } from "../../lib/site-chrome";
@@ -22,18 +23,12 @@ export interface AisleFood {
   name: string;
   productCount: number;
   rankedCount: number;
+  season?: Season | null;
   top: AisleTopProduct[];
-}
-export interface AisleShelf {
-  slug: string;
-  name: string;
-  // Not shown as its own level: it only repeats its aisle or food.
-  silent?: boolean;
-  foods: AisleFood[];
 }
 export interface AisleData {
   aisle: { slug: string; name: string };
-  shelves: AisleShelf[];
+  foods: AisleFood[];
 }
 
 // One food with its first three products in Top order (Early ones carry
@@ -41,13 +36,14 @@ export interface AisleData {
 export function FoodCard({
   country,
   food,
-  shelf,
+  place,
   loading = false,
   level = 3,
 }: {
   country: string;
   food: AisleFood;
-  shelf?: string;
+  // Where the food sits ("Cheese"), where cards from several aisles mix.
+  place?: string;
   loading?: boolean;
   // One below the heading that introduces the cards.
   level?: 2 | 3;
@@ -58,10 +54,11 @@ export function FoodCard({
     <article className="va-food-card">
       <header className="va-food-card__head">
         <div>
-          {shelf && <p className="va-food-card__shelf">{shelf}</p>}
+          {place && <p className="va-food-card__place">{place}</p>}
           <Heading className="va-food-card__name">
             <Link to={href}>{food.name}</Link>
           </Heading>
+          {food.season && <SeasonBadge season={food.season} />}
         </div>
         <span className="va-food-card__count">
           {plural(food.productCount, "product")}
@@ -109,58 +106,35 @@ export function FoodCard({
   );
 }
 
-// An aisle's shelves and foods. As a page, shelves are links (`?shelf=`); in
-// the desktop aisle menu they filter in place.
+// An aisle's foods, as a page or in the desktop aisle menu.
 export function AislePanel({
   country,
   data,
-  shelf: initialShelf = null,
   mode,
   headingLevel = 1,
   loading = false,
 }: {
   country: string;
   data: AisleData;
-  shelf?: string | null;
   mode: "page" | "menu";
   headingLevel?: 1 | 2;
   // Top products are still loading (the menu shows names and counts first).
   loading?: boolean;
 }) {
-  const [menuShelf, setMenuShelf] = useState<string | null>(initialShelf);
-  const shelf = mode === "page" ? initialShelf : menuShelf;
   const [query, setQuery] = useState("");
   const Heading = headingLevel === 1 ? "h1" : "h2";
-  const foods = data.shelves.flatMap((s) =>
-    s.foods.map((food) => ({
-      ...food,
-      shelf: s.silent ? undefined : s.name,
-      shelfSlug: s.slug,
-    })),
-  );
+  const foods = data.foods;
   const ranked = foods.reduce((sum, food) => sum + food.rankedCount, 0);
   const lower = query.trim().toLowerCase();
   const shown = foods.filter(
     (food) =>
-      (!shelf || food.shelfSlug === shelf) &&
-      (!lower ||
-        food.name.toLowerCase().includes(lower) ||
-        food.top.some((p) =>
-          `${p.name} ${p.brand ?? ""}`.toLowerCase().includes(lower),
-        )),
+      !lower ||
+      food.name.toLowerCase().includes(lower) ||
+      food.top.some((p) =>
+        `${p.name} ${p.brand ?? ""}`.toLowerCase().includes(lower),
+      ),
   );
-  // The shelf rail appears only when at least two shelves are real levels.
-  const named = data.shelves.filter((s) => !s.silent);
-  const single = named.length < 2;
   const aisleName = data.aisle.name.toLowerCase();
-  const shelfOptions = [
-    { slug: null, name: `All ${aisleName}`, count: foods.length },
-    ...data.shelves.map((s) => ({
-      slug: s.slug,
-      name: s.name,
-      count: s.foods.length,
-    })),
-  ];
   return (
     <div className={`va-aisle va-aisle--${mode}`}>
       <div className="va-aisle__top">
@@ -171,10 +145,7 @@ export function AislePanel({
           <Heading className="va-aisle__name">{data.aisle.name}</Heading>
           <p className="va-small va-muted">
             {plural(foods.length, "food")}
-            {named.length > 1
-              ? ` on ${plural(named.length, "shelf", "shelves")}`
-              : ""}{" "}
-            {loading ? "" : ` · ${plural(ranked, "ranked product")}`} · top 3
+            {loading ? "" : ` · ${plural(ranked, "ranked swap")}`} · top 3
             for each
           </p>
         </div>
@@ -207,47 +178,7 @@ export function AislePanel({
           </Link>
         )}
       </div>
-      <div
-        className={`va-aisle__body${single ? " va-aisle__body--single" : ""}`}
-      >
-        {!single && (
-          <nav className="va-shelves" aria-label="Shelves">
-            <ul>
-              {shelfOptions.map((option) => {
-                const selected = option.slug === shelf;
-                return (
-                  <li key={option.slug ?? "all"}>
-                    {mode === "page" ? (
-                      <Link
-                        to={`${foodPath(country, data.aisle.slug)}${option.slug ? `?shelf=${option.slug}` : ""}`}
-                        aria-current={selected ? "page" : undefined}
-                        preventScrollReset
-                        replace
-                      >
-                        <span>{option.name}</span>
-                        <span className="va-shelves__count">
-                          {option.count}
-                        </span>
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        aria-pressed={selected}
-                        onClick={() => setMenuShelf(option.slug)}
-                      >
-                        <span>{option.name}</span>
-                        <span className="va-shelves__count">
-                          {option.count}
-                        </span>
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-            <SuggestFood country={country} />
-          </nav>
-        )}
+      <div className="va-aisle__body va-aisle__body--single">
         <div className="va-aisle__foods">
           {shown.length ? (
             <ul className="va-food-grid">
@@ -256,7 +187,6 @@ export function AislePanel({
                   <FoodCard
                     country={country}
                     food={food}
-                    shelf={single ? undefined : food.shelf}
                     loading={loading}
                     level={headingLevel === 1 ? 2 : 3}
                   />
@@ -268,32 +198,23 @@ export function AislePanel({
               <p className="va-heading-s">
                 {lower
                   ? `No ${aisleName} foods match “${query.trim()}”`
-                  : `No foods on this shelf yet`}
+                  : `No foods in this aisle yet`}
               </p>
               <p className="va-muted">
                 Try the search bar above, or suggest it as a new food.
               </p>
             </div>
           )}
-          <SuggestFood
-            country={country}
-            className={single ? undefined : "va-phone-block"}
-          />
+          <SuggestFood country={country} aisle={data.aisle.slug} />
         </div>
       </div>
     </div>
   );
 }
 
-function SuggestFood({
-  country,
-  className,
-}: {
-  country: string;
-  className?: string;
-}) {
+function SuggestFood({ country, aisle }: { country: string; aisle: string }) {
   return (
-    <div className={`va-suggest-food${className ? ` ${className}` : ""}`}>
+    <div className="va-suggest-food">
       <p className="va-suggest-food__title">Missing a food?</p>
       <p>
         Anyone can suggest one. It gets its own ranking once people add and rate
@@ -301,7 +222,7 @@ function SuggestFood({
       </p>
       <Link
         className="button small-button"
-        to={`/propose-category?country=${country}`}
+        to={`/propose-category?country=${country}&aisle=${aisle}`}
       >
         Suggest a food
       </Link>

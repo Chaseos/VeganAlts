@@ -24,15 +24,10 @@ export async function loader({ params }: Route.LoaderArgs) {
     aisles: page.aisles.map((aisle) => ({
       slug: aisle.slug,
       name: aisle.name,
-      shelves: aisle.shelves.map((shelf) => ({
-        slug: shelf.slug,
-        name: shelf.name,
-        silent: shelf.silent,
-        foods: shelf.foods.map((food) => ({
-          slug: food.slug,
-          name: food.name,
-          productCount: food.productCount,
-        })),
+      foods: aisle.foods.map((food) => ({
+        slug: food.slug,
+        name: food.name,
+        productCount: food.productCount,
       })),
     })),
   };

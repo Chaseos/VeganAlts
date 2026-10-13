@@ -526,7 +526,7 @@ Recommended ordering at initial setup:
 2. VeganAlts application baseline.
 3. Seed countries/categories/initial brands/products.
 
-**Version 1 baseline (owner decision, 2026-10-10).** Before the first release, the pre-release migrations `0000`–`0020` were folded into one executable baseline, `db/migrations/0001_initial.sql`. It produces exactly the schema those migrations produced (tables, indexes, triggers, the FTS5 index), plus the rows they inserted: the `veganalts-system` actor and the shared allergen list. Every database is created from it; local, staging and production databases carrying the old history are emptied (`npm run db:reset:<env>`) and migrated again rather than upgraded. Migrations are append-only from version 1 on. The milestone sections below keep their original migration names as the record of when each part of the schema was decided; the backfills and upgrade preflights they describe applied only to the old history.
+**Version 1 baseline (owner decision, 2026-10-10).** Before the first release, the pre-release migrations `0000`–`0020` were folded into one executable baseline, `db/migrations/0001_initial.sql`. It produces exactly the schema those migrations produced (tables, indexes, triggers, the FTS5 index), plus the rows they inserted: the `veganalts-system` actor and the shared allergen list. Every database is created from it; local, staging and production databases carrying the old history are emptied (`npm run db:reset:<env>`) and migrated again rather than upgraded. Until the first release, schema changes are folded into version 1 and every database is reset (owner decision, 2026-10-13); migrations are append-only from the first release on. The milestone sections below keep their original migration names as the record of when each part of the schema was decided; the backfills and upgrade preflights they describe applied only to the old history.
 
 ## 28. D1-specific notes
 
@@ -621,3 +621,46 @@ The approved [milestone 6 specification](MILESTONE_6_PLAN.md) adds the following
 **Ingredients not checked.** The public classification is derived by one shared read helper: `ingredients_checked = 0` reads as `unchecked`, otherwise the stored status. Writers never store `unchecked`. Any reviewed classification sets the flag to `1`, and reversal restores both values.
 
 **Starter shelves.** The taxonomy seed adds the Fish and seafood aisle (`fish-and-seafood`) and the shelves `turkey-shelf`, `lamb-shelf`, `fish-shelf`, `shellfish-shelf`, `cream-shelf`, `yogurt-shelf`, `ice-cream-shelf` and `hard-and-grated`, insert-only by slug.
+
+## Milestone 7 persistence decisions
+
+The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following. They were built as migrations `0002`–`0004` and folded into version 1, `0001_initial.sql`, before staging (owner decision, 2026-10-12). Every database is reset to version 1, so their backfills went with them. The folded file produces exactly the schema the four migrations produced.
+
+- **Aisle order and seasons**
+  - Adds `categories.position`, the default order of an aisle where a country has no ratings yet, seeded for the 18 aisles.
+  - Adds `categories.season_start` and `categories.season_end`, both months 1–12; a season may wrap past December. Both are null for a food without a season, and a check keeps them both set or both null.
+  - Adds `products.seasonal` (0 or 1).
+- **Recipe lines**
+  - **Columns.** Adds `products.flavor`, `product_families.country_id` and `ratings.enjoyment`. Adds `enjoyment_count`, `enjoyment_sum` and `enjoyment_score` to `product_category_stats`. `product_families.country_id` allows NULL only because it joined the table later; a trigger requires it on every new line.
+  - **Writers.** A submission outside a chosen line starts its own line in the same batch, and a chosen line must have the product's brand and country. A relationships proposal without a line keeps the product's current one.
+  - **Triggers** enforce:
+    - a product is inserted with a family and can never lose it;
+    - a product's brand and country equal its family's;
+    - a family with products cannot be deleted;
+    - a flavor is trimmed, not blank and at most 40 characters;
+    - enjoyment is between 1 and 5.
+  - **`family_category_stats`** has one row per family and food, holding:
+    - for Closest and for Tastiest: people, the sum of per-person means, the raw mean and the Bayesian score;
+    - tried and recent people;
+    - the lead product.
+  - **`family_category_dimension_stats`** has one row per family, food and dimension: people who answered and the sum of their means.
+  - **Indexes:** `products(product_family_id)` for a line's flavors, `product_families(brand_id, country_id)` for a brand's lines, and the existing `products(brand_id, country_id)` for brand pages.
+- **Line discovery**
+  - Adds `family_category_daily_stats`, one row per line, food, day and person over the last 180 days (the 90-day trend window and its baseline), so Trending counts each person once across the window. A row holds that day's counted ratings of the line's eligible flavors and their similarity sum, and whether the person tried a flavor or left a visible comment.
+  - Adds `family_category_trends`, with each trending line's `rank` in its food. The top three carry the Trending tag.
+  - Adds `family_category_first_published`: when a line first appeared in a food, from any flavor it has had there. Refreshes only move it earlier, so New never brings a line back.
+  - Removes `product_category_daily_stats`, `product_category_trends` and the unused `product_category_stats.trending_score` with its index. All three were derived and are no longer read.
+
+**Product family.** A family is a recipe line in one country: one brand's base recipe and its flavors. It no longer links markets. Rankings group a food's eligible products by family.
+
+**Taxonomy shape.** This replaces milestone 5's three-level shape and milestone 6's starter shelves.
+
+- **Depth.** Aisles are children of the root and foods are children of aisles.
+- **Seed.** The taxonomy seed writes the 18 aisles and the launch foods.
+- **Availability.** `TAXONOMY_LEAVES` carries an optional `countries` list for launch availability.
+- **Existing environments.** For an environment that is not reset, the reshape script re-parents foods to aisles through the audited taxonomy path and retires the emptied shelves.
+
+**Review fixes, folded into version 1 (owner decision, 2026-10-13).**
+
+- **Seed processing.** `media_attempts.counted` (default 1). Owner-run demo seeding (`scripts/seed-images.ts`) records 0, so a reseed is neither held to nor spends the environment's daily processing allowance that web uploads share; both allowance checks count only `counted=1`.
+- **Brand index.** `brand_search` is an FTS5 table with the trigram tokenizer: each brand's name and other names (`names`), and its other names as a JSON array (`aliases`). Triggers on `brands` and `brand_aliases` keep it current in the same transaction as any write, and the search rebuild rewrites it. Brand lookups read candidates sharing three letters in a row with the typed text and, from five letters, brands whose `normalized_name` (or an alias's) starts with a typed word's first letter, through their unique indexes, so they never read every brand.

@@ -33,9 +33,9 @@ const list = (value: FormDataEntryValue | null) =>
     .filter(Boolean);
 
 type Category = Route.ComponentProps["loaderData"]["categories"][number];
-const LEVEL = ["Root", "Aisle", "Shelf", "Food"];
+const LEVEL = ["Root", "Aisle", "Food"];
 
-// The tree in Food → aisle → shelf → food order, with retired categories last.
+// The tree in Food → aisle → food order, with retired categories last.
 function ordered(categories: Category[]) {
   const children = (parentId: string | null) =>
     categories
@@ -101,9 +101,9 @@ export default function AdminTaxonomy({
           <p className="eyebrow">Operator workspace</p>
           <h1>Taxonomy</h1>
           <p>
-            Food → aisle → shelf → food. Aisles and shelves organize the aisle
-            bar; foods are ranked. Renamed slugs redirect; merges move ratings
-            to the surviving food and can be reversed.
+            Food → aisle → food. Aisles organize the aisle bar; foods are
+            ranked. Renamed slugs redirect; merges move ratings to the surviving
+            food and can be reversed.
           </p>
         </header>
         <p role="status">{status}</p>
@@ -112,8 +112,8 @@ export default function AdminTaxonomy({
           <div className="notice warn">
             <strong className="notice-title">
               {outside.length === 1
-                ? "1 category is outside the three levels"
-                : `${outside.length} categories are outside the three levels`}
+                ? "1 category is outside the two levels"
+                : `${outside.length} categories are outside the two levels`}
             </strong>
             <p>
               They stay reachable by address and search but are missing from the
@@ -127,13 +127,13 @@ export default function AdminTaxonomy({
           aria-labelledby="categories-heading"
         >
           <h2 id="categories-heading" className="va-heading-s">
-            Aisles, shelves and foods
+            Aisles and foods
           </h2>
           <ul className="va-divided va-taxonomy-tree">
             {ordered(data.categories).map((c) => (
               <li
                 key={c.id}
-                className={`va-taxonomy-tree__row va-taxonomy-tree__row--${Math.min(c.depth ?? 0, 3)}`}
+                className={`va-taxonomy-tree__row va-taxonomy-tree__row--${Math.min(c.depth ?? 0, 2)}`}
               >
                 <div className="va-taxonomy-tree__summary">
                   <strong>{c.name}</strong>
@@ -142,7 +142,7 @@ export default function AdminTaxonomy({
                       {c.isRankable ? "Food" : (LEVEL[c.depth ?? 0] ?? "Group")}
                     </Badge>
                     {c.outsideDepth && (
-                      <Badge tone="warn">Outside depth three</Badge>
+                      <Badge tone="warn">Outside depth two</Badge>
                     )}
                     {!c.isActive && <Badge>Retired</Badge>}
                   </span>
@@ -216,6 +216,7 @@ export default function AdminTaxonomy({
                           isRankable: rankable,
                           isActive: form.get("active") === "on",
                           aliases: [...plain, ...display],
+                          ...seasonAndPosition(form),
                           note: form.get("note"),
                         },
                         `${c.name} updated.`,
@@ -257,13 +258,39 @@ export default function AdminTaxonomy({
                           ))}
                       </select>
                     </div>
+                    {c.isRankable === 1 ? (
+                      <SeasonFields
+                        id={c.id}
+                        start={c.seasonStart}
+                        end={c.seasonEnd}
+                      />
+                    ) : (
+                      <div className="form-field">
+                        <label htmlFor={`position-${c.id}`}>
+                          Default position (aisles)
+                        </label>
+                        <input
+                          id={`position-${c.id}`}
+                          name="position"
+                          type="number"
+                          min={0}
+                          max={999}
+                          defaultValue={c.position ?? ""}
+                          aria-describedby={`position-hint-${c.id}`}
+                        />
+                        <p id={`position-hint-${c.id}`} className="small muted">
+                          Orders aisles in a country before it has ratings;
+                          ratings then order them by popularity.
+                        </p>
+                      </div>
+                    )}
                     <label className="checkbox-label">
                       <input
                         type="checkbox"
                         name="rankable"
                         defaultChecked={c.isRankable === 1}
                       />
-                      Ranked food (aisles and shelves are not ranked)
+                      Ranked food (aisles are not ranked)
                     </label>
                     <label className="checkbox-label">
                       <input
@@ -358,7 +385,7 @@ export default function AdminTaxonomy({
           aria-labelledby="create-heading"
         >
           <h2 id="create-heading" className="va-heading-s">
-            Create a food, shelf or aisle
+            Create a food or aisle
           </h2>
           <form
             className="community-form"
@@ -433,9 +460,9 @@ export default function AdminTaxonomy({
           </h2>
           <p className="small muted">
             Use only when both describe the same conventional food (or the same
-            aisle or shelf). Ratings move to the survivor; if someone rated a
-            product in both, their most recent rating counts and the other is
-            kept uncounted.
+            aisle). Ratings move to the survivor; if someone rated a product in
+            both, their most recent rating counts and the other is kept
+            uncounted.
           </p>
           <form
             className="community-form"
@@ -727,9 +754,9 @@ function CountriesEditor({
       <fieldset>
         <legend id={id}>Countries where {category.name} is on</legend>
         <p className="small muted">
-          Aisles and shelves appear everywhere. A food appears in a country once
-          it is on there, and switches on by itself when a product for it is
-          published in that country.
+          Aisles appear everywhere. A food appears in a country once it is on
+          there, and switches on by itself when a product for it is published in
+          that country.
         </p>
         {countries.map((country) => (
           <label className="checkbox-label" key={country.iso2}>
@@ -911,5 +938,68 @@ function DimensionEditor({
         Save questions
       </button>
     </form>
+  );
+}
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+// A food's season months (both or neither) and an aisle's default position.
+function seasonAndPosition(form: FormData) {
+  const start = Number(form.get("seasonStart") || 0),
+    end = Number(form.get("seasonEnd") || 0);
+  const position = form.get("position");
+  return {
+    ...(form.has("seasonStart")
+      ? { season: start && end ? { start, end } : null }
+      : {}),
+    ...(position !== null
+      ? { position: position === "" ? null : Number(position) }
+      : {}),
+  };
+}
+
+function SeasonFields({
+  id,
+  start,
+  end,
+}: {
+  id: string;
+  start: number | null;
+  end: number | null;
+}) {
+  const month = (name: "seasonStart" | "seasonEnd", value: number | null) => (
+    <select id={`${name}-${id}`} name={name} defaultValue={value ?? ""}>
+      <option value="">Not seasonal</option>
+      {MONTHS.map((label, index) => (
+        <option key={label} value={index + 1}>
+          {label}
+        </option>
+      ))}
+    </select>
+  );
+  return (
+    <fieldset className="form-field">
+      <legend>Season (optional)</legend>
+      <p className="small muted">
+        A seasonal food stays listed all year and shows its months.
+      </p>
+      <label htmlFor={`seasonStart-${id}`}>From</label>
+      {month("seasonStart", start)}
+      <label htmlFor={`seasonEnd-${id}`}>To</label>
+      {month("seasonEnd", end)}
+    </fieldset>
   );
 }

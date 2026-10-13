@@ -14,7 +14,14 @@ export interface SeedProduct {
   name: string;
   categories: readonly string[];
   source: string;
+  // A recipe line shared with other products (milestone 7), named by the
+  // line's first product; a product without one starts its own line.
   family?: string;
+  familyName?: string;
+  // The flavor on top of the line's base recipe; none is the original.
+  flavor?: string;
+  // Demo tasters who rated it, when the default pattern doesn't fit.
+  ratings?: number;
   notes?: string;
 }
 
@@ -116,6 +123,7 @@ export const seedProducts: readonly SeedProduct[] = [
     categories: ["milk"],
     source: "https://www.oatly.com/en-us/products/oatmilk/oatmilk-32-oz",
     family: "oatly-oatmilk",
+    familyName: "Oatly Oatmilk",
   },
   {
     slug: "oatly-full-fat",
@@ -234,6 +242,7 @@ export const seedProducts: readonly SeedProduct[] = [
     categories: ["eggs"],
     source: "https://www.ju.st/eat/eggs",
     family: "just-eggs",
+    familyName: "Just Egg",
   },
   {
     slug: "just-egg-folded",
@@ -251,5 +260,77 @@ export const seedProducts: readonly SeedProduct[] = [
     source:
       "https://www.bobsredmill.com/product/gluten-free-vegan-egg-replacer",
     notes: "Baking replacement; not a prepared scrambled-egg substitute.",
+  },
+  // Milestone 7: lines sold in several flavors. Each flavor is its own
+  // product; the line ranks once, with one vote per taster.
+  {
+    slug: "silk-original-soymilk",
+    brand: "Silk",
+    name: "Original Soymilk",
+    categories: ["milk"],
+    source: "https://silk.com/plant-based-products/soymilk/",
+    family: "silk-soymilk",
+    familyName: "Soymilk",
+    ratings: 12,
+  },
+  {
+    slug: "silk-vanilla-soymilk",
+    brand: "Silk",
+    name: "Vanilla Soymilk",
+    categories: ["milk"],
+    source: "https://silk.com/plant-based-products/soymilk/",
+    family: "silk-soymilk",
+    flavor: "Vanilla",
+    ratings: 9,
+  },
+  {
+    slug: "kite-hill-greek-plain",
+    brand: "Kite Hill",
+    name: "Greek Style Plain Unsweetened Yogurt",
+    categories: ["greek-yogurt"],
+    source: "https://kite-hill.com/",
+    family: "kite-hill-greek",
+    familyName: "Greek Style Yogurt",
+    ratings: 14,
+  },
+  {
+    slug: "kite-hill-greek-vanilla",
+    brand: "Kite Hill",
+    name: "Greek Style Vanilla Yogurt",
+    categories: ["greek-yogurt"],
+    source: "https://kite-hill.com/",
+    family: "kite-hill-greek",
+    flavor: "Vanilla",
+    ratings: 10,
+  },
+  {
+    slug: "kite-hill-greek-strawberry",
+    brand: "Kite Hill",
+    name: "Greek Style Strawberry Yogurt",
+    categories: ["greek-yogurt"],
+    source: "https://kite-hill.com/",
+    family: "kite-hill-greek",
+    flavor: "Strawberry",
+    ratings: 6,
+  },
+  {
+    slug: "simulate-nuggs",
+    brand: "Simulate",
+    name: "Nuggs",
+    categories: ["chicken-nuggets"],
+    source: "https://simulate.com/",
+    family: "simulate-nuggs",
+    familyName: "Nuggs",
+    ratings: 16,
+  },
+  {
+    slug: "simulate-spicy-nuggs",
+    brand: "Simulate",
+    name: "Spicy Nuggs",
+    categories: ["chicken-nuggets"],
+    source: "https://simulate.com/",
+    family: "simulate-nuggs",
+    flavor: "Spicy",
+    ratings: 8,
   },
 ];

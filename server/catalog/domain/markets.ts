@@ -52,6 +52,11 @@ export function productPath(code: string, slug: string, food?: string | null) {
   return `/${code}/products/${slug}${food ? `?food=${food}` : ""}`;
 }
 
+// A brand's page in a country (milestone 7).
+export function brandPath(code: string, slug: string) {
+  return `/${code}/brand/${slug}`;
+}
+
 export function hreflang(code: string) {
   return `en-${code.toUpperCase()}`;
 }

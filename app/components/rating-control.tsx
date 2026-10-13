@@ -12,6 +12,15 @@ export const SCORE_MEANINGS = [
   "Very close",
   "Extremely close",
 ];
+// The optional Tastiest answer (milestone 7): how tasty it is, whether or
+// not it's like the original. It never changes Closest to the original.
+export const TASTE_MEANINGS = [
+  "Not for me",
+  "It’s OK",
+  "Good",
+  "Really good",
+  "Delicious",
+];
 export const LAST_ATE: { value: ConventionalRecency; label: string }[] = [
   { value: "current_or_week", label: "This week" },
   { value: "within_month", label: "This month" },
@@ -19,22 +28,26 @@ export const LAST_ATE: { value: ConventionalRecency; label: string }[] = [
   { value: "over_year", label: "Over a year ago" },
   { value: "prefer_not_to_say", label: "Prefer not to say" },
 ];
-/** The five overall-similarity buttons, labeled with what each score means. */
-export function OverallScale({
+/** Shared presentation; the caller owns whether a repeated choice clears. */
+export function NumberedScale({
   selected,
   onChoose,
+  meanings = SCORE_MEANINGS,
+  label,
 }: {
   selected: number | null | undefined;
-  onChoose: (score: number) => void;
+  onChoose: (value: number) => void;
+  meanings?: readonly string[];
+  label?: string;
 }) {
   return (
-    <>
-      <div className="va-rate__overall">
-        {SCORE_MEANINGS.map((meaning, index) => (
+    <div className="va-numbered-scale">
+      <div className="va-numbered-scale__buttons">
+        {meanings.map((meaning, index) => (
           <button
             type="button"
             key={meaning}
-            aria-label={`${index + 1} ${meaning} (${index + 1} of 5)`}
+            aria-label={`${label ? `${label}: ` : ""}${index + 1} ${meaning} (${index + 1} of 5)`}
             aria-pressed={selected === index + 1}
             onClick={() => onChoose(index + 1)}
           >
@@ -44,11 +57,38 @@ export function OverallScale({
         ))}
       </div>
       <p className="va-rate__ends" aria-hidden="true">
-        <span>{SCORE_MEANINGS[0]}</span>
-        <span>{SCORE_MEANINGS[4]}</span>
+        <span>{meanings[0]}</span>
+        <span>{meanings[4]}</span>
       </p>
-    </>
+    </div>
   );
+}
+
+/** The Tastiest answer is optional; tapping the chosen one clears it. */
+export function TasteScale({
+  selected,
+  onChoose,
+}: {
+  selected: number | null | undefined;
+  onChoose: (value: number | null) => void;
+}) {
+  return (
+    <NumberedScale
+      selected={selected}
+      meanings={TASTE_MEANINGS}
+      onChoose={(value) => onChoose(value === selected ? null : value)}
+    />
+  );
+}
+/** The five overall-similarity buttons, labeled with what each score means. */
+export function OverallScale({
+  selected,
+  onChoose,
+}: {
+  selected: number | null | undefined;
+  onChoose: (score: number) => void;
+}) {
+  return <NumberedScale selected={selected} onChoose={onChoose} />;
 }
 export interface RatingQuestion {
   key: string;
@@ -57,23 +97,31 @@ export interface RatingQuestion {
 
 /**
  * The rating form for one food (canvas: Rating4). Every tap saves: the overall
- * score first, then the optional detail questions and "last ate" that appear
- * once it is chosen. Tapping a chosen detail again clears it.
+ * score first, then Tastiest beside it and the optional detail questions and
+ * "last ate" that appear once it is chosen. Tapping a chosen Tastiest answer
+ * or detail again clears it.
  */
 export function RatingControl({
   versionId,
   categoryId,
   categoryName,
   productSlug,
+  productName,
+  flavor,
   foodSlug,
   dimensions,
+  flavored = false,
 }: {
   versionId: string;
   categoryId: string;
   categoryName: string;
   productSlug: string;
+  productName: string;
+  flavor: string | null;
   foodSlug?: string;
   dimensions: RatingQuestion[];
+  // A flavored product is compared with the food in the same flavor.
+  flavored?: boolean;
 }) {
   const { user, siteKey, states, register, select, error, retryLoad } =
     usePersonalState();
@@ -86,6 +134,7 @@ export function RatingControl({
   const food = categoryName.toLowerCase();
   const answers = state?.dimensions ?? {};
   const recency = state?.recency ?? null;
+  const enjoyment = state?.enjoyment ?? null;
   const hasDetails =
     recency !== null || dimensions.some((d) => answers[d.key] !== undefined);
   // Each write carries the whole draft so the newest one wins outright.
@@ -94,6 +143,7 @@ export function RatingControl({
       score?: number;
       dimensions?: Record<string, number | null>;
       recency?: ConventionalRecency | null;
+      enjoyment?: number | null;
     } = {},
   ) {
     const score = change.score ?? state?.selected;
@@ -112,6 +162,7 @@ export function RatingControl({
       ),
       conventionalRecency:
         change.recency !== undefined ? change.recency : recency,
+      enjoyment: change.enjoyment !== undefined ? change.enjoyment : enjoyment,
       ...(token ? { challengeToken: token } : {}),
     };
     select(draft, returnTo);
@@ -120,30 +171,55 @@ export function RatingControl({
   const helpId = `rating-help-${categoryId}`;
   return (
     <section className="va-rate" aria-label={`Rate it as ${food}`}>
-      <fieldset
-        className="va-rate__group"
-        disabled={user === undefined || state?.status === "conflict"}
-        aria-describedby={helpId}
-      >
-        <legend className="va-rate__title">
-          Tried it? How close is it to {food}?
-        </legend>
-        <OverallScale
-          selected={state?.selected}
-          onChoose={(score) => save({ score })}
-        />
-      </fieldset>
-      <p id={helpId} className="va-rate__help">
-        {user === null
-          ? "Choose a score; you’ll sign in to save it."
-          : "Each choice saves right away. Your rating also marks this formula as tried."}
+      <p className="va-rate__product">
+        {productName}
+        {flavor ? ` · ${flavor}` : ""}
       </p>
+      <div className="va-rate__scores">
+        <fieldset
+          className="va-rate__group"
+          disabled={user === undefined || state?.status === "conflict"}
+          aria-describedby={helpId}
+        >
+          <legend className="va-rate__title">
+            Tried it? How close is it to {food}
+            {flavored ? " in the same flavor" : ""}?
+          </legend>
+          <OverallScale
+            selected={state?.selected}
+            onChoose={(score) => save({ score })}
+          />
+          <p id={helpId} className="va-rate__help">
+            {user === null
+              ? "Choose a score; you’ll sign in to save it."
+              : "Each choice saves right away. Your rating also marks this formula as tried."}
+          </p>
+        </fieldset>
+        <fieldset
+          className="va-rate__group va-rate__tasty"
+          disabled={!state?.selected || state.status === "conflict"}
+        >
+          <legend className="va-rate__subtitle">
+            How tasty is it, whether or not it’s like the original?{" "}
+            <span>optional</span>
+          </legend>
+          <TasteScale
+            selected={enjoyment}
+            onChoose={(value) => save({ enjoyment: value })}
+          />
+          {!state?.selected && (
+            <p className="va-rate__note">Say how close it is first.</p>
+          )}
+        </fieldset>
+      </div>
       {state?.selected ? (
-        <div className="va-rate__more">
+        <details className="va-rate__more">
+          <summary className="va-rate__subtitle">
+            Add detail{" "}
+            <span>{hasDetails ? "· your answers" : "· optional"}</span>
+          </summary>
           <fieldset disabled={state.status === "conflict"}>
-            <legend className="va-rate__subtitle">
-              Add detail <span>optional</span>
-            </legend>
+            <legend className="sr-only">Detail ratings and last ate</legend>
             {dimensions.map((dimension) => (
               <div
                 className="va-rate__detail"
@@ -154,28 +230,18 @@ export function RatingControl({
                 <span id={`detail-${categoryId}-${dimension.key}`}>
                   {dimension.label}
                 </span>
-                <span className="va-rate__scale">
-                  {[1, 2, 3, 4, 5].map((value) => {
-                    const chosen = answers[dimension.key] === value;
-                    return (
-                      <button
-                        type="button"
-                        key={value}
-                        aria-label={`${dimension.label} ${value} of 5`}
-                        aria-pressed={chosen}
-                        onClick={() =>
-                          save({
-                            dimensions: {
-                              [dimension.key]: chosen ? null : value,
-                            },
-                          })
-                        }
-                      >
-                        {value}
-                      </button>
-                    );
-                  })}
-                </span>
+                <NumberedScale
+                  selected={answers[dimension.key]}
+                  label={dimension.label}
+                  onChoose={(value) =>
+                    save({
+                      dimensions: {
+                        [dimension.key]:
+                          answers[dimension.key] === value ? null : value,
+                      },
+                    })
+                  }
+                />
               </div>
             ))}
             <div
@@ -225,7 +291,7 @@ export function RatingControl({
               </button>
             )}
           </fieldset>
-        </div>
+        </details>
       ) : null}
       <p
         className="va-rate__status"

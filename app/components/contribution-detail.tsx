@@ -39,7 +39,9 @@ export function ProposalSummary({
     "veganStatus",
     "manufacturerLabel",
     "sameFormula",
-    "specialtyFlavor",
+    "flavor",
+    "lineName",
+    "seasonal",
     "status",
     "reason",
     "note",
@@ -85,12 +87,18 @@ export function ProposalSummary({
             .join(", ")}
         </p>
       )}
+      {typeof input.lineId === "string" && (
+        <p>
+          <strong>Joins the line:</strong>{" "}
+          {labels[input.lineId] ?? input.lineId}
+        </p>
+      )}
       {Object.hasOwn(input, "productFamilyId") && (
         <p>
-          <strong>Product family:</strong>{" "}
+          <strong>Line:</strong>{" "}
           {typeof input.productFamilyId === "string"
-            ? (labels[input.productFamilyId] ?? input.productFamilyId)
-            : "No family"}
+            ? `Move to ${labels[input.productFamilyId] ?? input.productFamilyId}`
+            : "Keeps its line"}
         </p>
       )}
       {typeof input.relatedProductId === "string" && (

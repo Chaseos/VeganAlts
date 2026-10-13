@@ -3,6 +3,7 @@ import type {
   CatalogRepository,
   CategoryView,
   DiscoveryRow,
+  FlavorRow,
   ProductSummary,
   TopProduct,
 } from "../domain/contracts";
@@ -15,13 +16,22 @@ import {
   parseCategoryView,
 } from "../domain/ranking-view";
 import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
-import { aisleTree, taxonomyShape } from "../../taxonomy/domain/shape";
-import { silentShelf } from "../../taxonomy/domain/display";
+import { flavorLabel } from "../domain/flavor-label";
+import {
+  aisleFood,
+  aisleTree,
+  byPopularity,
+  taxonomyShape,
+} from "../../taxonomy/domain/shape";
+import { seasonOf } from "../../taxonomy/domain/season";
+import { silentAisle } from "../../taxonomy/domain/display";
 import { foodChoices } from "../../taxonomy/domain/food-choices";
 import {
   AISLE_TOP,
   DETAIL_MIN_ANSWERS,
+  FLAVOR_SCORE_MIN_ANSWERS,
   HOME_LIST_SIZE,
+  SUGGEST_BRANDS,
   SUGGEST_LIMIT,
   isEarly,
 } from "../../ranking/domain/display";
@@ -54,7 +64,7 @@ export function categoryView(input: string | null): CategoryView {
   if (!view)
     throw new ApplicationError(
       "INVALID_VIEW",
-      "Choose Closest match, Trending, Newest, Most rated or a detail sort.",
+      "Choose Closest match, Tastiest, Trending, Newest, Most rated or a detail sort.",
     );
   return view;
 }
@@ -96,9 +106,21 @@ export class CatalogService {
     private readonly repository: CatalogRepository,
     private readonly clock = Date.now,
     private readonly newDays = DEFAULT_TRENDING.newDays,
+    private readonly taggedLines = DEFAULT_TRENDING.taggedLines,
   ) {}
 
-  private labelNew<T extends ProductSummary>(products: T[]) {
+  // The top trending lines in a food carry a Trending tag in other views.
+  private isTrendingRank(rank: number | null) {
+    return rank !== null && rank <= this.taggedLines;
+  }
+  private readonly leaderProduct = (product: TopProduct) => ({
+    ...leaderProduct(product),
+    trending: this.isTrendingRank(product.trendingRank),
+  });
+
+  private labelNew<T extends Pick<ProductSummary, "publishedAt">>(
+    products: T[],
+  ) {
     const now = this.clock();
     return products.map((product) => ({
       ...product,
@@ -149,12 +171,8 @@ export class CatalogService {
         404,
       );
     const taxonomy = await this.repository.taxonomy(found.market.id);
-    const counts = new Map(
-      taxonomy.counts.map((row) => [
-        row.categoryId,
-        { productCount: row.productCount, rankedCount: row.rankedCount },
-      ]),
-    );
+    // Rating counts included: the header and footer use popularity order.
+    const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
     return {
       market: found.market,
       countries: markets.map((row): MarketSummary => ({
@@ -184,46 +202,31 @@ export class CatalogService {
     };
   }
 
-  // Every aisle and its shelves, including shelves without foods yet, for
-  // choosing where a proposed food belongs.
-  async shelves(market: Market) {
+  // Every aisle, including aisles without foods yet, for choosing where a
+  // suggested food belongs, in the site's popularity order.
+  async aisles(market: Market) {
     const taxonomy = await this.repository.taxonomy(market.id);
-    const nodes = [...taxonomyShape(taxonomy.categories).values()];
-    const byName = <T extends { name: string }>(a: T, b: T) =>
-      a.name.localeCompare(b.name);
-    return nodes
-      .filter((node) => node.depth === 1 && !node.isRankable)
-      .sort(byName)
-      .map((aisle) => ({
-        id: aisle.id,
-        name: aisle.name,
-        shelves: nodes
-          .filter((node) => node.parentId === aisle.id && !node.isRankable)
-          .sort(byName)
-          .map((shelf) => ({
-            id: shelf.id,
-            slug: shelf.slug,
-            name: shelf.name,
-          })),
-      }))
-      .filter((aisle) => aisle.shelves.length > 0);
+    const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
+    return aisleTree(taxonomy.categories, counts, { withEmpty: true }).map(
+      (aisle) => ({ id: aisle.id, slug: aisle.slug, name: aisle.name }),
+    );
   }
 
   /**
    * What Add a product needs to pick a food in a country: every placeable
-   * food (marked when it is not on there yet), every shelf for suggesting a
+   * food (marked when it is not on there yet), every aisle for suggesting a
    * new food, and the country's stores and allergen list.
    */
   async contributionChoices(market: Market) {
-    const [taxonomy, aliases, shelves, options] = await Promise.all([
+    const [taxonomy, aliases, aisles, options] = await Promise.all([
       this.repository.taxonomy(market.id),
       this.repository.foodAliases(market.id),
-      this.shelves(market),
+      this.aisles(market),
       this.repository.filterOptions(market.id),
     ]);
     return {
       foods: foodChoices(taxonomy.categories, aliases),
-      shelves,
+      aisles,
       allergens: options.allergens,
     };
   }
@@ -236,8 +239,9 @@ export class CatalogService {
     return category;
   }
 
-  // A group category's place: Food itself, an aisle (its own page), a shelf
-  // (its aisle with the shelf selected) or a deeper group (its aisle).
+  // A group category's place: Food itself, an aisle (its own page) or a
+  // deeper group, such as a retired shelf from the three-level shape (its
+  // aisle).
   async aisle(market: Market, slug: string) {
     const [taxonomy, productCount] = await Promise.all([
       this.repository.taxonomy(market.id),
@@ -252,66 +256,48 @@ export class CatalogService {
     if (node.depth === 0) return { kind: "root" as const };
     const aisle = shape.get(node.aisleId!)!;
     if (node.depth !== 1)
-      return {
-        kind: "shelf" as const,
-        aisleSlug: aisle.slug,
-        shelfSlug: node.depth === 2 ? node.slug : null,
-      };
+      return { kind: "group" as const, aisleSlug: aisle.slug };
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
-    const byName = <T extends { name: string }>(a: T, b: T) =>
-      a.name.localeCompare(b.name);
-    const nodes = [...shape.values()];
-    // Only foods that are on in this country; shelves without one hide.
-    const placed = nodes
-      .filter((item) => item.parentId === aisle.id && !item.isRankable)
-      .sort(byName)
-      .map((shelf) => ({
-        slug: shelf.slug,
-        name: shelf.name,
-        foods: nodes
-          .filter(
-            (item) =>
-              item.parentId === shelf.id &&
-              !item.outsideDepth &&
-              (shared || item.available !== 0),
-          )
-          .sort(byName),
-      }))
-      .filter((shelf) => shelf.foods.length > 0);
-    const shelves = placed.map((shelf) => ({
-      ...shelf,
-      silent: silentShelf(aisle, shelf, shelf.foods, placed.length),
-    }));
-    const foodIds = shelves.flatMap((shelf) => shelf.foods.map((f) => f.id));
+    // Only foods that are on in this country, most popular first.
+    const foods = [...shape.values()]
+      .filter(
+        (item) =>
+          item.parentId === aisle.id &&
+          item.isRankable &&
+          !item.outsideDepth &&
+          (shared || item.available !== 0),
+      )
+      .map((item) => aisleFood(item, counts))
+      .sort(byPopularity);
     const top = await this.repository.topProducts(
       market.id,
-      foodIds,
+      foods.map((food) => food.id),
       AISLE_TOP,
     );
     return {
       kind: "aisle" as const,
-      aisle: { slug: aisle.slug, name: aisle.name },
-      shelves: shelves.map((shelf) => ({
-        slug: shelf.slug,
-        name: shelf.name,
-        silent: shelf.silent,
-        foods: shelf.foods.map((food) => ({
-          slug: food.slug,
-          name: food.name,
-          productCount: counts.get(food.id)?.productCount ?? 0,
-          rankedCount: counts.get(food.id)?.rankedCount ?? 0,
-          top: top
-            .filter((product) => product.categoryId === food.id)
-            .map((product) => ({
-              slug: product.slug,
-              name: product.name,
-              brand: product.brand,
-              score: product.bayesianScore,
-              ratingCount: product.ratingCount,
-              rank: product.rank,
-              early: isEarly(product.ratingCount),
-            })),
-        })),
+      aisle: {
+        slug: aisle.slug,
+        name: aisle.name,
+        silent: silentAisle(aisle, foods),
+      },
+      foods: foods.map((food) => ({
+        slug: food.slug,
+        name: food.name,
+        productCount: food.productCount,
+        rankedCount: food.rankedCount,
+        season: food.season,
+        top: top
+          .filter((product) => product.categoryId === food.id)
+          .map((product) => ({
+            slug: product.slug,
+            name: product.name,
+            brand: product.brand,
+            score: product.bayesianScore,
+            ratingCount: product.ratingCount,
+            rank: product.rank,
+            early: isEarly(product.ratingCount),
+          })),
       })),
     };
   }
@@ -334,9 +320,7 @@ export class CatalogService {
           taxonomy.categories.map((node) => ({ ...node, available: 1 })),
           counts,
         );
-    const foods = aisles.flatMap((aisle) =>
-      aisle.shelves.flatMap((shelf) => shelf.foods),
-    );
+    const foods = aisles.flatMap((aisle) => aisle.foods);
     const leaders = await this.repository.topProducts(
       market.id,
       foods.map((food) => food.id),
@@ -350,7 +334,7 @@ export class CatalogService {
       foodLeaders.find((leader) => leader.food.id === id)?.best ?? null;
     const summary = (leader: FoodLeader) => ({
       food: { slug: leader.food.slug, name: leader.food.name },
-      best: leader.best && leaderProduct(leader.best),
+      best: leader.best && this.leaderProduct(leader.best),
     });
     // Homepage features, in order, name the "Try" chips.
     const tryFoods = featured
@@ -366,21 +350,17 @@ export class CatalogService {
       aisles: aisles.map((aisle) => ({
         slug: aisle.slug,
         name: aisle.name,
-        foodCount: aisle.shelves.reduce((n, s) => n + s.foods.length, 0),
-        shelves: aisle.shelves.map((shelf) => ({
-          slug: shelf.slug,
-          name: shelf.name,
-          silent: shelf.silent,
-          foods: shelf.foods.map((food) => {
-            const top = best(food.id);
-            return {
-              slug: food.slug,
-              name: food.name,
-              best: top && leaderProduct(top),
-              productCount: food.productCount,
-            };
-          }),
-        })),
+        foodCount: aisle.foods.length,
+        foods: aisle.foods.map((food) => {
+          const top = best(food.id);
+          return {
+            slug: food.slug,
+            name: food.name,
+            best: top && this.leaderProduct(top),
+            productCount: food.productCount,
+            season: food.season,
+          };
+        }),
       })),
       trending: this.labelNew(trending),
       newest: this.labelNew(newest),
@@ -394,24 +374,34 @@ export class CatalogService {
    * up to five products with where they rank. Short queries return nothing.
    */
   suggest(market: Market, input: string) {
-    return this.answers(market, input, SUGGEST_LIMIT, SUGGEST_LIMIT);
+    return this.answers(
+      market,
+      input,
+      SUGGEST_LIMIT,
+      SUGGEST_LIMIT,
+      SUGGEST_BRANDS,
+    );
   }
   /** The full search page: the same answers with room for more. */
   searchResults(market: Market, input: string) {
-    return this.answers(market, input, 12, 20);
+    return this.answers(market, input, 12, 20, 10);
   }
   private async answers(
     market: Market,
     input: string,
     foodLimit: number,
     productLimit: number,
+    brandLimit: number,
   ) {
     const { query, expression } = searchExpression(input);
     const letters = query.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
-    if (!expression || letters < 2) return { query, foods: [], products: [] };
-    const [results, taxonomy] = await Promise.all([
+    // Instant answers start at three letters or digits (docs/API.md).
+    if (!expression || letters < 3)
+      return { query, foods: [], products: [], brands: [] };
+    const [results, taxonomy, brands] = await Promise.all([
       this.repository.search(market.id, market.iso2, expression),
       this.repository.taxonomy(market.id),
+      this.repository.brands(market.id, query, brandLimit),
     ]);
     const shape = taxonomyShape(taxonomy.categories);
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
@@ -432,6 +422,12 @@ export class CatalogService {
     ]);
     return {
       query,
+      // Brands by the shared matcher, with their product counts here.
+      brands: brands.map((brand) => ({
+        slug: brand.slug,
+        name: brand.name,
+        productCount: brand.productCount,
+      })),
       foods: foods.map((food) => {
         const node = shape.get(food.id);
         const aisle = node?.aisleId ? shape.get(node.aisleId) : undefined;
@@ -439,10 +435,15 @@ export class CatalogService {
         return {
           slug: food.slug,
           name: food.name,
-          aisle: aisle && aisle.id !== food.id ? aisle.name : null,
+          // An aisle that only repeats the food's name (Eggs) is left out.
+          aisle:
+            aisle && aisle.id !== food.id && aisle.name !== food.name
+              ? aisle.name
+              : null,
           productCount: counts.get(food.id)?.productCount ?? 0,
           rankedCount: counts.get(food.id)?.rankedCount ?? 0,
-          top: ranked.map(leaderProduct),
+          season: seasonOf(food.seasonStart, food.seasonEnd),
+          top: ranked.map(this.leaderProduct),
         };
       }),
       products: products.flatMap((product) => {
@@ -461,6 +462,46 @@ export class CatalogService {
             ]
           : [];
       }),
+    };
+  }
+  /**
+   * A brand in a country: its product count and its lines grouped by aisle
+   * and food, each with its Closest and Tastiest ranks there and its
+   * flavors. Add a product's "Already listed from [brand]" uses it too.
+   */
+  async brand(market: Market, slug: string) {
+    const brand = await this.repository.brand(market.id, slug);
+    if (!brand)
+      throw new ApplicationError("NOT_FOUND", "Brand not found.", 404);
+    const [lines, taxonomy] = await Promise.all([
+      this.repository.brandLines(market.id, brand.id),
+      this.repository.taxonomy(market.id),
+    ]);
+    const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
+    const aisles = aisleTree(taxonomy.categories, counts)
+      .map((aisle) => ({
+        slug: aisle.slug,
+        name: aisle.name,
+        foods: aisle.foods
+          .map((food) => ({
+            slug: food.slug,
+            name: food.name,
+            lines: lines
+              .filter((line) => line.categoryId === food.id)
+              .map(({ categoryId: _, ...line }) => ({
+                ...line,
+                early: line.closestRank !== null && isEarly(line.people),
+              })),
+          }))
+          .filter((food) => food.lines.length),
+      }))
+      .filter((aisle) => aisle.foods.length);
+    return {
+      brand: { slug: brand.slug, name: brand.name },
+      productCount: brand.productCount,
+      // A brand with nothing listed here still has a page (noindex).
+      availability: { here: brand.productCount > 0 },
+      aisles,
     };
   }
   async sitemap() {
@@ -521,31 +562,62 @@ export class CatalogService {
     const key = detailKey(view);
     if (key && !questions.some((question) => question.key === key))
       throw new UnknownViewError();
+    const tastiestView = view === "tastiest";
     const all = set.map((row) => ({
       ...row,
       details: detailScores(row.details, questions),
     }));
-    // Badges come from the unfiltered ranking so filters never move them.
+    // Tastiest ranks only lines with Tastiest answers, in its own order.
+    const tastiestOrder = orderRows(all, "tastiest");
+    const tastiestRank = new Map(
+      tastiestOrder.rows
+        .slice(0, tastiestOrder.qualified)
+        .map((row, index) => [row.id, index + 1]),
+    );
+    // Badges come from the unfiltered rankings so filters never move them.
     const badges = detailBadges(all, questions);
+    const tastiest = tastiestOrder.qualified ? tastiestOrder.rows[0]! : null;
+    // The Tastiest #1 is marked in the other views when it isn't Closest #1.
+    if (!tastiestView && tastiest && tastiest.topRank !== 1)
+      badges.set(tastiest.id, ["Tastiest", ...(badges.get(tastiest.id) ?? [])]);
     const byId = new Map(all.map((row) => [row.id, row]));
+    // A line row in its documented shape (docs/API.md, milestone 7): score,
+    // people and early describe the ranking being viewed.
     const listing = (row: (typeof all)[number] | DiscoveryRow) => {
       const ranked = byId.get(row.id);
       return {
-        id: row.id,
-        slug: row.slug,
+        lineId: row.lineId,
         name: row.name,
         brand: row.brand,
-        versionId: row.versionId,
-        imageId: row.imageId,
+        leadProduct: {
+          id: row.id,
+          slug: row.slug,
+          versionId: row.versionId,
+          imageId: row.imageId,
+        },
         developmentOnly: row.developmentOnly,
         publishedAt: row.publishedAt ?? null,
-        topRank: ranked?.topRank ?? null,
-        bayesianScore: ranked?.bayesianScore ?? null,
-        ratingCount: ranked?.ratingCount ?? row.ratingCount,
-        recentRatingCount: row.recentRatingCount,
-        early: ranked ? isEarly(ranked.ratingCount) : false,
+        flavorCount: row.flavorCount,
+        closestRank: ranked?.topRank ?? null,
+        tastiestRank: tastiestRank.get(row.id) ?? null,
+        score: tastiestView
+          ? (ranked?.tastiestScore ?? null)
+          : (ranked?.bayesianScore ?? null),
+        people: tastiestView
+          ? (ranked?.tastiestCount ?? 0)
+          : (ranked?.ratingCount ?? row.ratingCount),
+        // Early is counted separately for each ranking.
+        early: ranked
+          ? isEarly(tastiestView ? ranked.tastiestCount : ranked.ratingCount)
+          : false,
+        recentPeople: row.recentRatingCount,
+        // The Trending view needs no tag of its own.
+        trending:
+          view !== "trending" &&
+          this.isTrendingRank(ranked?.trendingRank ?? null),
         matchedStores: row.matchedStores,
-        allergens: row.allergens,
+        // A line of several flavors shows allergens per flavor.
+        allergens: row.flavorCount > 1 ? null : row.allergens,
         details: ranked?.details ?? [],
         badges: badges.get(row.id) ?? [],
       };
@@ -553,8 +625,9 @@ export class CatalogService {
     const shown = all.filter((row) => row.storeMatch && row.allergenMatch);
     let listed: ReturnType<typeof listing>[];
     let hasNext: boolean;
-    // The position on this page where products without enough answers for
-    // a detail sort begin (they follow in Top order).
+    // The position on this page where lines without enough answers for a
+    // detail sort, or without Tastiest answers, begin (they follow in
+    // Closest order).
     let qualified: number | null = null;
     if (!here) {
       listed = [];
@@ -587,10 +660,28 @@ export class CatalogService {
         .slice(offset, offset + CATALOG_PAGE_SIZE)
         .map(listing);
       hasNext = ordered.rows.length > offset + CATALOG_PAGE_SIZE;
-      if (key && ordered.qualified < ordered.rows.length)
+      if ((key || tastiestView) && ordered.qualified < ordered.rows.length)
         qualified = Math.max(0, ordered.qualified - offset);
     }
-    const best = all[0] ?? null;
+    const unrankedShown = unranked.slice(0, CATALOG_PAGE_SIZE);
+    // Every flavor of every line on the page, in one query.
+    const flavors = await this.repository.flavors(
+      market.id,
+      category.id,
+      [...listed, ...unrankedShown].map((row) => row.lineId),
+      filters,
+    );
+    const withFlavors = <T extends { lineId: string }>(row: T) =>
+      ({
+        ...row,
+        ...lineFlavors(
+          flavors.filter((flavor) => flavor.lineId === row.lineId),
+          tastiestView ? "tastiest" : "closest",
+          this.clock(),
+        ),
+      }) as T & ReturnType<typeof lineFlavors>;
+    // Each ranking has its own featured #1.
+    const best = tastiestView ? tastiest : (all[0] ?? null);
     return {
       view,
       category,
@@ -602,18 +693,37 @@ export class CatalogService {
       storeOptions,
       summary: {
         rankedCount: all.length,
+        tastiestCount: tastiestOrder.qualified,
         ratingCount: all.reduce((sum, row) => sum + row.ratingCount, 0),
+        // People who said how tasty a line is; Tastiest's own population.
+        tastiestPeople: all.reduce((sum, row) => sum + row.tastiestCount, 0),
         best: best && listing(best),
       },
       shownCount: shown.length,
-      // Ranked products the Free-from choice hides only because their label
-      // is not confirmed yet.
+      // Ranked lines the Free-from choice hides only because no flavor's
+      // label is confirmed yet.
       notConfirmedCount: filters.freeFrom.length
-        ? all.filter((row) => row.storeMatch && !row.allergens).length
+        ? all.filter((row) => row.storeMatch && !row.confirmed).length
         : 0,
-      ranked: this.labelNew(listed),
+      ranked: this.labelNew(listed).map(withFlavors),
       qualified,
-      unranked: this.labelNew(unranked.slice(0, CATALOG_PAGE_SIZE)),
+      unranked: this.labelNew(
+        unrankedShown.map((row) => ({
+          lineId: row.lineId,
+          name: row.name,
+          brand: row.brand,
+          leadProduct: {
+            id: row.id,
+            slug: row.slug,
+            versionId: row.versionId,
+            imageId: row.imageId,
+          },
+          developmentOnly: row.developmentOnly,
+          publishedAt: row.publishedAt ?? null,
+          flavorCount: row.flavorCount,
+          allergens: row.flavorCount > 1 ? null : row.allergens,
+        })),
+      ).map(withFlavors),
       newDays: this.newDays,
       page,
       unrankedPage,
@@ -622,8 +732,8 @@ export class CatalogService {
     };
   }
   /**
-   * A food's aisle and shelf, for its breadcrumb and back link. A silent
-   * shelf is left out so the crumbs never repeat a name.
+   * A food's aisle, for its breadcrumb and back link. A silent aisle (Eggs ›
+   * Eggs) is left out so the crumbs never repeat a name.
    */
   private placeOf(
     taxonomy: Awaited<ReturnType<CatalogRepository["taxonomy"]>>,
@@ -632,19 +742,14 @@ export class CatalogService {
     const shape = taxonomyShape(taxonomy.categories);
     const node = shape.get(categoryId);
     const aisle = node?.aisleId ? shape.get(node.aisleId) : undefined;
-    const listed = aisleTree(taxonomy.categories, new Map())
-      .flatMap((a) => a.shelves)
-      .find((s) => s.foods.some((food) => food.id === categoryId));
-    const shelf =
-      node?.parentId && node.depth === 3 && !listed?.silent
-        ? shape.get(node.parentId)
-        : undefined;
+    const listed = aisleTree(taxonomy.categories, new Map()).find((a) =>
+      a.foods.some((food) => food.id === categoryId),
+    );
     return {
       aisle:
-        aisle && aisle.id !== categoryId
+        aisle && aisle.id !== categoryId && !listed?.silent
           ? { slug: aisle.slug, name: aisle.name }
           : null,
-      shelf: shelf ? { slug: shelf.slug, name: shelf.name } : null,
     };
   }
   /** The food's aisle with every food's #1 score, and the other aisles. */
@@ -656,11 +761,9 @@ export class CatalogService {
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
     const aisles = aisleTree(taxonomy.categories, counts);
     const current = aisles.find((aisle) =>
-      aisle.shelves.some((shelf) =>
-        shelf.foods.some((food) => food.id === categoryId),
-      ),
+      aisle.foods.some((food) => food.id === categoryId),
     );
-    const foods = current?.shelves.flatMap((shelf) => shelf.foods) ?? [];
+    const foods = current?.foods ?? [];
     const top = await this.repository.topProducts(
       market.id,
       foods.map((food) => food.id),
@@ -671,17 +774,12 @@ export class CatalogService {
         ? {
             slug: current.slug,
             name: current.name,
-            shelves: current.shelves.map((shelf) => ({
-              slug: shelf.slug,
-              name: shelf.name,
-              silent: shelf.silent,
-              foods: shelf.foods.map((food) => ({
-                slug: food.slug,
-                name: food.name,
-                score:
-                  top.find((product) => product.categoryId === food.id)
-                    ?.bayesianScore ?? null,
-              })),
+            foods: current.foods.map((food) => ({
+              slug: food.slug,
+              name: food.name,
+              score:
+                top.find((product) => product.categoryId === food.id)
+                  ?.bayesianScore ?? null,
             })),
           }
         : null,
@@ -714,10 +812,11 @@ export class CatalogService {
         "Product or formula not found.",
         404,
       );
-    const [insights, taxonomy, options] = await Promise.all([
+    const [insights, taxonomy, options, siblings] = await Promise.all([
       this.repository.productInsights(market.id, product.id, product.versionId),
       this.repository.taxonomy(market.id),
       this.repository.filterOptions(market.id),
+      this.repository.siblings(market.id, product.lineId, product.id),
     ]);
     const foods = product.categories.map((category) => {
       const rank = insights.ranks.find((r) => r.categoryId === category.id);
@@ -726,9 +825,47 @@ export class CatalogService {
         .map(({ recency, score, count }) => ({ recency, score, count }));
       return {
         ...category,
+        // The line's ranks; the flavor's own scores stay on the category.
         rank: rank?.rank ?? null,
         rankedCount: rank?.rankedCount ?? 0,
-        early: rank ? isEarly(category.ratingCount) : false,
+        early: rank ? isEarly(rank.people) : false,
+        // The line in both rankings (docs/API.md, milestone 7).
+        line: rank
+          ? {
+              id: product.lineId,
+              trending: this.isTrendingRank(rank.trendingRank),
+              name: rank.flavorCount > 1 ? rank.lineName : product.name,
+              flavorCount: rank.flavorCount,
+              closest: {
+                rank: rank.rank,
+                of: rank.rankedCount,
+                score: rank.score,
+                people: rank.people,
+                early: isEarly(rank.people),
+              },
+              tastiest:
+                rank.tastiestRank === null
+                  ? null
+                  : {
+                      rank: rank.tastiestRank,
+                      of: rank.tastiestCount,
+                      score: rank.tastiestScore,
+                      people: rank.tastiestPeople,
+                      early: isEarly(rank.tastiestPeople),
+                    },
+            }
+          : null,
+        // The flavor's own scores in this food.
+        flavorScores: {
+          closest: {
+            score: category.bayesianScore,
+            count: category.ratingCount,
+          },
+          tastiest: {
+            score: category.tastiestScore,
+            count: category.tastiestCount,
+          },
+        },
         details: category.dimensions.map((dimension) => {
           const row = insights.details.find(
             (d) => d.categoryId === category.id && d.key === dimension.key,
@@ -758,11 +895,12 @@ export class CatalogService {
         "This product isn’t ranked for that food.",
         404,
       );
+    // Other swaps leave out the product's own line.
     const others = chosen
       ? (await this.repository.topProducts(market.id, [chosen.id], 4))
-          .filter((other) => other.id !== product.id)
+          .filter((other) => other.lineId !== product.lineId)
           .slice(0, 3)
-          .map(leaderProduct)
+          .map(this.leaderProduct)
       : [];
     return {
       ...this.labelNew([product])[0]!,
@@ -770,6 +908,14 @@ export class CatalogService {
       food: chosen?.slug ?? null,
       place: chosen ? this.placeOf(taxonomy, chosen.id) : null,
       others,
+      // The chosen food's line, its other flavors and this flavor's scores.
+      line: chosen?.line ?? null,
+      flavorScores: chosen?.flavorScores ?? null,
+      // Each links to the chosen food only where it's listed there.
+      otherFlavors: siblings.map(({ foods, ...sibling }) => ({
+        ...sibling,
+        food: chosen && foods.includes(chosen.slug) ? chosen.slug : null,
+      })),
       allergens: insights.allergens,
       allergenConfirmations: insights.allergenConfirmations,
       // The country's allergen names, for the declaration's wording.
@@ -785,12 +931,21 @@ export class CatalogService {
 
   async search(market: Market, input: string) {
     const { query, expression } = searchExpression(input);
-    const results = expression
-      ? await this.repository.search(market.id, market.iso2, expression)
-      : { categories: [], products: [] };
+    const [results, brands] = expression
+      ? await Promise.all([
+          this.repository.search(market.id, market.iso2, expression),
+          this.repository.brands(market.id, query, 10),
+        ])
+      : [{ categories: [], products: [] }, []];
     return {
       query,
       categories: results.categories,
+      // Up to ten brands by the shared matcher (docs/API.md, milestone 7).
+      brands: brands.map((brand) => ({
+        slug: brand.slug,
+        name: brand.name,
+        productCount: brand.productCount,
+      })),
       products: this.labelNew(results.products),
     };
   }
@@ -812,5 +967,50 @@ function leaderProduct(product: TopProduct) {
     ratingCount: product.ratingCount,
     rank: product.rank,
     early: isEarly(product.ratingCount),
+  };
+}
+
+/**
+ * A line card's flavors (milestone 7): each with its own score in the current
+ * ranking once it has enough answers, scored flavors first by score, the rest
+ * by ratings, then name; and how many don't pass the filters.
+ */
+export function lineFlavors(
+  rows: FlavorRow[],
+  ranking: "closest" | "tastiest",
+  now: number,
+) {
+  const flavors = rows.map((row) => {
+    const count = ranking === "tastiest" ? row.tastiestCount : row.closestCount;
+    const score = ranking === "tastiest" ? row.tastiestScore : row.closestScore;
+    return {
+      productId: row.id,
+      slug: row.slug,
+      name: row.name,
+      flavor: row.flavor,
+      label: flavorLabel(row, rows),
+      // Answers in the ranking shown.
+      ratingCount: count,
+      score: count >= FLAVOR_SCORE_MIN_ANSWERS ? score : null,
+      allergens: row.allergens,
+      isNew: isNewProduct(row.publishedAt, now),
+      seasonal: row.seasonal === 1,
+      matchesFilters: !!row.matches,
+    };
+  });
+  flavors.sort(
+    (a, b) =>
+      (b.score ?? -Infinity) - (a.score ?? -Infinity) ||
+      b.ratingCount - a.ratingCount ||
+      (a.flavor ?? "").localeCompare(b.flavor ?? "") ||
+      a.name.localeCompare(b.name),
+  );
+  const matching = flavors.filter((flavor) => flavor.matchesFilters);
+  return {
+    flavors: matching,
+    // Flavors hidden because they don't pass the filters.
+    hiddenFlavorCount: flavors.length - matching.length,
+    // A line every listed flavor of which is sold only part of the year.
+    seasonal: matching.length > 0 && matching.every((f) => f.seasonal),
   };
 }

@@ -21,6 +21,7 @@ import {
 import type { SubmissionContext } from "./lookup-repository";
 import type { StagedAttachment } from "./staged-media-repository";
 import { receiptStatement, type ReceiptWrite } from "./receipts";
+import type { LineRefresh } from "../../ranking/infrastructure/line-refresh";
 
 // The single rule for releasing or revoking a publication lease. Held
 // submissions and evidence for a still-pending proposal return to review.
@@ -38,6 +39,9 @@ export interface PublicationExtrasMarker {
   versionId: string;
   categoryId: string | null;
   rating: number | null;
+  // The Tastiest answer given with the rating (milestone 7); absent in
+  // markers written before it.
+  enjoyment?: number | null;
   allergens: AllergenDeclaration | null;
   citedImageId: string | null;
 }
@@ -51,6 +55,7 @@ export class SubmissionRepository {
   constructor(
     private readonly db: D1Database,
     private readonly limits: CommunityLimits,
+    private readonly lines: LineRefresh,
   ) {}
   get(id: string) {
     return this.db
@@ -201,11 +206,11 @@ export class SubmissionRepository {
                 food.proposalId,
                 receipt.user_id,
                 input.newFood.name,
-                input.newFood.shelfId,
+                input.newFood.aisleId,
                 input.country,
                 JSON.stringify({
                   name: input.newFood.name,
-                  shelfId: input.newFood.shelfId,
+                  aisleId: input.newFood.aisleId,
                   country: input.country,
                   aliases: input.newFood.aliases ?? [],
                   exampleProducts: [`${input.brand} ${input.name}`],
@@ -377,14 +382,14 @@ export class SubmissionRepository {
   pendingFood(submissionId: string) {
     return this.db
       .prepare(
-        `SELECT cp.id,cp.name,cp.parent_id AS shelfId,cp.status,cp.resolved_category_id AS resolvedId
+        `SELECT cp.id,cp.name,cp.parent_id AS aisleId,cp.status,cp.resolved_category_id AS resolvedId
         FROM pending_submissions p JOIN category_proposals cp ON cp.id=p.category_proposal_id WHERE p.submission_id=?`,
       )
       .bind(submissionId)
       .first<{
         id: string;
         name: string;
-        shelfId: string | null;
+        aisleId: string | null;
         status: string;
         resolvedId: string | null;
       }>();
@@ -540,8 +545,7 @@ export class SubmissionRepository {
       AND EXISTS(SELECT 1 FROM profiles WHERE user_id=? AND account_state='active')
       AND EXISTS(SELECT 1 FROM countries WHERE id=? AND is_active=1)
       AND (SELECT COUNT(*) FROM categories WHERE id IN (SELECT value FROM json_each(?)) AND is_active=1 AND is_rankable=1)=?
-      AND (?='' OR EXISTS(SELECT 1 FROM products WHERE id=? AND country_id=? AND lifecycle_status<>'hidden'))
-      AND (?='' OR EXISTS(SELECT 1 FROM product_families WHERE id=? AND (brand_id IS NULL OR brand_id=?)))`;
+      AND (?='' OR EXISTS(SELECT 1 FROM product_families WHERE id=? AND country_id=? AND brand_id=?))`;
     const fence = [
       receipt.id,
       token,
@@ -551,16 +555,17 @@ export class SubmissionRepository {
       context.countryId,
       JSON.stringify(input.categoryIds),
       input.categoryIds.length,
-      input.relatedProductId ?? "",
-      input.relatedProductId ?? "",
+      input.lineId ?? "",
+      input.lineId ?? "",
       context.countryId,
-      input.productFamilyId ?? "",
-      input.productFamilyId ?? "",
       context.brandId ?? "",
     ];
     const productId = receipt.planned_product_id,
       versionId = receipt.planned_version_id;
     const productSlug = `${slug(`${context.brandName} ${input.name}`)}-${productId.slice(-8)}`;
+    // A product outside a chosen line starts its own, named by the
+    // contributor ("Name without the flavor") or after the product.
+    const familyId = input.lineId ?? `line-${productId}`;
     const status = classification.veganStatus;
     const statements: D1PreparedStatement[] = [];
     if (!context.brandId)
@@ -579,11 +584,31 @@ export class SubmissionRepository {
             ...fence,
           ),
       );
+    if (!input.lineId)
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO product_families(id,brand_id,country_id,canonical_name,slug,created_at,updated_at)
+          SELECT ?,COALESCE(?,(SELECT id FROM brands WHERE normalized_name=?)),?,?,(SELECT lower(iso2) FROM countries WHERE id=?)||'-'||?,?,? WHERE ${guard}`,
+          )
+          .bind(
+            familyId,
+            context.brandId,
+            normalizeName(context.brandName),
+            context.countryId,
+            input.lineName ?? input.name,
+            context.countryId,
+            productSlug,
+            now,
+            now,
+            ...fence,
+          ),
+      );
     statements.push(
       this.db
         .prepare(
-          `INSERT INTO products(id,country_id,brand_id,product_family_id,name,slug,vegan_status,manufacturer_label,manufacturer_url,created_by,published_at,created_at,updated_at)
-        SELECT ?,?,COALESCE(?,(SELECT id FROM brands WHERE normalized_name=?)),?,?,?,?,?,?,?,?,?,? WHERE ${guard}`,
+          `INSERT INTO products(id,country_id,brand_id,product_family_id,name,flavor,seasonal,slug,vegan_status,manufacturer_label,manufacturer_url,created_by,published_at,created_at,updated_at)
+        SELECT ?,?,COALESCE(?,(SELECT id FROM brands WHERE normalized_name=?)),?,?,?,COALESCE(?,(SELECT season_start IS NOT NULL FROM categories WHERE id=?),0),?,?,?,?,?,?,?,? WHERE ${guard}`,
         )
         .bind(
           productId,
@@ -592,8 +617,12 @@ export class SubmissionRepository {
           // brand is resolved by the normalized key inserted above.
           context.brandId,
           normalizeName(context.brandName),
-          input.productFamilyId ?? null,
+          familyId,
           input.name,
+          input.flavor ?? null,
+          // Unsaid, a product follows its food's season.
+          input.seasonal === undefined ? null : Number(input.seasonal),
+          input.categoryIds[0] ?? null,
           productSlug,
           status,
           input.manufacturerLabel ?? "unknown",
@@ -630,7 +659,8 @@ export class SubmissionRepository {
           .bind(
             productId,
             categoryId,
-            input.specialtyFlavor ? 0 : 1,
+            // Every flavor counts (milestone 7); operators can exclude one.
+            1,
             receipt.user_id,
             now,
             now,
@@ -672,21 +702,6 @@ export class SubmissionRepository {
         fence,
       ),
     );
-    if (input.relatedProductId && input.relationship)
-      statements.push(
-        this.db
-          .prepare(
-            `INSERT INTO product_relationships(from_product_id,to_product_id,relation_type,created_by,created_at) SELECT ?,?,?,?,? WHERE ${guard}`,
-          )
-          .bind(
-            productId,
-            input.relatedProductId,
-            input.relationship,
-            receipt.user_id,
-            now,
-            ...fence,
-          ),
-      );
     if (operation)
       statements.push(
         this.db
@@ -740,6 +755,7 @@ export class SubmissionRepository {
               versionId,
               categoryId: input.categoryIds[0] ?? null,
               rating: input.rating ?? null,
+              enjoyment: input.enjoyment ?? null,
               allergens: input.allergens ?? null,
               citedImageId:
                 images.find((i) => i.slot === "ingredients")?.imageId ??
@@ -753,6 +769,8 @@ export class SubmissionRepository {
       ...productSearchStatements(this.db, productId, guard, fence),
       // A food this product switched on in its country becomes searchable.
       ...categorySearchStatements(this.db, productId, guard, fence),
+      // The line the product starts or joins.
+      ...this.lines.statements({ productIds: [productId] }, now),
       this.db
         .prepare(
           `INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,after_data,created_at) SELECT ?,?,'product_published','product',?,?,? WHERE ${guard}`,

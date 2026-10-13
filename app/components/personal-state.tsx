@@ -52,6 +52,7 @@ export function draftOf(input: RatingInput | PendingRating): RatingInput {
     ...(input.conventionalRecency !== undefined
       ? { conventionalRecency: input.conventionalRecency }
       : {}),
+    ...(input.enjoyment !== undefined ? { enjoyment: input.enjoyment } : {}),
   };
 }
 export function usePersonalState() {

@@ -1,6 +1,7 @@
 import type {
   CanonicalRating,
   CategoryAggregate,
+  Scoring,
 } from "../../ranking/domain/policy";
 import type { ConventionalRecency } from "./details";
 
@@ -54,6 +55,8 @@ export interface RatingsRepository {
     mutation: RatingMutation,
     aggregates: CategoryAggregate[],
     now: number,
+    // The formula's line is recomputed in the same transaction.
+    scoring: Scoring,
   ): Promise<boolean>;
   listVersionIds(after: string | null, limit: number): Promise<string[]>;
 }

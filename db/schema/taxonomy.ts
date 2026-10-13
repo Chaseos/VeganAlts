@@ -150,7 +150,7 @@ export const categoryFeatures = sqliteTable(
 );
 
 // A food (rankable leaf) is listed in a country only once it is switched on
-// there. Aisles and shelves are shared by every country (milestone 6).
+// there. Aisles are shared by every country (milestones 6 and 7).
 export const categoryCountries = sqliteTable(
   "category_countries",
   {

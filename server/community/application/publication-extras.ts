@@ -19,6 +19,7 @@ export interface ExtrasPorts {
     versionId: string,
     categoryId: string,
     score: number,
+    enjoyment: number | null,
   ): Promise<void>;
   revision(productId: string): Promise<number>;
   propose(actor: Actor, key: string, change: ProductChange): Promise<unknown>;
@@ -26,7 +27,8 @@ export interface ExtrasPorts {
 
 /**
  * Applies what a contributor added with a product once it is published
- * (milestone 6): their rating, through the canonical rating path and only if
+ * (milestone 6): their rating (with its Tastiest answer, milestone 7),
+ * through the canonical rating path and only if
  * they haven't rated that food yet, and their allergen declaration, as an
  * ordinary allergen proposal citing the published label photo. A marker
  * written with the publication keeps them until done; the hourly sweep
@@ -60,6 +62,7 @@ export class PublicationExtras {
         marker.versionId,
         marker.categoryId!,
         marker.rating!,
+        marker.enjoyment ?? null,
       ),
     );
     if (!done) return "dropped";
@@ -85,6 +88,7 @@ export class PublicationExtras {
             marker.versionId,
             marker.categoryId!,
             marker.rating!,
+            marker.enjoyment ?? null,
           ),
         );
       if (marker.allergens)

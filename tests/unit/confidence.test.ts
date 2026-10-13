@@ -90,6 +90,28 @@ describe("risk tiers", () => {
         policy,
       ),
     ).toBe(3);
+    // Moving a product to another line is protected (milestone 7); naming
+    // its current line, or none, is not.
+    const line = (productFamilyId: string | null) =>
+      riskTier(
+        change({
+          kind: "relationships",
+          productFamilyId,
+          categoryEligibility: [],
+        }),
+        { ...snapshot(), familyId: "line-a" },
+        policy,
+      );
+    expect(line("line-b")).toBe(3);
+    expect(line(null)).toBe(2);
+    expect(line("line-a")).toBe(2);
+    expect(
+      riskTier(
+        change({ kind: "seasonal", seasonal: true }),
+        snapshot(),
+        policy,
+      ),
+    ).toBe(2);
   });
 });
 

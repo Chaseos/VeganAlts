@@ -33,7 +33,7 @@ async function world() {
       ).bind(user, user),
     ]),
   );
-  const shelf = (await env.DB.prepare(
+  const aisle = (await env.DB.prepare(
     "SELECT id FROM categories WHERE slug='pork'",
   ).first("id")) as string;
   const bacon = (await env.DB.prepare(
@@ -49,7 +49,7 @@ async function world() {
       administrator: false,
     },
     operator: { id: users[1]!, accountState: "active", administrator: true },
-    shelf,
+    aisle,
     bacon,
   };
 }
@@ -60,7 +60,7 @@ async function submit(w: World, food: string, extra: object = {}) {
     brand: `Grill ${tag()}`,
     country: "GB",
     categoryIds: [],
-    newFood: { name: food, shelfId: w.shelf, aliases: [`${food} links`] },
+    newFood: { name: food, aisleId: w.aisle, aliases: [`${food} links`] },
     imageSlots: ["front"],
     rating: 4,
     ...extra,
@@ -338,16 +338,20 @@ it("hands a product to an operator when it can't publish after its food is accep
 
 it("drops a rating that can never count and still proposes the declaration", async () => {
   const w = await world();
-  // A specialty flavor ranks for no food until an operator decides.
+  // Milk on the label holds it, and an operator who marks it under review
+  // leaves the rating nothing to count toward.
   const input = submissionInput.parse({
     name: `Maple Rashers ${tag()}`,
     brand: `Smoky ${tag()}`,
     country: "GB",
     categoryIds: [w.bacon],
     imageSlots: ["front", "ingredients"],
-    specialtyFlavor: true,
     rating: 4,
-    allergens: { status: "declared", contains: ["soy"], mayContain: [] },
+    allergens: {
+      status: "declared",
+      contains: ["soy", "milk"],
+      mayContain: [],
+    },
   });
   const checked = await w.community.submissions.preflight(
     w.contributor,
@@ -377,6 +381,8 @@ it("drops a rating that can never count and still proposes the declaration", asy
     input,
     0,
     note,
+    undefined,
+    "under_review",
   );
   expect(published).toMatchObject({ rating: "dropped" });
   const productId = (published as { productId: string }).productId;
@@ -413,7 +419,7 @@ it("leaves no suggested food behind when the product can't be held", async () =>
     brand: `Grill ${tag()}`,
     country: "GB",
     categoryIds: [],
-    newFood: { name: `Weisswurst ${tag()}`, shelfId: w.shelf },
+    newFood: { name: `Weisswurst ${tag()}`, aisleId: w.aisle },
     imageSlots: ["front"],
   });
   const checked = await w.community.submissions.preflight(

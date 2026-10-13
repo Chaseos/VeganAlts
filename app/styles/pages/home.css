@@ -267,8 +267,18 @@
   transform: rotate(180deg);
 }
 
-.va-browse__shelves {
+.va-browse__foods {
   padding: 0 14px 8px;
+}
+
+/* "See all" closes a card whose aisle has more foods than it shows. */
+.va-browse__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .va-browse--desktop {
@@ -416,18 +426,25 @@
     display: none;
   }
 
+  /* Each card is as tall as its foods: a one-food aisle isn't padded out to
+     match its row (owner decision, 2026-10-12). */
   .va-browse--desktop {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     align-items: start;
-    gap: 36px 40px;
+    gap: 20px;
   }
 
   .va-browse--desktop .va-browse__aisle {
-    border: 0;
+    padding: 4px 18px 10px;
+    border: 1px solid var(--va-line);
     border-top: 4px solid var(--va-kale);
-    border-radius: 0;
-    background: transparent;
+    border-radius: var(--va-radius-card);
+    background: var(--va-surface);
+  }
+
+  .va-browse--desktop .va-browse__foods {
+    padding: 0;
   }
 
   .va-browse--desktop .va-browse__summary {
@@ -448,10 +465,6 @@
     font-size: 19px;
     font-weight: 800;
     font-stretch: 110%;
-  }
-
-  .va-browse--desktop .va-browse__shelves {
-    padding: 0;
   }
 
   .va-home__card,

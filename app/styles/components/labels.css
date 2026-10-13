@@ -126,6 +126,13 @@
   box-shadow: none;
 }
 
+/* Tastiness shares the score label's hierarchy, with the mint food accent. */
+.va-score--tasty {
+  background: var(--va-good-bg);
+  color: var(--va-good);
+  box-shadow: none;
+}
+
 /* #1 flag: one per list, always with words. */
 .va-flag {
   display: inline-flex;

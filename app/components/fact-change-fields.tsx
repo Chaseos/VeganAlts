@@ -6,6 +6,7 @@ export const factKinds = [
   "alias",
   "source_url",
   "category_add",
+  "seasonal",
 ] as const;
 export type FactKind = (typeof factKinds)[number];
 export const factLabels: Record<FactKind, string> = {
@@ -13,6 +14,7 @@ export const factLabels: Record<FactKind, string> = {
   alias: "Another name people search for",
   source_url: "Manufacturer product page",
   category_add: "Another food it replaces",
+  seasonal: "Sold only part of the year",
 };
 export const isFactKind = (kind: ProductChange["kind"]): kind is FactKind =>
   (factKinds as readonly string[]).includes(kind);
@@ -21,11 +23,15 @@ export const isFactKind = (kind: ProductChange["kind"]): kind is FactKind =>
 export function FactChangeFields({
   kind,
   currentName,
+  currentFlavor,
+  seasonal,
   categories,
   existing,
 }: {
   kind: FactKind;
   currentName: string;
+  currentFlavor: string | null;
+  seasonal: boolean;
   categories: CommunityOptions["categories"];
   existing: string[];
 }) {
@@ -42,11 +48,46 @@ export function FactChangeFields({
             maxLength={160}
             defaultValue={currentName}
           />
-          <p className="small muted">
-            The product keeps its address and ratings. Attach a front photo
-            showing the new name.
+          <label htmlFor="fact-flavor">
+            Flavor <span className="va-optional__tag">Optional</span>
+          </label>
+          <input
+            id="fact-flavor"
+            name="flavor"
+            maxLength={40}
+            defaultValue={currentFlavor ?? ""}
+            aria-describedby="fact-flavor-hint"
+          />
+          <p id="fact-flavor-hint" className="small muted">
+            Leave blank for the line’s original or plain version. The product
+            keeps its address and ratings. Attach a front photo showing the new
+            name.
           </p>
         </>
+      );
+    case "seasonal":
+      return (
+        <fieldset>
+          <legend>Is it sold only part of the year?</legend>
+          <label className="checkbox-label">
+            <input
+              type="radio"
+              name="seasonal"
+              value="yes"
+              defaultChecked={!seasonal}
+            />
+            Yes, it’s seasonal
+          </label>
+          <label className="checkbox-label">
+            <input
+              type="radio"
+              name="seasonal"
+              value="no"
+              defaultChecked={seasonal}
+            />
+            No, it’s sold all year
+          </label>
+        </fieldset>
       );
     case "alias":
       return (
@@ -99,8 +140,12 @@ export function FactChangeFields({
 }
 export function factChangeDetails(kind: FactKind, form: FormData) {
   switch (kind) {
-    case "rename":
-      return { name: form.get("name") };
+    case "rename": {
+      const flavor = String(form.get("flavor") ?? "").trim();
+      return { name: form.get("name"), flavor: flavor || null };
+    }
+    case "seasonal":
+      return { seasonal: form.get("seasonal") === "yes" };
     case "alias":
       return { alias: form.get("alias") };
     case "source_url":

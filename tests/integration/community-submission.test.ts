@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it, vi } from "vitest";
-import { catalogFixture, testMarket } from "./fixtures";
+import { catalogFixture, productRows, testMarket } from "./fixtures";
 import { catalogService } from "../../server/catalog/infrastructure/composition";
 import { SubmissionService } from "../../server/community/application/submission-service";
 import { StagedMediaService } from "../../server/community/application/staged-media-service";
@@ -16,6 +16,17 @@ import {
 import { submissionInput } from "../../server/community/domain/contracts";
 import { communityServices } from "../../server/community/infrastructure/composition";
 import { moderationDecisions } from "../../server/moderation/infrastructure/composition";
+import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
+
+// A label listing an animal-derived allergen holds a submission for review
+// (joining a line or giving a flavor never does, milestone 7).
+const HOLD = {
+  allergens: {
+    status: "declared" as const,
+    contains: ["milk"],
+    mayContain: [] as string[],
+  },
+};
 
 const id = () => crypto.randomUUID();
 async function setup() {
@@ -24,7 +35,11 @@ async function setup() {
   await env.DB.prepare("UPDATE countries SET iso2='US' WHERE id=?")
     .bind(f.countryId)
     .run();
-  const repo = new SubmissionRepository(env.DB, DEFAULT_LIMITS),
+  const repo = new SubmissionRepository(
+      env.DB,
+      DEFAULT_LIMITS,
+      lineRefresh(env),
+    ),
     staged = new StagedMediaRepository(env.DB, DEFAULT_LIMITS);
   const transformer = new CloudflareImageTransformer(env.IMAGES);
   const media = new StagedMediaService(
@@ -143,7 +158,7 @@ it("publishes atomically from private media, replays keys and rejects package-si
 
 it("holds ambiguous submissions without canonical records and publishes only after operator review", async () => {
   const { repo, media, service, input, actor } = await setup();
-  const held = { ...input, specialtyFlavor: true };
+  const held = { ...input, ...HOLD };
   const checked = await service.preflight(actor, id(), held),
     receipt = (await repo.get(checked.receiptId!))!;
   await media.upload(actor, {
@@ -187,20 +202,21 @@ it("holds ambiguous submissions without canonical records and publishes only aft
       .bind(receipt.planned_product_id)
       .first("n"),
   ).toBe(1);
+  // Every flavor counts (milestone 7); operators can exclude one later.
   expect(
     await env.DB.prepare(
       "SELECT ranking_eligible FROM product_categories WHERE product_id=?",
     )
       .bind(receipt.planned_product_id)
       .first("ranking_eligible"),
-  ).toBe(0);
+  ).toBe(1);
 });
 
 it("accepts an owned follow-up once, preserving original evidence and requiring another operator review", async () => {
   const { f, repo, media, service, transformer, input, actor } = await setup();
   const { moderation } = communityServices(env, id);
   const admin = { ...f.users[1]!, administrator: true };
-  const held = { ...input, specialtyFlavor: true };
+  const held = { ...input, ...HOLD };
   const originalId = (await service.preflight(actor, id(), held)).receiptId!;
   const original = (await repo.get(originalId))!;
   const bytes = Uint8Array.from(atob(env.TEST_IMAGES.jpeg), (c) =>
@@ -348,7 +364,7 @@ it("fences a follow-up against an operator decision made during finalization", a
   const { f, repo, media, service, input, actor } = await setup();
   const { moderation } = communityServices(env, id);
   const admin = { ...f.users[1]!, administrator: true };
-  const held = { ...input, specialtyFlavor: true };
+  const held = { ...input, ...HOLD };
   const originalId = (await service.preflight(actor, id(), held)).receiptId!;
   const bytes = Uint8Array.from(atob(env.TEST_IMAGES.jpeg), (c) =>
     c.charCodeAt(0),
@@ -411,7 +427,7 @@ it("replays a preflight key with the receipt's actual outcome", async () => {
   const held = {
     ...input,
     name: `Replay held ${tag()}`,
-    specialtyFlavor: true,
+    ...HOLD,
   };
   const key = id(),
     first = await service.preflight(actor, key, held);
@@ -508,7 +524,7 @@ it("publishes unconfirmed ingredients as not checked yet, and an operator's choi
   const seasonal = {
     ...unconfirmed,
     name: `Seasonal ${tag()}`,
-    specialtyFlavor: true,
+    ...HOLD,
   };
   const second = await publish(seasonal);
   expect(second.checked.decision).toBe("NEEDS_REVIEW");
@@ -633,27 +649,14 @@ it("publishes a front-photo-only product with its ingredients not checked yet", 
 it("offers every placeable food, marking the ones not on in a country yet", async () => {
   const { f } = await setup();
   const [on, off] = f.categories as [string, string];
-  const shelf = `shelf-${tag()}`,
-    aisle = `aisle-${tag()}`,
+  const aisle = `aisle-${tag()}`,
     root = `root-${tag()}`;
   await env.DB.batch([
     env.DB.prepare(
-      "INSERT INTO categories(id,parent_id,slug,name,is_rankable,created_at,updated_at) VALUES(?,NULL,?,?,0,1,1),(?,?,?,?,0,1,1),(?,?,?,?,0,1,1)",
-    ).bind(
-      root,
-      root,
-      root,
-      aisle,
-      root,
-      aisle,
-      "Meat",
-      shelf,
-      aisle,
-      shelf,
-      "Beef",
-    ),
+      "INSERT INTO categories(id,parent_id,slug,name,is_rankable,created_at,updated_at) VALUES(?,NULL,?,?,0,1,1),(?,?,?,?,0,1,1)",
+    ).bind(root, root, root, aisle, root, aisle, "Beef"),
     env.DB.prepare("UPDATE categories SET parent_id=? WHERE id IN (?,?)").bind(
-      shelf,
+      aisle,
       on,
       off,
     ),
@@ -675,14 +678,10 @@ it("offers every placeable food, marking the ones not on in a country yet", asyn
     choices.foods.find((c) => c.id === categoryId);
   expect(food(off)).toMatchObject({
     inCountry: false,
-    aisle: { name: "Meat" },
-    // The aisle's only shelf is not shown as its own level.
-    shelf: { name: "Beef", silent: true },
+    aisle: { name: "Beef", silent: false },
   });
   expect(food(off)!.otherNames[0]).toMatch(/^mince/);
-  expect(choices.shelves.flatMap((a) => a.shelves).map((s) => s.id)).toContain(
-    shelf,
-  );
+  expect(choices.aisles.map((a) => a.id)).toContain(aisle);
 });
 
 it("checks large brands without a hard limit, ranks alias matches first and keeps the matched brand", async () => {
@@ -700,19 +699,23 @@ it("checks large brands without a hard limit, ranks alias matches first and keep
       "INSERT INTO brand_aliases(normalized_name,alias,brand_id) VALUES(?,?,?)",
     ).bind(normalizeName(brand), brand, brandId),
     ...Array.from({ length: 230 }, (_, i) =>
-      env.DB.prepare(
-        "INSERT INTO products(id,country_id,brand_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
-      ).bind(
+      productRows(
+        env.DB,
         `bulk-${t}-${i}`,
         f.countryId,
-        brandId,
         `Style Shreds ${i}`,
         `bulk-${t}-${i}`,
+        brandId,
       ),
+    ).flat(),
+    ...productRows(
+      env.DB,
+      aliased,
+      f.countryId,
+      "Classic Mozz",
+      aliased,
+      brandId,
     ),
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,brand_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
-    ).bind(aliased, f.countryId, brandId, "Classic Mozz", aliased),
     env.DB.prepare(
       "INSERT INTO product_aliases(id,product_id,alias,created_at) VALUES(?,?,?,1)",
     ).bind(id(), aliased, "Mozzarella Style Shreds"),

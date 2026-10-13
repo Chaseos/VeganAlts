@@ -1,7 +1,8 @@
-// Re-parents existing local or staging categories into the three-level launch
-// tree (Food → aisle → shelf → food) through the audited, reversible taxonomy
-// update path. Run the taxonomy seed first so every group exists. Production
-// never needs this: it receives the shape from the seed.
+// Re-parents existing local or staging categories into the two-level launch
+// tree (Food → aisle → food, milestone 7) through the audited, reversible
+// taxonomy update path, and retires the emptied shelves and old aisles. Run
+// the taxonomy seed first so every group exists. Production never needs this:
+// it receives the shape from the seed.
 //
 //   npm run taxonomy:reshape:local -- [--apply] [--operator=<user id>]
 //   npm run taxonomy:reshape:staging -- --operator=<allowlisted user id> [--apply]
@@ -16,7 +17,7 @@ import { D1TaxonomyRepository } from "../server/taxonomy/infrastructure/d1-taxon
 import { ModerationRepository } from "../server/community/infrastructure/moderation-repository";
 import { RatingsService } from "../server/ratings/application/service";
 import { D1RatingsRepository } from "../server/ratings/infrastructure/d1-repository";
-import { validateRankingParameters } from "../server/ranking/domain/policy";
+import { scoringFromEnv } from "../server/ranking/infrastructure/line-refresh";
 import { rebuildSearchIndex } from "../server/catalog/infrastructure/search-index";
 import { reshapeTaxonomy } from "../server/taxonomy/application/reshape";
 import { SYSTEM_ACTOR_ID } from "../server/community/domain/policy";
@@ -71,13 +72,14 @@ try {
   });
   try {
     const db = proxy.env.DB;
+    // Both rankings' priors, so rebuilt lines keep the environment's Tastiest.
+    const scoring = scoringFromEnv(target.vars);
     const ratings = new RatingsService(
       new D1RatingsRepository(db),
-      validateRankingParameters({
-        priorMean: Number(target.vars.RANKING_PRIOR_MEAN),
-        priorStrength: Number(target.vars.RANKING_PRIOR_STRENGTH),
-      }),
+      scoring.closest,
       uuid,
+      Date.now,
+      scoring.tastiest,
     );
     const service = new TaxonomyService(
       new D1TaxonomyRepository(new ModerationRepository(db), uuid),
@@ -119,7 +121,8 @@ try {
           applied: apply,
           moves: result.moves,
           actions: result.actions,
-          outsideDepthThree: result.outside,
+          retired: result.retired,
+          outsideDepth: result.outside,
         },
         null,
         2,

@@ -3,7 +3,10 @@ import {
   searchExpression,
   catalogPage,
 } from "../../server/catalog/application/service";
-import { safeReturnDestination } from "../../server/auth/domain/return-destination";
+import {
+  publicBrowseDestination,
+  safeReturnDestination,
+} from "../../server/auth/domain/return-destination";
 import {
   decodeRatingCursor,
   encodeRatingCursor,
@@ -71,6 +74,47 @@ it("validates scores, opaque private cursors, and same-origin application return
     "/us/milk\n",
   ])
     expect(safeReturnDestination(value, origin)).toBe("/account");
+});
+
+it("cancels sign-in to public pages while preserving the successful task destination", () => {
+  const origin = "https://staging.veganalts.com";
+  const product = "/gb/products/oat-milk?food=milk#rate-milk";
+  for (const path of [
+    "/",
+    "/gb/milk?stores=tesco",
+    product,
+    "/us/brand/oatly",
+    "/users/example",
+    "/about/rankings",
+  ])
+    expect(publicBrowseDestination(path, origin)).toBe(path);
+  for (const path of [
+    "/account",
+    "/my-ratings",
+    "/contribute/product?action=photo",
+    "/admin/moderation",
+    "/my-contributions/submission/123",
+  ])
+    expect(publicBrowseDestination(path, origin)).toBe("/");
+  const task = "/add-product?country=gb&food=milk&line=oat";
+  expect(safeReturnDestination(task, origin)).toBe(task);
+  expect(publicBrowseDestination(task, origin)).toBe("/gb");
+  expect(
+    publicBrowseDestination(
+      "/propose-category.data?country=CA&_routes=routes%2Fpropose-category",
+      origin,
+    ),
+  ).toBe("/ca");
+  expect(publicBrowseDestination("/add-product?country=us", origin)).toBe("/");
+  for (const path of [
+    null,
+    "//evil.test/gb/milk",
+    "/api/auth/sign-out",
+    "/sign-in",
+    "/add-product?country=../sign-in",
+    "/add-product?country=%2F%2Fevil.test",
+  ])
+    expect(publicBrowseDestination(path, origin)).toBe("/");
 });
 
 it("keeps a pending action bound to its original formula, category and tab until expiry", () => {

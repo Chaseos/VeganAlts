@@ -39,7 +39,10 @@ it("seeds approved demonstration data repeatably without changing real contribut
       if (product.notes) expect(dataNotes).toContain(product.notes);
     }
   }
-  for (const category of seedCategories) {
+  // Every food the demo catalog uses holds at least three demo products; the
+  // other launch foods start empty.
+  const used = new Set(seedProducts.flatMap((product) => product.categories));
+  for (const category of seedCategories.filter((c) => used.has(c.slug))) {
     const count = await env.DB.prepare(
       "SELECT COUNT(*) AS count FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=? AND p.development_only=1",
     )
@@ -172,4 +175,53 @@ it("preserves accepted moderation, current formula changes, and real ratings whe
   expect(
     (await env.DB.prepare("PRAGMA foreign_key_check").all()).results,
   ).toEqual([]);
+});
+
+it("seeds lines in several flavors with Tastiest answers, dated back from the seed run", async () => {
+  const now = Date.now();
+  const statements = developmentSeedStatements("test", now);
+  for (let i = 0; i < statements.length; i += 50)
+    await env.DB.batch(
+      statements
+        .slice(i, i + 50)
+        .map((s) => env.DB.prepare(s.sql).bind(...s.params)),
+    );
+  // A yogurt in three flavors and nuggets in two, among others.
+  const lines = (
+    await env.DB.prepare(
+      `SELECT f.canonical_name AS name,COUNT(*) AS flavors,SUM(p.flavor IS NOT NULL) AS labeled
+      FROM products p JOIN product_families f ON f.id=p.product_family_id
+      WHERE p.development_only=1 GROUP BY f.id HAVING COUNT(*)>1 ORDER BY name`,
+    ).all<{ name: string; flavors: number; labeled: number }>()
+  ).results;
+  expect(lines).toEqual(
+    expect.arrayContaining([
+      { name: "Greek Style Yogurt", flavors: 3, labeled: 2 },
+      { name: "Nuggs", flavors: 2, labeled: 1 },
+      { name: "Soymilk", flavors: 2, labeled: 1 },
+    ]),
+  );
+  // Tasters share across a line's flavors, so each counts once there.
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM ratings WHERE enjoyment IS NOT NULL",
+    ).first<number>("n"),
+  ).toBeGreaterThan(100);
+  const activity = (await env.DB.prepare(
+    "SELECT MIN(updated_at) AS first,MAX(updated_at) AS last,SUM(updated_at>=?) AS week FROM ratings WHERE user_id IN (SELECT id FROM user WHERE email LIKE '%@demo.veganalts.invalid')",
+  )
+    .bind(now - 7 * 86_400_000)
+    .first<{ first: number; last: number; week: number }>())!;
+  // Half a year of ratings, the latest within the week, none in the future.
+  expect(activity.last).toBeLessThanOrEqual(now);
+  expect(activity.first).toBeGreaterThan(now - 181 * 86_400_000);
+  expect(activity.week).toBeGreaterThan(0);
+  // Unrated demo products were added recently, so New has something.
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM products p WHERE p.development_only=1 AND p.published_at>=? AND NOT EXISTS(SELECT 1 FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=p.id)",
+    )
+      .bind(now - 30 * 86_400_000)
+      .first<number>("n"),
+  ).toBeGreaterThan(0);
 });

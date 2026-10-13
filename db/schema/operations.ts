@@ -72,6 +72,9 @@ export const mediaAttempts = sqliteTable(
     }).notNull(),
     leaseExpiresAt: integer("lease_expires_at").notNull(),
     createdAt: integer("created_at").notNull(),
+    // 0: owner-run demo seeding, outside the environment's daily processing
+    // allowance that web uploads share.
+    counted: integer("counted").notNull().default(1),
   },
   (table) => [
     index("ix_media_attempt_recovery").on(table.state, table.leaseExpiresAt),

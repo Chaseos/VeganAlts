@@ -15,6 +15,7 @@ test("canonical photo slots offer add or replace, never an append gallery", asyn
   try {
     await context.addCookies([contributor.cookie]);
     await page.goto("/us/products/beyond-burger");
+    await page.getByText("Add or improve photos", { exact: true }).click();
     const slots = page.locator("section", {
       has: page.getByRole("heading", { name: "Product photos" }),
     });
@@ -48,11 +49,13 @@ test("canonical photo slots offer add or replace, never an append gallery", asyn
     ).toBeVisible();
     if (label?.startsWith("Add")) {
       await page.goto("/us/products/beyond-burger");
+      await page.getByText("Add or improve photos", { exact: true }).click();
       await expect(
         slots.getByRole("link", { name: "Suggest a better photo: Prepared" }),
       ).toBeVisible();
     }
     await page.goto("/us/products/beyond-burger");
+    await page.getByText("Add or improve photos", { exact: true }).click();
     await slots.screenshot({ path: testInfo.outputPath("photo-slots.png") });
   } finally {
     await page.close();

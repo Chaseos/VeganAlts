@@ -5,6 +5,9 @@ export const id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 export const key = z.string().regex(/^[a-zA-Z0-9_-]{16,100}$/);
 export const shortText = z.string().trim().min(2).max(160);
 export const note = z.string().trim().min(8).max(2000);
+// A flavor label on top of a line's base recipe (milestone 7): "Strawberry",
+// "Spicy". The database holds the same rule.
+export const flavorText = z.string().trim().min(1).max(40);
 // An ISO 3166-1 alpha-2 code in either case; the country must also be active.
 export const countryCode = z
   .string()
@@ -52,19 +55,22 @@ export const evidence = z
 export const certification = z
   .object({ name: shortText, sourceUrl: evidenceUrl })
   .strict();
-// A food suggested inside a submission (milestone 6): its shelf and any other
+// A food suggested inside a submission (milestone 6): its aisle and any other
 // names. It is decided by an operator before the product publishes.
 export const newFood = z
   .object({
     name: shortText,
-    shelfId: id,
+    aisleId: id,
     aliases: z.array(shortText).max(10).optional(),
   })
   .strict();
 const unique = <T>(a: T[]) => new Set(a).size === a.length;
 // Milestone 6: name, brand, country, a food and a front photo are required;
 // everything else is optional. New fields have no defaults, so an earlier
-// payload normalizes (and fingerprints) exactly as before.
+// payload normalizes (and fingerprints) exactly as before. Milestone 7: a
+// product joins a recipe line of its brand and country (`lineId`) or starts
+// one (`lineName`, which defaults to the product name), with an optional
+// flavor label.
 export const submissionInput = z
   .object({
     name: shortText,
@@ -86,18 +92,19 @@ export const submissionInput = z
     manufacturerLabel: manufacturerLabel.optional(),
     // Applied once the product is published (the rating to its primary food).
     rating: z.number().int().min(1).max(5).optional(),
+    // The optional Tastiest answer, saved with the rating.
+    enjoyment: z.number().int().min(1).max(5).optional(),
     retailerIds: z
       .array(id)
       .max(10)
       .refine(unique, "Choose each store once.")
       .optional(),
     allergens: allergenDeclaration.optional(),
-    productFamilyId: id.optional(),
-    relatedProductId: id.optional(),
-    relationship: z
-      .enum(["variant", "specialty_flavor", "companion", "successor"])
-      .optional(),
-    specialtyFlavor: z.boolean().default(false),
+    flavor: flavorText.optional(),
+    lineId: id.optional(),
+    lineName: shortText.optional(),
+    // Sold only part of the year; absent, it follows the food's season.
+    seasonal: z.boolean().optional(),
     followUp: z
       .object({
         submissionId: id,
@@ -112,8 +119,12 @@ export const submissionInput = z
     return foods >= 1 && foods <= 5;
   }, "Choose the food it replaces (up to five foods).")
   .refine(
-    (v) => Boolean(v.relatedProductId) === Boolean(v.relationship),
-    "Choose both a related product and relationship.",
+    (v) => !(v.lineId && v.lineName),
+    "Choose a listed line or name a new one, not both.",
+  )
+  .refine(
+    (v) => v.enjoyment === undefined || v.rating !== undefined,
+    "Say how close it is before how tasty it is.",
   );
 export type SubmissionInput = z.infer<typeof submissionInput>;
 export const submissionIdentity = z
@@ -123,10 +134,13 @@ export const submissionIdentity = z
     country: countryCode,
     // Duplicate matching ignores foods; they may still be undecided.
     categoryIds: z.array(id).max(5).default([]),
+    // The line chosen for a new flavor: its flavors are siblings, never
+    // near-duplicates.
+    lineId: id.optional(),
   })
   .strict();
 export type SubmissionIdentity = z.infer<typeof submissionIdentity> &
-  Pick<SubmissionInput, "productFamilyId" | "relatedProductId" | "retailerIds">;
+  Pick<SubmissionInput, "retailerIds">;
 export type Evidence = z.infer<typeof evidence>;
 export type Certification = z.infer<typeof certification>;
 export type VeganStatus = z.infer<typeof veganStatus>;
@@ -138,6 +152,29 @@ export interface Actor {
   id: string;
   accountState: string;
   administrator: boolean;
+}
+// A brand Add a product suggests (milestone 7), with its products here.
+export interface BrandSuggestion {
+  id: string;
+  slug: string;
+  name: string;
+  // Its other names, so typing one is never offered as a new brand.
+  aliases: string[];
+  productCount: number;
+}
+// A brand's line in a country, as "Already listed from [brand]" shows it.
+export interface BrandLine {
+  lineId: string;
+  name: string;
+  foods: { id: string; slug: string; name: string }[];
+  flavors: {
+    productId: string;
+    slug: string;
+    name: string;
+    flavor: string | null;
+    // Slugs of the line's foods this flavor is listed in.
+    foods: string[];
+  }[];
 }
 export interface Candidate {
   id: string;
@@ -183,6 +220,9 @@ export const reportReasons = {
     "duplicate",
     "discontinued",
     "wrong_category",
+    // Milestone 7: a flavor that doesn't exist, or one in the wrong line.
+    "flavor_not_real",
+    "wrong_line",
     "misleading",
     "other",
   ],
@@ -269,11 +309,12 @@ export const changeInput = z.discriminatedUnion("kind", [
     .object({
       ...changeBase,
       kind: z.literal("relationships"),
+      // A different line of the same brand and country; null keeps the
+      // current one, since every product is in a line.
       productFamilyId: id.nullable(),
       relatedProductId: id.optional(),
-      relationship: z
-        .enum(["variant", "specialty_flavor", "companion", "successor"])
-        .optional(),
+      // Flavors are lines now (milestone 7), so only these links remain.
+      relationship: z.enum(["companion", "successor"]).optional(),
       categoryEligibility: z
         .array(z.object({ categoryId: id, eligible: z.boolean() }).strict())
         .max(20),
@@ -289,8 +330,22 @@ export const changeInput = z.discriminatedUnion("kind", [
     .strict(),
   // Established facts: the display name (identity and URL stay stable), a
   // search alias, the manufacturer source and an additional category.
+  // A rename may also set the flavor label; null marks the line's original.
   z
-    .object({ ...changeBase, kind: z.literal("rename"), name: shortText })
+    .object({
+      ...changeBase,
+      kind: z.literal("rename"),
+      name: shortText,
+      flavor: flavorText.nullable().optional(),
+    })
+    .strict(),
+  // Sold only part of the year (milestone 7).
+  z
+    .object({
+      ...changeBase,
+      kind: z.literal("seasonal"),
+      seasonal: z.boolean(),
+    })
     .strict(),
   z
     .object({ ...changeBase, kind: z.literal("alias"), alias: shortText })
@@ -384,6 +439,30 @@ export const consolidationInput = z
   })
   .strict();
 export type ConsolidationInput = z.infer<typeof consolidationInput>;
+// Operator line tools (milestone 7), on a product's moderation view: move the
+// product to another line of its brand and country, or to a new line, and
+// rename its line. Both are audited and reversible.
+export const lineMoveInput = z
+  .object({
+    expectedRevision: z.number().int().nonnegative(),
+    lineId: id.optional(),
+    newLineName: shortText.optional(),
+    note,
+  })
+  .strict()
+  .refine(
+    (v) => Boolean(v.lineId) !== Boolean(v.newLineName),
+    "Choose a line or name a new one.",
+  );
+export type LineMoveInput = z.infer<typeof lineMoveInput>;
+export const lineRenameInput = z
+  .object({
+    expectedRevision: z.number().int().nonnegative(),
+    name: shortText,
+    note,
+  })
+  .strict();
+export type LineRenameInput = z.infer<typeof lineRenameInput>;
 export const inboxFilter = z.enum([
   "all",
   "confirmation",

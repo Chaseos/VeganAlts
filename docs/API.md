@@ -361,7 +361,7 @@ The approved [milestone 5 specification](MILESTONE_5_PLAN.md) extends the v1 con
 
 | Method | Path beneath `/api/v1`                                                   | Contract                                                                                                                                                                                                                                                                                                                               |
 | ------ | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/suggest?country=us&q=…`                                                | Instant answers. Queries normalize like search; fewer than two letters or digits return empty lists. Up to 5 foods (aisle, product and ranked counts, #1 product with score and Early flag, top 3 for the preview) and 5 products (food, rank, score). Shared cache for 300 seconds; separate rate limit.                              |
+| GET    | `/suggest?country=us&q=…`                                                | Instant answers. Queries normalize like search; fewer than three letters or digits return empty lists. Up to 5 foods (aisle, product and ranked counts, #1 product with score and Early flag, top 3 for the preview) and 5 products (food, rank, score). Shared cache for 300 seconds; separate rate limit.                            |
 | GET    | `/categories/:slug?country=&view=&stores=&freeFrom=&page=&unrankedPage=` | `view` is `top`, `trending`, `new`, `most-rated` or `detail-<key>` for an active dimension of that food. `stores` lists retailer slugs active in the country's markets (at most 10, combined with OR); `freeFrom` lists keys from the country's allergen list. Rows add `topRank`, detail means, allergen summary and matching stores. |
 | GET    | `/products/:slug?country=&version=&food=`                                | `food` selects the food the page is about (one of the product's active foods). Adds per-food ranks, detail scores, the recent-eaters score when above its minimum, the score distribution, the allergen declaration and active retailers only.                                                                                         |
 
@@ -417,13 +417,13 @@ The approved [milestone 6 specification](MILESTONE_6_PLAN.md) extends the v1 con
 
 Decisions follow the milestone 6 moderation policy. A submission with `newFood` is always held, and its review detail adds `pendingFood: {id, name, status}`. A suggested food that cannot be added (its name already names a food, the shelf is wrong, the country is closed or the daily allowance is used) returns `NEEDS_CHANGES` with that reason, at preflight and again at finalization. Approving a submission whose suggested food is undecided returns 409 `FOOD_PENDING`; accepting that food as non-rankable while products wait returns 409 `FOOD_HAS_WAITING_PRODUCTS`.
 
-| Method | Path beneath `/api/v1`                              | Contract                                                                                                                                                                                                                                                                            |
-| ------ | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/community/options?country=&q=`                    | Adds `foods` (every active food with `id`, `slug`, display `name` in the country, `otherNames`, `aisle`, `shelf` with a `silent` flag, and `inCountry`), `shelves` (every active shelf grouped by aisle, empty ones included) and the country's `allergens`.                        |
-| GET    | `/community/identity-matches?country=&brand=&name=` | Read-only duplicate candidates while typing (`id`, `slug`, `name`, `brand`, `countryId`, `exact`). Authenticated, private/no-store, on the instant-answer rate limit; never challenged. Brand and name need two characters each; a name that is only a package size has no matches. |
-| POST   | `/submissions/check-identity`                       | `categoryIds` is optional.                                                                                                                                                                                                                                                          |
-| POST   | `/category-proposals`                               | `{name, shelfId, country, explanation?, exampleProducts[], aliases[]}`. `CATEGORY_EXISTS` names the existing food in its message.                                                                                                                                                   |
-| POST   | `/admin/taxonomy/categories/:id/countries`          | `{expectedRevision, countries: iso2[], note}`: the full list of countries where a food is on. Removing a country where the food has visible products returns 409 `FOOD_HAS_PRODUCTS`. Audited and reversible.                                                                       |
+| Method | Path beneath `/api/v1`                              | Contract                                                                                                                                                                                                                                                                                      |
+| ------ | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/community/options?country=&q=`                    | Adds `foods` (every active food with `id`, `slug`, display `name` in the country, `otherNames`, `aisle`, `shelf` with a `silent` flag, and `inCountry`), `shelves` (every active shelf grouped by aisle, empty ones included) and the country's `allergens`.                                  |
+| GET    | `/community/identity-matches?country=&brand=&name=` | Read-only duplicate candidates while typing (`id`, `slug`, `name`, `brand`, `countryId`, `exact`). Authenticated, private/no-store, on the instant-answer rate limit; never challenged. The brand needs two characters and the name three; a name that is only a package size has no matches. |
+| POST   | `/submissions/check-identity`                       | `categoryIds` is optional.                                                                                                                                                                                                                                                                    |
+| POST   | `/category-proposals`                               | `{name, shelfId, country, explanation?, exampleProducts[], aliases[]}`. `CATEGORY_EXISTS` names the existing food in its message.                                                                                                                                                             |
+| POST   | `/admin/taxonomy/categories/:id/countries`          | `{expectedRevision, countries: iso2[], note}`: the full list of countries where a food is on. Removing a country where the food has visible products returns 409 `FOOD_HAS_PRODUCTS`. Audited and reversible.                                                                                 |
 
 **Public reads.**
 
@@ -438,3 +438,97 @@ Decisions follow the milestone 6 moderation policy. A submission with `newFood` 
 - Category proposal review detail adds `country`, the shelf path and `waitingProducts`. Submission review detail adds `pendingFood`. Inbox items add `waitingFor: "food"`.
 
 **Caching.** Switching a food on in a country (by publication, operator change or proposal decision) purges that country's listings, because the aisle bar appears on every page.
+
+## Milestone 7 contract additions
+
+The [milestone 7 specification](MILESTONE_7_PLAN.md) extends the v1 contracts. Every POST keeps the milestone 3 and 4 rules. Nothing is released, so fields that milestone 7 retires are removed rather than deprecated.
+
+**Taxonomy shape.**
+
+- **Aisles replace shelves.** Foods sit directly under aisles, so every `shelf`/`shelfId` becomes `aisle`/`aisleId`:
+  - category proposals: `{name, aisleId, country, explanation?, exampleProducts[], aliases[]}`;
+  - `newFood` in submissions: `{name, aisleId, aliases[]}`;
+  - `GET /community/options`: `foods[].aisle` and the list `aisles`.
+- **No shelf parameter.** Aisle pages no longer accept `shelf`.
+- **Reserved slug.** `brand` is a reserved food slug.
+
+**Order and seasons.**
+
+- **Order.** Aisle lists (the country chrome, home, aisle pages, `/community/options`) come in the country's popularity order: counted ratings, then products, then the aisle's `position`, then name. Foods within an aisle follow the same order.
+- **Seasonal foods.** Food reads add `season: {start, end} | null` (months 1–12).
+- **Seasonal products.** Product reads and ranking rows add `seasonal`. `SubmissionInput` adds an optional `seasonal` boolean, which defaults to the food's season. `ProductChange` adds kind `seasonal` (tier 2).
+- **Administration.** `POST /admin/taxonomy/categories/:id` accepts `position` for an aisle and `season` for a food.
+
+**Ratings.** `PUT /ratings` adds an optional `enjoyment`: an integer 1–5, or `null` to clear it. As with the other optional fields, leaving it out leaves the stored value unchanged. `overallSimilarity` stays required. The response's `rating` and `GET /me/rating-state` include `enjoyment`.
+
+**Ranking reads.** `GET /categories/:slug?country=&view=…`
+
+- **Views.** `view` adds `tastiest`. Detail views keep the `detail-<key>` form; their labels read "Closest …".
+- **Each row is a line:**
+  - `{lineId, name, brand, leadProduct: {id, slug, versionId, imageId}, flavorCount, closestRank, tastiestRank, score, people, early, isNew, trending, badges, details, matchedStores, allergens?, flavors, hiddenFlavorCount}`;
+  - `trending` marks one of the food's top three trending lines, outside the Trending view;
+  - `score`, `people` and `early` describe the ranking being viewed;
+  - `allergens` appears only for a single-flavor line.
+- **Each entry in `flavors`:**
+  - `{productId, slug, name, flavor, label, score, ratingCount, isNew, allergens, matchesFilters}`;
+  - `label` is the flavor, "Original" for a line's one unflavored product, or the product name when several have no flavor;
+  - `ratingCount` counts answers in the ranking being viewed;
+  - `score` is shown from 5 answers, otherwise `null`.
+- **Discontinued flavors** are never returned.
+- **Filtered views** return only lines with a matching flavor, with `hiddenFlavorCount` for the flavors that don't match.
+
+**Product reads.** `GET /products/:slug?country=&food=` adds:
+
+- `flavor`;
+- `line: {id, name, closest: {rank, of, score, people}, tastiest: {rank, of, score, people}}` for the chosen food;
+- `flavorScores` (this product's own Closest and Tastiest scores and counts);
+- `otherFlavors[]`.
+
+The `related` list keeps only companion and successor links.
+
+**Search and brands.**
+
+| Method | Path beneath `/api/v1`   | Contract                                                                                                                                                                                                                                                                         |
+| ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/suggest?country=&q=`   | Adds up to 3 `brands`: `{slug, name, productCount}`. Foods keep their #1 line and score; products show their line's rank.                                                                                                                                                        |
+| GET    | `/search?country=&q=`    | Adds up to 10 `brands`, in the same shape.                                                                                                                                                                                                                                       |
+| GET    | `/brands/:slug?country=` | The brand page: `{brand: {slug, name}, productCount, aisles: [{aisle, foods: [{food, lines: [{lineId, name, closestRank, tastiestRank, score, flavors}]}]}]}`. A brand with no visible products in the country returns 200 with `availability: {here: false}`. Shared-cacheable. |
+
+- **Document URL.** The brand page's document URL is `/{cc}/brand/{slug}`.
+- **Brand matching.** Brand matching in search, suggest and the contribution lookups uses one shared matcher:
+  - names and other names;
+  - a word prefix, a substring, or within two edits for names of five or more letters;
+  - candidates come from the `brand_search` trigram index (sharing three letters in a row with the typed text) and, from five letters, from the brands whose name or other name starts with a typed word's first letter (for typos such as "Dayia" that share no trigram), so a lookup needs three letters or digits and never reads every brand;
+  - a brand's `productCount` is its active and under-review products in the country, counted only for the brands that match.
+
+**Contribution lookups.** Each is authenticated, private/no-store and on the instant-answer rate limit.
+
+| Method | Path beneath `/api/v1`                                    | Contract                                                                                                                                                                                                                                                                                                                                        |
+| ------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/community/brands?country=&q=`                           | Up to 8 brand suggestions `{id, slug, name, aliases, productCount}` from 3 characters, including brands with nothing in the country yet (`productCount` 0). Text equal to a suggestion's name or alias is never offered as a new brand.                                                                                                         |
+| GET    | `/community/brands/:id/lines?country=&food=`              | The brand's lines in the country, those in `food` (a food ID) first: `{lineId, name, foods: [{id, slug, name}], flavors: [{productId, slug, name, flavor, foods}]}`, where a flavor's `foods` are the slugs of the foods it's listed in. Discontinued and archived products are left out.                                                       |
+| GET    | `/community/identity-matches?country=&brand=&name=&line=` | Looser: any one shared word of three or more letters qualifies a similar product, and the brand matches through the shared matcher. `exact` is unchanged. These matches are for display only; the near-duplicate hold keeps its milestone 6 rule and skips the chosen line's flavors. The optional `line` leaves that line's other flavors out. |
+
+**Submissions.** `SubmissionInput` changes as follows.
+
+- **Added:** `flavor` (optional, at most 40 characters); `enjoyment` (optional, 1–5, only with `rating`), saved with the rating once the product is live; `seasonal` (optional), which otherwise follows the primary food's season.
+- **Choosing a line.** Either `lineId`, an existing line of the same brand and country, or optionally `lineName` for a new line, which defaults to the product name. Giving both returns 422.
+- **Removed:** `productFamilyId`, `relatedProductId`, `relationship` and `specialtyFlavor`. A payload that carries them returns 422.
+- **Holds.** Joining a line never holds a submission on its own.
+
+**Changes, reports and administration.**
+
+- **`rename`** accepts an optional `flavor` (`null` marks the line's original) and stays tier 2.
+- **`seasonal`** takes `{seasonal: boolean}` and is tier 2.
+- **`relationships`** no longer accepts `variant` or `specialty_flavor`. A change of `productFamilyId` is tier 3.
+- **Product reports** add the reasons `flavor_not_real` and `wrong_line`.
+- **`POST /admin/moderation/products/:id/line`** takes `{expectedRevision, lineId | newLineName, note}` and moves a product to another line of the same brand and country, or to a new line. A reversal moves it back and leaves a new line in place, empty.
+- **`POST /admin/moderation/products/:id/line-name`** takes `{expectedRevision, name, note}` and renames the product's line. It is anchored on a product (whose revision fences it) so the existing reversal endpoint, which reverses product actions, can undo it.
+- **`GET /admin/moderation/products/:id`** adds `lines: [{lineId, name, flavorCount}]`, the brand's lines in the product's country.
+- **Both line actions** are audited, reversible through the existing reversal endpoint, and rescore the affected lines.
+
+**Caching.**
+
+- **Brand tags.** Cache tags add `brand:<cc>:<slug>`.
+- **What a product change purges.** A product change purges its brand page. A line move or rename purges the products of both lines, their foods' listings and the brand page.
+- **Ratings** still never purge.

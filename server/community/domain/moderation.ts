@@ -25,6 +25,10 @@ export interface ProductSnapshot {
   countryCode: string;
   brandId: string | null;
   familyId: string | null;
+  // The product's recipe line's name and its own flavor label (milestone 7).
+  lineName: string | null;
+  flavor: string | null;
+  seasonal: boolean;
   lifecycleStatus: string;
   veganStatus: VeganStatus;
   manufacturerLabel: ManufacturerLabel;
@@ -80,8 +84,15 @@ export interface CatalogPatch {
   currentVersionId?: string;
   classification?: { versionId: string; value: FormulaClassification | null };
   familyId?: string | null;
+  // A line an operator move created, inserted before the product joins it.
+  // Reversal leaves it in place, empty.
+  newLine?: { id: string; name: string; slug: string };
+  // The name of the product's line (operator rename, milestone 7).
+  lineName?: { lineId: string; name: string };
   categories?: { categoryId: string; eligible: boolean }[];
   name?: string;
+  flavor?: string | null;
+  seasonal?: boolean;
   // Identity key for a new name; added on acceptance, never removed.
   identityKey?: string;
   manufacturerUrl?: string | null;

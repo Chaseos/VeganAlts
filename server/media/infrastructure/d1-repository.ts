@@ -15,7 +15,12 @@ const DAILY_ATTEMPTS = 50;
 const RETRIES = 3;
 
 export class D1MediaRepository implements MediaRepository {
-  constructor(private readonly db: D1Database) {}
+  // `counted: false` is owner-run demo seeding: its attempts stay outside the
+  // daily allowance web uploads share, and it isn't held to it.
+  constructor(
+    private readonly db: D1Database,
+    private readonly options: { counted?: boolean } = {},
+  ) {}
   async reserve(
     input: UploadInput,
     id: string,
@@ -59,15 +64,17 @@ export class D1MediaRepository implements MediaRepository {
     attemptId: string,
     now: number,
   ): Promise<UploadAttempt | null> {
+    const counted = this.options.counted === false ? 0 : 1;
     const results = await this.db.batch([
       this.db
         .prepare(
-          "UPDATE media_uploads SET state='processing',active_attempt_id=?,failure_code=NULL,updated_at=? WHERE id=? AND state IN ('pending','failed') AND (SELECT COUNT(*) FROM media_attempts WHERE created_at>=?)+(SELECT COUNT(*) FROM staged_attempts WHERE created_at>=?) < ? AND (SELECT COUNT(*) FROM media_attempts WHERE upload_id=?) < ?",
+          "UPDATE media_uploads SET state='processing',active_attempt_id=?,failure_code=NULL,updated_at=? WHERE id=? AND state IN ('pending','failed') AND (?=0 OR (SELECT COUNT(*) FROM media_attempts WHERE created_at>=? AND counted=1)+(SELECT COUNT(*) FROM staged_attempts WHERE created_at>=?) < ?) AND (SELECT COUNT(*) FROM media_attempts WHERE upload_id=?) < ?",
         )
         .bind(
           attemptId,
           now,
           uploadId,
+          counted,
           Math.floor(now / DAY_MS) * DAY_MS,
           Math.floor(now / DAY_MS) * DAY_MS,
           DAILY_ATTEMPTS,
@@ -76,9 +83,9 @@ export class D1MediaRepository implements MediaRepository {
         ),
       this.db
         .prepare(
-          "INSERT INTO media_attempts(id,upload_id,state,lease_expires_at,created_at) SELECT ?,id,'processing',?,? FROM media_uploads WHERE id=? AND state='processing' AND active_attempt_id=?",
+          "INSERT INTO media_attempts(id,upload_id,state,lease_expires_at,created_at,counted) SELECT ?,id,'processing',?,?,? FROM media_uploads WHERE id=? AND state='processing' AND active_attempt_id=?",
         )
-        .bind(attemptId, now + LEASE_MS, now, uploadId, attemptId),
+        .bind(attemptId, now + LEASE_MS, now, counted, uploadId, attemptId),
     ]);
     return results[0]!.meta.changes ? { id: attemptId, uploadId } : null;
   }

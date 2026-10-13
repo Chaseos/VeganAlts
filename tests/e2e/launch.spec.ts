@@ -42,10 +42,13 @@ test("robots, sitemap and structured data describe only public pages", async ({
   expect(sitemap.headers()["content-type"]).toContain("application/xml");
   const xml = await sitemap.text();
   expect(xml).toContain("/us/ground-beef</loc>");
-  // Every active country lists its own food and aisle pages; shelves redirect.
+  // Every active country lists its own food and aisle pages, and only the
+  // aisles holding a food that is on there.
   expect(xml).toContain("/gb/ground-beef</loc>");
-  expect(xml).toContain("/ca/meat</loc>");
-  expect(xml).not.toContain("/us/beef</loc>");
+  expect(xml).toContain("/ca/beef</loc>");
+  expect(xml).toContain("/us/condiments</loc>");
+  expect(xml).not.toContain("/ca/condiments</loc>");
+  expect(xml).toContain("/us/dips-and-spreads</loc>");
   expect(xml).toMatch(/\/us\/products\/[a-z0-9-]+<\/loc>/);
   expect(xml).toContain("/about/rankings</loc>");
   expect(xml).not.toMatch(/\/(api|account|admin|my-ratings|sign-in)\b/);

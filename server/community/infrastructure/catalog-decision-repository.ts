@@ -24,9 +24,13 @@ import {
   type DecisionGuard,
 } from "./moderation-repository";
 import type { ReceiptWrite } from "./receipts";
+import type { LineRefresh } from "../../ranking/infrastructure/line-refresh";
 
 export class CatalogDecisionRepository {
-  constructor(private readonly repository: ModerationRepository) {}
+  constructor(
+    private readonly repository: ModerationRepository,
+    private readonly lines: LineRefresh,
+  ) {}
   private get db() {
     return this.repository.db;
   }
@@ -46,21 +50,24 @@ export class CatalogDecisionRepository {
         409,
       );
   }
+  /** A line a product may join: its own brand's, in its own country. */
+  async assertLine(snapshot: ProductSnapshot, lineId: string) {
+    const line = await this.db
+      .prepare(
+        "SELECT id FROM product_families WHERE id=? AND country_id=? AND brand_id IS ?",
+      )
+      .bind(lineId, snapshot.countryId, snapshot.brandId)
+      .first();
+    if (!line)
+      throw new ApplicationError(
+        "INVALID_FAMILY",
+        "Choose a line of this brand in this country.",
+      );
+  }
   async validateRelationships(snapshot: ProductSnapshot, input: ProductChange) {
     if (input.kind !== "relationships") return;
-    if (input.productFamilyId) {
-      const family = await this.db
-        .prepare(
-          "SELECT id FROM product_families WHERE id=? AND (brand_id IS NULL OR brand_id=?)",
-        )
-        .bind(input.productFamilyId, snapshot.brandId)
-        .first();
-      if (!family)
-        throw new ApplicationError(
-          "INVALID_FAMILY",
-          "Choose a family belonging to this brand.",
-        );
-    }
+    if (input.productFamilyId)
+      await this.assertLine(snapshot, input.productFamilyId);
     if (input.relatedProductId) {
       const related = await this.db
         .prepare(
@@ -71,7 +78,7 @@ export class CatalogDecisionRepository {
       if (!related)
         throw new ApplicationError(
           "INVALID_RELATIONSHIP",
-          "Related variants must belong to this country. Use families for cross-country equivalents.",
+          "Companion and successor products must belong to this country.",
         );
     }
   }
@@ -97,8 +104,12 @@ export class CatalogDecisionRepository {
     };
     if (plan.after.familyId) {
       guard.sql +=
-        " AND EXISTS(SELECT 1 FROM product_families WHERE id=? AND (brand_id IS NULL OR brand_id=?))";
-      guard.values.push(plan.after.familyId, snapshot.brandId);
+        " AND EXISTS(SELECT 1 FROM product_families WHERE id=? AND country_id=? AND brand_id IS ?)";
+      guard.values.push(
+        plan.after.familyId,
+        snapshot.countryId,
+        snapshot.brandId,
+      );
     }
     // Only newly linked products must be visible. Existing links to a later
     // archived duplicate are preserved history and stay valid for reversal.
@@ -292,6 +303,25 @@ export class CatalogDecisionRepository {
           )
           .bind(patch.lifecycleStatus, now, snapshot.id, ...values),
       );
+    // A line an operator move starts, before the product joins it. It
+    // belongs to the product's brand and country.
+    if (patch.newLine)
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO product_families(id,brand_id,country_id,canonical_name,slug,created_at,updated_at) SELECT ?,?,?,?,?,?,? WHERE ${sql} ON CONFLICT(id) DO NOTHING`,
+          )
+          .bind(
+            patch.newLine.id,
+            snapshot.brandId,
+            snapshot.countryId,
+            patch.newLine.name,
+            patch.newLine.slug,
+            now,
+            now,
+            ...values,
+          ),
+      );
     if (patch.familyId !== undefined)
       statements.push(
         this.db
@@ -299,6 +329,37 @@ export class CatalogDecisionRepository {
             `UPDATE products SET product_family_id=?,updated_at=? WHERE id=? AND ${sql}`,
           )
           .bind(patch.familyId, now, snapshot.id, ...values),
+      );
+    // Renaming the product's line touches only the line, so the product's
+    // revision moves explicitly.
+    if (patch.lineName)
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE product_families SET canonical_name=?,updated_at=? WHERE id=? AND ${sql}`,
+          )
+          .bind(patch.lineName.name, now, patch.lineName.lineId, ...values),
+        this.db
+          .prepare(
+            `UPDATE catalog_revisions SET revision=revision+1 WHERE product_id=? AND ${sql}`,
+          )
+          .bind(snapshot.id, ...values),
+      );
+    if (patch.flavor !== undefined)
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE products SET flavor=?,updated_at=? WHERE id=? AND ${sql}`,
+          )
+          .bind(patch.flavor, now, snapshot.id, ...values),
+      );
+    if (patch.seasonal !== undefined)
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE products SET seasonal=?,updated_at=? WHERE id=? AND ${sql}`,
+          )
+          .bind(Number(patch.seasonal), now, snapshot.id, ...values),
       );
     for (const c of patch.categories ?? [])
       statements.push(
@@ -551,6 +612,26 @@ export class CatalogDecisionRepository {
           snapshot.id,
           sql,
           values.filter((v): v is string | number => v !== null),
+        ),
+      );
+    // A change to which flavors count recomputes the product's line, and the
+    // line it leaves.
+    if (
+      patch.currentVersionId ||
+      patch.classification ||
+      patch.lifecycleStatus !== undefined ||
+      patch.familyId !== undefined ||
+      patch.categories?.length ||
+      patch.addedCategories?.length ||
+      patch.removedCategories?.length
+    )
+      statements.push(
+        ...this.lines.statements(
+          {
+            familyIds: [snapshot.familyId, patch.familyId],
+            productIds: [snapshot.id],
+          },
+          now,
         ),
       );
     return statements;

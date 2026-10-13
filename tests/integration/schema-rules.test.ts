@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture } from "./fixtures";
+import { catalogFixture, lineOf, lineStatement, productRows } from "./fixtures";
 import {
+  TAXONOMY_GROUPS,
   TAXONOMY_LEAVES,
   taxonomySeedStatements,
 } from "../../db/seed/taxonomy";
@@ -21,7 +22,7 @@ it("switches foods on where their products are, guards availability and the unch
   const db = env.DB;
   const f = await catalogFixture(db, 2);
   const [food] = f.categories as [string, string];
-  const shelf = `shelf-${id()}`,
+  const aisle = `aisle-${id()}`,
     retired = `retired-${id()}`,
     hidden = `hidden-${id()}`;
   await db.batch([
@@ -29,7 +30,7 @@ it("switches foods on where their products are, guards availability and the unch
       .prepare(
         "INSERT INTO categories(id,slug,name,is_rankable,created_at,updated_at) VALUES(?,?,?,0,1,1)",
       )
-      .bind(shelf, shelf, "Shelf"),
+      .bind(aisle, aisle, "Aisle"),
     // A retired food still follows its visible product.
     db
       .prepare(
@@ -42,11 +43,12 @@ it("switches foods on where their products are, guards availability and the unch
       )
       .bind(f.productId, retired),
     // A hidden product switches nothing on.
+    lineStatement(db, hidden, f.otherCountryId),
     db
       .prepare(
-        "INSERT INTO products(id,country_id,name,slug,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,'hidden',1,1)",
+        "INSERT INTO products(id,country_id,product_family_id,name,slug,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,'hidden',1,1)",
       )
-      .bind(hidden, f.otherCountryId, "Hidden", hidden),
+      .bind(hidden, f.otherCountryId, lineOf(hidden), "Hidden", hidden),
     db
       .prepare(
         "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
@@ -67,7 +69,7 @@ it("switches foods on where their products are, guards availability and the unch
   expect(await countries(db, retired)).toEqual([
     { country: f.countryId, source: "product" },
   ]);
-  expect(await countries(db, shelf)).toEqual([]);
+  expect(await countries(db, aisle)).toEqual([]);
   // Classifications are checked unless written otherwise.
   expect(
     await db
@@ -78,13 +80,13 @@ it("switches foods on where their products are, guards availability and the unch
       .first("ingredients_checked"),
   ).toBe(1);
 
-  // Aisles and shelves are never country-scoped.
+  // Aisles are never country-scoped.
   await expect(
     db
       .prepare(
         "INSERT INTO category_countries(category_id,country_id,source,created_at) VALUES(?,?,'operator',1)",
       )
-      .bind(shelf, f.countryId)
+      .bind(aisle, f.countryId)
       .run(),
   ).rejects.toThrow(/only foods/);
   // A food with a visible product stays on in that country.
@@ -100,11 +102,7 @@ it("switches foods on where their products are, guards availability and the unch
   // A membership in a new country switches the food on there, once.
   const elsewhere = `elsewhere-${id()}`;
   await db.batch([
-    db
-      .prepare(
-        "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-      )
-      .bind(elsewhere, f.otherCountryId, "Elsewhere", elsewhere),
+    ...productRows(db, elsewhere, f.otherCountryId, "Elsewhere", elsewhere),
     db
       .prepare(
         "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
@@ -164,7 +162,7 @@ it("switches foods on where their products are, guards availability and the unch
   ).rejects.toThrow(/CHECK/);
 });
 
-it("seeds launch foods in every launch country without undoing an operator's change", async () => {
+it("seeds each launch food in its launch countries without undoing an operator's change", async () => {
   const seed = () =>
     env.DB.batch(
       taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
@@ -178,7 +176,16 @@ it("seeds launch foods in every launch country without undoing an operator's cha
       .all<{ slug: string; n: number }>()
   ).results;
   expect(launch).toHaveLength(TAXONOMY_LEAVES.length);
-  expect(launch.every((r) => r.n === 6)).toBe(true);
+  // The ten launch foods are on everywhere; the United States launch foods
+  // (milestone 7) start only there.
+  const expected = new Map<string, number>(
+    TAXONOMY_LEAVES.map((leaf) => [
+      leaf.slug,
+      "countries" in leaf ? leaf.countries.length : 6,
+    ]),
+  );
+  expect(launch.every((r) => r.n === expected.get(r.slug))).toBe(true);
+  expect(launch.filter((r) => r.n === 6)).toHaveLength(10);
   // An operator switched Bacon off in New Zealand: reseeding keeps it off.
   const bacon = (await env.DB.prepare(
     "SELECT id FROM categories WHERE slug='bacon'",
@@ -209,12 +216,18 @@ it("seeds launch foods in every launch country without undoing an operator's cha
       .bind(bacon, nz)
       .first("n"),
   ).toBe(0);
-  // The starter shelves exist and are never country-scoped.
+  // The 18 aisles sit directly under Food and are never country-scoped.
   expect(
     await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM categories c JOIN categories p ON p.id=c.parent_id WHERE c.slug IN ('turkey-shelf','lamb-shelf','fish-shelf','shellfish-shelf','cream-shelf','yogurt-shelf','ice-cream-shelf','hard-and-grated') AND c.is_rankable=0",
-    ).first("n"),
-  ).toBe(8);
+      "SELECT COUNT(*) AS n FROM categories c JOIN categories p ON p.id=c.parent_id AND p.slug='food' WHERE c.is_rankable=0 AND c.slug IN (SELECT value FROM json_each(?))",
+    )
+      .bind(
+        JSON.stringify(
+          TAXONOMY_GROUPS.filter((g) => g.parent === "food").map((g) => g.slug),
+        ),
+      )
+      .first("n"),
+  ).toBe(18);
   expect(
     await env.DB.prepare(
       "SELECT COUNT(*) AS n FROM category_countries cc JOIN categories c ON c.id=cc.category_id WHERE c.is_rankable=0",

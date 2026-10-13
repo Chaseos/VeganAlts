@@ -20,6 +20,17 @@ import {
 } from "../../server/community/infrastructure/recovery";
 import { readMedia } from "../../server/media/infrastructure/media-reader";
 import { moderationDecisions } from "../../server/moderation/infrastructure/composition";
+import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
+
+// A label listing an animal-derived allergen holds a submission for review
+// (joining a line or giving a flavor never does, milestone 7).
+const HOLD = {
+  allergens: {
+    status: "declared" as const,
+    contains: ["milk"],
+    mayContain: [] as string[],
+  },
+};
 
 const id = () => crypto.randomUUID(),
   bytes = () =>
@@ -33,7 +44,7 @@ async function setup(overrides: Partial<typeof DEFAULT_LIMITS> = {}) {
   const limits = { ...DEFAULT_LIMITS, ...overrides },
     clock = { now: Date.now() },
     staged = new StagedMediaRepository(env.DB, limits),
-    receipts = new SubmissionRepository(env.DB, limits),
+    receipts = new SubmissionRepository(env.DB, limits, lineRefresh(env)),
     storage = new R2EvidenceStorage(env.MEDIA_BUCKET),
     transformer = new CloudflareImageTransformer(env.IMAGES);
   const media = new StagedMediaService(
@@ -148,16 +159,15 @@ it("enforces staged byte and concurrent attempt quotas before expensive processi
 it("fences expired processing leases and removes delayed writes while retaining held evidence until expiration", async () => {
   const { actor, service, input, media, staged, clock, storage } =
     await setup();
-  const receipt = (
-    await service.preflight(actor, id(), { ...input, specialtyFlavor: true })
-  ).receiptId!;
+  const receipt = (await service.preflight(actor, id(), { ...input, ...HOLD }))
+    .receiptId!;
   const photo = await media.upload(actor, {
     receiptId: receipt,
     slot: "front",
     idempotencyKey: id(),
     bytes: bytes(),
   });
-  await service.finalize(actor, receipt, { ...input, specialtyFlavor: true });
+  await service.finalize(actor, receipt, { ...input, ...HOLD });
   const full = (await staged.attachments(receipt))[0]!.derivatives[0]!.key;
   expect(
     await mayDeleteCommunityObject(env.DB, full, clock.now + DAY * 2),

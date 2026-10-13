@@ -27,8 +27,16 @@ const slug = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+const DAY = 86_400_000;
+
+/**
+ * The demo catalog. Ratings, trials and publication dates are dated back
+ * from `now` (the seed run), so Trending, New and Early read as they would on
+ * a live site whenever it's seeded; fixed dates aged out of the windows.
+ */
 export function developmentSeedStatements(
   environment: string,
+  now = Date.now(),
 ): SeedStatement[] {
   if (
     environment !== "local" &&
@@ -115,23 +123,31 @@ export function developmentSeedStatements(
     );
   }
   const families = new Set<string>();
-  for (const product of seedProducts) {
+  // Tasters who rated each product, in catalog order unless it says.
+  const raters = (index: number) =>
+    seedProducts[index]!.ratings ?? [28, 14, 4, 0][index % 4]!;
+  const published = (index: number) =>
+    now - (raters(index) ? 200 : 4 + (index % 20)) * DAY;
+  for (const [index, product] of seedProducts.entries()) {
     const brandId = seedId(`brand:${product.brand}`);
     const productId = seedId(`product:${product.slug}`);
     const dataNotes = [DEVELOPMENT_NOTICE, product.notes]
       .filter(Boolean)
       .join(" ");
-    if (product.family && !families.has(product.family)) {
-      families.add(product.family);
+    // Every product belongs to a line; one without a named line starts its
+    // own, named after it (milestone 7).
+    const family = product.family ?? `us-${product.slug}`;
+    if (!families.has(family)) {
+      families.add(family);
       add(
         db
           .insert(schema.productFamilies)
           .values({
-            id: seedId(`family:${product.family}`),
+            id: seedId(`family:${family}`),
             brandId,
-            slug: product.family,
-            canonicalName:
-              product.family === "just-eggs" ? "Just Egg" : "Oatly Oatmilk",
+            countryId: seedId("country:US"),
+            slug: family,
+            canonicalName: product.familyName ?? product.name,
             ...times,
           })
           .onConflictDoNothing(),
@@ -144,10 +160,9 @@ export function developmentSeedStatements(
           id: productId,
           countryId: seedId("country:US"),
           brandId,
-          productFamilyId: product.family
-            ? seedId(`family:${product.family}`)
-            : null,
+          productFamilyId: seedId(`family:${family}`),
           name: product.name,
+          flavor: product.flavor ?? null,
           slug: product.slug,
           manufacturerUrl: product.source,
           veganStatus: "vegan",
@@ -155,8 +170,10 @@ export function developmentSeedStatements(
           developmentOnly: 1,
           sourceCheckedAt: SOURCE_CHECKED_AT,
           dataNotes,
-          publishedAt: SOURCE_CHECKED_AT,
-          ...times,
+          // Rated products have been listed a while; unrated ones are new.
+          publishedAt: published(index),
+          createdAt: published(index),
+          updatedAt: published(index),
         })
         .onConflictDoNothing(),
     );
@@ -214,22 +231,6 @@ export function developmentSeedStatements(
       })
       .onConflictDoNothing(),
   );
-  for (const [from, to] of [
-    ["oatly-original", "oatly-full-fat"],
-    ["just-egg", "just-egg-folded"],
-  ]) {
-    add(
-      db
-        .insert(schema.productRelationships)
-        .values({
-          fromProductId: seedId(`product:${from}`),
-          toProductId: seedId(`product:${to}`),
-          relationType: "variant",
-          createdAt: SOURCE_CHECKED_AT,
-        })
-        .onConflictDoNothing(),
-    );
-  }
   // Synthetic accounts have reserved .invalid addresses and no credentials or
   // sessions. Deterministic IDs and insert-only contributions preserve all real
   // staging accounts, edits, verification records, and formula history.
@@ -259,6 +260,18 @@ export function developmentSeedStatements(
         .onConflictDoNothing(),
     );
   }
+  // When a taster rated: products on every third pattern rose over the last
+  // six weeks (so Trending has something to show); the rest spread over half
+  // a year, so the quarter before is the baseline.
+  const ratedAt = (index: number, pattern: number) => {
+    const days =
+      pattern % 3 === 0
+        ? (index * 3 + pattern) % 42
+        : (index * 11 + pattern * 7) % 175;
+    return now - days * DAY - ((index * 37 + pattern * 13) % 1440) * 60_000;
+  };
+  // A product's typical Tastiest answer, independent of how close it is.
+  const tasty = [4, 5, 3, 4, 2];
   function sampleRatings(
     versionId: string,
     categories: readonly string[],
@@ -267,10 +280,16 @@ export function developmentSeedStatements(
   ) {
     for (let index = 0; index < count; index++) {
       const userId = seedId(`taster:${index}`);
+      const at = ratedAt(index, pattern);
       add(
         db
           .insert(schema.productTrials)
-          .values({ userId, productVersionId: versionId, ...times })
+          .values({
+            userId,
+            productVersionId: versionId,
+            createdAt: at,
+            updatedAt: at,
+          })
           .onConflictDoNothing(),
       );
       for (const [categoryIndex, category] of categories.entries()) {
@@ -287,7 +306,16 @@ export function developmentSeedStatements(
                 1,
                 5 - ((index + pattern + categoryIndex) % ((pattern % 3) + 2)),
               ),
-              ...times,
+              // Two in three tasters also say how tasty it is.
+              enjoyment:
+                (index + pattern) % 3 === 0
+                  ? null
+                  : Math.min(
+                      5,
+                      Math.max(1, tasty[pattern % 5]! + (index % 3) - 1),
+                    ),
+              createdAt: at,
+              updatedAt: at,
             })
             .onConflictDoNothing(),
         );
@@ -298,7 +326,7 @@ export function developmentSeedStatements(
     sampleRatings(
       seedId(`formula:${product.slug}:current`),
       product.categories,
-      [28, 14, 4, 0][index % 4]!,
+      raters(index),
       index,
     ),
   );

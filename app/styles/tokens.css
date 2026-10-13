@@ -6,6 +6,13 @@
  */
 :root {
   color-scheme: light;
+  --va-google-bg: #ffffff;
+  --va-google-line: #747775;
+  --va-google-text: #1f1f1f;
+  --va-apple-bg: #000000;
+  --va-apple-light: block;
+  --va-apple-dark: none;
+
   --va-ground: #f3f4ee;
   --va-surface: #ffffff;
   --va-surface-2: #eef0e8;
@@ -46,6 +53,13 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
+    --va-google-bg: #131314;
+    --va-google-line: #8e918f;
+    --va-google-text: #e3e3e3;
+    --va-apple-bg: #ffffff;
+    --va-apple-light: none;
+    --va-apple-dark: block;
+
     --va-ground: #0e1612;
     --va-surface: #18231d;
     --va-surface-2: #22302a;
@@ -86,6 +100,12 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
+  --va-google-bg: #131314;
+  --va-google-line: #8e918f;
+  --va-google-text: #e3e3e3;
+  --va-apple-bg: #ffffff;
+  --va-apple-light: none;
+  --va-apple-dark: block;
   --va-ground: #0e1612;
   --va-surface: #18231d;
   --va-surface-2: #22302a;

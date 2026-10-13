@@ -4,6 +4,7 @@ import {
   DRAFT_TTL,
   basicsErrors,
   clearDraft,
+  editDraft,
   emptyDraft,
   extrasErrors,
   forCountry,
@@ -11,6 +12,7 @@ import {
   loadDraft,
   saveDraft,
   toSubmission,
+  withoutFlavor,
 } from "../../app/lib/product-draft";
 import { submissionInput } from "../../server/community/domain/contracts";
 
@@ -23,31 +25,60 @@ const memory = () => {
     removeItem: (key: string) => void values.delete(key),
   };
 };
+// A new brand: something else from it is the only choice.
 const basics = () => ({
-  ...emptyDraft("gb", { kind: "existing", id: "ground-beef" }, 1),
+  ...emptyDraft("gb", { food: { kind: "existing", id: "ground-beef" } }, 1),
   brand: "Richmond",
+  brandChosen: true,
+  line: { kind: "new" as const },
   name: "Meat Free Sausages",
 });
 
 describe("product draft", () => {
   it("asks only for the basics on step 1, in field order", () => {
+    // The product's own fields wait until it's clear what it is.
     expect(Object.keys(basicsErrors(emptyDraft("US"), {}))).toEqual([
       "food",
       "brand",
+    ]);
+    expect(
+      basicsErrors({ ...basics(), brandChosen: false }, { front: true }),
+    ).toEqual({ brand: expect.stringMatching(/Choose the brand/) });
+    expect(
+      Object.keys(basicsErrors({ ...basics(), brandId: "b", line: null }, {})),
+    ).toEqual(["line"]);
+    expect(Object.keys(basicsErrors({ ...basics(), name: "" }, {}))).toEqual([
       "name",
       "front",
     ]);
     expect(basicsErrors(basics(), { front: true })).toEqual({});
-    // A suggested food needs a name and a shelf.
+    // A new flavor needs its flavor; a flavored new product its line's name.
+    expect(
+      Object.keys(
+        basicsErrors(
+          {
+            ...basics(),
+            line: { kind: "flavor", lineId: "l", lineName: "Sausages" },
+          },
+          { front: true },
+        ),
+      ),
+    ).toEqual(["flavor"]);
+    expect(
+      Object.keys(
+        basicsErrors({ ...basics(), flavor: "Spicy" }, { front: true }),
+      ),
+    ).toEqual(["lineName"]);
+    // A suggested food needs a name and an aisle.
     expect(
       basicsErrors(
         {
           ...basics(),
-          food: { kind: "new", name: "", shelfId: "", otherNames: [] },
+          food: { kind: "new", name: "", aisleId: "", otherNames: [] },
         },
         { front: true },
       ),
-    ).toMatchObject({ food: expect.any(String), shelf: expect.any(String) });
+    ).toMatchObject({ food: expect.any(String), aisle: expect.any(String) });
   });
 
   it("checks optional answers only when given", () => {
@@ -69,9 +100,68 @@ describe("product draft", () => {
       country: "GB",
       categoryIds: ["ground-beef"],
       imageSlots: ["front"],
-      specialtyFlavor: false,
     });
     expect(submissionInput.safeParse(minimal).success).toBe(true);
+  });
+
+  it("joins a chosen line or names a flavored product's own line", () => {
+    const flavor = editDraft(
+      {
+        ...basics(),
+        brandId: "richmond",
+        line: {
+          kind: "flavor",
+          lineId: "line-1",
+          lineName: "Meat Free Sausages",
+        },
+        name: "",
+        nameEdited: false,
+      },
+      { flavor: "Caramelised Onion" },
+    );
+    // The name follows the flavor until typed over.
+    expect(flavor.name).toBe("Meat Free Sausages, Caramelised Onion");
+    expect(toSubmission(flavor, { front: true })).toMatchObject({
+      name: "Meat Free Sausages, Caramelised Onion",
+      flavor: "Caramelised Onion",
+      lineId: "line-1",
+    });
+    expect(
+      editDraft(editDraft(flavor, { name: "Own name" }), { flavor: "Smoky" })
+        .name,
+    ).toBe("Own name");
+    // Emptied to retype, it stays empty rather than refilling.
+    expect(editDraft(flavor, { name: "" }).name).toBe("");
+    // A line chosen after the flavor was typed fills the name at once.
+    expect(
+      editDraft({ ...flavor, name: "", nameEdited: false, flavor: "Smoky" }, {})
+        .name,
+    ).toBe("Meat Free Sausages, Smoky");
+    // Something else, flavored: its line drops the flavor's words.
+    const spicy = editDraft(
+      editDraft(basics(), { name: "Meat Free Sausages Spicy" }),
+      { flavor: "Spicy" },
+    );
+    expect(spicy.lineName).toBe("Meat Free Sausages");
+    const input = toSubmission(spicy, { front: true });
+    expect(input).toMatchObject({
+      flavor: "Spicy",
+      lineName: "Meat Free Sausages",
+    });
+    expect(input).not.toHaveProperty("lineId");
+    expect(submissionInput.safeParse(input).success).toBe(true);
+    // A new brand unchooses the brand and the line chosen with it.
+    expect(editDraft(flavor, { brand: "Linda" })).toMatchObject({
+      brandChosen: false,
+      brandId: null,
+      line: null,
+    });
+    expect(withoutFlavor("Oatly Oatmilk, Strawberry", "Strawberry")).toBe(
+      "Oatly Oatmilk",
+    );
+    expect(withoutFlavor("Vanilla Bean Ice Cream", "vanilla bean")).toBe(
+      "Ice Cream",
+    );
   });
 
   it("carries every extra, a suggested food and other foods within five", () => {
@@ -79,11 +169,13 @@ describe("product draft", () => {
     draft.food = {
       kind: "new",
       name: "Sausage rolls",
-      shelfId: "pork",
+      aisleId: "pork",
       otherNames: ["bangers"],
     };
     draft.alsoReplaces = ["a", "b", "c", "d", "e"];
     draft.rating = 4;
+    draft.enjoyment = 5;
+    draft.seasonal = true;
     draft.retailerIds = ["tesco"];
     draft.ingredients = {
       url: "https://brand.example/i",
@@ -95,11 +187,13 @@ describe("product draft", () => {
     const input = toSubmission(draft, { front: true, ingredients: true });
     expect(input).toMatchObject({
       categoryIds: ["a", "b", "c", "d"],
-      newFood: { name: "Sausage rolls", shelfId: "pork", aliases: ["bangers"] },
+      newFood: { name: "Sausage rolls", aisleId: "pork", aliases: ["bangers"] },
       imageSlots: ["front", "ingredients"],
       noKnownAnimalIngredients: true,
       manufacturerLabel: "plant_based",
       rating: 4,
+      enjoyment: 5,
+      seasonal: true,
       retailerIds: ["tesco"],
       allergens: { status: "declared", contains: ["soy"], mayContain: [] },
     });
@@ -129,7 +223,8 @@ describe("product draft", () => {
     expect(loadDraft(storage, 1_000 + DRAFT_TTL + 1)).toBeNull();
     storage.setItem(DRAFT_KEY, "{not json");
     expect(loadDraft(storage, 1_000)).toBeNull();
-    storage.setItem(DRAFT_KEY, JSON.stringify({ v: 2 }));
+    // A draft saved before lines (version 1) is ignored.
+    storage.setItem(DRAFT_KEY, JSON.stringify({ ...basics(), v: 1 }));
     expect(loadDraft(storage, 1_000)).toBeNull();
     clearDraft(storage);
     expect(storage.values.size).toBe(0);
@@ -152,16 +247,18 @@ describe("product draft", () => {
 });
 
 describe("moving a draft to another country", () => {
-  it("keeps only the stores, allergens and related products the new country offers", () => {
+  it("keeps only the stores, allergens and line the new country offers", () => {
     const draft = {
-      ...emptyDraft("US", { kind: "existing", id: "ground-beef" }, 1),
+      ...emptyDraft(
+        "US",
+        {
+          food: { kind: "existing", id: "ground-beef" },
+          brand: { id: "b", name: "Beyond" },
+          line: { lineId: "us-line", lineName: "Beyond Beef" },
+        },
+        1,
+      ),
       retailerIds: ["us-store", "both"],
-      variants: {
-        familyId: "family",
-        relatedId: "us-product",
-        relationship: "variant" as const,
-        specialtyFlavor: false,
-      },
       allergens: {
         status: "declared" as const,
         contains: ["soy", "celery"],
@@ -182,8 +279,9 @@ describe("moving a draft to another country", () => {
         contains: ["soy"],
         mayContain: ["mustard"],
       },
-      // A family belongs to the brand; a related product to the country.
-      variants: { familyId: "family", relatedId: "", relationship: "" },
+      // The brand is shared; a line is one country's.
+      brandId: "b",
+      line: null,
     });
   });
 });

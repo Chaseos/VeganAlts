@@ -260,6 +260,7 @@ export class QueueDecisionRepository {
       ...(product?.categories.map((c) => c.categoryId) ?? []),
       ...(product?.relationships.map((r) => r.productId) ?? []),
       input.productFamilyId,
+      input.lineId,
       input.relatedProductId,
       input.retailerId,
       ...(Array.isArray(input.categoryIds) ? input.categoryIds : []),

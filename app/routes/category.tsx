@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Link, redirect } from "react-router";
+import { Link, redirect, useLocation } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   catalogPage,
@@ -14,7 +14,8 @@ import {
 import { EmptyState } from "../components/ui/feedback";
 import { Pagination } from "../components/ui/navigation";
 import { ButtonLink } from "../components/ui/button";
-import { CheckThePackage } from "../components/ui/badges";
+import { CheckThePackage, SeasonBadge } from "../components/ui/badges";
+import { seasonOf } from "@server/taxonomy/domain/season";
 import { FoodIcon } from "../components/icons/food-icons";
 import {
   FeaturedSwap,
@@ -23,7 +24,7 @@ import {
   sortNote,
 } from "../components/catalog/ranking-list";
 import { categorySummary } from "../lib/summaries";
-import { formatScore, joinList, plural } from "../lib/format";
+import { formatScore, joinList, plural, withArticle } from "../lib/format";
 import {
   breadcrumbs,
   countryAlternates,
@@ -38,14 +39,14 @@ import {
   parseCountryCode,
   productPath,
 } from "@server/catalog/domain/markets";
-import { Breadcrumb } from "../components/ui/navigation";
+import { Breadcrumb, TabLinks } from "../components/ui/navigation";
 import { AislePanel } from "../components/catalog/aisle-panel";
 import { PageShell } from "../components/layout/page-shell";
 import {
   FreeFromChecklist,
   SortMenu,
   StoreChecklist,
-  resultCount,
+  RankingResultCount,
 } from "../components/catalog/ranking-filters";
 import {
   filteredHref,
@@ -68,26 +69,20 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   return publicLoader(async () => {
     const url = new URL(request.url);
     const market = await catalog.market(country);
-    // Aisles and shelves are groups: an aisle has its own page, a shelf opens
-    // its aisle with that shelf selected, and Food itself is the home page.
+    // Aisles are groups with their own page; a deeper group (a retired shelf
+    // from the three-level shape) opens its aisle, and Food itself is the
+    // home page. The public boundary drops the old `?shelf=` parameter.
     if (!(await catalog.summary(market, params.categorySlug)).isRankable) {
       const place = await catalog.aisle(market, params.categorySlug);
       if (place.kind === "root") throw redirect(homePath(country));
-      if (place.kind === "shelf")
-        throw redirect(
-          `${foodPath(country, place.aisleSlug)}${place.shelfSlug ? `?shelf=${place.shelfSlug}` : ""}`,
-          { status: 302, headers: { "Cache-Control": "private, no-store" } },
-        );
-      const shelf = url.searchParams.get("shelf");
-      if (shelf !== null && !place.shelves.some((s) => s.slug === shelf))
-        throw redirect(foodPath(country, place.aisle.slug), {
+      if (place.kind === "group")
+        throw redirect(foodPath(country, place.aisleSlug), {
           status: 302,
           headers: { "Cache-Control": "private, no-store" },
         });
       return {
         ...place,
         market,
-        shelf,
         origin: env.APP_URL,
         staging: env.APP_ENV !== "production",
       };
@@ -212,9 +207,10 @@ function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
               itemList(
                 origin,
                 `Top vegan alternatives to ${data.category.name}`,
-                data.ranked.map((p) => ({
-                  name: p.name,
-                  path: productPath(data.market.code, p.slug),
+                // Each line, linking its lead flavor.
+                data.ranked.map((line) => ({
+                  name: line.name,
+                  path: productPath(data.market.code, line.leadProduct.slug),
                 })),
                 (data.page - 1) * CATALOG_PAGE_SIZE + 1,
               ),
@@ -259,12 +255,7 @@ function AislePage({ data }: { data: AisleData }) {
           { label: data.aisle.name },
         ]}
       />
-      <AislePanel
-        country={data.market.code}
-        data={data}
-        shelf={data.shelf}
-        mode="page"
-      />
+      <AislePanel country={data.market.code} data={data} mode="page" />
     </PageShell>
   );
 }
@@ -327,6 +318,7 @@ function FoodRanking({ data }: { data: FoodData }) {
 function FoodRankingList({ data }: { data: FoodData }) {
   const code = data.market.code;
   const food = data.category.name;
+  const season = seasonOf(data.category.seasonStart, data.category.seasonEnd);
   const filtered = hasFilters(data.filters);
   const labels = Object.fromEntries(
     data.allergenOptions.map((option) => [option.key, option.label]),
@@ -335,32 +327,47 @@ function FoodRankingList({ data }: { data: FoodData }) {
     stores: data.storeOptions.map((store) => store.slug),
     freeFrom: data.allergenOptions.map((option) => option.key),
   });
+  // The two rankings sit in the toggle; the other sorts reorder the lines
+  // and never change a score.
+  const tastiestView = data.view === "tastiest";
+  const ranking = data.view === "top" || tastiestView;
   const sorts = [
-    { view: "top", label: "Closest match", hint: "The ranking" },
-    { view: "trending", label: "Trending", hint: "Rising this week" },
+    {
+      view: ranking ? data.view : "top",
+      label: "Ranking",
+      hint: tastiestView ? "Tastiest" : "Closest to the original",
+    },
+    { view: "trending", label: "Trending", hint: "Rising this quarter" },
     { view: "new", label: "Newest", hint: "Recently added" },
     ...data.questions.map((question) => ({
       view: `detail-${question.key}`,
-      label: `Best ${question.label.toLowerCase()}`,
+      label: `Closest ${question.label.toLowerCase()}`,
       hint: "Detail score",
     })),
-    { view: "most-rated", label: "Most rated", hint: "Most ratings" },
+    { view: "most-rated", label: "Most rated", hint: "Most people" },
   ];
   const activeDetail = data.view.startsWith("detail-")
     ? data.view.slice(7)
     : null;
   const question = data.questions.find((q) => q.key === activeDetail);
-  // The #1 card only heads Closest match on its first page.
+  const rankOf = (line: (typeof data.ranked)[number]) =>
+    tastiestView ? line.tastiestRank : line.closestRank;
+  // Each ranking's #1 card heads its first page, once it has one.
+  const first = data.ranked[0];
   const featured =
-    data.view === "top" && data.page === 1 ? data.ranked[0] : undefined;
+    ranking && data.page === 1 && first && rankOf(first) !== null
+      ? first
+      : undefined;
   const rows = featured ? data.ranked.slice(1) : data.ranked;
   const freeLabel = data.filters.freeFrom
     .map((key) => `${(labels[key] ?? key).toLowerCase()}-free`)
     .join(", ");
   const flag =
-    featured?.topRank === 1
-      ? "#1 swap"
-      : `Closest match${freeLabel ? ` · ${freeLabel}` : ""}`;
+    featured && rankOf(featured) === 1
+      ? tastiestView
+        ? "Tastiest #1"
+        : "#1 swap"
+      : `${tastiestView ? "Tastiest" : "Closest match"}${freeLabel ? ` · ${freeLabel}` : ""}`;
   const clearHref = foodPath(code, data.category.slug);
   const aislePath = data.place.aisle
     ? foodPath(code, data.place.aisle.slug)
@@ -371,9 +378,7 @@ function FoodRankingList({ data }: { data: FoodData }) {
       phoneBack={{
         to: aislePath,
         label: data.place.aisle?.name ?? "All foods",
-        context: [data.place.aisle?.name, data.place.shelf?.name]
-          .filter(Boolean)
-          .join(" · "),
+        context: data.place.aisle?.name ?? "",
       }}
       phoneTitle={
         <p className="va-ranking__phone-title" aria-hidden="true">
@@ -406,47 +411,55 @@ function FoodRankingList({ data }: { data: FoodData }) {
                       },
                     ]
                   : []),
-                ...(data.place.shelf && data.place.aisle
-                  ? [
-                      {
-                        label: data.place.shelf.name,
-                        to: `${aislePath}?shelf=${data.place.shelf.slug}`,
-                      },
-                    ]
-                  : []),
                 { label: food },
               ]}
             />
             <h1 className="va-ranking__title">
               Vegan alternatives to {food.toLowerCase()}
             </h1>
+            {season && (
+              <p className="va-ranking__season">
+                <SeasonBadge season={season} />
+              </p>
+            )}
             <p className="va-ranking__summary">
               {categorySummary({
                 food,
-                rankedCount: data.summary.rankedCount,
-                ratingCount: data.summary.ratingCount,
+                // Tastiest counts only lines and people with its answers.
+                rankedCount: tastiestView
+                  ? data.summary.tastiestCount
+                  : data.summary.rankedCount,
+                people: tastiestView
+                  ? data.summary.tastiestPeople
+                  : data.summary.ratingCount,
                 best: data.summary.best,
+                tastiest: tastiestView,
               })}
             </p>
             <details className="va-ranking__how">
               <summary>How these scores work</summary>
               <p>
                 People who’ve tried a product rate how close it is to{" "}
-                {food.toLowerCase()}, from 1 to 5. That overall score sets the
-                ranking, adjusted for how many ratings a product has. Products
-                with fewer than 10 ratings show an Early badge.
+                {food.toLowerCase()} in the same flavor, from 1 to 5. A brand’s
+                recipe and its flavors rank together: each person counts once,
+                as the average of the flavors they rated, adjusted for how many
+                people rated it. Swaps rated by fewer than 10 people show an
+                Early badge. Tastiest ranks the optional “how tasty is it?”
+                answers the same way and never changes Closest to the original.
                 {data.questions.length > 0 &&
                   ` ${joinList(data.questions.map((q) => q.label.toLowerCase())).replace(/^./, (c) => c.toUpperCase())} are optional detail ratings that explain the score.`}{" "}
-                Trending, Newest and detail sorts never change the ranking, and
+                Trending, Newest and detail sorts never change a ranking, and
                 brands can’t pay to move up.
               </p>
             </details>
           </header>
 
+          <RankingToggle current={data.view} />
           <div className="va-filter-bar">
             <SortMenu options={sorts} current={data.view} />
             <StoreChecklist
               country={code}
+              countryName={data.market.name}
               stores={data.storeOptions}
               filters={data.filters}
             />
@@ -457,16 +470,12 @@ function FoodRankingList({ data }: { data: FoodData }) {
                 filters={data.filters}
               />
             )}
-            <span className="va-filter-bar__count">
-              {resultCount(data.shownCount, data.summary.rankedCount, filtered)}
-            </span>
+            <RankingResultCount
+              shown={data.shownCount}
+              total={data.summary.rankedCount}
+              filtered={filtered}
+            />
           </div>
-          <p className="va-filter-note">
-            Your stores and filters are saved on this device and apply to every
-            ranking. A product shows if it’s commonly found at any of your
-            stores. Stores listed are the ones members report in{" "}
-            {data.market.name}.
-          </p>
           {data.filters.freeFrom.length > 0 && (
             <CheckThePackage>
               Allergens come from package labels, confirmed by members against
@@ -494,14 +503,15 @@ function FoodRankingList({ data }: { data: FoodData }) {
 
           {data.view === "trending" && (
             <p className="va-small va-muted">
-              Trending reflects recent ratings, tries and discussion compared
-              with the week before. It never changes the Top ranking.
+              Trending reflects the people rating, trying and discussing a swap
+              over the last three months, compared with the three months before.
+              It never changes a ranking.
             </p>
           )}
           {data.view === "new" && (
             <p className="va-small va-muted">
               Added in the last {data.newDays} days. Being new never raises a
-              Top score.
+              score.
             </p>
           )}
 
@@ -553,17 +563,18 @@ function FoodRankingList({ data }: { data: FoodData }) {
                   <FeaturedSwap
                     country={code}
                     food={data.category.slug}
-                    product={featured}
+                    line={featured}
+                    rank={rankOf(featured)}
                     flag={flag}
                     labels={labels}
                     stores={data.storeOptions}
                   />
                 </li>
               )}
-              {rows.map((product, index) => {
+              {rows.map((line, index) => {
                 const position = featured ? index + 1 : index;
                 return (
-                  <li key={product.id}>
+                  <li key={line.lineId}>
                     {question && data.qualified === position && (
                       <p className="va-rank-list__divider">
                         These have fewer than 5 answers about{" "}
@@ -571,11 +582,18 @@ function FoodRankingList({ data }: { data: FoodData }) {
                         ranking.
                       </p>
                     )}
+                    {tastiestView && data.qualified === position && (
+                      <p className="va-rank-list__divider">
+                        No one has said how tasty these are yet, so they follow
+                        Closest to the original.
+                      </p>
+                    )}
                     <RankedRow
                       country={code}
                       food={data.category.slug}
-                      product={product}
-                      note={sortNote(data.view, product)}
+                      line={line}
+                      rank={rankOf(line)}
+                      note={sortNote(data.view, line)}
                       activeDetail={activeDetail}
                       labels={labels}
                       stores={data.storeOptions}
@@ -599,21 +617,12 @@ function FoodRankingList({ data }: { data: FoodData }) {
                 These have no ratings, so they aren’t ranked. Tried one?
               </p>
               <ul className="va-unrated-list">
-                {data.unranked.map((product) => (
+                {data.unranked.map((line) => (
                   <UnratedRow
-                    key={product.id}
+                    key={line.lineId}
                     country={code}
                     food={data.category.slug}
-                    product={{
-                      ...product,
-                      publishedAt: product.publishedAt ?? null,
-                      topRank: null,
-                      bayesianScore: null,
-                      ratingCount: 0,
-                      recentRatingCount: 0,
-                      early: false,
-                      matchedStores: [],
-                    }}
+                    line={line}
                     labels={labels}
                   />
                 ))}
@@ -627,7 +636,7 @@ function FoodRankingList({ data }: { data: FoodData }) {
             </section>
           )}
           <p className="va-ranking__add">
-            Know a {food.toLowerCase()} swap that isn’t here?{" "}
+            Know {withArticle(food.toLowerCase())} swap that isn’t here?{" "}
             <Link
               className="va-link"
               to={`/add-product?country=${code}&food=${data.category.slug}`}
@@ -642,6 +651,40 @@ function FoodRankingList({ data }: { data: FoodData }) {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+/**
+ * Closest to the original and Tastiest are the two rankings (milestone 7).
+ * The toggle keeps the filters; any other sort leaves both unselected.
+ */
+function RankingToggle({ current }: { current: string }) {
+  const location = useLocation();
+  const href = (view: string) => {
+    const params = new URLSearchParams(location.search);
+    params.delete("page");
+    params.delete("unrankedPage");
+    if (view === "top") params.delete("view");
+    else params.set("view", view);
+    params.sort();
+    return `${location.pathname}${params.size ? `?${params}` : ""}`;
+  };
+  return (
+    <TabLinks
+      label="Ranking"
+      tabs={[
+        {
+          to: href("top"),
+          label: "Closest to the original",
+          current: current === "top",
+        },
+        {
+          to: href("tastiest"),
+          label: "Tastiest",
+          current: current === "tastiest",
+        },
+      ]}
+    />
   );
 }
 
@@ -661,28 +704,23 @@ function FoodSidebar({
         <FoodIcon slug={aisle.slug} size={20} />
         {aisle.name}
       </Link>
-      {aisle.shelves.map((shelf) => (
-        <div key={shelf.slug}>
-          {!shelf.silent && <p className="va-overline">{shelf.name}</p>}
-          <ul>
-            {shelf.foods.map((food) => (
-              <li key={food.slug}>
-                <Link
-                  to={foodPath(country, food.slug)}
-                  aria-current={food.slug === current ? "page" : undefined}
-                >
-                  <span>{food.name}</span>
-                  {food.score !== null && (
-                    <span className="va-food-side__score">
-                      {formatScore(food.score)}
-                    </span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <ul>
+        {aisle.foods.map((food) => (
+          <li key={food.slug}>
+            <Link
+              to={foodPath(country, food.slug)}
+              aria-current={food.slug === current ? "page" : undefined}
+            >
+              <span>{food.name}</span>
+              {food.score !== null && (
+                <span className="va-food-side__score">
+                  {formatScore(food.score)}
+                </span>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
       {sidebar.otherAisles.length > 0 && (
         <div>
           <p className="va-overline">Other aisles</p>

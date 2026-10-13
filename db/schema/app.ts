@@ -71,6 +71,13 @@ export const categories = sqliteTable(
     revision: integer("revision").notNull().default(0),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
+    // An aisle's default order where a country has no ratings yet (milestone
+    // 7); null sorts after the aisles that have one.
+    position: integer("position"),
+    // A seasonal food's months, 1–12; a season may wrap past December. Both
+    // set or both null (enforced by triggers).
+    seasonStart: integer("season_start"),
+    seasonEnd: integer("season_end"),
   },
   (table) => [
     index("ix_categories_parent_active").on(table.parentId, table.isActive),
@@ -157,6 +164,10 @@ export const brands = sqliteTable(
   ],
 );
 
+// A recipe line (milestone 7): one brand's base recipe in one country and
+// its flavors. Every product belongs to exactly one, sharing its brand and
+// country (enforced by triggers in version 1). `canonical_name` is
+// the line's name.
 export const productFamilies = sqliteTable(
   "product_families",
   {
@@ -164,12 +175,25 @@ export const productFamilies = sqliteTable(
     brandId: text("brand_id").references((): AnySQLiteColumn => brands.id, {
       onDelete: "set null",
     }),
+    // Required for new lines; nullable only because SQLite adds the column
+    // to existing rows.
+    countryId: text("country_id").references(
+      (): AnySQLiteColumn => countries.id,
+      { onDelete: "restrict" },
+    ),
     canonicalName: text("canonical_name").notNull(),
     slug: text("slug").notNull(),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
-  (table) => [uniqueIndex("ux_product_families_slug").on(table.slug)],
+  (table) => [
+    uniqueIndex("ux_product_families_slug").on(table.slug),
+    // A brand's lines in a country (brand pages and Add a product).
+    index("ix_product_families_brand_country").on(
+      table.brandId,
+      table.countryId,
+    ),
+  ],
 );
 
 export const products = sqliteTable(
@@ -189,6 +213,8 @@ export const products = sqliteTable(
       { onDelete: "set null" },
     ),
     name: text("name").notNull(),
+    // The flavor within its line ("Spicy"); empty marks the original.
+    flavor: text("flavor"),
     slug: text("slug").notNull(),
     productType: text("product_type")
       .notNull()
@@ -204,6 +230,8 @@ export const products = sqliteTable(
       .default(sql.raw("'unknown'")),
     manufacturerUrl: text("manufacturer_url"),
     developmentOnly: integer("development_only").notNull().default(0),
+    // Sold for part of the year (milestone 7); never a sign of discontinuation.
+    seasonal: integer("seasonal").notNull().default(0),
     sourceCheckedAt: integer("source_checked_at"),
     dataNotes: text("data_notes"),
     publishedAt: integer("published_at"),
@@ -222,6 +250,8 @@ export const products = sqliteTable(
       desc(table.id),
     ),
     index("ix_products_brand_country").on(table.brandId, table.countryId),
+    // A line's flavors.
+    index("ix_products_family").on(table.productFamilyId),
     index("ix_products_country_status").on(
       table.countryId,
       table.lifecycleStatus,
@@ -423,6 +453,8 @@ export const ratings = sqliteTable(
         onDelete: "restrict",
       }),
     overallSimilarity: integer("overall_similarity").notNull(),
+    // Optional Tastiest answer, 1–5 (milestone 7); never part of Closest.
+    enjoyment: integer("enjoyment"),
     conventionalRecency: text("conventional_recency"),
     isCounted: integer("is_counted").notNull().default(sql.raw("1")),
     moderationNote: text("moderation_note"),
@@ -509,15 +541,14 @@ export const productCategoryStats = sqliteTable(
     recentRatingCount: integer("recent_rating_count")
       .notNull()
       .default(sql.raw("0")),
-    trendingScore: real("trending_score"),
+    // The flavor's Tastiest figures from counted ratings' enjoyment answers.
+    enjoymentCount: integer("enjoyment_count").notNull().default(sql.raw("0")),
+    enjoymentSum: integer("enjoyment_sum").notNull().default(sql.raw("0")),
+    enjoymentScore: real("enjoyment_score"),
     recomputedAt: integer("recomputed_at").notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.productVersionId, table.categoryId] }),
-    index("ix_product_category_stats_trending").on(
-      table.categoryId,
-      desc(table.trendingScore),
-    ),
     index("ix_product_category_stats_top").on(
       table.categoryId,
       desc(table.bayesianScore),
@@ -571,6 +602,113 @@ export const productCategoryDimensionStats = sqliteTable(
   ],
 );
 
+// A line's standing in a food (milestone 7), derived from counted ratings of
+// its eligible flavors' current formulas with one vote per person: each
+// person's mean across the flavors they rated, then the Bayesian score over
+// people. Rebuildable from canonical rows.
+export const familyCategoryStats = sqliteTable(
+  "family_category_stats",
+  {
+    productFamilyId: text("product_family_id")
+      .notNull()
+      .references((): AnySQLiteColumn => productFamilies.id, {
+        onDelete: "cascade",
+      }),
+    categoryId: text("category_id")
+      .notNull()
+      .references((): AnySQLiteColumn => categories.id, {
+        onDelete: "cascade",
+      }),
+    // Closest to the original.
+    peopleCount: integer("people_count").notNull().default(sql.raw("0")),
+    meanSum: real("mean_sum").notNull().default(sql.raw("0")),
+    rawAverage: real("raw_average"),
+    bayesianScore: real("bayesian_score"),
+    // Tastiest, over the optional enjoyment answers.
+    enjoymentPeople: integer("enjoyment_people")
+      .notNull()
+      .default(sql.raw("0")),
+    enjoymentMeanSum: real("enjoyment_mean_sum")
+      .notNull()
+      .default(sql.raw("0")),
+    enjoymentAverage: real("enjoyment_average"),
+    enjoymentScore: real("enjoyment_score"),
+    triedCount: integer("tried_count").notNull().default(sql.raw("0")),
+    recentCount: integer("recent_count").notNull().default(sql.raw("0")),
+    // The flavor that supplies the card's photo and link.
+    leadProductId: text("lead_product_id").references(
+      (): AnySQLiteColumn => products.id,
+      { onDelete: "set null" },
+    ),
+    recomputedAt: integer("recomputed_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.productFamilyId, table.categoryId] }),
+    index("ix_family_category_stats_closest").on(
+      table.categoryId,
+      desc(table.bayesianScore),
+      desc(table.peopleCount),
+    ),
+    index("ix_family_category_stats_tastiest").on(
+      table.categoryId,
+      desc(table.enjoymentScore),
+      desc(table.enjoymentPeople),
+    ),
+    check(
+      "ck_family_category_stats_1",
+      sql.raw(
+        "people_count >= 0 AND enjoyment_people >= 0 AND tried_count >= 0 AND recent_count >= 0",
+      ),
+    ),
+    check(
+      "ck_family_category_stats_2",
+      sql.raw("mean_sum >= 0 AND enjoyment_mean_sum >= 0"),
+    ),
+  ],
+);
+
+// A line's detail answers in a food: people who answered a dimension and the
+// sum of their means across the line's flavors.
+export const familyCategoryDimensionStats = sqliteTable(
+  "family_category_dimension_stats",
+  {
+    productFamilyId: text("product_family_id")
+      .notNull()
+      .references((): AnySQLiteColumn => productFamilies.id, {
+        onDelete: "cascade",
+      }),
+    categoryId: text("category_id")
+      .notNull()
+      .references((): AnySQLiteColumn => categories.id, {
+        onDelete: "cascade",
+      }),
+    dimensionId: text("dimension_id")
+      .notNull()
+      .references((): AnySQLiteColumn => categoryRatingDimensions.id, {
+        onDelete: "cascade",
+      }),
+    peopleCount: integer("people_count").notNull(),
+    meanSum: real("mean_sum").notNull(),
+    recomputedAt: integer("recomputed_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.productFamilyId, table.categoryId, table.dimensionId],
+    }),
+    index("ix_family_category_dimension_stats_category").on(
+      table.categoryId,
+      table.dimensionId,
+    ),
+    // Means are fractional, so the bounds allow for rounding.
+    check(
+      "ck_family_category_dimension_stats_1",
+      sql.raw(
+        "people_count > 0 AND mean_sum BETWEEN people_count - 0.000001 AND people_count * 5 + 0.000001",
+      ),
+    ),
+  ],
+);
+
 // Counted ratings by when the rater last ate the original and by overall
 // score: the recent-eaters score and the score distribution. Context only.
 export const productCategoryFamiliarityStats = sqliteTable(
@@ -613,13 +751,18 @@ export const productCategoryFamiliarityStats = sqliteTable(
   ],
 );
 
-export const productCategoryDailyStats = sqliteTable(
-  "product_category_daily_stats",
+// One row per line, food, day and person with activity there (milestone 7):
+// counted ratings of the line's eligible flavors that day and their
+// similarity sum, a trial and a visible comment. Kept for the Trending window
+// and its baseline (180 days) so each person counts once across the window.
+// Derived hourly from canonical rows.
+export const familyCategoryDailyStats = sqliteTable(
+  "family_category_daily_stats",
   {
     statDate: text("stat_date").notNull(),
-    productVersionId: text("product_version_id")
+    productFamilyId: text("product_family_id")
       .notNull()
-      .references((): AnySQLiteColumn => productVersions.id, {
+      .references((): AnySQLiteColumn => productFamilies.id, {
         onDelete: "cascade",
       }),
     categoryId: text("category_id")
@@ -627,59 +770,93 @@ export const productCategoryDailyStats = sqliteTable(
       .references((): AnySQLiteColumn => categories.id, {
         onDelete: "cascade",
       }),
-    newRatingCount: integer("new_rating_count").notNull().default(sql.raw("0")),
-    ratingSum: integer("rating_sum").notNull().default(sql.raw("0")),
-    newTrialCount: integer("new_trial_count").notNull().default(sql.raw("0")),
-    commentCount: integer("comment_count").notNull().default(sql.raw("0")),
+    userId: text("user_id")
+      .notNull()
+      .references((): AnySQLiteColumn => profiles.userId, {
+        onDelete: "cascade",
+      }),
+    ratingCount: integer("rating_count").notNull().default(sql.raw("0")),
+    similaritySum: integer("similarity_sum").notNull().default(sql.raw("0")),
+    tried: integer("tried").notNull().default(sql.raw("0")),
+    commented: integer("commented").notNull().default(sql.raw("0")),
   },
   (table) => [
     primaryKey({
-      columns: [table.statDate, table.productVersionId, table.categoryId],
+      columns: [
+        table.statDate,
+        table.productFamilyId,
+        table.categoryId,
+        table.userId,
+      ],
     }),
-    index("ix_daily_stats_category_date").on(
+    index("ix_family_daily_category_date").on(
       table.categoryId,
       desc(table.statDate),
     ),
     check(
-      "ck_product_category_daily_stats_1",
-      sql.raw("new_rating_count >= 0"),
+      "ck_family_category_daily_stats_1",
+      sql.raw(
+        "rating_count >= 0 AND similarity_sum BETWEEN rating_count AND rating_count * 5 AND tried IN (0, 1) AND commented IN (0, 1)",
+      ),
     ),
-    check("ck_product_category_daily_stats_2", sql.raw("rating_sum >= 0")),
-    check("ck_product_category_daily_stats_3", sql.raw("new_trial_count >= 0")),
-    check("ck_product_category_daily_stats_4", sql.raw("comment_count >= 0")),
   ],
 );
 
-// Rebuildable Trending read model, refreshed hourly from daily statistics.
-// Separate from product_category_stats so rating writes never erase it.
-export const productCategoryTrends = sqliteTable(
-  "product_category_trends",
+// Rebuildable Trending read model by line, refreshed hourly from daily
+// statistics. `rank` orders a food's trending lines; the top three carry the
+// Trending tag elsewhere.
+export const familyCategoryTrends = sqliteTable(
+  "family_category_trends",
   {
     categoryId: text("category_id")
       .notNull()
       .references((): AnySQLiteColumn => categories.id, {
         onDelete: "cascade",
       }),
-    productVersionId: text("product_version_id")
+    productFamilyId: text("product_family_id")
       .notNull()
-      .references((): AnySQLiteColumn => productVersions.id, {
+      .references((): AnySQLiteColumn => productFamilies.id, {
         onDelete: "cascade",
       }),
-    productId: text("product_id")
-      .notNull()
-      .references((): AnySQLiteColumn => products.id, { onDelete: "cascade" }),
     trendingScore: real("trending_score").notNull(),
+    rank: integer("rank").notNull(),
     inputs: text("inputs").notNull(),
     computedAt: integer("computed_at").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.categoryId, table.productVersionId] }),
-    index("ix_trends_category_score").on(
-      table.categoryId,
-      desc(table.trendingScore),
-      table.productId,
+    primaryKey({ columns: [table.categoryId, table.productFamilyId] }),
+    index("ix_family_trends_category_rank").on(table.categoryId, table.rank),
+    check(
+      "ck_family_category_trends_1",
+      sql.raw("json_valid(inputs) AND trending_score > 0 AND rank >= 1"),
     ),
-    check("ck_trends_inputs", sql.raw("json_valid(inputs)")),
+  ],
+);
+
+// When a line first appeared in a food: the earliest publication of any
+// flavor it has had there, eligible or not. It only ever moves earlier, so a
+// discontinued oldest flavor or a new one never brings a line back into New.
+export const familyCategoryFirstPublished = sqliteTable(
+  "family_category_first_published",
+  {
+    productFamilyId: text("product_family_id")
+      .notNull()
+      .references((): AnySQLiteColumn => productFamilies.id, {
+        onDelete: "cascade",
+      }),
+    categoryId: text("category_id")
+      .notNull()
+      .references((): AnySQLiteColumn => categories.id, {
+        onDelete: "cascade",
+      }),
+    firstPublishedAt: integer("first_published_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.productFamilyId, table.categoryId] }),
+    index("ix_family_first_published_category").on(
+      table.categoryId,
+      desc(table.firstPublishedAt),
+    ),
   ],
 );
 

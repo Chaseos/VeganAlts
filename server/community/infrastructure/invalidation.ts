@@ -11,10 +11,10 @@ export async function invalidateCommunityProduct(
   try {
     const product = await db
       .prepare(
-        "SELECT p.slug,lower(co.iso2) AS country FROM products p JOIN countries co ON co.id=p.country_id WHERE p.id=?",
+        "SELECT p.slug,lower(co.iso2) AS country,(SELECT b.slug FROM brands b WHERE b.id=p.brand_id) AS brand FROM products p JOIN countries co ON co.id=p.country_id WHERE p.id=?",
       )
       .bind(productId)
-      .first<{ slug: string; country: string }>();
+      .first<{ slug: string; country: string; brand: string | null }>();
     if (!product) return;
     if (scope === "page") {
       scheduleCatalogInvalidation([
@@ -22,6 +22,7 @@ export async function invalidateCommunityProduct(
           kind: "product",
           slug: product.slug,
           country: product.country,
+          brandSlug: product.brand,
           scope,
         },
       ]);
@@ -79,6 +80,7 @@ export async function invalidateCommunityProduct(
         kind: "product",
         slug: product.slug,
         country: product.country,
+        brandSlug: product.brand,
         categorySlugs: categories!.results.map((c) => c.slug),
         scope,
       },

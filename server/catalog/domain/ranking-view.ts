@@ -1,10 +1,11 @@
 import { DETAIL_MIN_ANSWERS } from "../../ranking/domain/display";
 import { DIMENSION_KEY } from "../../ratings/domain/details";
 
-// A food's sort menu (docs/RANKING.md, milestone 5). Only "top" is the
-// ranking; the others reorder the same products and never change a score.
+// A food's sort menu (docs/RANKING.md, milestones 5 and 7). "top" (Closest
+// to the original) and "tastiest" are the two rankings; the others reorder
+// the same lines and never change a score.
 export type CategoryView =
-  "top" | "trending" | "new" | "most-rated" | `detail-${string}`;
+  "top" | "tastiest" | "trending" | "new" | "most-rated" | `detail-${string}`;
 export const isDetailView = (view: string): view is `detail-${string}` =>
   view.startsWith("detail-");
 export const detailKey = (view: CategoryView) =>
@@ -13,7 +14,12 @@ export const detailKey = (view: CategoryView) =>
 /** Syntax only; a detail key must also be an active question of the food. */
 export function parseCategoryView(input: string | null): CategoryView | null {
   if (input === null || input === "top") return "top";
-  if (input === "trending" || input === "new" || input === "most-rated")
+  if (
+    input === "tastiest" ||
+    input === "trending" ||
+    input === "new" ||
+    input === "most-rated"
+  )
     return input;
   if (isDetailView(input) && DIMENSION_KEY.test(input.slice(7)))
     return input as CategoryView;
@@ -54,16 +60,31 @@ interface Orderable {
   id: string;
   topRank: number;
   ratingCount: number;
+  tastiestScore: number | null;
+  tastiestCount: number;
   details: DetailScore[];
 }
 
 /**
- * Orders ranked products for a view. A detail sort lists products with
- * enough answers by that mean (ties keep Top order), then the rest in Top
- * order; `qualified` says where the second group starts.
+ * Orders ranked lines for a view. Tastiest lists lines with a Tastiest score
+ * by it, then people, then the lead flavor's ID. A detail sort lists lines
+ * with enough answers by that mean (ties keep Top order). Either way the rest
+ * follow in Top order; `qualified` says where they start.
  */
 export function orderRows<T extends Orderable>(rows: T[], view: CategoryView) {
   const byTop = (a: T, b: T) => a.topRank - b.topRank;
+  if (view === "tastiest") {
+    const scored = rows
+      .filter((row) => row.tastiestScore !== null)
+      .sort(
+        (a, b) =>
+          b.tastiestScore! - a.tastiestScore! ||
+          b.tastiestCount - a.tastiestCount ||
+          (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+      );
+    const rest = rows.filter((row) => row.tastiestScore === null).sort(byTop);
+    return { rows: [...scored, ...rest], qualified: scored.length };
+  }
   if (view === "most-rated")
     return {
       rows: [...rows].sort(
@@ -82,9 +103,10 @@ export function orderRows<T extends Orderable>(rows: T[], view: CategoryView) {
 }
 
 /**
- * "Best taste": for each question, the product with the highest mean among
+ * "Closest taste": for each question, the line with the highest mean among
  * those with enough answers, unless it is already the #1. Computed over the
- * unfiltered ranking so a filter never moves a badge.
+ * unfiltered ranking so a filter never moves a badge. "Closest" keeps it
+ * apart from Tastiest (milestone 7).
  */
 export function detailBadges<T extends Orderable>(
   rows: T[],
@@ -106,7 +128,7 @@ export function detailBadges<T extends Orderable>(
     if (best && best.row.topRank !== 1)
       badges.set(best.row.id, [
         ...(badges.get(best.row.id) ?? []),
-        `Best ${question.label.toLowerCase()}`,
+        `Closest ${question.label.toLowerCase()}`,
       ]);
   }
   return badges;

@@ -7,16 +7,17 @@ export interface FoodChoice {
   // Its name in the country (a display name where one is set).
   name: string;
   otherNames: string[];
-  aisle: { id: string; name: string };
-  // A silent shelf only repeats its aisle or food; the picker shows the aisle.
-  shelf: { id: string; name: string; silent: boolean };
+  // A silent aisle only repeats its one food; the picker then omits it.
+  aisle: { id: string; name: string; silent: boolean };
   // Not on in the country yet: adding a product there switches it on.
   inCountry: boolean;
+  // A seasonal food: a product added to it is seasonal unless said otherwise.
+  seasonal: boolean;
 }
 
 /**
  * Every placeable food for the picker, including foods not on in the country
- * yet. Whether a shelf is silent is judged across every food, so a food's
+ * yet. Whether an aisle is silent is judged across every food, so a food's
  * place reads the same in every country.
  */
 export function foodChoices(
@@ -28,7 +29,7 @@ export function foodChoices(
     aisleTree(
       nodes.map((node) => ({ ...node, available: 1 })),
       new Map(),
-    ).flatMap((aisle) => aisle.shelves.map((s) => [s.id, s.silent] as const)),
+    ).map((aisle) => [aisle.id, aisle.silent] as const),
   );
   const names = new Map<string, string[]>();
   for (const { categoryId, alias } of aliases)
@@ -36,7 +37,6 @@ export function foodChoices(
   return [...shaped.values()]
     .filter((node) => node.isRankable && !node.outsideDepth)
     .map((food) => {
-      const shelf = shaped.get(food.shelfId!)!;
       const aisle = shaped.get(food.aisleId!)!;
       return {
         id: food.id,
@@ -45,13 +45,13 @@ export function foodChoices(
         otherNames: (names.get(food.id) ?? []).filter(
           (alias) => alias !== food.name,
         ),
-        aisle: { id: aisle.id, name: aisle.name },
-        shelf: {
-          id: shelf.id,
-          name: shelf.name,
-          silent: silent.get(shelf.id) ?? true,
+        aisle: {
+          id: aisle.id,
+          name: aisle.name,
+          silent: silent.get(aisle.id) ?? false,
         },
         inCountry: food.available !== 0,
+        seasonal: food.seasonStart != null,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

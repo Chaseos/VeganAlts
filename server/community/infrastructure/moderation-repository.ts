@@ -70,7 +70,7 @@ export class ModerationRepository {
     const rows = await this.db.batch<Record<string, unknown>>([
       this.db
         .prepare(
-          `SELECT p.id,p.name,p.slug,p.country_id AS countryId,p.brand_id AS brandId,p.product_family_id AS familyId,p.lifecycle_status AS lifecycleStatus,p.vegan_status AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.manufacturer_url AS manufacturerUrl,r.revision,v.id AS versionId,v.version_label AS versionLabel,
+          `SELECT p.id,p.name,p.slug,p.country_id AS countryId,p.brand_id AS brandId,p.product_family_id AS familyId,(SELECT canonical_name FROM product_families WHERE id=p.product_family_id) AS lineName,p.flavor,p.seasonal,p.lifecycle_status AS lifecycleStatus,p.vegan_status AS veganStatus,p.manufacturer_label AS manufacturerLabel,p.manufacturer_url AS manufacturerUrl,r.revision,v.id AS versionId,v.version_label AS versionLabel,
           (SELECT COUNT(*) FROM ratings x WHERE x.product_version_id=v.id AND x.is_counted=1) AS countedRatings,
           (SELECT lower(iso2) FROM countries WHERE id=p.country_id) AS countryCode FROM products p JOIN catalog_revisions r ON r.product_id=p.id JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.id=?`,
         )
@@ -139,6 +139,7 @@ export class ModerationRepository {
       : null;
     return {
       ...p,
+      seasonal: p.seasonal === 1,
       classification,
       categories: rows[2]!.results.map((r) => ({
         categoryId: String(r.categoryId),

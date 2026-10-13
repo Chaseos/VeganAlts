@@ -13,7 +13,7 @@ export class D1PersonalRatingsRepository implements PersonalRatingsRepository {
     const [ratings, trials, answers] = await this.db.batch([
       this.db
         .prepare(
-          `SELECT id,product_version_id AS productVersionId,category_id AS categoryId,overall_similarity AS overallSimilarity,conventional_recency AS conventionalRecency,updated_at AS updatedAt FROM ratings WHERE user_id=? AND product_version_id IN (${placeholders}) LIMIT 2000`,
+          `SELECT id,product_version_id AS productVersionId,category_id AS categoryId,overall_similarity AS overallSimilarity,enjoyment,conventional_recency AS conventionalRecency,updated_at AS updatedAt FROM ratings WHERE user_id=? AND product_version_id IN (${placeholders}) LIMIT 2000`,
         )
         .bind(userId, ...versionIds),
       this.db

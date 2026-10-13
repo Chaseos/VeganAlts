@@ -20,13 +20,15 @@ export const ratingInput = z
       .refine((value) => Object.keys(value).length <= MAX_DIMENSIONS)
       .optional(),
     conventionalRecency: z.enum(CONVENTIONAL_RECENCY).nullable().optional(),
+    // The optional Tastiest answer (milestone 7); null clears it.
+    enjoyment: similarity.nullable().optional(),
     challengeToken: z.string().max(2048).optional(),
   })
   .strict();
 export type RatingInput = z.infer<typeof ratingInput>;
 export type RatingDetailsInput = Pick<
   RatingInput,
-  "dimensions" | "conventionalRecency"
+  "dimensions" | "conventionalRecency" | "enjoyment"
 >;
 
 export interface PersonalRating {
@@ -37,6 +39,8 @@ export interface PersonalRating {
   // Answers to the food's active detail questions, by key.
   dimensions: Record<string, number>;
   conventionalRecency: ConventionalRecency | null;
+  // How tasty it is, 1–5, whether or not it's like the original.
+  enjoyment: number | null;
   updatedAt: number;
 }
 

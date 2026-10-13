@@ -4,12 +4,16 @@ import { useState } from "react";
 import { configuredProviders, getAuth } from "@server/auth/infrastructure/auth";
 import { requireSameOrigin } from "@server/shared/http/security";
 import { limitedFormData } from "@server/shared/http/limited-form";
-import { safeReturnDestination } from "@server/auth/domain/return-destination";
+import {
+  publicBrowseDestination,
+  safeReturnDestination,
+} from "@server/auth/domain/return-destination";
 import { ApplicationError } from "@server/shared/domain/errors";
 import { protectContribution } from "@server/abuse/service";
 import { recordEvent } from "@server/observability/events";
 import { PageShell } from "../components/layout/page-shell";
 import { Turnstile } from "../components/turnstile";
+import { ProviderButton } from "../components/auth/provider-button";
 import type { Route } from "./+types/sign-in";
 
 export function loader({ request }: Route.LoaderArgs) {
@@ -18,6 +22,10 @@ export function loader({ request }: Route.LoaderArgs) {
     staging: env.APP_ENV !== "production",
     failed: new URL(request.url).searchParams.has("error"),
     returnTo: safeReturnDestination(
+      new URL(request.url).searchParams.get("returnTo"),
+      env.APP_URL,
+    ),
+    browseTo: publicBrowseDestination(
       new URL(request.url).searchParams.get("returnTo"),
       env.APP_URL,
     ),
@@ -134,20 +142,16 @@ export default function SignIn({
             />
           )}
           {loaderData.providers.map((provider) => (
-            <button
-              className="button"
+            <ProviderButton
               key={provider}
-              name="provider"
-              value={provider}
+              provider={provider}
               disabled={!!challengeRequired && !token}
-            >
-              Continue with {provider === "google" ? "Google" : "Apple"}
-            </button>
+            />
           ))}
         </Form>
         <a
           className="text-link"
-          href={loaderData.returnTo}
+          href={loaderData.browseTo}
           onClick={() => {
             void fetch("/api/v1/events", {
               method: "POST",

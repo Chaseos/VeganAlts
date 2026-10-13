@@ -18,7 +18,7 @@ test("instant answers work from the keyboard and announce their count", async ({
     /foods? and \d+ products? found/,
   );
   const foods = list.getByRole("group", { name: "Foods · closest swap shown" });
-  await expect(foods.getByRole("option").first()).toContainText("Beef Burgers");
+  await expect(foods.getByRole("option").first()).toContainText("Ground Beef");
   await expect(
     list.getByRole("group", { name: "Products" }).getByRole("option").first(),
   ).toBeVisible();
@@ -90,7 +90,7 @@ test("the header searches from any desktop page and search works without JavaScr
   page,
 }) => {
   if (!isPhone(page)) {
-    await page.goto("/us/meat");
+    await page.goto("/us/beef");
     const header = page
       .getByRole("banner")
       .getByRole("combobox", { name: "Search a food or brand" });

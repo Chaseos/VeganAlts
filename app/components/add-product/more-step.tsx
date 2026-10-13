@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { PhotoPicker } from "../community-form";
-import { CatalogSelect } from "../catalog-select";
 import { AllergenChecklist } from "../allergen-fields";
-import { OverallScale, SCORE_MEANINGS } from "../rating-control";
+import { OverallScale, SCORE_MEANINGS, TasteScale } from "../rating-control";
 import { CheckThePackage } from "../ui/badges";
 import { FoodPicker } from "./food-picker";
 import { OptionalRow } from "./optional-row";
@@ -94,7 +93,9 @@ export function MoreStep({
               {draft.food?.kind === "new"
                 ? `${draft.food.name} (new food, reviewed with your product)`
                 : primary
-                  ? `${primary.name} · ${placeLabel(primary)}`
+                  ? [primary.name, placeLabel(primary)]
+                      .filter(Boolean)
+                      .join(" · ")
                   : "—"}
             </dd>
           </div>
@@ -112,6 +113,10 @@ export function MoreStep({
       </p>
 
       <section className="va-add__rating" aria-labelledby="rate-title">
+        <p className="va-rate__product">
+          {draft.name.trim()}
+          {draft.flavor.trim() ? ` · ${draft.flavor.trim()}` : ""}
+        </p>
         <h3 id="rate-title" className="va-heading-s">
           Tried it? How close is it to {foodName.toLowerCase()}?{" "}
           <span className="va-optional__tag">Optional</span>
@@ -120,7 +125,11 @@ export function MoreStep({
           <OverallScale
             selected={draft.rating}
             onChoose={(rating) =>
-              update({ rating: draft.rating === rating ? null : rating })
+              update(
+                draft.rating === rating
+                  ? { rating: null, enjoyment: null }
+                  : { rating },
+              )
             }
           />
         </div>
@@ -129,6 +138,22 @@ export function MoreStep({
             ? `${SCORE_MEANINGS[draft.rating - 1]}. Saved as your rating when the product goes live; tap it again to clear.`
             : "Saved as your rating when the product goes live."}
         </p>
+        <fieldset
+          className="va-rate__group va-rate__tasty"
+          disabled={!draft.rating}
+        >
+          <legend className="va-rate__subtitle">
+            How tasty is it, whether or not it’s like the original?{" "}
+            <span>optional</span>
+          </legend>
+          <TasteScale
+            selected={draft.enjoyment}
+            onChoose={(enjoyment) => update({ enjoyment })}
+          />
+          {!draft.rating && (
+            <p className="va-rate__note">Say how close it is first.</p>
+          )}
+        </fieldset>
       </section>
 
       <div className="va-optional-list">
@@ -318,22 +343,13 @@ export function MoreStep({
         </OptionalRow>
 
         <OptionalRow
-          title="Variants and other foods"
+          title="Other foods it replaces"
           status={
-            [
-              draft.variants.familyId && "family",
-              draft.variants.relatedId && "related product",
-              draft.variants.specialtyFlavor && "specialty flavor",
-              otherFoods.length && plural(otherFoods.length, "other food"),
-            ]
-              .filter(Boolean)
-              .join(", ") || undefined
+            otherFoods.length
+              ? plural(otherFoods.length, "other food")
+              : undefined
           }
-          open={
-            Boolean(draft.variants.familyId || draft.variants.relatedId) ||
-            draft.variants.specialtyFlavor ||
-            otherFoods.length > 0
-          }
+          open={otherFoods.length > 0}
         >
           <fieldset>
             <legend>Also replaces</legend>
@@ -378,81 +394,6 @@ export function MoreStep({
               />
             )}
           </fieldset>
-          <CatalogSelect
-            id="product-family"
-            name="family"
-            label="Product family"
-            kind="families"
-            options={options.families}
-            defaultValue={draft.variants.familyId}
-            onChange={(familyId) =>
-              update({ variants: { ...draft.variants, familyId } })
-            }
-          />
-          <CatalogSelect
-            id="related-product"
-            name="related"
-            label="Related product"
-            kind="products"
-            country={draft.country}
-            options={options.products.filter(
-              (p) =>
-                (p as { country?: string }).country?.toUpperCase() ===
-                draft.country,
-            )}
-            defaultValue={draft.variants.relatedId}
-            onChange={(relatedId) =>
-              update({
-                variants: {
-                  ...draft.variants,
-                  relatedId,
-                  relationship:
-                    relatedId && !draft.variants.relationship
-                      ? "variant"
-                      : draft.variants.relationship,
-                },
-              })
-            }
-          />
-          {draft.variants.relatedId && (
-            <>
-              <label htmlFor="relationship">Relationship</label>
-              <select
-                id="relationship"
-                value={draft.variants.relationship || "variant"}
-                onChange={(e) =>
-                  update({
-                    variants: {
-                      ...draft.variants,
-                      relationship: e.target
-                        .value as ProductDraft["variants"]["relationship"],
-                    },
-                  })
-                }
-              >
-                <option value="variant">Variant</option>
-                <option value="specialty_flavor">Specialty flavor</option>
-                <option value="companion">Companion</option>
-                <option value="successor">Successor</option>
-              </select>
-            </>
-          )}
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={draft.variants.specialtyFlavor}
-              onChange={(e) =>
-                update({
-                  variants: {
-                    ...draft.variants,
-                    specialtyFlavor: e.target.checked,
-                  },
-                })
-              }
-            />
-            Specialty flavor (seasonal or novelty). A moderator checks which
-            foods it’s ranked for.
-          </label>
         </OptionalRow>
       </div>
 

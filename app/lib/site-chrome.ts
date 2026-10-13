@@ -12,18 +12,10 @@ export interface ChromeFood {
   productCount: number;
 }
 
-export interface ChromeShelf {
-  slug: string;
-  name: string;
-  // Not shown as its own level: it only repeats its aisle or food.
-  silent: boolean;
-  foods: ChromeFood[];
-}
-
 export interface ChromeAisle {
   slug: string;
   name: string;
-  shelves: ChromeShelf[];
+  foods: ChromeFood[];
 }
 
 // Header, footer and menu data shared by every page in a country.
@@ -64,6 +56,7 @@ export function useCountryCode() {
 
 // One source for public paths, shared with the server.
 export {
+  brandPath,
   foodPath,
   homePath,
   productPath,

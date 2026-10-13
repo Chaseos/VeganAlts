@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture, testMarket } from "./fixtures";
+import { catalogFixture, lineOf, lineStatement, testMarket } from "./fixtures";
 import { trendingService } from "../../server/ranking/infrastructure/trending-composition";
 import { CatalogService } from "../../server/catalog/application/service";
 import { D1CatalogRepository } from "../../server/catalog/infrastructure/d1-repository";
@@ -37,21 +37,27 @@ async function world() {
       NOW - 200 * DAY,
       f.productId,
     ),
+    ...[steady, fresh, gone, loose].map((product) =>
+      lineStatement(env.DB, product, f.countryId),
+    ),
     env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,published_at,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,'active',1,1),(?,?,?,?,?,'active',1,1),(?,?,?,?,?,'discontinued',1,1)",
+      "INSERT INTO products(id,country_id,product_family_id,name,slug,published_at,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,?,'active',1,1),(?,?,?,?,?,?,'active',1,1),(?,?,?,?,?,?,'discontinued',1,1)",
     ).bind(
       steady,
       f.countryId,
+      lineOf(steady),
       `Steady ${s}`,
       steady,
       NOW - 300 * DAY,
       fresh,
       f.countryId,
+      lineOf(fresh),
       `Fresh ${s}`,
       fresh,
       NOW - 2 * DAY,
       gone,
       f.countryId,
+      lineOf(gone),
       `Gone ${s}`,
       gone,
       NOW - 3 * DAY,
@@ -64,8 +70,8 @@ async function world() {
     ).bind(steady, category, fresh, category, gone, category),
     // Recently published but ineligible everywhere: never in New.
     env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,published_at,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,'active',1,1)",
-    ).bind(loose, f.countryId, `Loose ${s}`, loose, NOW - DAY),
+      "INSERT INTO products(id,country_id,product_family_id,name,slug,published_at,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,?,'active',1,1)",
+    ).bind(loose, f.countryId, lineOf(loose), `Loose ${s}`, loose, NOW - DAY),
     env.DB.prepare(
       "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
     ).bind(`loose-v-${s}`, loose),
@@ -78,8 +84,8 @@ async function world() {
     INITIAL_RANKING_PARAMETERS,
     () => crypto.randomUUID(),
   );
-  // The fixture product receives a recent burst; the steady product has an
-  // older, larger history and leads Top.
+  // The fixture product receives a recent burst; the steady product has a
+  // larger history from the quarter before and leads Top.
   const rate = (user: string, version: string, score: number, at: number) =>
     env.DB.prepare(
       "INSERT INTO ratings(id,user_id,product_version_id,category_id,overall_similarity,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
@@ -88,9 +94,16 @@ async function world() {
     ...f.users
       .slice(0, 4)
       .map((u, i) => rate(u.id, f.versionId, 4, NOW - i * 3_600_000)),
-    ...f.users.map((u) => rate(u.id, steadyVersion, 5, NOW - 40 * DAY)),
+    ...f.users.map((u) => rate(u.id, steadyVersion, 5, NOW - 120 * DAY)),
   ]);
-  await ratings.rebuildVersions([f.versionId, steadyVersion]);
+  // Rebuilding each formula also refreshes its line, as publication does.
+  await ratings.rebuildVersions([
+    f.versionId,
+    steadyVersion,
+    freshVersion,
+    goneVersion,
+    `loose-v-${s}`,
+  ]);
   return { f, s, category, steady, fresh, gone, loose };
 }
 const topHash = async (category: string) =>
@@ -117,24 +130,29 @@ it("computes Trending and New from precomputed activity without changing Top", a
   const before = await topHash(w.category);
   await trendingService(rankingEnv, () => NOW).rebuild();
   expect(await topHash(w.category)).toBe(before);
+  // The ranking is unchanged; only the Trending tag may appear.
+  const untagged = (rows: typeof top.ranked) =>
+    rows.map(({ trending: _, ...row }) => row);
   expect(
-    (await catalog.category(testMarket(w.f.countryId), slug, { view: "top" }))
-      .ranked,
-  ).toEqual(top.ranked);
-  expect(top.ranked[0]!.id).toBe(w.steady);
+    untagged(
+      (await catalog.category(testMarket(w.f.countryId), slug, { view: "top" }))
+        .ranked,
+    ),
+  ).toEqual(untagged(top.ranked));
+  expect(top.ranked[0]!.leadProduct.id).toBe(w.steady);
   const trending = await catalog.category(testMarket(w.f.countryId), slug, {
     view: "trending",
   });
-  expect(trending.ranked.map((p) => p.id)).toEqual([w.f.productId]);
+  expect(trending.ranked.map((p) => p.leadProduct.id)).toEqual([w.f.productId]);
   // New lists recent eligible products before they have any ratings.
   const fresh = await catalog.category(testMarket(w.f.countryId), slug, {
     view: "new",
   });
-  expect(fresh.ranked.map((p) => p.id)).toEqual([w.fresh]);
-  expect(fresh.ranked[0]).toMatchObject({ ratingCount: 0, isNew: true });
+  expect(fresh.ranked.map((p) => p.leadProduct.id)).toEqual([w.fresh]);
+  expect(fresh.ranked[0]).toMatchObject({ people: 0, isNew: true });
   // It is listed once: not again under "Not rated yet", as it is on Top.
-  expect(fresh.unranked.map((p) => p.id)).not.toContain(w.fresh);
-  expect(top.unranked.map((p) => p.id)).toContain(w.fresh);
+  expect(fresh.unranked.map((p) => p.leadProduct.id)).not.toContain(w.fresh);
+  expect(top.unranked.map((p) => p.leadProduct.id)).toContain(w.fresh);
   // The configured New window bounds the view: a one-day window excludes a
   // product published two days ago.
   const narrow = await new CatalogService(
@@ -142,21 +160,21 @@ it("computes Trending and New from precomputed activity without changing Top", a
     () => NOW,
     trendingParameters('{"newDays":1}').newDays,
   ).category(testMarket(w.f.countryId), slug, { view: "new" });
-  expect(narrow.ranked.map((p) => p.id)).not.toContain(w.fresh);
+  expect(narrow.ranked.map((p) => p.leadProduct.id)).not.toContain(w.fresh);
   // Outside the window it is still found under "Not rated yet".
-  expect(narrow.unranked.map((p) => p.id)).toContain(w.fresh);
+  expect(narrow.unranked.map((p) => p.leadProduct.id)).toContain(w.fresh);
   const home = await catalog.home(testMarket(w.f.countryId));
   expect(home.trending.map((p) => p.id)).toContain(w.f.productId);
   expect(home.newest.map((p) => p.id)).toContain(w.fresh);
   expect(home.newest.map((p) => p.id)).not.toContain(w.gone);
   expect(home.newest.map((p) => p.id)).not.toContain(w.loose);
-  // Without new activity the burst fades out of Trending.
-  await trendingService(rankingEnv, () => NOW + 9 * DAY).rebuild();
+  // Without new activity the burst leaves Trending after a quarter.
+  await trendingService(rankingEnv, () => NOW + 91 * DAY).rebuild();
   expect(
     (
       await new CatalogService(
         new D1CatalogRepository(env.DB),
-        () => NOW + 9 * DAY,
+        () => NOW + 91 * DAY,
       ).category(testMarket(w.f.countryId), slug, { view: "trending" })
     ).ranked,
   ).toEqual([]);
@@ -183,9 +201,9 @@ it("re-derives an older day when a comment on it changes visibility", async () =
     .run();
   const commenters = async () =>
     await env.DB.prepare(
-      "SELECT COALESCE(SUM(comment_count),0) AS n FROM product_category_daily_stats WHERE stat_date=? AND product_version_id=? AND category_id=?",
+      "SELECT COALESCE(SUM(commented),0) AS n FROM family_category_daily_stats WHERE stat_date=? AND product_family_id=? AND category_id=?",
     )
-      .bind(date, w.f.versionId, w.category)
+      .bind(date, lineOf(w.f.productId), w.category)
       .first<number>("n");
   // Outside the midnight pass only today and yesterday are re-derived.
   await trendingService(rankingEnv, () => NOW).rebuild();

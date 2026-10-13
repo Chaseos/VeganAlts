@@ -76,8 +76,8 @@ describe("shared presentation components", () => {
   });
 
   it("always pairs badges and statuses with words", () => {
-    expect(html(<EarlyBadge count={6} />)).toContain("Early · 6 ratings");
-    expect(html(<EarlyBadge count={1} />)).toContain("Early · 1 rating");
+    expect(html(<EarlyBadge count={6} />)).toContain("Early · 6 people");
+    expect(html(<EarlyBadge count={1} />)).toContain("Early · 1 person");
     expect(html(<VeganStatusChip status="under_review" />)).toContain(
       "Under review",
     );
@@ -112,7 +112,7 @@ describe("shared presentation components", () => {
     ).toContain("No major allergens on the label");
   });
 
-  it("has a line icon for every seeded food, aisle and shelf", () => {
+  it("has a line icon for every seeded food and aisle", () => {
     const missing = [...TAXONOMY_GROUPS, ...TAXONOMY_LEAVES]
       .map((c) => c.slug)
       .filter((slug) => foodShape([slug]) === "plate" && slug !== "food");

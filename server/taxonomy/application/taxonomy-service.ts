@@ -110,7 +110,7 @@ export class TaxonomyService {
   async tree(actor: Actor) {
     administrator(actor);
     const tree = await this.repository.tree();
-    // Depth is derived, never stored; a rankable food outside depth three is
+    // Depth is derived, never stored; a rankable food outside depth two is
     // reachable by URL and search but missing from the aisle bar.
     const shape = taxonomyShape(
       tree.categories
@@ -142,12 +142,12 @@ export class TaxonomyService {
   ) {
     return assertNamesAvailable(this.repository, names, scope, except);
   }
-  // Aisles and shelves are navigation, not search targets: no aliases.
+  // Aisles are navigation, not search targets: no aliases.
   private assertGroupAliases(isRankable: boolean, aliases: unknown[]) {
     if (!isRankable && aliases.length)
       throw new ApplicationError(
         "GROUP_ALIASES",
-        "Aisles and shelves take no aliases or search terms. Add them to a food.",
+        "Aisles take no aliases or search terms. Add them to a food.",
       );
   }
   private async assertSlugAvailable(slug: string, owner?: string) {
@@ -221,11 +221,11 @@ export class TaxonomyService {
     );
     const prior = await this.repository.replay<{ id: string }>(receipt);
     if (prior) return prior;
-    // Deterministic quota, name, shelf and country checks before any model
+    // Deterministic quota, name, aisle and country checks before any model
     // call; the insert enforces the quota again.
     await new FoodSuggestions(this.repository, this.clock).check(actor, {
       name: input.name,
-      shelfId: input.shelfId,
+      aisleId: input.aisleId,
       country: input.country,
       aliases: input.aliases,
     });
@@ -259,7 +259,7 @@ export class TaxonomyService {
         id,
         userId: actor.id,
         name: input.name,
-        parentId: input.shelfId,
+        parentId: input.aisleId,
         country: input.country,
         explanation: input.explanation ?? "",
         data: input,
@@ -361,7 +361,7 @@ export class TaxonomyService {
       if (!target.isRankable)
         throw new ApplicationError(
           "INVALID_DECISION",
-          "Aliases belong to foods, not aisles or shelves.",
+          "Aliases belong to foods, not aisles.",
         );
       const held = new Set(
         [target.name, ...target.aliases.map((a) => a.alias)].map(categoryKey),
@@ -557,6 +557,9 @@ export class TaxonomyService {
       parentId: input.parentId,
       isRankable: input.isRankable,
       aliases: input.aliases,
+      position: input.position ?? null,
+      seasonStart: input.season?.start ?? null,
+      seasonEnd: input.season?.end ?? null,
     };
     const guard = { sql: "1", values: [] as (string | number | null)[] };
     fenceNames(guard, [input.name, ...input.aliases], id, scope);
@@ -627,6 +630,13 @@ export class TaxonomyService {
         ? { isRankable: input.isRankable }
         : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      ...(input.position !== undefined ? { position: input.position } : {}),
+      ...(input.season !== undefined
+        ? {
+            seasonStart: input.season?.start ?? null,
+            seasonEnd: input.season?.end ?? null,
+          }
+        : {}),
       ...(input.aliases
         ? {
             aliases: input.aliases.map((a) => ({
@@ -767,7 +777,7 @@ export class TaxonomyService {
     if (!category.isRankable)
       throw new ApplicationError(
         "INVALID_COUNTRIES",
-        "Aisles and shelves appear in every country. Choose countries for a food.",
+        "Aisles appear in every country. Choose countries for a food.",
       );
     const wanted = await this.activeCountryIds(input.countries);
     const current = await this.repository.countriesOf(id);
@@ -1082,7 +1092,7 @@ export class TaxonomyService {
       if (!category.isRankable)
         throw new ApplicationError(
           "REVERSAL_CONFLICT",
-          "This food is now an aisle or shelf. Reverse that change first.",
+          "This food is now an aisle. Reverse that change first.",
           409,
         );
       const current = await this.repository.countriesOf(category.id);

@@ -9,6 +9,67 @@ export const testMarket = (id: string, code = "us"): Market => ({
   name: "Test market",
 });
 
+// Every product belongs to a recipe line of its brand and country (milestone
+// 7). A test product starts its own line, `line-<product id>`; insert it
+// before the product.
+export const lineOf = (productId: string) => `line-${productId}`;
+export const lineStatement = (
+  db: D1Database,
+  productId: string,
+  countryId: string,
+  brandId: string | null = null,
+) =>
+  db
+    .prepare(
+      "INSERT INTO product_families(id,brand_id,country_id,canonical_name,slug,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
+    )
+    .bind(lineOf(productId), brandId, countryId, productId, lineOf(productId));
+
+// A line's derived standing in a food, for tests that set scores directly
+// rather than through ratings. The product is the line's lead flavor.
+export const lineStatsStatement = (
+  db: D1Database,
+  productId: string,
+  categoryId: string,
+  people: number,
+  meanSum: number,
+  score: number | null,
+  tastiest: [score: number, people: number, meanSum: number] | null = null,
+) =>
+  db
+    .prepare(
+      "INSERT INTO family_category_stats(product_family_id,category_id,people_count,mean_sum,raw_average,bayesian_score,enjoyment_people,enjoyment_mean_sum,enjoyment_score,lead_product_id,recomputed_at) VALUES(?,?,?,?,?,?,?,?,?,?,1)",
+    )
+    .bind(
+      lineOf(productId),
+      categoryId,
+      people,
+      meanSum,
+      people ? meanSum / people : null,
+      score,
+      tastiest?.[1] ?? 0,
+      tastiest?.[2] ?? 0,
+      tastiest?.[0] ?? null,
+      productId,
+    );
+
+// A plain product row with the line it starts.
+export const productRows = (
+  db: D1Database,
+  productId: string,
+  countryId: string,
+  name: string,
+  slug: string,
+  brandId: string | null = null,
+) => [
+  lineStatement(db, productId, countryId, brandId),
+  db
+    .prepare(
+      "INSERT INTO products(id,country_id,brand_id,product_family_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,?,?,1,1)",
+    )
+    .bind(productId, countryId, brandId, lineOf(productId), name, slug),
+];
+
 export async function catalogFixture(db: D1Database, userCount = 3) {
   const suffix = crypto.randomUUID();
   const countryId = `country-${suffix}`;
@@ -44,11 +105,12 @@ export async function catalogFixture(db: D1Database, userCount = 3) {
         )
         .bind(id, id, id),
     ),
+    lineStatement(db, productId, countryId),
     db
       .prepare(
-        "INSERT INTO products (id,country_id,name,slug,created_at,updated_at) VALUES (?,?,?,?,1,1)",
+        "INSERT INTO products (id,country_id,product_family_id,name,slug,created_at,updated_at) VALUES (?,?,?,?,?,1,1)",
       )
-      .bind(productId, countryId, "Test burger", productId),
+      .bind(productId, countryId, lineOf(productId), "Test burger", productId),
     db
       .prepare(
         "INSERT INTO product_versions (id,product_id,is_current,created_at,updated_at) VALUES (?,?,1,1,1)",

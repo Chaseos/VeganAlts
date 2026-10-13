@@ -1,6 +1,7 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import type {
   Actor,
+  Candidate,
   SubmissionIdentity,
   SubmissionInput,
   SubmissionReceipt,
@@ -32,7 +33,7 @@ export interface FoodChecks {
   readonly perDay: number;
   check(
     actor: Actor,
-    food: { name: string; shelfId: string; country: string; aliases: string[] },
+    food: { name: string; aisleId: string; country: string; aliases: string[] },
   ): Promise<void>;
 }
 
@@ -65,7 +66,7 @@ export class SubmissionService {
       if (
         earlier &&
         categoryKey(earlier.name) === categoryKey(food.name) &&
-        earlier.shelfId === food.shelfId
+        earlier.aisleId === food.aisleId
       ) {
         if (earlier.status === "pending")
           return { problem: null, carry: earlier.id };
@@ -87,7 +88,7 @@ export class SubmissionService {
     try {
       await this.foods.check(actor, {
         name: food.name,
-        shelfId: food.shelfId,
+        aisleId: food.aisleId,
         country: input.country,
         aliases: food.aliases ?? [],
       });
@@ -187,20 +188,51 @@ export class SubmissionService {
     return this.lookup.candidates(input, await this.lookup.context(input));
   }
   /**
-   * "Is it one of these?" while someone types. Read-only; a name that is
-   * only a package size simply has no matches yet.
+   * "Is it one of these?" while someone types: the looser matching
+   * (milestone 7), read-only. A name that is only a package size simply has
+   * no matches yet, and a line that doesn't belong to the typed brand just
+   * stops excluding its flavors.
    */
-  async identityMatches(actor: Actor, input: SubmissionIdentity) {
+  async identityMatches(
+    actor: Actor,
+    input: SubmissionIdentity,
+  ): Promise<Candidate[]> {
+    active(actor);
     try {
-      return await this.checkIdentity(actor, input);
+      return await this.lookup.candidates(
+        input,
+        await this.lookup.context(input),
+        { loose: true },
+      );
     } catch (error) {
-      if (
-        error instanceof ApplicationError &&
-        error.code === "INVALID_IDENTITY"
-      )
-        return [];
+      if (!(error instanceof ApplicationError)) throw error;
+      if (error.code === "INVALID_IDENTITY") return [];
+      if (error.code === "INVALID_LINE" && input.lineId)
+        return this.identityMatches(actor, { ...input, lineId: undefined });
       throw error;
     }
+  }
+  /** The brand and line an Add a product link chose (milestone 7). */
+  start(
+    country: string,
+    chosen: { line: string | null; brand: string | null },
+  ) {
+    return this.lookup.start(country, chosen);
+  }
+  /** Brand suggestions for Add a product (milestone 7). */
+  async brandSuggestions(actor: Actor, country: string, query: string) {
+    active(actor);
+    return this.lookup.brandSuggestions(country, query);
+  }
+  /** A brand's lines in a country, for "Already listed from [brand]". */
+  async brandLines(
+    actor: Actor,
+    brandId: string,
+    country: string,
+    foodId: string | null,
+  ) {
+    active(actor);
+    return this.lookup.brandLines(brandId, country, foodId);
   }
   async evidenceReceipt(actor: Actor, key: string, productId: string) {
     active(actor);

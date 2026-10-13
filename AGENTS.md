@@ -12,13 +12,15 @@ Before substantial implementation work, read:
 4. `docs/RANKING.md` — ranking semantics and derived data.
 5. `docs/MODERATION.md` — contribution and trust rules.
 6. `docs/API.md` — API conventions.
-7. `docs/MILESTONE_6_PLAN.md` — current implementation scope and acceptance gates.
+7. `docs/MILESTONE_7_PLAN.md` — current implementation scope and acceptance gates.
 
-`docs/MILESTONE_1_PLAN.md` through `docs/MILESTONE_5_PLAN.md`, `docs/DESIGN_DIRECTION.md`, and their verification records preserve earlier scope and evidence.
+`docs/MILESTONE_1_PLAN.md` through `docs/MILESTONE_6_PLAN.md`, `docs/DESIGN_DIRECTION.md`, and their verification records preserve earlier scope and evidence.
 
 Milestone 4 adds Cloudflare Workers AI Clef behind the provider-neutral `ModerationDecisionService`. Automation is advisory: deterministic checks run first, and provider failure routes to review, never approval. Product duplicate consolidation still archives the donor without transferring ratings; category merges are the documented exception and transfer ratings reversibly. Protected changes remain auditable and reversible.
 
 Milestone 6 makes ingredient evidence optional for new products (they show "Ingredients not checked yet" and still rank), lets a missing food be suggested inside Add a product, and switches foods on per country while aisles and shelves stay shared.
+
+Milestone 7 ranks recipe lines (a brand's base recipe and its flavors in one country, one vote per person) instead of single products, adds an independent Tastiest ranking beside Closest to the original, lets search find brands, and simplifies the taxonomy to universal aisles with foods directly beneath them.
 
 If these documents conflict, do not guess. Preserve existing behavior and surface the conflict for an explicit documentation decision.
 
@@ -63,7 +65,7 @@ Future-ready schema abstractions are allowed only when they materially avoid a k
 - Use D1/SQLite-compatible migrations.
 - Prefer explicit foreign keys, unique constraints, and indexes over application-only assumptions.
 - Migrations are append-only once applied to a shared environment. Never silently rewrite an applied migration.
-- Version 1 is `db/migrations/0001_initial.sql`: the pre-release history was folded into it on the owner's instruction (2026-10-10). Add new migrations after it; databases with the old history are reset (`npm run db:reset:<env>`), never upgraded.
+- Version 1 is `db/migrations/0001_initial.sql`: the pre-release history was folded into it on the owner's instruction (2026-10-10). Until the first release, schema changes are folded into version 1 too, never added as new migrations (owner, 2026-10-13); databases are reset (`npm run db:reset:<env>`), never upgraded. Add new migrations only after the first release.
 - Never commit screenshots or visual captures. `CAPTURE=1` writes them to the ignored `test-results/captures`.
 - Better Auth owns its auth tables; application migrations should not manually duplicate them unless the auth strategy is intentionally revised.
 - Formula/version history and revision/audit history are durable product requirements.

@@ -490,7 +490,7 @@ Follow [milestone 5](MILESTONE_5_PLAN.md) and the [design direction](DESIGN_DIRE
 
 **Device preferences.** Public HTML stays identical for every visitor. Theme, remembered country, chosen stores and Free-from allergens live in `localStorage` (per country where relevant), never in cookies. They are applied after hydration: a saved filter replaces the URL with its normalized form, and client-rendered links carry it forward. Only the theme is applied before first paint, by a small inline script that carries the per-request nonce and sets `data-theme` on the document.
 
-**Presentation.** Every color is a `--va-*` token defined once for light and dark; components never use literal colors. The content security policy forbids inline styles, so proportional bars are SVG presentation attributes and components use classes only. Archivo is self-hosted as a hashed asset. The aisle menu reads each aisle's top products from that aisle page's cached route data on first open. Instant search calls the cached `/api/v1/suggest` endpoint with debouncing and request cancellation, and the full results page works without JavaScript.
+**Presentation.** Every color is a `--va-*` token defined once for light and dark; components never use literal colors. The content security policy forbids inline styles, so proportional bars are SVG presentation attributes and components use classes only. Archivo is self-hosted as a hashed asset. The desktop Foods menu reads each aisle's top products from that aisle page's cached route data when the aisle is first shown. Instant search calls the cached `/api/v1/suggest` endpoint with debouncing and request cancellation, and the full results page works without JavaScript.
 
 **Derived reads.** Detail-dimension and familiarity statistics are rebuildable read models written in the same fenced batch as rating aggregates. Category listings compute the overall Top rank before applying sorts and filters, so narrowing a view never changes a score. Store filtering joins only active product–retailer reports in an active market of the product's country.
 
@@ -503,3 +503,24 @@ Follow [milestone 6](MILESTONE_6_PLAN.md).
 **Foods per country.** Availability is a canonical table maintained by triggers and the taxonomy services; catalog reads, search indexing and the sitemap join it. A food that is not on in a country renders a shared-cacheable, `noindex` page rather than a 404, so it stays cacheable and gives the country switcher a destination. Switching a food on purges that country's listings.
 
 **After publication.** Stores are confirmed inside the publication batch. The contributor's rating and allergen declaration need the rating aggregates and an automated check, so the batch records a recovery marker and the extras are applied immediately afterward, then retried by the hourly schedule until done. The hourly schedule also continues submissions whose suggested food was accepted.
+
+## Milestone 7 boundaries
+
+Follow [milestone 7](MILESTONE_7_PLAN.md).
+
+**Line aggregates.** Line statistics are rebuildable read models.
+
+- **One source of the math.** One SQL builder in `server/ranking/infrastructure` recomputes a line's rows for a food from canonical ratings. A pure reference function in `server/ranking/domain` defines the same math for tests.
+- **Same transaction.** Every writer that can change a line's membership or eligibility appends the refresh to its own fenced D1 batch, so a line is never scored from a half-applied change. These are rating writes, exclusions, catalog decisions, publication, consolidation, merges and the integrity rebuild.
+- **Hourly aging.** The hourly job re-derives only the lines where someone's latest rating just turned seven days old, so "people this week" drops them. The integrity rebuild re-derives every line.
+- **Leaderboards never read raw ratings.** They read `family_category_stats`.
+
+**Taxonomy shape.** Depth is still derived from parent links. Aisles are depth one and foods depth two, and there are no shelves. The Foods menu, the phone aisle chips, aisle panels, breadcrumbs, the food picker and Suggest a food read the same shape helper.
+
+**Brand pages.**
+
+- **Route.** `/{cc}/brand/{slug}` lives in the country layout. The gateway recognizes it and adds the country to the cache identity, as it does for food and product pages.
+- **One read.** The brand page and Add a product's "Already listed from [brand]" share one catalog read. The contribution lookup adds only its private, authenticated wrapper.
+- **One matcher.** Brand matching is one domain helper used by search, suggest and the contribution lookups.
+
+**Rankings.** Closest and Tastiest are two views of the same rows. A sort, filter or toggle never changes a stored score.

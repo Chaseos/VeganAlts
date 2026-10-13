@@ -1,7 +1,7 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "../ui/badges";
 import { FoodIcon } from "../icons/food-icons";
-import { ShelfSelect, type ShelfGroup } from "../shelf-select";
+import { AisleSelect, type AisleOption } from "../aisle-select";
 import {
   exactFood,
   matchFoods,
@@ -9,6 +9,7 @@ import {
   type FoodChoice,
 } from "../../lib/food-choices";
 import type { FoodPick } from "../../lib/product-draft";
+import { useCombobox } from "../../lib/use-combobox";
 
 const parseNames = (text: string) =>
   text
@@ -26,7 +27,7 @@ type Option =
  * Choose the food a product replaces (ARIA 1.2 combobox with a listbox
  * popup). Foods are matched by their name in the country and their other
  * names; foods not on in the country yet can still be chosen. The last
- * option can suggest a new food, which opens its shelf in place.
+ * option can suggest a new food, which opens its aisle in place.
  */
 export function FoodPicker({
   id,
@@ -35,11 +36,11 @@ export function FoodPicker({
   countryName,
   value,
   onChange,
-  shelves = [],
+  aisles = [],
   allowSuggest = false,
   exclude = [],
   error,
-  shelfError,
+  aisleError,
 }: {
   id: string;
   label: string;
@@ -47,20 +48,13 @@ export function FoodPicker({
   countryName: string;
   value: FoodPick | null;
   onChange: (value: FoodPick | null) => void;
-  shelves?: ShelfGroup[];
+  aisles?: AisleOption[];
   allowSuggest?: boolean;
   exclude?: readonly string[];
   error?: string;
-  shelfError?: string;
+  aisleError?: string;
 }) {
-  const [query, setQuery] = useState(""),
-    [open, setOpen] = useState(false),
-    [active, setActive] = useState(-1);
-  const root = useRef<HTMLDivElement>(null),
-    field = useRef<HTMLInputElement>(null);
-  const optionId = useId(),
-    listId = `${id}-listbox`,
-    errorId = `${id}-error`;
+  const [query, setQuery] = useState("");
   const typed = query.trim();
   const matches = matchFoods(foods, query, exclude);
   const options: Option[] = [
@@ -71,7 +65,6 @@ export function FoodPicker({
       ? [{ kind: "suggest" as const, name: typed }]
       : []),
   ];
-  useEffect(() => setActive(-1), [query]);
   // Other names update the draft as they're typed; the text is kept as typed
   // (commas and all) unless the draft's names change from outside, as when a
   // draft is restored.
@@ -84,23 +77,21 @@ export function FoodPicker({
       ),
     [joined],
   );
-  useEffect(() => {
-    if (!open) return;
-    const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, [open]);
-  const choose = (option: Option) => {
-    setOpen(false);
-    setQuery("");
-    onChange(
-      option.kind === "food"
-        ? { kind: "existing", id: option.food.id }
-        : { kind: "new", name: option.name, shelfId: "", otherNames: [] },
-    );
-  };
+  const combo = useCombobox({
+    id,
+    text: query,
+    options,
+    error,
+    onChoose: (option) => {
+      setQuery("");
+      onChange(
+        option.kind === "food"
+          ? { kind: "existing", id: option.food.id }
+          : { kind: "new", name: option.name, aisleId: "", otherNames: [] },
+      );
+    },
+  });
+  const { showing, field, errorId } = combo;
 
   if (value?.kind === "existing") {
     const food = foods.find((f) => f.id === value.id);
@@ -113,7 +104,7 @@ export function FoodPicker({
           </span>
           <span className="va-food-pick__text">
             <strong>{food?.name ?? "Chosen food"}</strong>
-            {food && (
+            {food && placeLabel(food) && (
               <span className="va-small va-muted">{placeLabel(food)}</span>
             )}
           </span>
@@ -156,13 +147,13 @@ export function FoodPicker({
             {error}
           </p>
         )}
-        <ShelfSelect
-          id={`${id}-shelf`}
-          aisles={shelves}
-          value={value.shelfId}
+        <AisleSelect
+          id={`${id}-aisle`}
+          aisles={aisles}
+          value={value.aisleId}
           required
-          error={shelfError}
-          onChange={(shelfId) => onChange({ ...value, shelfId })}
+          error={aisleError}
+          onChange={(aisleId) => onChange({ ...value, aisleId })}
         />
         <label htmlFor={`${id}-other`}>
           Other names (optional, separated by commas)
@@ -193,59 +184,18 @@ export function FoodPicker({
       </fieldset>
     );
 
-  const showing = open;
-  const highlighted = options[active];
   return (
-    <div
-      className="va-food-pick va-combo"
-      ref={root}
-      onBlur={(event) => {
-        if (!root.current?.contains(event.relatedTarget as Node))
-          setOpen(false);
-      }}
-    >
+    <div className="va-food-pick va-combo" {...combo.rootProps}>
       <label htmlFor={`${id}-input`} className="va-food-pick__label">
         {label}
       </label>
       <input
-        ref={field}
-        id={`${id}-input`}
-        type="text"
-        role="combobox"
-        autoComplete="off"
+        {...combo.inputProps}
         placeholder="Chicken nuggets, cheddar, milk…"
         value={query}
-        aria-autocomplete="list"
-        aria-expanded={showing}
-        aria-controls={listId}
-        aria-activedescendant={
-          showing && highlighted ? `${optionId}-${active}` : undefined
-        }
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
         onChange={(e) => {
           setQuery(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            if (!options.length) return;
-            event.preventDefault();
-            setOpen(true);
-            const step = event.key === "ArrowDown" ? 1 : -1;
-            setActive((index) =>
-              index === -1 && step === -1
-                ? options.length - 1
-                : (index + step + options.length) % options.length,
-            );
-          } else if (event.key === "Enter" && showing && highlighted) {
-            event.preventDefault();
-            choose(highlighted);
-          } else if (event.key === "Escape" && showing) {
-            event.preventDefault();
-            setOpen(false);
-          }
+          combo.setOpen(true);
         }}
       />
       {error && (
@@ -263,7 +213,7 @@ export function FoodPicker({
       {showing && (
         <div className="va-combo__panel">
           <div
-            id={listId}
+            id={combo.listId}
             role="listbox"
             aria-label={`Foods${typed ? ` matching ${typed}` : ""}`}
             className="va-combo__list"
@@ -271,19 +221,16 @@ export function FoodPicker({
             {options.map((option, index) => (
               <div
                 key={option.kind === "food" ? option.food.id : "suggest"}
-                id={`${optionId}-${index}`}
-                role="option"
-                aria-selected={index === active}
+                {...combo.optionProps(index)}
                 className={`va-combo__option${option.kind === "suggest" ? " va-combo__option--suggest" : ""}`}
-                onPointerMove={() => setActive(index)}
-                onPointerDown={(event) => event.preventDefault()}
-                onClick={() => choose(option)}
               >
                 {option.kind === "food" ? (
                   <>
-                    <span className="va-combo__place">
-                      {placeLabel(option.food)}
-                    </span>
+                    {placeLabel(option.food) && (
+                      <span className="va-combo__place">
+                        {placeLabel(option.food)}
+                      </span>
+                    )}
                     <span className="va-combo__name">
                       {option.food.name}
                       {option.via && (

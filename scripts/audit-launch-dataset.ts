@@ -85,7 +85,7 @@ try {
         ...(Object.keys(byCountry).length ? { byCountry } : {}),
       };
     }
-    // Foods the aisle bar cannot place (not Food → aisle → shelf → food).
+    // Foods the aisle bar cannot place (not Food → aisle → food).
     const categories = (
       await proxy.env.DB.prepare(
         "SELECT id,slug,name,parent_id AS parentId,is_rankable AS isRankable FROM categories WHERE is_active=1",

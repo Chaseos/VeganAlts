@@ -4,6 +4,7 @@ import {
 } from "../../shared/domain/errors";
 import {
   aggregateFormula,
+  INITIAL_SCORING,
   type RankingParameters,
 } from "../../ranking/domain/policy";
 import type {
@@ -20,6 +21,7 @@ export class RatingsService {
     private readonly parameters: RankingParameters,
     private readonly newId: () => string,
     private readonly clock: () => number = Date.now,
+    private readonly tastiest: RankingParameters = INITIAL_SCORING.tastiest,
   ) {}
 
   async rate(
@@ -54,7 +56,10 @@ export class RatingsService {
           rating.userId === actor.id && rating.categoryId === categoryId,
       );
       const change = detailChange(snapshot, categoryId, details);
-      detailChanged = change.changed;
+      detailChanged =
+        change.changed ||
+        (details.enjoyment !== undefined &&
+          details.enjoyment !== (existing?.enjoyment ?? null));
       return {
         kind: "upsert",
         rating: {
@@ -62,6 +67,11 @@ export class RatingsService {
           userId: actor.id,
           categoryId,
           score,
+          // An absent Tastiest answer keeps the stored one; null clears it.
+          enjoyment:
+            details.enjoyment === undefined
+              ? (existing?.enjoyment ?? null)
+              : details.enjoyment,
           isCounted: existing?.isCounted ?? true,
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
@@ -79,6 +89,7 @@ export class RatingsService {
         categoryId: rating.categoryId,
         overallSimilarity: rating.score,
         ...savedDetails(result.snapshot, categoryId, details),
+        enjoyment: rating.enjoyment,
         updatedAt: rating.updatedAt,
       },
       tried: true,
@@ -210,8 +221,14 @@ export class RatingsService {
         [...tried],
         this.parameters,
         now,
+        this.tastiest,
       );
-      if (await this.repository.commit(snapshot, mutation, aggregates, now))
+      if (
+        await this.repository.commit(snapshot, mutation, aggregates, now, {
+          closest: this.parameters,
+          tastiest: this.tastiest,
+        })
+      )
         return {
           aggregates,
           mutation,

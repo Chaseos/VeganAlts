@@ -4,6 +4,7 @@ import { commentServices } from "../comments/infrastructure/composition";
 import { communityServices } from "../community/infrastructure/composition";
 import { invalidateCommunityProduct } from "../community/infrastructure/invalidation";
 import { taxonomyServices } from "../taxonomy/infrastructure/composition";
+import { lineRefresh } from "../ranking/infrastructure/line-refresh";
 
 /**
  * Hourly automation. Each step is bounded and independent so one failing step
@@ -23,6 +24,9 @@ export async function runAutomation(env: Cloudflare.Env) {
     "trendingCategories",
     async () => (await trendingService(env).refresh()).categories,
   );
+  // Writes refresh their lines as they happen; this only re-derives lines
+  // where someone's latest rating just turned a week old ("this week").
+  await step("agedLines", () => lineRefresh(env).refreshAged());
   const decisions = moderationDecisions(env);
   await step("expiredDecisionLeases", () => decisions.expireLeases());
   await step("releasedComments", () => commentServices(env).reevaluateHeld());

@@ -15,6 +15,8 @@ import {
   AllergenLabel,
   Badge,
   EarlyBadge,
+  SeasonalProductBadge,
+  TrendingBadge,
   NewBadge,
   VeganStatusChip,
   veganStatusLabel,
@@ -22,9 +24,10 @@ import {
 import { DetailBars, DistributionBars } from "../components/ui/bars";
 import { Notice } from "../components/ui/feedback";
 import { formatScore, plural } from "../lib/format";
+import { FLAVOR_SCORE_MIN_ANSWERS } from "@server/ranking/domain/display";
 import { useHydrated } from "../lib/use-hydrated";
 import { saveFilters, useSavedFilters } from "../lib/ranking-filters";
-import { RatingControl } from "../components/rating-control";
+import { RatingControl, SCORE_MEANINGS } from "../components/rating-control";
 import { CommentSection } from "../components/comments/comment-section";
 import { ProposalResponses } from "../components/proposal-responses";
 import { PhotoSlots } from "../components/photo-slots";
@@ -119,13 +122,6 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
 }
 type ProductData = Route.ComponentProps["loaderData"]["product"];
 type FoodView = ProductData["categories"][number];
-const MEANINGS = [
-  "Not close",
-  "Slightly similar",
-  "Fairly close",
-  "Very close",
-  "Extremely close",
-];
 
 // A product page about one of its foods (canvas: Product5, PProduct5).
 export default function Product({
@@ -195,14 +191,6 @@ export default function Product({
                   },
                 ]
               : []),
-            ...(p.place?.shelf
-              ? [
-                  {
-                    label: p.place.shelf.name,
-                    to: `${aislePath}?shelf=${p.place.shelf.slug}`,
-                  },
-                ]
-              : []),
             ...(food
               ? [{ label: food.name, to: foodPath(code, food.slug) }]
               : []),
@@ -216,29 +204,46 @@ export default function Product({
           </Notice>
         )}
         <div className="va-product__top">
+          <div className="va-product__identity">
+            <p className="va-chip-row va-product__labels">
+              {p.brand && <span className="va-product__brand">{p.brand}</span>}
+              <VeganStatusChip status={p.veganStatus} />
+              <AllergenLabel allergens={allergens} />
+              {p.isNew && <NewBadge />}
+              {food?.line?.trending && <TrendingBadge />}
+              {p.seasonal === 1 && <SeasonalProductBadge />}
+              {!!p.developmentOnly && <Badge>Demo product</Badge>}
+            </p>
+            <h1 className="va-product__name">{p.name}</h1>
+            {p.flavor && (
+              <p className="va-product__flavor va-muted">Flavor: {p.flavor}</p>
+            )}
+          </div>
+          {food && <ScoreCard country={code} food={food} />}
           <div className="va-product__photos">
             <PhotoGallery
+              key={p.versionId}
+              productId={p.id}
               productName={p.name}
               food={food?.slug ?? "food"}
+              canPropose={
+                Boolean(p.formula.isCurrent) && p.lifecycleStatus !== "hidden"
+              }
               images={p.images}
             />
-            <a className="va-link va-small" href="#photo-slots">
-              Suggest a better photo
-            </a>
+            <details className="va-gallery__manage">
+              <summary>Add or improve photos</summary>
+              <PhotoSlots
+                productId={p.id}
+                productName={p.name}
+                images={p.images}
+                canPropose={
+                  Boolean(p.formula.isCurrent) && p.lifecycleStatus !== "hidden"
+                }
+              />
+            </details>
           </div>
           <div className="va-product__summary">
-            <div>
-              <p className="va-chip-row va-product__labels">
-                {p.brand && (
-                  <span className="va-product__brand">{p.brand}</span>
-                )}
-                <VeganStatusChip status={p.veganStatus} />
-                <AllergenLabel allergens={allergens} />
-                {p.isNew && <NewBadge />}
-                {!!p.developmentOnly && <Badge>Demo product</Badge>}
-              </p>
-              <h1 className="va-product__name">{p.name}</h1>
-            </div>
             {p.lifecycleStatus !== "active" && (
               <Notice>
                 This product is {p.lifecycleStatus.replaceAll("_", " ")}. New
@@ -301,23 +306,121 @@ export default function Product({
                 is resolved.
               </Notice>
             )}
-            {food && <ScoreCard country={code} food={food} />}
             <StoreToggles
               country={code}
               productId={p.id}
               retailers={p.retailers}
             />
+
+            {others.length > 0 && (
+              <section
+                className="va-product__variants"
+                aria-labelledby="also-title"
+              >
+                <h2 id="also-title" className="va-heading-s">
+                  Also ranked for
+                </h2>
+                <ul className="va-product__also">
+                  {others.map((other) => (
+                    <li key={other.id}>
+                      <Link
+                        className="va-row-link"
+                        to={`${productPath(code, p.slug)}?food=${other.slug}`}
+                      >
+                        <FoodIcon slug={other.slug} size={24} />
+                        <span className="va-row-link__text">
+                          <span className="va-row-link__title">
+                            {other.name}
+                          </span>
+                          <span className="va-small va-muted">
+                            {other.line
+                              ? `#${other.line.closest.rank} of ${other.line.closest.of} · ${plural(other.line.closest.people, "person", "people")}`
+                              : "Not ranked yet"}
+                          </span>
+                        </span>
+                        {other.line && (
+                          <ScoreLabel
+                            value={other.line.closest.score}
+                            size="compact"
+                          />
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <p className="va-small">
+                  Each food has its own ranking, so the same product can score
+                  differently when you use it another way.
+                </p>
+              </section>
+            )}
+            {p.lifecycleStatus === "active" && (
+              <section
+                className="va-product__variants"
+                aria-labelledby="flavors-title"
+              >
+                <h2 id="flavors-title" className="va-heading-s">
+                  Other flavors
+                </h2>
+                {p.otherFlavors.length > 0 ? (
+                  <ul className="va-divided">
+                    {p.otherFlavors.map((other) => (
+                      <li key={other.id}>
+                        <Link to={productPath(code, other.slug, other.food)}>
+                          {other.flavor ?? other.name}
+                        </Link>
+                        {other.flavor && (
+                          <span className="va-small va-muted">
+                            {" "}
+                            · {other.name}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="va-small va-muted">
+                    No other flavors of this recipe are listed yet.
+                  </p>
+                )}
+                <p className="va-small">
+                  <Link
+                    className="va-link"
+                    to={`/add-product?country=${code}${food ? `&food=${food.slug}` : ""}&line=${p.lineId}`}
+                  >
+                    Add another flavor
+                  </Link>
+                </p>
+              </section>
+            )}
+          </div>
+        </div>
+
+        <nav className="va-product__nav" aria-label="Product sections">
+          {food && <a href="#scores-title">Rate it</a>}
+          <a href="#comments-title">Community notes</a>
+          <a href="#facts-title">Product facts</a>
+          <a href="#retailers">Where to find it</a>
+          <a href="#formula-history">Formula history</a>
+        </nav>
+
+        <div className="va-product__ratings">
+          <div className="va-product__editor">
             {food &&
               (food.canRate ? (
                 <div id="scores-title" className="va-product__rate">
                   <div id={`rate-${food.id}`}>
                     <RatingControl
+                      key={`${p.versionId}-${food.id}`}
                       versionId={p.versionId}
                       categoryId={food.id}
                       categoryName={food.name}
                       productSlug={p.slug}
+                      productName={p.name}
+                      flavor={p.flavor}
                       foodSlug={food.slug}
                       dimensions={food.dimensions}
+                      flavored={p.flavor !== null}
                     />
                   </div>
                 </div>
@@ -329,30 +432,8 @@ export default function Product({
                 </p>
               ))}
           </div>
-        </div>
-
-        <div className="va-product__cards">
-          {food && food.ratingCount > 0 && (
-            <section
-              className="va-card va-product__card"
-              aria-labelledby="distribution-title"
-            >
-              <h2 id="distribution-title" className="va-heading-s">
-                How people rated it
-              </h2>
-              <p className="va-small va-muted">
-                Overall closeness to {food.name.toLowerCase()}
-              </p>
-              <DistributionBars
-                label={`Ratings of closeness to ${food.name.toLowerCase()}`}
-                rows={food.distribution.map((row) => ({
-                  label: `${row.score} · ${MEANINGS[row.score - 1]}`,
-                  count: row.count,
-                }))}
-              />
-            </section>
-          )}
-          <div className="va-card va-product__card va-product__notes">
+          {food && food.ratingCount > 0 && <RatingBreakdown food={food} />}
+          <div className="va-product__notes">
             <CommentSection
               key={p.id}
               productSlug={p.slug}
@@ -362,87 +443,7 @@ export default function Product({
               initial={comments}
             />
           </div>
-          {others.length > 0 && (
-            <section
-              className="va-card va-product__card"
-              aria-labelledby="also-title"
-            >
-              <h2 id="also-title" className="va-heading-s">
-                Also ranked for
-              </h2>
-              <ul className="va-product__also">
-                {others.map((other) => (
-                  <li key={other.id}>
-                    <Link
-                      className="va-row-link"
-                      to={`${productPath(code, p.slug)}?food=${other.slug}`}
-                    >
-                      <FoodIcon slug={other.slug} size={24} />
-                      <span className="va-row-link__text">
-                        <span className="va-row-link__title">{other.name}</span>
-                        <span className="va-small va-muted">
-                          {other.rank
-                            ? `#${other.rank} of ${other.rankedCount} · ${plural(other.ratingCount, "rating")}`
-                            : "Not ranked yet"}
-                        </span>
-                      </span>
-                      {other.rank && other.bayesianScore !== null && (
-                        <ScoreLabel
-                          value={other.bayesianScore}
-                          size="compact"
-                        />
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              <p className="va-small">
-                Each food has its own ranking, so the same product can score
-                differently when you use it another way.
-              </p>
-            </section>
-          )}
         </div>
-
-        {food && p.others.length > 0 && (
-          <section aria-labelledby="others-title">
-            <div className="va-product__section-head">
-              <h2 id="others-title" className="va-heading-m">
-                Other {food.name.toLowerCase()} swaps
-              </h2>
-              <Link className="va-link" to={foodPath(code, food.slug)}>
-                See all {food.rankedCount}
-              </Link>
-            </div>
-            <ul className="va-product__others">
-              {p.others.map((other) => (
-                <li key={other.slug}>
-                  <Link
-                    className="va-rank-row"
-                    to={`${productPath(code, other.slug)}?food=${food.slug}`}
-                  >
-                    <span className="va-rank-row__rank">
-                      <span className="sr-only">Rank </span>#{other.rank}
-                    </span>
-                    <span className="va-rank-row__main">
-                      <span className="va-rank-row__name">{other.name}</span>
-                      <span className="va-small va-muted">
-                        {[other.brand, plural(other.ratingCount, "rating")]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    </span>
-                    <ScoreLabel
-                      value={other.score}
-                      size="compact"
-                      tone={other.rank === 1 ? "tag" : "neutral"}
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
 
         <section className="va-product__facts" aria-labelledby="facts-title">
           <div>
@@ -538,7 +539,7 @@ export default function Product({
 
         <div className="va-product__more">
           {p.classification && (
-            <details className="va-card va-product__details">
+            <details className="va-product__details">
               <summary>Ingredient evidence</summary>
               <p>{p.classification.evidence.note}</p>
               {p.classification.evidence.urls.map((url, index) => (
@@ -569,106 +570,103 @@ export default function Product({
           {p.formula.isCurrent ? <ProposalResponses productId={p.id} /> : null}
           <section
             id="retailers"
-            className="va-card va-product__card"
+            className="va-product__section"
             aria-labelledby="retailers-title"
           >
             <h2 id="retailers-title" className="va-heading-s">
               Where members found it
             </h2>
-            <p className="va-small va-muted">
-              Community availability reports, not live inventory.
-            </p>
-            {p.retailers.length ? (
-              <ul className="va-divided">
-                {p.retailers.map((r) => (
-                  <li key={r.id} className="va-product__retailer">
-                    <strong>{r.name}</strong>
-                    <span className="va-small va-muted">
-                      {r.stale
-                        ? "Not confirmed recently"
-                        : "Recently confirmed"}{" "}
-                      · {plural(r.contributorCount, "contributor")} · last
-                      confirmed {dateLabel(r.lastConfirmedAt)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No retailer confirmations yet.</p>
-            )}
+            <div className="va-product__section-body">
+              <p className="va-small va-muted">
+                Community availability reports, not live inventory.
+              </p>
+              {p.retailers.length ? (
+                <ul className="va-divided">
+                  {p.retailers.map((r) => (
+                    <li key={r.id} className="va-product__retailer">
+                      <strong>{r.name}</strong>
+                      <span className="va-small va-muted">
+                        {r.stale
+                          ? "Not confirmed recently"
+                          : "Recently confirmed"}{" "}
+                        · {plural(r.contributorCount, "contributor")} · last
+                        confirmed {dateLabel(r.lastConfirmedAt)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No retailer confirmations yet.</p>
+              )}
+            </div>
           </section>
           {!!p.relatedProducts.length && (
             <section
-              className="va-card va-product__card"
+              className="va-product__section"
               aria-labelledby="related-title"
             >
               <h2 id="related-title" className="va-heading-s">
                 Related products
               </h2>
-              <ul className="va-divided">
-                {p.relatedProducts.map((r) => (
-                  <li key={r.id}>
-                    {r.country ? (
-                      <Link to={productPath(r.country.toLowerCase(), r.slug)}>
-                        {r.name}
-                      </Link>
-                    ) : (
-                      r.name
-                    )}
-                    <span className="va-small va-muted">
-                      {" "}
-                      · {r.country} · {friendly(r.relationship)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="va-small va-muted">
-                Each product and country keeps its own ratings.
-              </p>
+              <div className="va-product__section-body">
+                <ul className="va-divided">
+                  {p.relatedProducts.map((r) => (
+                    <li key={r.id}>
+                      {r.country ? (
+                        <Link to={productPath(r.country.toLowerCase(), r.slug)}>
+                          {r.name}
+                        </Link>
+                      ) : (
+                        r.name
+                      )}
+                      <span className="va-small va-muted">
+                        {" "}
+                        · {r.country} · {friendly(r.relationship)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="va-small va-muted">
+                  Each product and country keeps its own ratings.
+                </p>
+              </div>
             </section>
           )}
           <section
             id="formula-history"
-            className="va-card va-product__card"
+            className="va-product__section"
             aria-labelledby="history-title"
           >
             <h2 id="history-title" className="va-heading-s">
               Formula history
             </h2>
-            <p className="va-small va-muted">
-              A new formula starts fresh. Earlier experiences stay with the
-              formula people tried.
-            </p>
-            <ul className="va-divided">
-              {p.history.map((v) => (
-                <li key={v.id} className="va-product__formula">
-                  <Link
-                    to={`${productPath(code, p.slug)}${v.isCurrent ? "" : `?version=${v.id}`}`}
-                    aria-current={v.id === p.versionId ? "page" : undefined}
-                  >
-                    {v.versionLabel}
-                  </Link>
-                  <span className="va-small va-muted">
-                    {v.isCurrent ? "Current" : "Historical"}
-                    {v.effectiveDate
-                      ? ` · effective ${v.effectiveDate} (${v.effectiveDatePrecision} precision)`
-                      : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="va-small va-muted">{p.formula.changeSummary}</p>
+            <div className="va-product__section-body">
+              <p className="va-small va-muted">
+                A new formula starts fresh. Earlier experiences stay with the
+                formula people tried.
+              </p>
+              <ul className="va-divided">
+                {p.history.map((v) => (
+                  <li key={v.id} className="va-product__formula">
+                    <Link
+                      to={`${productPath(code, p.slug)}${v.isCurrent ? "" : `?version=${v.id}`}`}
+                      aria-current={v.id === p.versionId ? "page" : undefined}
+                    >
+                      {v.versionLabel}
+                    </Link>
+                    <span className="va-small va-muted">
+                      {v.isCurrent ? "Current" : "Historical"}
+                      {v.effectiveDate
+                        ? ` · effective ${v.effectiveDate} (${v.effectiveDatePrecision} precision)`
+                        : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="va-small va-muted">{p.formula.changeSummary}</p>
+            </div>
           </section>
-          <div className="va-card va-product__card">
-            <PhotoSlots
-              productId={p.id}
-              productName={p.name}
-              images={p.images}
-              canPropose={
-                Boolean(p.formula.isCurrent) && p.lifecycleStatus !== "hidden"
-              }
-            />
-          </div>
+
           {!!p.developmentOnly && (
             <p className="va-small va-muted">
               Demo catalog. Product details, illustrations and sample ratings
@@ -677,61 +675,214 @@ export default function Product({
             </p>
           )}
         </div>
+        {food && p.others.length > 0 && (
+          <section aria-labelledby="others-title">
+            <div className="va-product__section-head">
+              <h2 id="others-title" className="va-heading-m">
+                Other {food.name.toLowerCase()} swaps
+              </h2>
+              <Link className="va-link" to={foodPath(code, food.slug)}>
+                See all {food.rankedCount}
+              </Link>
+            </div>
+            <ul className="va-product__others">
+              {p.others.map((other) => (
+                <li key={other.slug}>
+                  <Link
+                    className="va-rank-row"
+                    to={`${productPath(code, other.slug)}?food=${food.slug}`}
+                  >
+                    <span className="va-rank-row__rank">
+                      <span className="sr-only">Rank </span>#{other.rank}
+                    </span>
+                    <span className="va-rank-row__main">
+                      <span className="va-rank-row__name">{other.name}</span>
+                      <span className="va-small va-muted">
+                        {[
+                          other.brand,
+                          plural(other.ratingCount, "person", "people"),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                      {other.trending && (
+                        <span className="va-rank-row__meta">
+                          <TrendingBadge />
+                        </span>
+                      )}
+                    </span>
+                    <ScoreLabel
+                      value={other.score}
+                      size="compact"
+                      tone={other.rank === 1 ? "tag" : "neutral"}
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </PageShell>
   );
 }
 
-// The chosen food's score, recent eaters, details and a link to compare.
+// Line scores share one visual treatment; flavor scores retain their own counts.
 function ScoreCard({ country, food }: { country: string; food: FoodView }) {
   const lower = food.name.toLowerCase();
-  const detailCount = Math.max(0, ...food.details.map((d) => d.count));
+  const line = food.line;
   return (
     <section className="va-score-card" aria-label="Score">
-      {food.rank && (
-        <Link className="va-score-card__flag" to={foodPath(country, food.slug)}>
-          <RankFlag>
-            {food.rank === 1
-              ? `#1 swap for ${lower}`
-              : `#${food.rank} of ${food.rankedCount} for ${lower}`}
-          </RankFlag>
-        </Link>
-      )}
-      <div className="va-score-card__head">
-        {food.ratingCount > 0 && food.bayesianScore !== null ? (
-          <ScoreLabel value={food.bayesianScore} size="large" />
-        ) : null}
-        <div className="va-score-card__text">
-          <strong>
-            {food.ratingCount
-              ? `${plural(food.ratingCount, "person", "people")} rated how close it is to ${lower}`
-              : `No ratings yet for ${lower}. Be the first to say how close it is.`}
-          </strong>
-          {food.early && <EarlyBadge count={food.ratingCount} />}
-          {food.recentEaters && (
-            <span>
-              People who ate {lower} in the past year give it{" "}
-              <strong>{formatScore(food.recentEaters.average)}</strong>{" "}
-              <span className="va-muted">
-                ({plural(food.recentEaters.count, "person", "people")})
-              </span>
-            </span>
-          )}
-          {food.rankedCount > 1 && (
-            <Link className="va-link" to={foodPath(country, food.slug)}>
-              Compare all {food.rankedCount} {lower} swaps
-            </Link>
-          )}
-        </div>
+      <div className="va-score-card__standing">
+        {line && (
+          <Link
+            className="va-score-card__flag"
+            to={foodPath(country, food.slug)}
+          >
+            <RankFlag>
+              {line.closest.rank === 1
+                ? `#1 swap for ${lower}`
+                : `#${line.closest.rank} of ${line.closest.of} for ${lower}`}
+            </RankFlag>
+          </Link>
+        )}
+        {line && line.flavorCount > 1 && (
+          <p className="va-score-card__context">
+            Across {line.flavorCount} flavors of {line.name}
+          </p>
+        )}
       </div>
+      <div className="va-score-card__metrics">
+        {(
+          [
+            {
+              label: "Closest",
+              description: `to ${lower}`,
+              value: line?.closest,
+              tone: "tag",
+            },
+            {
+              label: "Tastiest",
+              description: "on its own",
+              value: line?.tastiest,
+              tone: "tasty",
+            },
+          ] as const
+        ).map((metric) => (
+          <div className="va-score-card__metric" key={metric.label}>
+            <div className="va-score-card__metric-title">
+              <strong>{metric.label}</strong> <span>{metric.description}</span>
+            </div>
+            <div className="va-score-card__metric-value">
+              {metric.value && metric.value.score !== null ? (
+                <ScoreLabel
+                  value={metric.value.score}
+                  size="large"
+                  tone={metric.tone}
+                />
+              ) : (
+                <span className="va-score-card__unrated">Not rated yet</span>
+              )}
+              <div className="va-score-card__text">
+                {metric.value && (
+                  <strong>
+                    #{metric.value.rank} of {metric.value.of}
+                  </strong>
+                )}
+                <span>
+                  {plural(metric.value?.people ?? 0, "person", "people")}
+                </span>
+                {metric.value?.early && (
+                  <EarlyBadge count={metric.value.people} />
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {line && line.flavorCount > 1 && (
+        <div className="va-score-card__flavor">
+          <strong>This flavor</strong>
+          <div className="va-score-card__flavor-scores">
+            {(["closest", "tastiest"] as const).map((metric) => {
+              const own = food.flavorScores[metric];
+              return (
+                <div key={metric}>
+                  <span>{metric === "closest" ? "Closest" : "Tastiest"}</span>
+                  {own.count >= FLAVOR_SCORE_MIN_ANSWERS &&
+                  own.score !== null ? (
+                    <ScoreLabel
+                      value={own.score}
+                      size="mini"
+                      tone={metric === "tastiest" ? "tasty" : "neutral"}
+                    />
+                  ) : (
+                    <span className="va-small va-muted">
+                      Too few ratings yet
+                    </span>
+                  )}
+                  <span className="va-small va-muted">
+                    {plural(own.count, "person", "people")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <div className="va-score-card__actions">
+        {!!food.canRate && (
+          <a className="button small-button" href="#scores-title">
+            Rate this product
+          </a>
+        )}
+        {food.rankedCount > 1 && (
+          <Link className="va-link va-small" to={foodPath(country, food.slug)}>
+            Compare all {food.rankedCount} {lower} swaps
+          </Link>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function RatingBreakdown({ food }: { food: FoodView }) {
+  const detailCount = Math.max(0, ...food.details.map((d) => d.count));
+  return (
+    <section
+      className="va-product__breakdown"
+      aria-labelledby="distribution-title"
+    >
+      <h2 id="distribution-title" className="va-heading-s">
+        How people rated it
+      </h2>
+      <p className="va-small va-muted">
+        This flavor · Closeness to {food.name.toLowerCase()} ·{" "}
+        {plural(food.ratingCount, "person", "people")}
+      </p>
+      <DistributionBars
+        label={`Ratings of closeness to ${food.name.toLowerCase()}`}
+        rows={food.distribution.map((row) => ({
+          label: `${row.score} · ${SCORE_MEANINGS[row.score - 1]}`,
+          count: row.count,
+        }))}
+      />
       {food.details.some((d) => d.mean !== null) && (
-        <div className="va-score-card__details">
+        <div className="va-product__detail-scores">
+          <h3 className="va-heading-s">A closer look</h3>
           <DetailBars details={food.details} />
           <p className="va-small va-muted">
             From {plural(detailCount, "person", "people")} who added detail
-            scores.
+            scores to this flavor.
           </p>
         </div>
+      )}
+      {food.recentEaters && (
+        <p className="va-small va-muted">
+          People who ate {food.name.toLowerCase()} in the past year give this
+          flavor <strong>{formatScore(food.recentEaters.average)}/5</strong> (
+          {plural(food.recentEaters.count, "person", "people")}).
+        </p>
       )}
     </section>
   );

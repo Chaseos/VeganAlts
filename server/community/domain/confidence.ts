@@ -81,7 +81,13 @@ export function riskTier(
     case "reformulation":
       return 3;
     case "relationships":
-      return change.categoryEligibility.length ? 3 : 2;
+      // Moving a product to another line changes which scores its ratings
+      // join (milestone 7).
+      return change.categoryEligibility.length ||
+        (change.productFamilyId !== null &&
+          change.productFamilyId !== snapshot.familyId)
+        ? 3
+        : 2;
     case "discontinue":
       return mature ? 3 : 2;
     case "reintroduce":
@@ -105,6 +111,7 @@ export function riskTier(
     case "source_url":
       return snapshot.manufacturerUrl ? 2 : 1;
     case "rename":
+    case "seasonal":
     case "category_add":
     case "retailer_status":
       return 2;
@@ -126,6 +133,7 @@ const AUTOMATIC = new Set<ProductChange["kind"]>([
   "alias",
   "source_url",
   "rename",
+  "seasonal",
   "packaging",
   "photo",
   "relationships",

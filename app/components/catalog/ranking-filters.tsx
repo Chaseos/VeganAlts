@@ -42,8 +42,8 @@ export function SortMenu({
       panelLabel="Sort by"
       summary={
         <>
-          <span className="va-muted">Sort</span>
-          <strong>{label}</strong>
+          <span className="va-muted va-desktop-only">Sort:</span>{" "}
+          <strong className="va-sort-menu__current">{label}</strong>
           <Icon name="chevronDown" size={14} strokeWidth={2.6} />
         </>
       }
@@ -74,7 +74,8 @@ export function SortMenu({
             })}
           </ul>
           <p className="va-menu-note">
-            Only Closest match is the ranking. Other sorts never change it.
+            Closest to the original and Tastiest are the rankings. Other sorts
+            never change them.
           </p>
         </>
       )}
@@ -88,10 +89,12 @@ export function SortMenu({
 // device for this country.
 export function StoreChecklist({
   country,
+  countryName,
   stores,
   filters,
 }: {
   country: string;
+  countryName: string;
   stores: StoreOption[];
   filters: RankingFilters;
 }) {
@@ -101,6 +104,7 @@ export function StoreChecklist({
   const names = stores
     .filter((store) => chosen.has(store.slug))
     .map((store) => store.name);
+  const summary = names.length ? summarizeNames(names) : "Any store";
   // Stores with ranked swaps here, plus any already chosen.
   const visible = stores.filter(
     (store) => store.count > 0 || chosen.has(store.slug),
@@ -116,13 +120,15 @@ export function StoreChecklist({
   return (
     <Popover
       className={`va-store-menu${chosen.size ? " va-store-menu--active" : ""}`}
-      summaryLabel={`Commonly found at: ${names.length ? names.join(", ") : "Any store"}`}
+      summaryLabel={`Commonly found at: ${summary}${names.length > 2 ? `. Selected stores: ${names.join(", ")}` : ""}`}
       panelLabel="Stores you shop at"
       summary={
         <>
           <Icon name="bag" size={18} />
-          <span className="va-store-menu__lead">Commonly found at</span>
-          <strong>{names.length ? summarizeNames(names) : "Any store"}</strong>
+          <span className="va-store-menu__lead va-desktop-only">
+            Commonly found at:
+          </span>{" "}
+          <strong>{summary}</strong>
           <Icon name="chevronDown" size={14} strokeWidth={2.6} />
         </>
       }
@@ -151,6 +157,11 @@ export function StoreChecklist({
             />
           )}
           <p className="va-menu-heading">Pick every store you shop at</p>
+          <p className="va-menu-note">
+            Commonly found at any of your chosen stores, as reported by members
+            in {countryName}. Your choices are saved on this device for every
+            ranking in this country.
+          </p>
           {visible.length ? (
             <ul className="va-check-list">
               {visible.map((store) => (
@@ -228,11 +239,11 @@ export function FreeFromChecklist({
   return (
     <Popover
       className={`va-store-menu${chosen.size ? " va-store-menu--active" : ""}`}
-      summaryLabel={`Free from: ${names.length ? names.join(", ") : "any allergens"}`}
+      summaryLabel={`Free from: ${names.length ? `${summary}. Allergens: ${names.join(", ")}` : "any allergens"}`}
       panelLabel="Allergens to avoid"
       summary={
         <>
-          <span className="va-store-menu__lead">Free from</span>
+          <span className="va-store-menu__lead">Free from:</span>{" "}
           <strong>{summary}</strong>
           <Icon name="chevronDown" size={14} strokeWidth={2.6} />
         </>
@@ -278,7 +289,9 @@ export function FreeFromChecklist({
             ))}
           </ul>
           <p className="va-menu-note">
-            “May contain” counts too. Always check the package.
+            Only confirmed labels qualify. “May contain” counts too. Always
+            check the package. Your choices are saved on this device for every
+            ranking in this country.
           </p>
           <div className="va-check-list__actions">
             <button
@@ -320,8 +333,29 @@ export function StoreLine({
   );
 }
 
-export function resultCount(shown: number, total: number, filtered: boolean) {
-  return filtered
-    ? `${formatCount(shown)} of ${plural(total, "ranked product")} match`
-    : plural(total, "ranked product");
+export function RankingResultCount({
+  shown,
+  total,
+  filtered,
+}: {
+  shown: number;
+  total: number;
+  filtered: boolean;
+}) {
+  const count = filtered ? shown : total;
+  return (
+    <span
+      className={`va-filter-bar__count${count === 0 ? " va-filter-bar__count--empty" : ""}`}
+      role="status"
+    >
+      <strong>{formatCount(count)}</strong>{" "}
+      <span>
+        {filtered
+          ? `of ${plural(total, "ranked swap")} match`
+          : count === 1
+            ? "ranked swap"
+            : "ranked swaps"}
+      </span>
+    </span>
+  );
 }

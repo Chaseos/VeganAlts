@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2de40d55-f3e5-46bf-8c60-00fcf01d2ff1",
+  "id": "3a645875-a7a5-485b-9552-589420449ca6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -627,6 +627,27 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "season_start": {
+          "name": "season_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "season_end": {
+          "name": "season_end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         }
       },
@@ -1614,6 +1635,621 @@
         }
       }
     },
+    "family_category_daily_stats": {
+      "name": "family_category_daily_stats",
+      "columns": {
+        "stat_date": {
+          "name": "stat_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_family_id": {
+          "name": "product_family_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rating_count": {
+          "name": "rating_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "similarity_sum": {
+          "name": "similarity_sum",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "tried": {
+          "name": "tried",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "commented": {
+          "name": "commented",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        }
+      },
+      "indexes": {
+        "ix_family_daily_category_date": {
+          "name": "ix_family_daily_category_date",
+          "columns": [
+            "category_id",
+            "\"stat_date\" desc"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "family_category_daily_stats_product_family_id_product_families_id_fk": {
+          "name": "family_category_daily_stats_product_family_id_product_families_id_fk",
+          "tableFrom": "family_category_daily_stats",
+          "tableTo": "product_families",
+          "columnsFrom": [
+            "product_family_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "family_category_daily_stats_category_id_categories_id_fk": {
+          "name": "family_category_daily_stats_category_id_categories_id_fk",
+          "tableFrom": "family_category_daily_stats",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "family_category_daily_stats_user_id_profiles_user_id_fk": {
+          "name": "family_category_daily_stats_user_id_profiles_user_id_fk",
+          "tableFrom": "family_category_daily_stats",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "family_category_daily_stats_stat_date_product_family_id_category_id_user_id_pk": {
+          "columns": [
+            "stat_date",
+            "product_family_id",
+            "category_id",
+            "user_id"
+          ],
+          "name": "family_category_daily_stats_stat_date_product_family_id_category_id_user_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_family_category_daily_stats_1": {
+          "name": "ck_family_category_daily_stats_1",
+          "value": "rating_count >= 0 AND similarity_sum BETWEEN rating_count AND rating_count * 5 AND tried IN (0, 1) AND commented IN (0, 1)"
+        }
+      }
+    },
+    "family_category_dimension_stats": {
+      "name": "family_category_dimension_stats",
+      "columns": {
+        "product_family_id": {
+          "name": "product_family_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "dimension_id": {
+          "name": "dimension_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "people_count": {
+          "name": "people_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mean_sum": {
+          "name": "mean_sum",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recomputed_at": {
+          "name": "recomputed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ix_family_category_dimension_stats_category": {
+          "name": "ix_family_category_dimension_stats_category",
+          "columns": [
+            "category_id",
+            "dimension_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "family_category_dimension_stats_product_family_id_product_families_id_fk": {
+          "name": "family_category_dimension_stats_product_family_id_product_families_id_fk",
+          "tableFrom": "family_category_dimension_stats",
+          "tableTo": "product_families",
+          "columnsFrom": [
+            "product_family_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "family_category_dimension_stats_category_id_categories_id_fk": {
+          "name": "family_category_dimension_stats_category_id_categories_id_fk",
+          "tableFrom": "family_category_dimension_stats",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "family_category_dimension_stats_dimension_id_category_rating_dimensions_id_fk": {
+          "name": "family_category_dimension_stats_dimension_id_category_rating_dimensions_id_fk",
+          "tableFrom": "family_category_dimension_stats",
+          "tableTo": "category_rating_dimensions",
+          "columnsFrom": [
+            "dimension_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "family_category_dimension_stats_product_family_id_category_id_dimension_id_pk": {
+          "columns": [
+            "product_family_id",
+            "category_id",
+            "dimension_id"
+          ],
+          "name": "family_category_dimension_stats_product_family_id_category_id_dimension_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_family_category_dimension_stats_1": {
+          "name": "ck_family_category_dimension_stats_1",
+          "value": "people_count > 0 AND mean_sum BETWEEN people_count - 0.000001 AND people_count * 5 + 0.000001"
+        }
+      }
+    },
+    "family_category_first_published": {
+      "name": "family_category_first_published",
+      "columns": {
+        "product_family_id": {
+          "name": "product_family_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "first_published_at": {
+          "name": "first_published_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ix_family_first_published_category": {
+          "name": "ix_family_first_published_category",
+          "columns": [
+            "category_id",
+            "\"first_published_at\" desc"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "family_category_first_published_product_family_id_product_families_id_fk": {
+          "name": "family_category_first_published_product_family_id_product_families_id_fk",
+          "tableFrom": "family_category_first_published",
+          "tableTo": "product_families",
+          "columnsFrom": [
+            "product_family_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "family_category_first_published_category_id_categories_id_fk": {
+          "name": "family_category_first_published_category_id_categories_id_fk",
+          "tableFrom": "family_category_first_published",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "family_category_first_published_product_family_id_category_id_pk": {
+          "columns": [
+            "product_family_id",
+            "category_id"
+          ],
+          "name": "family_category_first_published_product_family_id_category_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "family_category_stats": {
+      "name": "family_category_stats",
+      "columns": {
+        "product_family_id": {
+          "name": "product_family_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "people_count": {
+          "name": "people_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "mean_sum": {
+          "name": "mean_sum",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "raw_average": {
+          "name": "raw_average",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bayesian_score": {
+          "name": "bayesian_score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "enjoyment_people": {
+          "name": "enjoyment_people",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "enjoyment_mean_sum": {
+          "name": "enjoyment_mean_sum",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "enjoyment_average": {
+          "name": "enjoyment_average",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "enjoyment_score": {
+          "name": "enjoyment_score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tried_count": {
+          "name": "tried_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "recent_count": {
+          "name": "recent_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "lead_product_id": {
+          "name": "lead_product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recomputed_at": {
+          "name": "recomputed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ix_family_category_stats_closest": {
+          "name": "ix_family_category_stats_closest",
+          "columns": [
+            "category_id",
+            "\"bayesian_score\" desc",
+            "\"people_count\" desc"
+          ],
+          "isUnique": false
+        },
+        "ix_family_category_stats_tastiest": {
+          "name": "ix_family_category_stats_tastiest",
+          "columns": [
+            "category_id",
+            "\"enjoyment_score\" desc",
+            "\"enjoyment_people\" desc"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "family_category_stats_product_family_id_product_families_id_fk": {
+          "name": "family_category_stats_product_family_id_product_families_id_fk",
+          "tableFrom": "family_category_stats",
+          "tableTo": "product_families",
+          "columnsFrom": [
+            "product_family_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "family_category_stats_category_id_categories_id_fk": {
+          "name": "family_category_stats_category_id_categories_id_fk",
+          "tableFrom": "family_category_stats",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "family_category_stats_lead_product_id_products_id_fk": {
+          "name": "family_category_stats_lead_product_id_products_id_fk",
+          "tableFrom": "family_category_stats",
+          "tableTo": "products",
+          "columnsFrom": [
+            "lead_product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "family_category_stats_product_family_id_category_id_pk": {
+          "columns": [
+            "product_family_id",
+            "category_id"
+          ],
+          "name": "family_category_stats_product_family_id_category_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_family_category_stats_1": {
+          "name": "ck_family_category_stats_1",
+          "value": "people_count >= 0 AND enjoyment_people >= 0 AND tried_count >= 0 AND recent_count >= 0"
+        },
+        "ck_family_category_stats_2": {
+          "name": "ck_family_category_stats_2",
+          "value": "mean_sum >= 0 AND enjoyment_mean_sum >= 0"
+        }
+      }
+    },
+    "family_category_trends": {
+      "name": "family_category_trends",
+      "columns": {
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_family_id": {
+          "name": "product_family_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "trending_score": {
+          "name": "trending_score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rank": {
+          "name": "rank",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "inputs": {
+          "name": "inputs",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "computed_at": {
+          "name": "computed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ix_family_trends_category_rank": {
+          "name": "ix_family_trends_category_rank",
+          "columns": [
+            "category_id",
+            "rank"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "family_category_trends_category_id_categories_id_fk": {
+          "name": "family_category_trends_category_id_categories_id_fk",
+          "tableFrom": "family_category_trends",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "family_category_trends_product_family_id_product_families_id_fk": {
+          "name": "family_category_trends_product_family_id_product_families_id_fk",
+          "tableFrom": "family_category_trends",
+          "tableTo": "product_families",
+          "columnsFrom": [
+            "product_family_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "family_category_trends_category_id_product_family_id_pk": {
+          "columns": [
+            "category_id",
+            "product_family_id"
+          ],
+          "name": "family_category_trends_category_id_product_family_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_family_category_trends_1": {
+          "name": "ck_family_category_trends_1",
+          "value": "json_valid(inputs) AND trending_score > 0 AND rank >= 1"
+        }
+      }
+    },
     "product_aliases": {
       "name": "product_aliases",
       "columns": {
@@ -1795,131 +2431,6 @@
         "ck_product_categories_1": {
           "name": "ck_product_categories_1",
           "value": "ranking_eligible IN (0, 1)"
-        }
-      }
-    },
-    "product_category_daily_stats": {
-      "name": "product_category_daily_stats",
-      "columns": {
-        "stat_date": {
-          "name": "stat_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "product_version_id": {
-          "name": "product_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "category_id": {
-          "name": "category_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "new_rating_count": {
-          "name": "new_rating_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "0"
-        },
-        "rating_sum": {
-          "name": "rating_sum",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "0"
-        },
-        "new_trial_count": {
-          "name": "new_trial_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "0"
-        },
-        "comment_count": {
-          "name": "comment_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "0"
-        }
-      },
-      "indexes": {
-        "ix_daily_stats_category_date": {
-          "name": "ix_daily_stats_category_date",
-          "columns": [
-            "category_id",
-            "\"stat_date\" desc"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "product_category_daily_stats_product_version_id_product_versions_id_fk": {
-          "name": "product_category_daily_stats_product_version_id_product_versions_id_fk",
-          "tableFrom": "product_category_daily_stats",
-          "tableTo": "product_versions",
-          "columnsFrom": [
-            "product_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "product_category_daily_stats_category_id_categories_id_fk": {
-          "name": "product_category_daily_stats_category_id_categories_id_fk",
-          "tableFrom": "product_category_daily_stats",
-          "tableTo": "categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "product_category_daily_stats_stat_date_product_version_id_category_id_pk": {
-          "columns": [
-            "stat_date",
-            "product_version_id",
-            "category_id"
-          ],
-          "name": "product_category_daily_stats_stat_date_product_version_id_category_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "ck_product_category_daily_stats_1": {
-          "name": "ck_product_category_daily_stats_1",
-          "value": "new_rating_count >= 0"
-        },
-        "ck_product_category_daily_stats_2": {
-          "name": "ck_product_category_daily_stats_2",
-          "value": "rating_sum >= 0"
-        },
-        "ck_product_category_daily_stats_3": {
-          "name": "ck_product_category_daily_stats_3",
-          "value": "new_trial_count >= 0"
-        },
-        "ck_product_category_daily_stats_4": {
-          "name": "ck_product_category_daily_stats_4",
-          "value": "comment_count >= 0"
         }
       }
     },
@@ -2199,8 +2710,24 @@
           "autoincrement": false,
           "default": "0"
         },
-        "trending_score": {
-          "name": "trending_score",
+        "enjoyment_count": {
+          "name": "enjoyment_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "enjoyment_sum": {
+          "name": "enjoyment_sum",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "enjoyment_score": {
+          "name": "enjoyment_score",
           "type": "real",
           "primaryKey": false,
           "notNull": false,
@@ -2215,14 +2742,6 @@
         }
       },
       "indexes": {
-        "ix_product_category_stats_trending": {
-          "name": "ix_product_category_stats_trending",
-          "columns": [
-            "category_id",
-            "\"trending_score\" desc"
-          ],
-          "isUnique": false
-        },
         "ix_product_category_stats_top": {
           "name": "ix_product_category_stats_top",
           "columns": [
@@ -2290,121 +2809,6 @@
         }
       }
     },
-    "product_category_trends": {
-      "name": "product_category_trends",
-      "columns": {
-        "category_id": {
-          "name": "category_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "product_version_id": {
-          "name": "product_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "product_id": {
-          "name": "product_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "trending_score": {
-          "name": "trending_score",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "inputs": {
-          "name": "inputs",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "computed_at": {
-          "name": "computed_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "ix_trends_category_score": {
-          "name": "ix_trends_category_score",
-          "columns": [
-            "category_id",
-            "\"trending_score\" desc",
-            "product_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "product_category_trends_category_id_categories_id_fk": {
-          "name": "product_category_trends_category_id_categories_id_fk",
-          "tableFrom": "product_category_trends",
-          "tableTo": "categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "product_category_trends_product_version_id_product_versions_id_fk": {
-          "name": "product_category_trends_product_version_id_product_versions_id_fk",
-          "tableFrom": "product_category_trends",
-          "tableTo": "product_versions",
-          "columnsFrom": [
-            "product_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "product_category_trends_product_id_products_id_fk": {
-          "name": "product_category_trends_product_id_products_id_fk",
-          "tableFrom": "product_category_trends",
-          "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "product_category_trends_category_id_product_version_id_pk": {
-          "columns": [
-            "category_id",
-            "product_version_id"
-          ],
-          "name": "product_category_trends_category_id_product_version_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "ck_trends_inputs": {
-          "name": "ck_trends_inputs",
-          "value": "json_valid(inputs)"
-        }
-      }
-    },
     "product_families": {
       "name": "product_families",
       "columns": {
@@ -2417,6 +2821,13 @@
         },
         "brand_id": {
           "name": "brand_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "country_id": {
+          "name": "country_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -2458,6 +2869,14 @@
             "slug"
           ],
           "isUnique": true
+        },
+        "ix_product_families_brand_country": {
+          "name": "ix_product_families_brand_country",
+          "columns": [
+            "brand_id",
+            "country_id"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -2472,6 +2891,19 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "product_families_country_id_countries_id_fk": {
+          "name": "product_families_country_id_countries_id_fk",
+          "tableFrom": "product_families",
+          "tableTo": "countries",
+          "columnsFrom": [
+            "country_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
@@ -3183,6 +3615,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "flavor": {
+          "name": "flavor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "slug": {
           "name": "slug",
           "type": "text",
@@ -3231,6 +3670,14 @@
         },
         "development_only": {
           "name": "development_only",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "seasonal": {
+          "name": "seasonal",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -3295,6 +3742,13 @@
           "columns": [
             "brand_id",
             "country_id"
+          ],
+          "isUnique": false
+        },
+        "ix_products_family": {
+          "name": "ix_products_family",
+          "columns": [
+            "product_family_id"
           ],
           "isUnique": false
         },
@@ -3615,6 +4069,13 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "enjoyment": {
+          "name": "enjoyment",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "conventional_recency": {
@@ -4289,6 +4750,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "counted": {
+          "name": "counted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
         }
       },
       "indexes": {
@@ -7272,6 +7741,40 @@
           }
         }
       },
+      "ix_family_daily_category_date": {
+        "columns": {
+          "\"stat_date\" desc": {
+            "isExpression": true
+          }
+        }
+      },
+      "ix_family_first_published_category": {
+        "columns": {
+          "\"first_published_at\" desc": {
+            "isExpression": true
+          }
+        }
+      },
+      "ix_family_category_stats_closest": {
+        "columns": {
+          "\"bayesian_score\" desc": {
+            "isExpression": true
+          },
+          "\"people_count\" desc": {
+            "isExpression": true
+          }
+        }
+      },
+      "ix_family_category_stats_tastiest": {
+        "columns": {
+          "\"enjoyment_score\" desc": {
+            "isExpression": true
+          },
+          "\"enjoyment_people\" desc": {
+            "isExpression": true
+          }
+        }
+      },
       "ix_product_aliases_alias": {
         "columns": {
           "\"alias\" COLLATE NOCASE": {
@@ -7286,33 +7789,12 @@
           }
         }
       },
-      "ix_daily_stats_category_date": {
-        "columns": {
-          "\"stat_date\" desc": {
-            "isExpression": true
-          }
-        }
-      },
-      "ix_product_category_stats_trending": {
-        "columns": {
-          "\"trending_score\" desc": {
-            "isExpression": true
-          }
-        }
-      },
       "ix_product_category_stats_top": {
         "columns": {
           "\"bayesian_score\" desc": {
             "isExpression": true
           },
           "\"rating_count\" desc": {
-            "isExpression": true
-          }
-        }
-      },
-      "ix_trends_category_score": {
-        "columns": {
-          "\"trending_score\" desc": {
             "isExpression": true
           }
         }

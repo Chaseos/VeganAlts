@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture, testMarket } from "./fixtures";
+import { catalogFixture, testMarket, productRows } from "./fixtures";
 import { communityServices } from "../../server/community/infrastructure/composition";
 import {
   changeInput,
@@ -9,6 +9,7 @@ import {
 } from "../../server/community/domain/contracts";
 import { D1RatingsRepository } from "../../server/ratings/infrastructure/d1-repository";
 import { catalogService } from "../../server/catalog/infrastructure/composition";
+import { INITIAL_SCORING } from "../../server/ranking/domain/policy";
 
 const id = () => crypto.randomUUID();
 const evidence = {
@@ -111,6 +112,7 @@ it("deduplicates reports, prioritizes ingredient concerns, and requires an opera
       { kind: "rebuild" },
       [],
       Date.now(),
+      INITIAL_SCORING,
     ),
   ).toBe(false);
   await expect(
@@ -194,9 +196,7 @@ it("archives duplicates without transferring contributions or changing the survi
   const survivorId = id(),
     version = id();
   await env.DB.batch([
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?, ?,1,1)",
-    ).bind(survivorId, f.countryId, "Survivor", survivorId),
+    ...productRows(env.DB, survivorId, f.countryId, "Survivor", survivorId),
     env.DB.prepare(
       "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
     ).bind(version, survivorId),

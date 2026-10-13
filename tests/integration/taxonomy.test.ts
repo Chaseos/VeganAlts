@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture } from "./fixtures";
+import { catalogFixture, productRows } from "./fixtures";
 import { taxonomyServices } from "../../server/taxonomy/infrastructure/composition";
 import { catalogService } from "../../server/catalog/infrastructure/composition";
 import { communityServices } from "../../server/community/infrastructure/composition";
@@ -35,8 +35,8 @@ async function world() {
     .run();
   const s = crypto.randomUUID().slice(0, 8);
   const [D, S, C] = [`donor-${s}`, `survivor-${s}`, `child-${s}`];
-  // A root, an aisle and a shelf: category proposals choose a shelf.
-  const [R, A, SH] = [`root-${s}`, `aisle-${s}`, `shelf-${s}`];
+  // A root and an aisle: category proposals choose an aisle.
+  const [R, A] = [`root-${s}`, `aisle-${s}`];
   const P2 = `p2-${s}`,
     P3 = `p3-${s}`,
     V2 = `v2-${s}`,
@@ -62,8 +62,8 @@ async function world() {
     );
   await env.DB.batch([
     env.DB.prepare(
-      "INSERT INTO categories(id,parent_id,slug,name,is_rankable,created_at,updated_at) VALUES(?,NULL,?,?,0,1,1),(?,?,?,?,0,1,1),(?,?,?,?,0,1,1)",
-    ).bind(R, R, `Food ${s}`, A, R, A, `Aisle ${s}`, SH, A, SH, `Shelf ${s}`),
+      "INSERT INTO categories(id,parent_id,slug,name,is_rankable,created_at,updated_at) VALUES(?,NULL,?,?,0,1,1),(?,?,?,?,0,1,1)",
+    ).bind(R, R, `Food ${s}`, A, R, A, `Aisle ${s}`),
     env.DB.prepare(
       "INSERT INTO categories(id,slug,name,is_rankable,created_at,updated_at) VALUES(?,?,?,1,1,1),(?,?,?,1,1,1)",
     ).bind(D, D, `Minced ${s}`, S, S, `Ground ${s}`),
@@ -73,18 +73,8 @@ async function world() {
     env.DB.prepare(
       "INSERT INTO category_aliases(id,category_id,alias,created_at) VALUES(?,?,?,1)",
     ).bind(id(), D, `mince ${s}`),
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1),(?,?,?,?,1,1)",
-    ).bind(
-      P2,
-      f.countryId,
-      `Second ${s}`,
-      P2,
-      P3,
-      f.countryId,
-      `Third ${s}`,
-      P3,
-    ),
+    ...productRows(env.DB, P2, f.countryId, `Second ${s}`, P2),
+    ...productRows(env.DB, P3, f.countryId, `Third ${s}`, P3),
     env.DB.prepare(
       "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1),(?,?,1,1,1)",
     ).bind(V2, P2, V3, P3),
@@ -106,7 +96,7 @@ async function world() {
       "INSERT INTO category_features(country_id,category_id,position,updated_at) VALUES(?,?,99,1)",
     ).bind(f.countryId, D),
   ]);
-  return { f, s, D, S, C, R, A, SH, P2, P3, V2, V3, users };
+  return { f, s, D, S, C, R, A, P2, P3, V2, V3, users };
 }
 const state = async (ids: string[]) =>
   JSON.stringify(
@@ -292,7 +282,7 @@ it("re-derives Trending activity when a merge and its reversal move older rating
     .run();
   const daily = async (category: string) =>
     await env.DB.prepare(
-      "SELECT COALESCE(SUM(new_rating_count),0) AS n FROM product_category_daily_stats WHERE category_id=? AND stat_date=? AND product_version_id=?",
+      "SELECT COALESCE(SUM(rating_count),0) AS n FROM family_category_daily_stats WHERE category_id=? AND stat_date=? AND product_family_id=(SELECT p.product_family_id FROM product_versions v JOIN products p ON p.id=v.product_id WHERE v.id=?)",
     )
       .bind(category, date, w.V3)
       .first<number>("n");
@@ -330,9 +320,7 @@ it("switches the survivor off again where only the reversed merge put it", async
   // A donor product in another country, where the survivor isn't on.
   const P4 = `p4-${w.s}`;
   await env.DB.batch([
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-    ).bind(P4, w.f.otherCountryId, `Fourth ${w.s}`, P4),
+    ...productRows(env.DB, P4, w.f.otherCountryId, `Fourth ${w.s}`, P4),
     env.DB.prepare(
       "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
     ).bind(`v4-${w.s}`, P4),
@@ -369,9 +357,7 @@ it("switches the survivor off again where only the reversed merge put it", async
     env.DB.prepare(
       "INSERT INTO countries(id,iso2,name,created_at,updated_at) VALUES(?,?,?,1,1)",
     ).bind(third, `T${w.s}`.slice(0, 12), "Third"),
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-    ).bind(P5, third, `Fifth ${w.s}`, P5),
+    ...productRows(env.DB, P5, third, `Fifth ${w.s}`, P5),
     env.DB.prepare(
       "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
     ).bind(P5, w.S),
@@ -536,7 +522,7 @@ it("routes contributor category proposals through deterministic checks, automati
   await expect(
     service.propose(contributor, id(), {
       name: `mince ${w.s}`,
-      shelfId: w.SH,
+      aisleId: w.A,
       country: "US",
       explanation: "Shoppers look for this conventional food.",
     }),
@@ -544,7 +530,7 @@ it("routes contributor category proposals through deterministic checks, automati
   await expect(
     service.propose(contributor, id(), {
       name: `Phone cases ${w.s}`,
-      shelfId: w.SH,
+      aisleId: w.A,
       country: "US",
       explanation: "Not food at all [fake:food_reference=NO]",
     }),
@@ -554,14 +540,14 @@ it("routes contributor category proposals through deterministic checks, automati
   await expect(
     service.propose(contributor, id(), {
       name: `Bratwurst ${w.s}`,
-      shelfId: w.SH,
+      aisleId: w.A,
       country: "ZZ",
       explanation: "Plant-based bratwurst is now common in grocery stores.",
     }),
   ).rejects.toMatchObject({ code: "INVALID_COUNTRY" });
   const proposal = await service.propose(contributor, id(), {
     name: `Bratwurst ${w.s}`,
-    shelfId: w.SH,
+    aisleId: w.A,
     country: "US",
     explanation: "Plant-based bratwurst is now common in grocery stores.",
     exampleProducts: ["Example brat"],
@@ -583,7 +569,7 @@ it("routes contributor category proposals through deterministic checks, automati
   );
   const second = await service.propose(contributor, id(), {
     name: `Hamburger meat ${w.s}`,
-    shelfId: w.SH,
+    aisleId: w.A,
     country: "US",
     explanation: "Another common name for this conventional food.",
   });
@@ -645,7 +631,7 @@ it("reverses a merge only after later edits, and rechecks proposed names when de
     id(),
     {
       name: `Kielbasa ${w.s}`,
-      shelfId: w.SH,
+      aisleId: w.A,
       country: "US",
       explanation: "Plant-based kielbasa is sold in many grocery stores.",
       aliases: [`polska ${w.s}`],
@@ -678,7 +664,7 @@ it("enforces the daily category proposal allowance before any automated check", 
   for (const name of ["Tempeh bacon", "Seitan ribs", "Jackfruit pulled pork"])
     await service.propose(contributor, id(), {
       name: `${name} ${w.s}`,
-      shelfId: w.SH,
+      aisleId: w.A,
       country: "US",
       explanation: "A common conventional food with several alternatives.",
     });
@@ -692,7 +678,7 @@ it("enforces the daily category proposal allowance before any automated check", 
   await expect(
     service.propose(contributor, id(), {
       name: `Vegan schnitzel ${w.s}`,
-      shelfId: w.SH,
+      aisleId: w.A,
       country: "US",
       explanation: "A common conventional food with several alternatives.",
     }),
@@ -887,7 +873,7 @@ it("seeds the production-safe taxonomy idempotently without catalog data", async
   expect(await products()).toBe(before);
 });
 
-it("seeds the three-level launch tree, countries, allergen lists, display names and features", async () => {
+it("seeds the two-level launch tree, countries, allergen lists, display names and features", async () => {
   await env.DB.batch(
     taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
   );
@@ -905,11 +891,17 @@ it("seeds the three-level launch tree, countries, allergen lists, display names 
   ).results;
   const parent = Object.fromEntries(rows.map((r) => [r.slug, r.parent]));
   expect(parent["ground-beef"]).toBe("beef");
-  expect(parent.beef).toBe("meat");
-  expect(parent.meat).toBe("food");
-  expect(parent.eggs).toBe("eggs-shelf");
-  expect(parent["eggs-shelf"]).toBe("eggs-aisle");
+  expect(parent.beef).toBe("food");
+  expect(parent.eggs).toBe("eggs-aisle");
+  expect(parent["eggs-aisle"]).toBe("food");
+  expect(parent.queso).toBe("dips-and-spreads");
+  expect(parent.tzatziki).toBe("dips-and-spreads");
+  expect(parent["milk-chocolate"]).toBe("chocolate");
+  expect(parent["gummy-candy"]).toBe("candy");
+  expect(parent["peanut-butter-cups"]).toBe("chocolate");
+  expect(parent["pies-and-cheesecake"]).toBe("bakery-and-desserts");
   expect(parent.cheese).toBe("food");
+  expect(parent.mayonnaise).toBe("condiments");
   const countries = (
     await env.DB.prepare(
       "SELECT iso2 FROM countries WHERE iso2 IN ('US','CA','GB','AU','NZ','IE') AND is_active=1 ORDER BY iso2",
@@ -953,27 +945,42 @@ it("seeds the three-level launch tree, countries, allergen lists, display names 
       (c) => c.slug,
     ),
   ).toContain("ground-beef");
-  // Aisles and shelves are navigation, never search results.
-  const found = (await catalogService(env).search(us, "dairy")).categories.map(
+  // Aisles are navigation, never search results; their name finds their foods.
+  const found = (await catalogService(env).search(us, "cheese")).categories.map(
     (c) => c.slug,
   );
-  expect(found).not.toContain("dairy");
-  expect(found).toContain("milk");
+  expect(found).not.toContain("cheese");
+  expect(found).toContain("cheddar");
+  // A food filed by how it is used is still found by what the original is
+  // made from.
+  const slugs = async (query: string) =>
+    (await catalogService(env).search(us, query)).categories.map((c) => c.slug);
+  expect(await slugs("yogurt dip")).toContain("tzatziki");
+  expect(await slugs("egg-free mayo")).toContain("mayonnaise");
+  expect(await slugs("gummy bears")).toContain("gummy-candy");
+  expect(await slugs("banana bread")).toContain("cake");
+  expect(await slugs("brownie mix")).toContain("baking-mixes");
   // Every launch country features the six foods.
   expect(
     await env.DB.prepare(
       "SELECT COUNT(*) AS n FROM category_features f JOIN countries co ON co.id=f.country_id WHERE co.iso2='CA'",
     ).first("n"),
   ).toBe(6);
-  // The aisle bar places every launch food.
-  const page = await catalogService(env).page("ca");
-  const foods = page.aisles.flatMap((a) =>
-    a.shelves.flatMap((s) => s.foods.map((f) => f.slug)),
-  );
-  for (const leaf of TAXONOMY_LEAVES) expect(foods).toContain(leaf.slug);
+  // The aisle bar places every launch food where it is on: all of them in the
+  // United States, and only the ten shared ones in Canada.
+  const placed = async (code: string) =>
+    (await catalogService(env).page(code)).aisles.flatMap((a) =>
+      a.foods.map((f) => f.slug),
+    );
+  const [usFoods, caFoods] = [await placed("us"), await placed("ca")];
+  for (const leaf of TAXONOMY_LEAVES) {
+    expect(usFoods).toContain(leaf.slug);
+    if ("countries" in leaf) expect(caFoods).not.toContain(leaf.slug);
+    else expect(caFoods).toContain(leaf.slug);
+  }
 });
 
-it("lets aisles and shelves share a food's name but keeps foods and aliases unique", async () => {
+it("lets aisles share a food's name but keeps foods and aliases unique", async () => {
   const w = await world();
   const operator = {
     id: w.users[5]!,
@@ -981,10 +988,10 @@ it("lets aisles and shelves share a food's name but keeps foods and aliases uniq
     administrator: true,
   };
   const service = taxonomy();
-  // A shelf may share a food's name; groups only need unique sibling names.
+  // An aisle may share a food's name; groups only need unique sibling names.
   await service.create(operator, id(), {
     name: `Ground ${w.s}`,
-    parentId: w.A,
+    parentId: w.R,
     isRankable: false,
     note,
   });
@@ -992,7 +999,7 @@ it("lets aisles and shelves share a food's name but keeps foods and aliases uniq
     service.create(operator, id(), {
       name: `ground ${w.s}`,
       slug: `ground-again-${w.s}`,
-      parentId: w.A,
+      parentId: w.R,
       isRankable: false,
       note,
     }),
@@ -1001,16 +1008,16 @@ it("lets aisles and shelves share a food's name but keeps foods and aliases uniq
   await expect(
     service.create(operator, id(), {
       name: `Mince ${w.s}`,
-      parentId: w.SH,
+      parentId: w.A,
       isRankable: true,
       note,
     }),
   ).rejects.toMatchObject({ code: "CATEGORY_EXISTS" });
   // A food may share a group's name.
   await service.create(operator, id(), {
-    name: `Shelf ${w.s}`,
-    slug: `shelf-food-${w.s}`,
-    parentId: w.SH,
+    name: `Aisle ${w.s}`,
+    slug: `aisle-food-${w.s}`,
+    parentId: w.A,
     isRankable: true,
     note,
   });
@@ -1018,31 +1025,31 @@ it("lets aisles and shelves share a food's name but keeps foods and aliases uniq
   await expect(
     service.create(operator, id(), {
       name: `Snacks ${w.s}`,
-      parentId: w.A,
+      parentId: w.R,
       isRankable: false,
       aliases: [`nibbles ${w.s}`],
       note,
     }),
   ).rejects.toMatchObject({ code: "GROUP_ALIASES" });
-  // Proposals choose a shelf, not an aisle or a food.
+  // Proposals choose an aisle, not the root or a food.
   const contributor = {
     id: w.users[1]!,
     accountState: "active",
     administrator: false,
   };
-  for (const shelfId of [w.A, w.S])
+  for (const aisleId of [w.R, w.S])
     await expect(
       service.propose(contributor, id(), {
         name: `Seitan strips ${w.s}`,
-        shelfId,
+        aisleId,
         country: "US",
         explanation: "A common conventional food with several alternatives.",
       }),
-    ).rejects.toMatchObject({ code: "INVALID_SHELF" });
+    ).rejects.toMatchObject({ code: "INVALID_AISLE" });
   // Homepage features are per country.
   const tree = await service.tree(operator);
-  expect(tree.categories.find((c) => c.id === w.SH)).toMatchObject({
-    depth: 2,
+  expect(tree.categories.find((c) => c.id === w.A)).toMatchObject({
+    depth: 1,
     outsideDepth: false,
   });
   expect(tree.categories.find((c) => c.id === w.S)).toMatchObject({
@@ -1220,7 +1227,7 @@ it("starts foods with Taste and Texture and edits their questions reversibly", a
   const service = taxonomy();
   const created = await service.create(operator, id(), {
     name: `Halloumi ${w.s}`,
-    parentId: w.SH,
+    parentId: w.A,
     isRankable: true,
     aliases: [],
     note,
@@ -1236,7 +1243,7 @@ it("starts foods with Taste and Texture and edits their questions reversibly", a
   // Groups ask nothing.
   const shelf = await service.create(operator, id(), {
     name: `Brined ${w.s}`,
-    parentId: w.A,
+    parentId: w.R,
     isRankable: false,
     aliases: [],
     note,

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture } from "./fixtures";
+import { catalogFixture, lineOf, productRows } from "./fixtures";
 import { communityServices } from "../../server/community/infrastructure/composition";
 import {
   changeInput,
@@ -19,6 +19,7 @@ import { SubmissionRepository } from "../../server/community/infrastructure/subm
 import { recoverCommunity } from "../../server/community/infrastructure/recovery";
 import { receiptWrite } from "../../server/community/infrastructure/receipts";
 import { DEFAULT_LIMITS, LEASE } from "../../server/community/domain/policy";
+import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
 
 const id = () => crypto.randomUUID();
 const evidence = {
@@ -208,12 +209,54 @@ it("keeps packaging updates on the same formula, removes reported media privatel
       .first(),
   ).not.toBeNull();
 });
+it("refreshes a line when a food's eligibility changes and when the decision is reversed", async () => {
+  const { f, actor, admin, ratings, repository, moderation, propose, accept } =
+    await fixture();
+  const line = () =>
+    env.DB.prepare(
+      "SELECT people_count AS people FROM family_category_stats WHERE product_family_id=? AND category_id=?",
+    )
+      .bind(lineOf(f.productId), f.categories[0])
+      .first();
+  await ratings.rate(actor, f.versionId, f.categories[0]!, 4);
+  expect(await line()).toEqual({ people: 1 });
+  const accepted = await accept(
+    (
+      await propose({
+        kind: "relationships",
+        productFamilyId: null,
+        categoryEligibility: [{ categoryId: f.categories[0], eligible: false }],
+      })
+    ).id,
+  );
+  expect(await line()).toBeNull();
+  if (!("actionId" in accepted)) throw new Error("Expected an audited action");
+  await moderation.reverse(admin, id(), accepted.actionId, {
+    expectedRevision: (await repository.snapshot(f.productId)).revision,
+    note: "The product does replace this food after all; restore it.",
+  });
+  expect(await line()).toEqual({ people: 1 });
+  // A proposal without a line keeps the product in its own.
+  expect((await repository.snapshot(f.productId)).familyId).toBe(
+    lineOf(f.productId),
+  );
+});
 it("discontinues and reintroduces equivalent or new formulas while preserving ranking rebuild equivalence", async () => {
   const { f, actor, ratings, ranking, repository, propose, accept } =
     await fixture();
+  // The product's line in the food, as each decision leaves it.
+  const line = () =>
+    env.DB.prepare(
+      "SELECT people_count AS people,raw_average AS raw FROM family_category_stats WHERE product_family_id=? AND category_id=?",
+    )
+      .bind(lineOf(f.productId), f.categories[0])
+      .first();
   await ratings.rate(actor, f.versionId, f.categories[0]!, 4);
+  expect(await line()).toEqual({ people: 1, raw: 4 });
   await accept((await propose({ kind: "discontinue" })).id);
   expect(await ranking.top(f.countryId, f.categories[0]!)).toEqual([]);
+  // A discontinued flavor leaves its line; the only flavor takes the line out.
+  expect(await line()).toBeNull();
   await expect(
     ratings.rate(f.users[2]!, f.versionId, f.categories[0]!, 5),
   ).rejects.toMatchObject({ code: "NOT_RATEABLE" });
@@ -226,6 +269,7 @@ it("discontinues and reintroduces equivalent or new formulas while preserving ra
     manufacturerLabel: "vegan",
   };
   await accept((await propose(fields)).id);
+  expect(await line()).toEqual({ people: 1, raw: 4 });
   expect((await repository.snapshot(f.productId)).versionId).toBe(f.versionId);
   expect((await ranking.top(f.countryId, f.categories[0]!))[0]).toMatchObject({
     ratingCount: 1,
@@ -236,6 +280,19 @@ it("discontinues and reintroduces equivalent or new formulas while preserving ra
   const current = await repository.snapshot(f.productId);
   expect(current.versionId).not.toBe(f.versionId);
   await ratings.rate(actor, current.versionId, f.categories[0]!, 2);
+  // A reformulated flavor counts only its new formula's ratings.
+  expect(await line()).toEqual({ people: 1, raw: 2 });
+  const lines = async () =>
+    (
+      await env.DB.prepare(
+        "SELECT * FROM family_category_stats WHERE product_family_id=? ORDER BY category_id",
+      )
+        .bind(lineOf(f.productId))
+        .all()
+    ).results.map(({ recomputed_at: _, ...row }) => row);
+  const linesBefore = await lines();
+  await lineRefresh(env).refreshAll();
+  expect(await lines()).toEqual(linesBefore);
   const before = (
     await env.DB.prepare(
       "SELECT * FROM product_category_stats ORDER BY product_version_id,category_id",
@@ -304,11 +361,9 @@ it("rejects cross-country consolidations, redirect chains and new contributions 
     [other, f.otherCountryId],
     [survivor, f.countryId],
     [third, f.countryId],
-  ])
+  ] as const)
     await env.DB.batch([
-      env.DB.prepare(
-        "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-      ).bind(product, country, product, product),
+      ...productRows(env.DB, product, country, product, product),
       env.DB.prepare(
         "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
       ).bind(id(), product),
@@ -435,9 +490,7 @@ it("keeps relationship changes acceptable after a linked product is archived as 
   const product = async () => {
     const productId = id();
     await env.DB.batch([
-      env.DB.prepare(
-        "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-      ).bind(productId, f.countryId, productId, productId),
+      ...productRows(env.DB, productId, f.countryId, productId, productId),
       env.DB.prepare(
         "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
       ).bind(id(), productId),
@@ -455,7 +508,7 @@ it("keeps relationship changes acceptable after a linked product is archived as 
       relationship,
       categoryEligibility: [],
     });
-  await accept((await link(variant, "variant")).id);
+  await accept((await link(variant, "successor")).id);
   await moderation.consolidate(admin, id(), {
     donorId: variant,
     survivorId: survivor,
@@ -466,7 +519,7 @@ it("keeps relationship changes acceptable after a linked product is archived as 
   await accept((await link(companion, "companion")).id);
   expect((await repository.snapshot(f.productId)).relationships).toEqual(
     expect.arrayContaining([
-      { productId: variant, type: "variant" },
+      { productId: variant, type: "successor" },
       { productId: companion, type: "companion" },
     ]),
   );
@@ -500,7 +553,11 @@ it("attaches staged evidence to one proposal and closes it when that proposal is
       await receiptWrite(actor.id, "proposal", id(), input, Date.now()),
     ),
   ).rejects.toMatchObject({ code: "EVIDENCE_CHANGED" });
-  const receipts = new SubmissionRepository(env.DB, DEFAULT_LIMITS),
+  const receipts = new SubmissionRepository(
+      env.DB,
+      DEFAULT_LIMITS,
+      lineRefresh(env),
+    ),
     token = id();
   await receipts.claimEvidence(photo.receiptId, token, Date.now());
   await moderation.decide(admin, id(), "proposal", proposal.id, {

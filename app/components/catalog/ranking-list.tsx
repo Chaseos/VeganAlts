@@ -1,33 +1,67 @@
 import { Link } from "react-router";
+import { useId } from "react";
 import type { AllergenDeclaration } from "@server/community/domain/allergens";
 import type { StoreOption } from "@server/catalog/domain/contracts";
 import type { DetailScore } from "@server/catalog/domain/ranking-view";
 import { FoodIcon } from "../icons/food-icons";
 import { RankFlag, ScoreLabel } from "../ui/score";
-import { AllergenLabel, Badge, EarlyBadge, NewBadge } from "../ui/badges";
+import {
+  AllergenLabel,
+  Badge,
+  EarlyBadge,
+  NewBadge,
+  SeasonalProductBadge,
+  TrendingBadge,
+} from "../ui/badges";
 import { DetailBars, DetailCells } from "../ui/bars";
 import { ButtonLink } from "../ui/button";
 import { StoreLine } from "./ranking-filters";
-import { formatCount, plural, shortDate } from "../../lib/format";
+import { formatScore, plural, shortDate } from "../../lib/format";
 import { productPath } from "../../lib/site-chrome";
 
-export interface ListedProduct {
-  id: string;
+// One flavor of a recipe line, with its own score in the ranking shown.
+export interface ListedFlavor {
+  productId: string;
   slug: string;
   name: string;
-  brand: string | null;
-  imageId: string | null;
-  publishedAt: number | null;
-  topRank: number | null;
-  bayesianScore: number | null;
+  flavor: string | null;
+  // The flavor, "Original", or the product name when several lack a flavor.
+  label: string;
   ratingCount: number;
-  recentRatingCount: number;
-  early: boolean;
+  // Shown from five answers.
+  score: number | null;
+  allergens: AllergenDeclaration | null;
+  isNew: boolean;
+  // Sold only part of the year.
+  seasonal: boolean;
+  matchesFilters: boolean;
+}
+// A recipe line in a food's list (milestone 7), shown by its lead flavor.
+export interface ListedLine {
+  lineId: string;
+  name: string;
+  brand: string | null;
+  leadProduct: { id: string; slug: string; imageId: string | null };
+  publishedAt: number | null;
   isNew?: boolean;
+  flavorCount: number;
+  closestRank: number | null;
+  tastiestRank: number | null;
+  // The ranking being viewed.
+  score: number | null;
+  people: number;
+  early: boolean;
+  recentPeople: number;
+  trending: boolean;
   matchedStores: string[];
+  // A single-flavor line's declaration; several flavors show theirs.
   allergens: AllergenDeclaration | null;
   details: DetailScore[];
   badges: string[];
+  flavors: ListedFlavor[];
+  hiddenFlavorCount: number;
+  // Every listed flavor is seasonal.
+  seasonal: boolean;
 }
 type Labels = Record<string, string>;
 
@@ -52,18 +86,18 @@ export function allergenSummary(
 }
 
 function Thumb({
-  product,
+  line,
   food,
   size,
 }: {
-  product: ListedProduct;
+  line: Pick<ListedLine, "leadProduct">;
   food: string;
   size: number;
 }) {
-  return product.imageId ? (
+  return line.leadProduct.imageId ? (
     <img
       className="va-thumb"
-      src={`/media/${product.imageId}/thumbnail`}
+      src={`/media/${line.leadProduct.imageId}/thumbnail`}
       alt=""
       width={size}
       height={size}
@@ -76,68 +110,211 @@ function Thumb({
   );
 }
 
-const ratings = (count: number) =>
-  `${formatCount(count)} ${count === 1 ? "rating" : "ratings"}`;
+const people = (count: number) => plural(count, "person", "people");
+export const flavorLabel = (flavor: string | null) => flavor ?? "Original";
 
-// The #1 swap (or, under filters, the closest match among them).
+/**
+ * A line's flavors behind a native disclosure, so it works without
+ * JavaScript. Each flavor links to its own page with its score in the
+ * ranking shown, or "Too few ratings yet".
+ */
+export function FlavorList({
+  country,
+  food,
+  line,
+  labels,
+  id,
+}: {
+  country: string;
+  food: string;
+  line: Pick<
+    ListedLine,
+    "flavors" | "hiddenFlavorCount" | "flavorCount" | "name"
+  >;
+  labels: Labels;
+  id?: string;
+}) {
+  if (line.flavorCount < 2) return null;
+  return (
+    <details
+      className="va-flavors"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && event.currentTarget.open) {
+          event.stopPropagation();
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector("summary")?.focus();
+        }
+      }}
+    >
+      <summary>
+        {plural(line.flavorCount, "flavor")}
+        <span className="sr-only"> of {line.name}</span>
+      </summary>
+      {/* A fragment inside the disclosure reveals it even before hydration. */}
+      <ul className="va-flavors__list" id={id}>
+        {line.flavors.map((flavor) => {
+          const allergens = allergenSummary(flavor.allergens, labels);
+          return (
+            <li key={flavor.productId} className="va-flavors__item">
+              <Link
+                className="va-flavors__name"
+                to={productPath(country, flavor.slug, food)}
+              >
+                {flavor.label}
+                <span className="sr-only">: {flavor.name}</span>
+              </Link>
+              <span className="va-flavors__meta va-small va-muted">
+                {flavor.isNew && <NewBadge />}
+                {flavor.seasonal && line.flavorCount > 1 && (
+                  <SeasonalProductBadge />
+                )}
+                {allergens && (
+                  <AllergenLabel allergens={allergens} variant="line" />
+                )}
+              </span>
+              <span className="va-flavors__score">
+                {flavor.score !== null ? (
+                  <>
+                    <span className="sr-only">Score </span>
+                    {formatScore(flavor.score)}
+                  </>
+                ) : (
+                  <span className="va-small va-muted">Too few ratings yet</span>
+                )}
+              </span>
+              <Link
+                className="va-link va-flavors__rate"
+                to={`${productPath(country, flavor.slug, food)}#scores-title`}
+                aria-label={`Rate it: ${flavor.name}${flavor.flavor ? ` · ${flavor.flavor}` : ""}`}
+              >
+                Rate it
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      {line.hiddenFlavorCount > 0 && (
+        <p className="va-small va-muted va-flavors__hidden">
+          {plural(line.hiddenFlavorCount, "more flavor")}{" "}
+          {line.hiddenFlavorCount === 1 ? "doesn’t" : "don’t"} match your
+          filters.
+        </p>
+      )}
+    </details>
+  );
+}
+
+/** With several flavors, keep the choice here instead of choosing the lead. */
+function openFlavors(event: React.MouseEvent<HTMLAnchorElement>, id: string) {
+  const disclosure = document.getElementById(id)?.closest("details");
+  if (!(disclosure instanceof HTMLDetailsElement)) return;
+  event.preventDefault();
+  disclosure.open = true;
+  disclosure.querySelector("summary")?.focus();
+  disclosure.scrollIntoView({ block: "nearest" });
+}
+
+function LineChips({
+  line,
+  labels,
+  stores,
+}: {
+  line: ListedLine;
+  labels: Labels;
+  stores: StoreOption[];
+}) {
+  const allergens = allergenSummary(line.allergens, labels);
+  return (
+    <>
+      {line.early && <EarlyBadge count={line.people} />}
+      {line.isNew && <NewBadge />}
+      {line.trending && <TrendingBadge />}
+      {line.seasonal && <SeasonalProductBadge />}
+      {line.badges.map((badge) => (
+        <Badge key={badge} tone="good">
+          {badge}
+        </Badge>
+      ))}
+      {allergens && <AllergenLabel allergens={allergens} variant="line" />}
+      <StoreLine slugs={line.matchedStores} stores={stores} />
+    </>
+  );
+}
+
+// The #1 line of the ranking shown (or, under filters, the closest match).
 export function FeaturedSwap({
   country,
   food,
-  product,
+  line,
+  rank,
   flag,
   labels,
   stores,
 }: {
   country: string;
   food: string;
-  product: ListedProduct;
+  line: ListedLine;
+  // Its place in the ranking shown; a filter can feature a lower one.
+  rank: number | null;
   flag: string;
   labels: Labels;
   stores: StoreOption[];
 }) {
-  const href = productPath(country, product.slug, food);
+  const href = productPath(country, line.leadProduct.slug, food);
+  const titleId = `featured-${line.lineId}`;
+  const flavorsId = useId();
   return (
-    <article className="va-featured" aria-labelledby={`featured-${product.id}`}>
+    <article className="va-featured" aria-labelledby={titleId}>
       <span className="va-featured__flag">
         <RankFlag>{flag}</RankFlag>
       </span>
-      <Thumb product={product} food={food} size={160} />
+      <Thumb line={line} food={food} size={160} />
       <div className="va-featured__body">
         <div className="va-featured__head">
           <div className="va-featured__title">
-            <h2 id={`featured-${product.id}`} className="va-featured__name">
-              <Link to={href}>{product.name}</Link>
+            <h2 id={titleId} className="va-featured__name">
+              <Link to={href}>{line.name}</Link>
             </h2>
             <p className="va-muted">
               {[
-                product.brand,
-                ratings(product.ratingCount),
-                product.topRank && product.topRank !== 1
-                  ? `#${product.topRank} overall`
-                  : null,
+                line.brand,
+                people(line.people),
+                rank && rank !== 1 ? `#${rank} overall` : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
             <p className="va-chip-row">
-              {product.early && <EarlyBadge count={product.ratingCount} />}
-              {product.isNew && <NewBadge />}
-              <AllergenLabel
-                allergens={allergenSummary(product.allergens, labels)}
-              />
-              <StoreLine slugs={product.matchedStores} stores={stores} />
+              <LineChips line={line} labels={labels} stores={stores} />
             </p>
           </div>
-          {product.bayesianScore !== null && (
-            <ScoreLabel value={product.bayesianScore} size="large" />
+          {line.score !== null && (
+            <ScoreLabel value={line.score} size="large" />
           )}
         </div>
-        <DetailBars details={product.details} />
+        <DetailBars details={line.details} />
+        <FlavorList
+          id={flavorsId}
+          country={country}
+          food={food}
+          line={line}
+          labels={labels}
+        />
         <div className="button-row">
           <ButtonLink to={href}>View product</ButtonLink>
-          <ButtonLink variant="secondary" to={`${href}#scores-title`}>
-            I’ve tried it
-          </ButtonLink>
+          {line.flavorCount > 1 ? (
+            <a
+              className="button secondary"
+              href={`#${flavorsId}`}
+              onClick={(event) => openFlavors(event, flavorsId)}
+            >
+              I’ve tried it
+            </a>
+          ) : (
+            <ButtonLink variant="secondary" to={`${href}#scores-title`}>
+              I’ve tried it
+            </ButtonLink>
+          )}
         </div>
       </div>
     </article>
@@ -147,7 +324,8 @@ export function FeaturedSwap({
 export function RankedRow({
   country,
   food,
-  product,
+  line,
+  rank,
   note,
   activeDetail,
   labels,
@@ -155,96 +333,118 @@ export function RankedRow({
 }: {
   country: string;
   food: string;
-  product: ListedProduct;
-  // Sort context, such as "+12 ratings this week".
+  line: ListedLine;
+  // The line's place in the ranking shown, if it has one there.
+  rank: number | null;
+  // Sort context, such as "+12 people this quarter".
   note?: string | null;
   activeDetail: string | null;
   labels: Labels;
   stores: StoreOption[];
 }) {
-  const allergens = allergenSummary(product.allergens, labels);
-  return (
-    <Link className="va-rank-row" to={productPath(country, product.slug, food)}>
+  const href = productPath(country, line.leadProduct.slug, food);
+  const parts = (
+    <>
       <span className="va-rank-row__rank">
-        {product.topRank ? (
+        {rank ? (
           <>
-            <span className="sr-only">Rank </span>#{product.topRank}
+            <span className="sr-only">Rank </span>#{rank}
           </>
         ) : (
-          <span className="va-rank-row__unranked">New</span>
+          // Unranked here: "New" only for a line that is new, since a line
+          // can trend on tries alone without being new.
+          <span className="va-rank-row__unranked">
+            {line.isNew && !line.closestRank ? "New" : "–"}
+          </span>
         )}
       </span>
-      <Thumb product={product} food={food} size={60} />
+      <Thumb line={line} food={food} size={60} />
       <span className="va-rank-row__main">
-        <span className="va-rank-row__name">{product.name}</span>
+        <span className="va-rank-row__name">{line.name}</span>
         <span className="va-small va-muted">
           {[
-            product.brand,
-            product.ratingCount
-              ? ratings(product.ratingCount)
-              : "No ratings yet",
+            line.brand,
+            // Rated lines with no answers yet only appear in Tastiest.
+            line.people
+              ? people(line.people)
+              : line.closestRank
+                ? "No one has said how tasty yet"
+                : "No ratings yet",
             note,
           ]
             .filter(Boolean)
             .join(" · ")}
         </span>
         <span className="va-rank-row__meta">
-          {product.early && <EarlyBadge count={product.ratingCount} />}
-          {product.isNew && <NewBadge />}
-          {product.badges.map((badge) => (
-            <Badge key={badge} tone="good">
-              {badge}
-            </Badge>
-          ))}
-          {allergens && <AllergenLabel allergens={allergens} variant="line" />}
-          <StoreLine slugs={product.matchedStores} stores={stores} />
+          <LineChips line={line} labels={labels} stores={stores} />
         </span>
       </span>
-      {product.details.length > 0 && (
-        <DetailCells details={product.details} active={activeDetail} />
+      {line.details.length > 0 && (
+        <DetailCells details={line.details} active={activeDetail} />
       )}
-      {product.bayesianScore !== null && product.topRank !== null && (
+      {line.score !== null && rank !== null && (
         <ScoreLabel
-          value={product.bayesianScore}
+          value={line.score}
           size="compact"
           className="va-rank-row__score"
         />
       )}
-    </Link>
+    </>
+  );
+  // One flavor: the whole row links to it. Several: the name links to the
+  // lead flavor and a disclosure lists the rest, so no control nests in a
+  // link.
+  if (line.flavorCount < 2)
+    return (
+      <Link className="va-rank-row" to={href}>
+        {parts}
+      </Link>
+    );
+  return (
+    <div className="va-rank-row va-rank-row--line">
+      <Link className="va-rank-row__link" to={href}>
+        {parts}
+      </Link>
+      <FlavorList country={country} food={food} line={line} labels={labels} />
+    </div>
   );
 }
 
 export function UnratedRow({
   country,
   food,
-  product,
+  line,
   labels,
 }: {
   country: string;
   food: string;
-  product:
-    | ListedProduct
-    | (Omit<ListedProduct, "details" | "badges"> & {
-        details?: undefined;
-      });
+  line: Pick<
+    ListedLine,
+    | "lineId"
+    | "name"
+    | "brand"
+    | "leadProduct"
+    | "publishedAt"
+    | "flavorCount"
+    | "allergens"
+    | "flavors"
+    | "hiddenFlavorCount"
+  >;
   labels: Labels;
 }) {
-  const allergens = allergenSummary(product.allergens, labels);
+  const allergens = allergenSummary(line.allergens, labels);
+  const href = productPath(country, line.leadProduct.slug, food);
+  const flavorsId = useId();
   return (
     <li className="va-unrated">
       <span className="va-unrated__main">
-        <Link
-          className="va-unrated__name"
-          to={productPath(country, product.slug, food)}
-        >
-          {product.name}
+        <Link className="va-unrated__name" to={href}>
+          {line.name}
         </Link>
         <span className="va-small va-muted">
           {[
-            product.brand,
-            product.publishedAt
-              ? `added ${shortDate(product.publishedAt)}`
-              : null,
+            line.brand,
+            line.publishedAt ? `added ${shortDate(line.publishedAt)}` : null,
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -255,23 +455,34 @@ export function UnratedRow({
             </>
           )}
         </span>
+        <FlavorList
+          id={flavorsId}
+          country={country}
+          food={food}
+          line={line}
+          labels={labels}
+        />
       </span>
-      <ButtonLink
-        variant="secondary"
-        small
-        to={`${productPath(country, product.slug, food)}#scores-title`}
+      <a
+        className="button secondary small-button"
+        href={line.flavorCount > 1 ? `#${flavorsId}` : `${href}#scores-title`}
+        onClick={
+          line.flavorCount > 1
+            ? (event) => openFlavors(event, flavorsId)
+            : undefined
+        }
       >
-        Be the first to rate<span className="sr-only">: {product.name}</span>
-      </ButtonLink>
+        Be the first to rate<span className="sr-only">: {line.name}</span>
+      </a>
     </li>
   );
 }
 
-export const sortNote = (view: string, product: ListedProduct) =>
+export const sortNote = (view: string, line: ListedLine) =>
   view === "trending"
-    ? product.recentRatingCount > 0
-      ? `+${plural(product.recentRatingCount, "rating")} this week`
-      : "rising this week"
-    : view === "new" && product.publishedAt
-      ? `added ${shortDate(product.publishedAt)}`
+    ? line.recentPeople > 0
+      ? `${people(line.recentPeople)} this week`
+      : "rising this quarter"
+    : view === "new" && line.publishedAt
+      ? `added ${shortDate(line.publishedAt)}`
       : null;

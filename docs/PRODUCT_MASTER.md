@@ -1145,3 +1145,156 @@ The launch foods stay where they are. New shelves whose name could also be a foo
 **Product additions (§06).** Adding a product asks for its name, brand, food and a front photo, with the country taken from the page. This supersedes the milestone 3 decision that new submissions require an ingredient-panel photo or manufacturer ingredient source. Ingredient evidence, the contributor's rating, stores, an allergen declaration, back and nutrition photos, variant details and further foods are optional and collected on a second step before one submit. Duplicate matches appear while the contributor types. A product published without ingredient evidence shows "Ingredients not checked yet" until someone adds evidence and another member confirms it; it still ranks and can be rated. A contributor who cannot find the food suggests it inside the same form, and the product goes live once the food is accepted.
 
 **Wording.** People see aisles, shelves and foods. "Suggest a food" is the action for a missing food; "category" stays an internal term.
+
+## Milestone 7 implementation decisions
+
+The [milestone 7 specification](MILESTONE_7_PLAN.md) changes what a ranking ranks, adds a second ranking and lets search find brands. The owner made these decisions on 2026-10-11 and 2026-10-12. They amend:
+
+- §04: What is a distinct rankable product?, the Working rule and Product Family;
+- §05;
+- §06;
+- the milestone 5 taxonomy shape, ranking pages, search and rating details;
+- the milestone 6 starter shelves;
+- the milestone 6 order of Add a product.
+
+**Recipe lines (§04).** A ranking ranks recipe lines, not individual products and not brands.
+
+- **What a line is.** A line is one brand's base recipe in one country, together with its flavors. Original is one more flavor.
+- **Every product belongs to exactly one line.**
+- **Flavors stay products.** Each flavor keeps its own page, photos, formula versions, allergen declaration and stores.
+- **Product Family means recipe line.** A family belongs to one country. The same brand's line in another country is a separate family, because formulas, factories and even same-named brands differ.
+
+**The line test.** Ask whether the base recipe changed, or only a flavor was put on top.
+
+- **A changed base is its own line:**
+  - Lite or reduced-fat versions;
+  - named tiers (Ultimate, Extra Crispy, Supreme, Next-Gen);
+  - soy-free or gluten-free versions;
+  - a different oil or base (olive vs avocado oil, almond vs oat);
+  - shapes made from different recipes (shreds vs slices).
+- **A flavor or seasoning on top stays in the line:** spicy, maple, Italian herb, strawberry, chipotle.
+- **When it is unclear, keep them separate.** Separate lines still rank, and an operator can join them later.
+- **Reformulations remain formula versions.** A separate line is only for two recipes on sale at the same time.
+
+This replaces the §04 table's flavor rows and its working rule:
+
+| Example                                                           | Treatment                                                          |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Country Crock Original Plant Butter vs. Avocado Oil Plant Butter  | Separate lines                                                     |
+| 8 oz vs. 16 oz package                                            | Same product                                                       |
+| Plain vs. strawberry cream cheese                                 | Same line; strawberry ranks with the line and is rated as a flavor |
+| Regular vs. spicy chicken nuggets                                 | Same line; spicy ranks with the line and is rated as a flavor      |
+| Gardein vs. Gardein Ultimate, Impossible Beef vs. Impossible Lite | Separate lines                                                     |
+| Gluten-free version with a materially different formulation       | Separate line                                                      |
+
+**Working rule.** A flavor ranks with its line and is rated against the conventional food in the same flavor. An operator can exclude a flavor that has no conventional equivalent from a food's line score.
+
+**Two rankings (§05).** Every food has two rankings, and people switch between them on the food page.
+
+- **Closest to the original.** It is the default and primary ranking, and stays the home page's ranking. It answers how close a swap is to the conventional food.
+- **Tastiest.** It answers how much people enjoyed a swap, whether or not it is like the original. A vegan eggnog can be the tastiest without being the closest.
+- **Independence.** Tastiest never changes a Closest score, rank or order.
+
+**Ratings (§05).**
+
+- **The closeness question.** People rate the flavor they ate. Similarity stays the one required answer.
+  - A flavored product asks "How close is it to [food] in the same flavor?"
+- **The tastiness question.** "How tasty is it, whether or not it's like the original?" is optional and appears beside the closeness question.
+- **One vote per person per line.** The leaderboard scores each line from all its eligible flavors in that food, for each ranking.
+  - Each person counts once, as the average of their ratings of that line's flavors.
+  - The sample-size-adjusted score is applied over people, never to the best flavor alone.
+- **Flavor scores.** Each flavor's own score appears inside its line's card once it has enough ratings, so a weaker flavor stays visible.
+- **Discontinued flavors.**
+  - A discontinued flavor leaves its line's score and card.
+  - Its ratings are kept, and count again if it returns with the same formula.
+  - A line whose flavors are all discontinued leaves the ranking.
+- **Detail questions stay simple.**
+  - New foods ask Taste and Texture.
+  - The ten launch foods, the main ones, keep their own extra questions.
+  - Detail sorts and badges read "Closest taste" and so on, so they are not confused with Tastiest.
+
+**Ranking pages.**
+
+- **Rows.** Each row is a line, showing its lead flavor's photo, the line's score and the number of people.
+- **Flavors.** A line with several flavors opens to list them, each with its score and a link to its page.
+- **Product pages** show their line's ranks in both rankings, the flavor's own scores, the line's other flavors, and **Add another flavor**.
+
+**Brands in search.** This amends the milestone 5 rule that search returns only foods and products.
+
+- **Search finds brands as well as foods and products.**
+- **Each brand has a page per country,** listing all its lines across every food with their ranks. Searching "Trader Joe's" leads there.
+
+**Adding a product (§06).** This amends the milestone 6 order of the basics step.
+
+1. **Food, then brand.** Contributors choose the food first, then the brand. Brand suggestions tolerate partial names and typos.
+2. **What the brand already has.** VeganAlts shows what that brand already has in the country, starting with the chosen food.
+3. **Pick, add a flavor, or start something new.** Contributors either:
+   - pick the product they found and rate it;
+   - add a new flavor of one of the brand's lines, with the food, brand and line already filled in;
+   - start something new from the brand.
+4. **Looser matching.** Similar-name matching while typing needs only one shared word, so a loosely typed name still surfaces the product that is already listed.
+
+Every product belongs to the one country it is added in.
+
+**Hands-off contributions.** Adding a flavor to a line, or starting a new line, publishes like any other product. It needs only its front photo and the usual automated checks. Mistakes are caught by reports ("This flavor doesn't exist", "Not part of this line", "Discontinued") and by operators' line tools.
+
+**Two levels: aisle › food (§04).** This replaces the milestone 5 taxonomy shape (aisle › shelf › food, with foods at depth three) and the milestone 6 starter shelves.
+
+- **Shape.** The taxonomy is two levels below the root, and shelves are removed.
+- **The 18 aisles are universal,** the same in every country: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, and Bakery and desserts.
+- **Each food has one aisle, and an aisle names a kind of product, never an occasion** such as Breakfast. Thin foods are broadened rather than held back, and foods without products stay listed.
+- **An aisle follows how a food is used, not what the original is made from.** Mayonnaise is a condiment and Tzatziki a dip, as stores shelve them. Search finds a food from either side.
+- **Foods sit directly under an aisle.** They can be as specific as each country needs.
+- **Groups and leaves.** Aisles are non-rankable groups, and foods are the rankable leaves at depth two.
+- **Repeated names.** An aisle holding one food of its own name is silent in breadcrumbs ("All foods / Eggs").
+- **Suggest a food** chooses an aisle.
+
+**Ordering and browsing (§03).**
+
+- **Popularity order.** In each country, aisles and the foods within them are ordered by popularity: most counted ratings first, from the rating aggregates.
+- **Default order.** A country without ratings uses a default store order: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Bakery and desserts.
+- **Browse every food** shows each aisle as a card with its three most popular foods and "See all" when there are more.
+- **New aisles.** Operators can add aisles for any country, and an aisle shows only where it holds a food. Contributor aisle suggestions and per-country aisle names follow in milestone 8.
+
+**Seasons.**
+
+- **Seasonal foods.** A food can carry season months, for example Eggnog in November–January and Turkey Roast in October–December. It shows "Seasonal" with its months and stays listed and ranked all year.
+- **Seasonal products.** Any product can carry a Seasonal tag. A product in a seasonal food has it by default. A seasonal product off the shelf is not treated as discontinued.
+
+**Trending (§05).** Trending looks back a quarter, so a shopper who checks every month or two still sees what rose recently (RANKING, milestone 7).
+
+**United States launch foods.** The initial database focuses on direct replacements in the United States.
+
+- **The list.** The plan's [launch food list](MILESTONE_7_PLAN.md#united-states-launch-foods) proposes 64 foods: the 10 launch foods plus 54 United States foods. Among them, each condiment and dip is its own food, Queso sits with the dips, sweets split into Chocolate and Candy, baked goods share one Bakery and desserts aisle, and Eggs for Baking is separate from cooked Eggs.
+- **A starting set.** The list is a starting set, not a fixed one. Foods grow through suggestions, and each country grows its own.
+- **Detail questions.** Milk's "In coffee" becomes "In hot drinks", and Milk and Eggs gain Baking.
+
+The owner confirmed the tree on 2026-10-12. The 10 launch foods stay on in all six launch countries, the 32 new foods start in the United States, and the aisles are shared by every country. Eggs for Baking and Turkey Deli Slices were added on 2026-10-12:
+
+```text
+Food
+├─ Beef ── Ground Beef · Beef Burgers · Meatballs · Hot Dogs
+├─ Chicken ── Chicken Nuggets · Grilled Chicken Strips · Chicken Patties · Chicken Tenders · Boneless Wings
+├─ Pork ── Bacon · Breakfast Sausage · Chorizo · Italian Sausage
+├─ Turkey ── Turkey Roast · Turkey Deli Slices
+├─ Lamb ── (no food yet)
+├─ Fish and seafood ── Fish Fillets
+├─ Milk ── Milk · Chocolate Milk · Eggnog
+├─ Cream ── Coffee Creamer · Half-and-Half · Sour Cream · Whipped Cream
+├─ Butter ── Butter
+├─ Yogurt ── Yogurt · Greek Yogurt
+├─ Ice cream ── Ice Cream
+├─ Cheese ── Cheddar · Mozzarella · Smoked Gouda · Pepper Jack · American Cheese · Mexican Blend · Parmesan · Cream Cheese
+├─ Eggs ── Eggs · Eggs for Baking
+├─ Condiments ── Mayonnaise · Ranch Dressing · Caesar Dressing · Worcestershire Sauce
+├─ Dips and spreads ── Queso · Spinach Artichoke Dip · French Onion Dip · Tzatziki
+├─ Chocolate ── Milk Chocolate · White Chocolate · Chocolate Chips · Peanut Butter Cups · Candy Bars · Candy-Coated Chocolates · Chocolate Hazelnut Spread
+├─ Candy ── Gummy Candy · Marshmallows · Caramels
+└─ Bakery and desserts ── Cookies · Cake · Brownies · Muffins · Cinnamon Rolls · Pies and Cheesecake · Brioche and Rolls · Pudding Cups · Baking Mixes
+```
+
+People see the top level as aisles.
+
+**Countries.** The main countries for vegan shoppers are planned next (milestone 8). The site stays in English until a separate language setting and translations arrive.
+
+**Wording.** People see flavors, line names, Closest to the original and Tastiest. "Line" and "family" are internal terms.

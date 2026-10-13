@@ -13,12 +13,14 @@ const leader = (
   best: best
     ? {
         categoryId: id,
+        lineId: `line-${id}-1`,
         id: `${id}-1`,
         slug: `${id}-1`,
         name: `${id} #1`,
         brand: null,
         bayesianScore: best.score,
         ratingCount: best.ratings,
+        trendingRank: null,
         rank: 1,
       }
     : null,
