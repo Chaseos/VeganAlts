@@ -121,17 +121,24 @@ export function developmentSeedStatements(
     const dataNotes = [DEVELOPMENT_NOTICE, product.notes]
       .filter(Boolean)
       .join(" ");
-    if (product.family && !families.has(product.family)) {
-      families.add(product.family);
+    // Every product belongs to a line; one without a named line starts its
+    // own, named after it (milestone 7).
+    const family = product.family ?? `us-${product.slug}`;
+    if (!families.has(family)) {
+      families.add(family);
       add(
         db
           .insert(schema.productFamilies)
           .values({
-            id: seedId(`family:${product.family}`),
+            id: seedId(`family:${family}`),
             brandId,
-            slug: product.family,
-            canonicalName:
-              product.family === "just-eggs" ? "Just Egg" : "Oatly Oatmilk",
+            countryId: seedId("country:US"),
+            slug: family,
+            canonicalName: !product.family
+              ? product.name
+              : product.family === "just-eggs"
+                ? "Just Egg"
+                : "Oatly Oatmilk",
             ...times,
           })
           .onConflictDoNothing(),
@@ -144,9 +151,7 @@ export function developmentSeedStatements(
           id: productId,
           countryId: seedId("country:US"),
           brandId,
-          productFamilyId: product.family
-            ? seedId(`family:${product.family}`)
-            : null,
+          productFamilyId: seedId(`family:${family}`),
           name: product.name,
           slug: product.slug,
           manufacturerUrl: product.source,

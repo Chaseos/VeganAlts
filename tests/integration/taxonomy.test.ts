@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture } from "./fixtures";
+import { catalogFixture, productRows } from "./fixtures";
 import { taxonomyServices } from "../../server/taxonomy/infrastructure/composition";
 import { catalogService } from "../../server/catalog/infrastructure/composition";
 import { communityServices } from "../../server/community/infrastructure/composition";
@@ -73,18 +73,8 @@ async function world() {
     env.DB.prepare(
       "INSERT INTO category_aliases(id,category_id,alias,created_at) VALUES(?,?,?,1)",
     ).bind(id(), D, `mince ${s}`),
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1),(?,?,?,?,1,1)",
-    ).bind(
-      P2,
-      f.countryId,
-      `Second ${s}`,
-      P2,
-      P3,
-      f.countryId,
-      `Third ${s}`,
-      P3,
-    ),
+    ...productRows(env.DB, P2, f.countryId, `Second ${s}`, P2),
+    ...productRows(env.DB, P3, f.countryId, `Third ${s}`, P3),
     env.DB.prepare(
       "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1),(?,?,1,1,1)",
     ).bind(V2, P2, V3, P3),
@@ -330,9 +320,7 @@ it("switches the survivor off again where only the reversed merge put it", async
   // A donor product in another country, where the survivor isn't on.
   const P4 = `p4-${w.s}`;
   await env.DB.batch([
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-    ).bind(P4, w.f.otherCountryId, `Fourth ${w.s}`, P4),
+    ...productRows(env.DB, P4, w.f.otherCountryId, `Fourth ${w.s}`, P4),
     env.DB.prepare(
       "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
     ).bind(`v4-${w.s}`, P4),
@@ -369,9 +357,7 @@ it("switches the survivor off again where only the reversed merge put it", async
     env.DB.prepare(
       "INSERT INTO countries(id,iso2,name,created_at,updated_at) VALUES(?,?,?,1,1)",
     ).bind(third, `T${w.s}`.slice(0, 12), "Third"),
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-    ).bind(P5, third, `Fifth ${w.s}`, P5),
+    ...productRows(env.DB, P5, third, `Fifth ${w.s}`, P5),
     env.DB.prepare(
       "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
     ).bind(P5, w.S),

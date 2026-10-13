@@ -541,7 +541,7 @@ export class SubmissionRepository {
       AND EXISTS(SELECT 1 FROM countries WHERE id=? AND is_active=1)
       AND (SELECT COUNT(*) FROM categories WHERE id IN (SELECT value FROM json_each(?)) AND is_active=1 AND is_rankable=1)=?
       AND (?='' OR EXISTS(SELECT 1 FROM products WHERE id=? AND country_id=? AND lifecycle_status<>'hidden'))
-      AND (?='' OR EXISTS(SELECT 1 FROM product_families WHERE id=? AND (brand_id IS NULL OR brand_id=?)))`;
+      AND (?='' OR EXISTS(SELECT 1 FROM product_families WHERE id=? AND country_id=? AND brand_id=?))`;
     const fence = [
       receipt.id,
       token,
@@ -556,11 +556,14 @@ export class SubmissionRepository {
       context.countryId,
       input.productFamilyId ?? "",
       input.productFamilyId ?? "",
+      context.countryId,
       context.brandId ?? "",
     ];
     const productId = receipt.planned_product_id,
       versionId = receipt.planned_version_id;
     const productSlug = `${slug(`${context.brandName} ${input.name}`)}-${productId.slice(-8)}`;
+    // A product outside a chosen line starts its own, named after it.
+    const familyId = input.productFamilyId ?? `line-${productId}`;
     const status = classification.veganStatus;
     const statements: D1PreparedStatement[] = [];
     if (!context.brandId)
@@ -579,6 +582,26 @@ export class SubmissionRepository {
             ...fence,
           ),
       );
+    if (!input.productFamilyId)
+      statements.push(
+        this.db
+          .prepare(
+            `INSERT INTO product_families(id,brand_id,country_id,canonical_name,slug,created_at,updated_at)
+          SELECT ?,COALESCE(?,(SELECT id FROM brands WHERE normalized_name=?)),?,?,(SELECT lower(iso2) FROM countries WHERE id=?)||'-'||?,?,? WHERE ${guard}`,
+          )
+          .bind(
+            familyId,
+            context.brandId,
+            normalizeName(context.brandName),
+            context.countryId,
+            input.name,
+            context.countryId,
+            productSlug,
+            now,
+            now,
+            ...fence,
+          ),
+      );
     statements.push(
       this.db
         .prepare(
@@ -592,7 +615,7 @@ export class SubmissionRepository {
           // brand is resolved by the normalized key inserted above.
           context.brandId,
           normalizeName(context.brandName),
-          input.productFamilyId ?? null,
+          familyId,
           input.name,
           productSlug,
           status,

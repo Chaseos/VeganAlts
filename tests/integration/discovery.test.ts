@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture, testMarket } from "./fixtures";
+import { catalogFixture, lineOf, lineStatement, testMarket } from "./fixtures";
 import { trendingService } from "../../server/ranking/infrastructure/trending-composition";
 import { CatalogService } from "../../server/catalog/application/service";
 import { D1CatalogRepository } from "../../server/catalog/infrastructure/d1-repository";
@@ -37,21 +37,27 @@ async function world() {
       NOW - 200 * DAY,
       f.productId,
     ),
+    ...[steady, fresh, gone, loose].map((product) =>
+      lineStatement(env.DB, product, f.countryId),
+    ),
     env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,published_at,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,'active',1,1),(?,?,?,?,?,'active',1,1),(?,?,?,?,?,'discontinued',1,1)",
+      "INSERT INTO products(id,country_id,product_family_id,name,slug,published_at,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,?,'active',1,1),(?,?,?,?,?,?,'active',1,1),(?,?,?,?,?,?,'discontinued',1,1)",
     ).bind(
       steady,
       f.countryId,
+      lineOf(steady),
       `Steady ${s}`,
       steady,
       NOW - 300 * DAY,
       fresh,
       f.countryId,
+      lineOf(fresh),
       `Fresh ${s}`,
       fresh,
       NOW - 2 * DAY,
       gone,
       f.countryId,
+      lineOf(gone),
       `Gone ${s}`,
       gone,
       NOW - 3 * DAY,
@@ -64,8 +70,8 @@ async function world() {
     ).bind(steady, category, fresh, category, gone, category),
     // Recently published but ineligible everywhere: never in New.
     env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,published_at,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,'active',1,1)",
-    ).bind(loose, f.countryId, `Loose ${s}`, loose, NOW - DAY),
+      "INSERT INTO products(id,country_id,product_family_id,name,slug,published_at,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,?,'active',1,1)",
+    ).bind(loose, f.countryId, lineOf(loose), `Loose ${s}`, loose, NOW - DAY),
     env.DB.prepare(
       "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
     ).bind(`loose-v-${s}`, loose),

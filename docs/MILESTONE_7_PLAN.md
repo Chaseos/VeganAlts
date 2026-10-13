@@ -627,6 +627,7 @@ Existing foods keep their current names and other names unless a row says otherw
 
 - Demo lines with several flavors (a yogurt with three flavors, nuggets with Original and Spicy) and Tastiest answers.
 - Demo ratings dated relative to the seed run, so Trending always has recent activity. The fixed 2026-10-04 dates left the 7-day window on 2026-10-12, which emptied the home page's Trending section and fails its browser test.
+- **Fold the milestone's migrations into version 1** before staging (owner decision, 2026-10-12). Nothing has reached a shared database, so `0002`–`0004` join `0001_initial.sql` and the first release starts at a single version 1. The backfill that gives older products a line goes, because every database is reset.
 - `npm run check` and `npm run test:e2e` after a local reset.
 - axe at 390 px and desktop in both themes.
 - The verification record, then staging after approval.

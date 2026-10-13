@@ -390,7 +390,8 @@ export function planProductChange(
           "Choose a different related product and a relationship.",
         );
       before.familyId = snapshot.familyId;
-      after.familyId = input.productFamilyId;
+      // A product never leaves a line (milestone 7): no line keeps its own.
+      after.familyId = input.productFamilyId ?? snapshot.familyId;
       before.categories = snapshot.categories.filter((c) =>
         input.categoryEligibility.some((v) => v.categoryId === c.categoryId),
       );

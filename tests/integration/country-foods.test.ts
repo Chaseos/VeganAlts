@@ -7,6 +7,7 @@ import {
   rebuildSearchIndex,
 } from "../../server/catalog/infrastructure/search-index";
 import { taxonomySeedStatements } from "../../db/seed/taxonomy";
+import { productRows } from "./fixtures";
 
 const id = () => crypto.randomUUID();
 const note = "Country availability maintenance for the test.";
@@ -137,9 +138,7 @@ it("lists a suggested food only where it is on, and lets operators switch countr
   ).first("id")) as string;
   const product = `product-${s}`;
   await env.DB.batch([
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-    ).bind(product, usId, "Rolls", product),
+    ...productRows(env.DB, product, usId, "Rolls", product),
     env.DB.prepare(
       "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
     ).bind(product, categoryId),
@@ -215,9 +214,7 @@ it("shows a newly opened country the shared aisles to start from", async () => {
   ).first("id")) as string;
   const product = `de-product-${id()}`;
   await env.DB.batch([
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-    ).bind(product, de.id, "Erstes Hack", product),
+    ...productRows(env.DB, product, de.id, "Erstes Hack", product),
     env.DB.prepare(
       "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
     ).bind(`${product}-v`, product),

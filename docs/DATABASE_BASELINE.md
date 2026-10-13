@@ -632,7 +632,11 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following append-o
   - Adds `products.seasonal` (0 or 1).
 - `0003_recipe_lines.sql`
   - **Columns.** Adds `products.flavor`, `product_families.country_id` and `ratings.enjoyment`. Adds `enjoyment_count`, `enjoyment_sum` and `enjoyment_score` to `product_category_stats`.
-  - **Backfill.** Creates a family for every product without one, taking the product's brand, country and name, and splits any family whose products span countries.
+  - **Backfill.**
+    - A product without a family starts its own, `line-<product id>`, with the product's brand, country and name. Its slug is the country code and the product slug.
+    - A family whose products span countries or brands splits into one family per country and brand. The group with the family's own brand (then the earliest product) keeps the family, which takes that group's country and brand. Each other group gets a copy with the same name, `line-<its first product id>`.
+    - A family without products keeps a NULL country; new families always have one.
+  - **Writers.** A submission outside a chosen line starts its own line in the same batch, and a chosen line must have the product's brand and country. A relationships proposal without a line keeps the product's current one.
   - **Triggers** enforce:
     - a product is inserted with a family and can never lose it;
     - a product's brand and country equal its family's;
@@ -644,7 +648,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following append-o
     - tried and recent people;
     - the lead product.
   - **`family_category_dimension_stats`** has one row per family, food and dimension: people who answered and the sum of their means.
-  - **Indexes** for line reads and `products(brand_id, country_id)` for brand pages.
+  - **Indexes:** `products(product_family_id)` for a line's flavors, `product_families(brand_id, country_id)` for a brand's lines, and the existing `products(brand_id, country_id)` for brand pages.
 - `0004_line_discovery.sql`
   - Adds `family_category_daily_stats`, one row per line, food, day and person over the last 180 days (the 90-day trend window and its baseline), so Trending counts each person once across the window.
   - Adds `family_category_trends`.

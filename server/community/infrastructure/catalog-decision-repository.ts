@@ -51,14 +51,14 @@ export class CatalogDecisionRepository {
     if (input.productFamilyId) {
       const family = await this.db
         .prepare(
-          "SELECT id FROM product_families WHERE id=? AND (brand_id IS NULL OR brand_id=?)",
+          "SELECT id FROM product_families WHERE id=? AND country_id=? AND brand_id IS ?",
         )
-        .bind(input.productFamilyId, snapshot.brandId)
+        .bind(input.productFamilyId, snapshot.countryId, snapshot.brandId)
         .first();
       if (!family)
         throw new ApplicationError(
           "INVALID_FAMILY",
-          "Choose a family belonging to this brand.",
+          "Choose a line of this brand in this country.",
         );
     }
     if (input.relatedProductId) {
@@ -97,8 +97,12 @@ export class CatalogDecisionRepository {
     };
     if (plan.after.familyId) {
       guard.sql +=
-        " AND EXISTS(SELECT 1 FROM product_families WHERE id=? AND (brand_id IS NULL OR brand_id=?))";
-      guard.values.push(plan.after.familyId, snapshot.brandId);
+        " AND EXISTS(SELECT 1 FROM product_families WHERE id=? AND country_id=? AND brand_id IS ?)";
+      guard.values.push(
+        plan.after.familyId,
+        snapshot.countryId,
+        snapshot.brandId,
+      );
     }
     // Only newly linked products must be visible. Existing links to a later
     // archived duplicate are preserved history and stay valid for reversal.

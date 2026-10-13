@@ -49,11 +49,14 @@ it("rejects a half or invalid season, a negative position and a non-boolean seas
     )
       .run()
       .then(() =>
-        env.DB.prepare(
-          "INSERT INTO products(id,country_id,name,slug,seasonal,created_at,updated_at) VALUES(?,?,?,?,2,1,1)",
-        )
-          .bind("p-x", "c-x", "X", "p-x")
-          .run(),
+        env.DB.batch([
+          env.DB.prepare(
+            "INSERT INTO product_families(id,country_id,canonical_name,slug,created_at,updated_at) VALUES('line-p-x','c-x','X','line-p-x',1,1)",
+          ),
+          env.DB.prepare(
+            "INSERT INTO products(id,country_id,product_family_id,name,slug,seasonal,created_at,updated_at) VALUES(?,?,?,?,?,2,1,1)",
+          ).bind("p-x", "c-x", "line-p-x", "X", "p-x"),
+        ]),
       ),
   ).rejects.toThrow(/seasonal must be 0 or 1/);
 });
@@ -93,8 +96,11 @@ it("seeds default positions and seasons, fills only what an operator never set, 
   const product = `p-${id()}`;
   await env.DB.batch([
     env.DB.prepare(
-      "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) SELECT ?,id,'Sharp shreds',?,1,1 FROM countries WHERE iso2='US'",
+      "INSERT INTO product_families(id,country_id,canonical_name,slug,created_at,updated_at) SELECT 'line-'||?,id,'Sharp shreds','line-'||?,1,1 FROM countries WHERE iso2='US'",
     ).bind(product, product),
+    env.DB.prepare(
+      "INSERT INTO products(id,country_id,product_family_id,name,slug,created_at,updated_at) SELECT ?,id,'line-'||?,'Sharp shreds',?,1,1 FROM countries WHERE iso2='US'",
+    ).bind(product, product, product),
     env.DB.prepare(
       "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
     ).bind(`${product}-v`, product),

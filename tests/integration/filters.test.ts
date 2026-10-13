@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
 import { CatalogService } from "../../server/catalog/application/service";
 import { D1CatalogRepository } from "../../server/catalog/infrastructure/d1-repository";
-import { catalogFixture, testMarket } from "./fixtures";
+import { catalogFixture, testMarket, productRows } from "./fixtures";
 
 const catalog = new CatalogService(new D1CatalogRepository(env.DB));
 
@@ -39,9 +39,7 @@ async function world() {
     closed = retailer("closed");
   const statements = [
     ...[a, b, c, d, twin].flatMap((p) => [
-      env.DB.prepare(
-        "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-      ).bind(p.id, p.country, p.id, p.slug),
+      ...productRows(env.DB, p.id, p.country, p.id, p.slug),
       env.DB.prepare(
         "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
       ).bind(p.version, p.id),
@@ -332,8 +330,11 @@ it("ranks, counts and pages every product of a food with more than 1,000", async
   const series = `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<${total})`;
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO products(id,country_id,name,slug,created_at,updated_at) ${series} SELECT ?||i,?,?||i,?||i,1,1 FROM n`,
+      `INSERT INTO product_families(id,country_id,canonical_name,slug,created_at,updated_at) ${series} SELECT 'line-'||?||i,?,?||i,'line-'||?||i,1,1 FROM n`,
     ).bind(`bulk-${s}-`, f.countryId, `Bulk ${s} `, `bulk-${s}-`),
+    env.DB.prepare(
+      `INSERT INTO products(id,country_id,product_family_id,name,slug,created_at,updated_at) ${series} SELECT ?||i,?,'line-'||?||i,?||i,?||i,1,1 FROM n`,
+    ).bind(`bulk-${s}-`, f.countryId, `bulk-${s}-`, `Bulk ${s} `, `bulk-${s}-`),
     env.DB.prepare(
       `INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) ${series} SELECT ?||i,?||i,1,1,1 FROM n`,
     ).bind(`bulk-v-${s}-`, `bulk-${s}-`),

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture } from "./fixtures";
+import { catalogFixture, productRows } from "./fixtures";
 import { communityServices } from "../../server/community/infrastructure/composition";
 import {
   changeInput,
@@ -304,11 +304,9 @@ it("rejects cross-country consolidations, redirect chains and new contributions 
     [other, f.otherCountryId],
     [survivor, f.countryId],
     [third, f.countryId],
-  ])
+  ] as const)
     await env.DB.batch([
-      env.DB.prepare(
-        "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-      ).bind(product, country, product, product),
+      ...productRows(env.DB, product, country, product, product),
       env.DB.prepare(
         "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
       ).bind(id(), product),
@@ -435,9 +433,7 @@ it("keeps relationship changes acceptable after a linked product is archived as 
   const product = async () => {
     const productId = id();
     await env.DB.batch([
-      env.DB.prepare(
-        "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-      ).bind(productId, f.countryId, productId, productId),
+      ...productRows(env.DB, productId, f.countryId, productId, productId),
       env.DB.prepare(
         "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,1,1,1)",
       ).bind(id(), productId),

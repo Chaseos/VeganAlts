@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it, vi } from "vitest";
-import { catalogFixture, testMarket } from "./fixtures";
+import { catalogFixture, productRows, testMarket } from "./fixtures";
 import { catalogService } from "../../server/catalog/infrastructure/composition";
 import { SubmissionService } from "../../server/community/application/submission-service";
 import { StagedMediaService } from "../../server/community/application/staged-media-service";
@@ -683,19 +683,23 @@ it("checks large brands without a hard limit, ranks alias matches first and keep
       "INSERT INTO brand_aliases(normalized_name,alias,brand_id) VALUES(?,?,?)",
     ).bind(normalizeName(brand), brand, brandId),
     ...Array.from({ length: 230 }, (_, i) =>
-      env.DB.prepare(
-        "INSERT INTO products(id,country_id,brand_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
-      ).bind(
+      productRows(
+        env.DB,
         `bulk-${t}-${i}`,
         f.countryId,
-        brandId,
         `Style Shreds ${i}`,
         `bulk-${t}-${i}`,
+        brandId,
       ),
+    ).flat(),
+    ...productRows(
+      env.DB,
+      aliased,
+      f.countryId,
+      "Classic Mozz",
+      aliased,
+      brandId,
     ),
-    env.DB.prepare(
-      "INSERT INTO products(id,country_id,brand_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,?,1,1)",
-    ).bind(aliased, f.countryId, brandId, "Classic Mozz", aliased),
     env.DB.prepare(
       "INSERT INTO product_aliases(id,product_id,alias,created_at) VALUES(?,?,?,1)",
     ).bind(id(), aliased, "Mozzarella Style Shreds"),

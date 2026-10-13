@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
-import { catalogFixture } from "./fixtures";
+import { catalogFixture, lineOf, lineStatement, productRows } from "./fixtures";
 import {
   TAXONOMY_GROUPS,
   TAXONOMY_LEAVES,
@@ -43,11 +43,12 @@ it("switches foods on where their products are, guards availability and the unch
       )
       .bind(f.productId, retired),
     // A hidden product switches nothing on.
+    lineStatement(db, hidden, f.otherCountryId),
     db
       .prepare(
-        "INSERT INTO products(id,country_id,name,slug,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,'hidden',1,1)",
+        "INSERT INTO products(id,country_id,product_family_id,name,slug,lifecycle_status,created_at,updated_at) VALUES(?,?,?,?,?,'hidden',1,1)",
       )
-      .bind(hidden, f.otherCountryId, "Hidden", hidden),
+      .bind(hidden, f.otherCountryId, lineOf(hidden), "Hidden", hidden),
     db
       .prepare(
         "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
@@ -101,11 +102,7 @@ it("switches foods on where their products are, guards availability and the unch
   // A membership in a new country switches the food on there, once.
   const elsewhere = `elsewhere-${id()}`;
   await db.batch([
-    db
-      .prepare(
-        "INSERT INTO products(id,country_id,name,slug,created_at,updated_at) VALUES(?,?,?,?,1,1)",
-      )
-      .bind(elsewhere, f.otherCountryId, "Elsewhere", elsewhere),
+    ...productRows(db, elsewhere, f.otherCountryId, "Elsewhere", elsewhere),
     db
       .prepare(
         "INSERT INTO product_categories(product_id,category_id,created_at,updated_at) VALUES(?,?,1,1)",
