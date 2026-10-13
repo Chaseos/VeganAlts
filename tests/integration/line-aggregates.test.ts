@@ -422,14 +422,16 @@ it("counts each person once, keeps Tastiest apart and rebuilds to the same rows"
   const incremental = await storedLine(line);
   await lines.refreshAll();
   expect(await storedLine(line)).toEqual(incremental);
-  // The hourly backstop re-derives a page a run here, resuming where the
-  // last run stopped, and reaches every line with the same rows.
-  const total = (await db
-    .prepare("SELECT COUNT(*) AS n FROM product_families")
-    .first<number>("n"))!;
-  let covered = 0;
-  for (let run = 0; run <= Math.ceil(total / 200); run++)
-    covered += await lines.refreshRotating(1);
-  expect(covered).toBeGreaterThanOrEqual(total);
+  // A week later only "people this week" changes, and the hourly pass
+  // re-derives just the lines whose ratings turned a week old, once.
+  expect((await statsOf(line))[0]).toMatchObject({ recentCount: 2 });
+  const later = Date.now() + 7.5 * DAY;
+  expect(await lines.refreshAged(later)).toBeGreaterThanOrEqual(1);
+  expect((await statsOf(line))[0]).toMatchObject({
+    peopleCount: 2,
+    recentCount: 0,
+  });
+  expect(await lines.refreshAged(later)).toBe(0);
+  await lines.refreshAll();
   expect(await storedLine(line)).toEqual(incremental);
 });

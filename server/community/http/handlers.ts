@@ -120,7 +120,7 @@ export async function communityApi(
       const name = url.searchParams.get("name")?.trim() ?? "",
         brand = url.searchParams.get("brand")?.trim() ?? "",
         line = url.searchParams.get("line");
-      if (name.length < 2 || brand.length < 2) return respond([]);
+      if (name.length < 3 || brand.length < 2) return respond([]);
       return respond(
         await services.submissions.identityMatches(
           actor,

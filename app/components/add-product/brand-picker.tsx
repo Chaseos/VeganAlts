@@ -15,9 +15,10 @@ const compact = (value: string) =>
 
 /**
  * Choose the brand (milestone 7), an ARIA 1.2 combobox like the food picker.
- * From two characters it suggests brands through the shared matcher (a word's
- * start, part of the name or a couple of typos), each with its products in
- * the country. The last option adds the typed text as a new brand.
+ * From three characters it suggests brands through the shared matcher (a
+ * word's start, part of the name or a couple of typos), each with its
+ * products in the country. The last option adds the typed text as a new
+ * brand.
  */
 export function BrandPicker({
   id,
@@ -52,10 +53,13 @@ export function BrandPicker({
   // "Add as a new brand" never shows before a listed brand could.
   const [answered, setAnswered] = useState("");
   const typed = value.trim();
-  const loading = typed.length >= 2 && answered !== typed;
+  // Like other lookups while typing, nothing is looked up or offered before
+  // three characters.
+  const searchable = typed.length >= 3;
+  const loading = searchable && answered !== typed;
   useEffect(() => {
     if (chosen) return;
-    if (typed.length < 2) {
+    if (!searchable) {
       setSuggestions([]);
       return;
     }
@@ -83,7 +87,7 @@ export function BrandPicker({
   );
   const options: Option[] = [
     ...shown.map((brand) => ({ kind: "brand" as const, brand })),
-    ...(typed.length >= 2 && !exact && !loading
+    ...(searchable && !exact && !loading
       ? [{ kind: "new" as const, name: typed }]
       : []),
   ];
@@ -92,7 +96,7 @@ export function BrandPicker({
     text: typed,
     options,
     error,
-    ready: typed.length >= 2,
+    ready: searchable,
     onChoose: (option) => {
       setPicked(option.kind === "brand" ? option.brand : null);
       onChoose(

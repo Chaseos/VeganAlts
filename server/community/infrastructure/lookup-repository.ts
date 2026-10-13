@@ -6,7 +6,10 @@ import type {
   SubmissionIdentity,
 } from "../domain/contracts";
 import { identityKey, normalizeName, productName } from "../domain/policy";
-import { matchingBrands } from "../../catalog/infrastructure/brand-rows";
+import {
+  BRAND_LOOKUP_MIN,
+  matchingBrands,
+} from "../../catalog/infrastructure/brand-rows";
 
 export interface SubmissionContext {
   countryId: string;
@@ -167,7 +170,7 @@ export class CommunityLookupRepository {
     query: string,
     limit = 8,
   ): Promise<BrandSuggestion[]> {
-    if (query.trim().length < 2) return [];
+    if (query.trim().length < BRAND_LOOKUP_MIN) return [];
     const countryId = await this.db
       .prepare("SELECT id FROM countries WHERE iso2=? AND is_active=1")
       .bind(country)

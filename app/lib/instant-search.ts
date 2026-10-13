@@ -13,9 +13,9 @@ export interface InstantSearchState {
 
 export const DEBOUNCE_MS = 150;
 const CACHE_SIZE = 20;
-// Instant answers start at two letters or digits, like the server.
+// Instant answers start at three letters or digits, like the server.
 export const suggestable = (query: string) =>
-  (query.match(/[\p{L}\p{N}]/gu)?.length ?? 0) >= 2;
+  (query.match(/[\p{L}\p{N}]/gu)?.length ?? 0) >= 3;
 
 /**
  * Turns keystrokes into at most one request per pause: waits briefly, aborts

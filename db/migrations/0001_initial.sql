@@ -1,8 +1,9 @@
 -- VeganAlts schema, version 1.
 -- The pre-release migrations were folded into this baseline before the first
--- release (owner decisions, 2026-10-10 and 2026-10-12, which added milestone
--- 7's recipe lines). Every database starts here; later schema changes are
--- new, append-only migrations.
+-- release (owner decisions, 2026-10-10, 2026-10-12 and 2026-10-13, which
+-- added milestone 7's recipe lines and its review fixes). Every database
+-- starts here. Until the first release, schema changes are folded in here
+-- and databases reset; after it, they are new, append-only migrations.
 CREATE TABLE `account` (
 	`id` text PRIMARY KEY NOT NULL,
 	`account_id` text NOT NULL,
@@ -429,6 +430,7 @@ CREATE TABLE `media_attempts` (
 	`state` text NOT NULL,
 	`lease_expires_at` integer NOT NULL,
 	`created_at` integer NOT NULL,
+	`counted` integer DEFAULT 1 NOT NULL,
 	FOREIGN KEY (`upload_id`) REFERENCES `media_uploads`(`id`) ON UPDATE no action ON DELETE restrict,
 	CONSTRAINT "ck_media_attempt_state" CHECK("media_attempts"."state" IN ('processing', 'committed', 'abandoned'))
 );
@@ -1415,3 +1417,25 @@ CREATE TABLE `family_category_trends` (
 );
 --> statement-breakpoint
 CREATE INDEX `ix_family_trends_category_rank` ON `family_category_trends` (`category_id`,`rank`);
+--> statement-breakpoint
+-- Milestone 7 brand lookups: every brand's names and other names, indexed by
+-- three-letter runs (trigrams) so a word's start, part of a name and most
+-- typos are found without reading every brand. The triggers keep it current
+-- in the same transaction as any brand or alias write; `aliases` holds the
+-- other names as a JSON array for the matcher.
+CREATE VIRTUAL TABLE brand_search USING fts5(
+  brand_id UNINDEXED, aliases UNINDEXED, names,
+  tokenize = 'trigram'
+);
+--> statement-breakpoint
+CREATE TRIGGER brand_search_brand_insert AFTER INSERT ON brands BEGIN DELETE FROM brand_search WHERE brand_id=NEW.id; INSERT INTO brand_search(brand_id,aliases,names) SELECT b.id,(SELECT json_group_array(alias) FROM brand_aliases WHERE brand_id=b.id),b.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM brand_aliases WHERE brand_id=b.id),'') FROM brands b WHERE b.id=NEW.id; END;
+--> statement-breakpoint
+CREATE TRIGGER brand_search_brand_update AFTER UPDATE OF name ON brands BEGIN DELETE FROM brand_search WHERE brand_id=NEW.id; INSERT INTO brand_search(brand_id,aliases,names) SELECT b.id,(SELECT json_group_array(alias) FROM brand_aliases WHERE brand_id=b.id),b.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM brand_aliases WHERE brand_id=b.id),'') FROM brands b WHERE b.id=NEW.id; END;
+--> statement-breakpoint
+CREATE TRIGGER brand_search_brand_delete AFTER DELETE ON brands BEGIN DELETE FROM brand_search WHERE brand_id=OLD.id; END;
+--> statement-breakpoint
+CREATE TRIGGER brand_search_alias_insert AFTER INSERT ON brand_aliases BEGIN DELETE FROM brand_search WHERE brand_id=NEW.brand_id; INSERT INTO brand_search(brand_id,aliases,names) SELECT b.id,(SELECT json_group_array(alias) FROM brand_aliases WHERE brand_id=b.id),b.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM brand_aliases WHERE brand_id=b.id),'') FROM brands b WHERE b.id=NEW.brand_id; END;
+--> statement-breakpoint
+CREATE TRIGGER brand_search_alias_update AFTER UPDATE ON brand_aliases BEGIN DELETE FROM brand_search WHERE brand_id=OLD.brand_id; INSERT INTO brand_search(brand_id,aliases,names) SELECT b.id,(SELECT json_group_array(alias) FROM brand_aliases WHERE brand_id=b.id),b.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM brand_aliases WHERE brand_id=b.id),'') FROM brands b WHERE b.id=OLD.brand_id; DELETE FROM brand_search WHERE brand_id=NEW.brand_id; INSERT INTO brand_search(brand_id,aliases,names) SELECT b.id,(SELECT json_group_array(alias) FROM brand_aliases WHERE brand_id=b.id),b.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM brand_aliases WHERE brand_id=b.id),'') FROM brands b WHERE b.id=NEW.brand_id; END;
+--> statement-breakpoint
+CREATE TRIGGER brand_search_alias_delete AFTER DELETE ON brand_aliases BEGIN DELETE FROM brand_search WHERE brand_id=OLD.brand_id; INSERT INTO brand_search(brand_id,aliases,names) SELECT b.id,(SELECT json_group_array(alias) FROM brand_aliases WHERE brand_id=b.id),b.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM brand_aliases WHERE brand_id=b.id),'') FROM brands b WHERE b.id=OLD.brand_id; END;

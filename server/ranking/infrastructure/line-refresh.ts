@@ -8,8 +8,9 @@ import { RECENT_WINDOW_MS } from "../domain/lines";
 // Recomputes recipe lines' standing (`family_category_stats` and
 // `family_category_dimension_stats`) from canonical rows, following
 // `aggregateLine` in ranking/domain/lines.ts. The statements join the batch
-// that changes a line, so a D1 transaction never leaves a line stale; the
-// hourly job re-derives lines in turn as a backstop.
+// that changes a line, so a D1 transaction never leaves a line stale. The
+// hourly job only ages "people this week" (`refreshAged`); the integrity
+// rebuild re-derives every line.
 
 export interface LineTargets {
   familyIds?: readonly (string | null | undefined)[];
@@ -162,31 +163,39 @@ export class LineRefresh {
   }
 
   /**
-   * The hourly backstop: up to `pages` pages from where the last run
-   * stopped, starting over after the last line, so each run stays bounded
-   * however large the catalog grows.
+   * The hourly pass. Every write refreshes its lines, so the only figure
+   * that changes with the clock is "people this week" (`recent_count`): a
+   * person leaves it when their latest rating turns seven days old. This
+   * re-derives just the lines with a rating that crossed that mark since the
+   * last run (a day back on the first), found by `ratings.created_at`.
    */
-  async refreshRotating(pages = 25, now = Date.now()) {
-    let after =
-        (await this.db
-          .prepare(
-            "SELECT cursor FROM community_recovery WHERE prefix='line-refresh'",
-          )
-          .first<string | null>("cursor")) ?? null,
-      refreshed = 0;
-    for (let page = 0; page < pages; page++) {
-      const result = await this.refreshPage(after, 200, now);
-      refreshed += result.refreshed;
-      after = result.next;
-      if (!after) break;
-    }
+  async refreshAged(now = Date.now()) {
+    const until = now - RECENT_WINDOW_MS;
+    const saved = await this.db
+      .prepare(
+        "SELECT cursor FROM community_recovery WHERE prefix='line-recent-window'",
+      )
+      .first<string>("cursor");
+    const since = saved === null ? until - 86_400_000 : Number(saved);
+    const ids = (
+      await this.db
+        .prepare(
+          `SELECT DISTINCT p.product_family_id AS id FROM ratings r
+          JOIN product_versions v ON v.id=r.product_version_id JOIN products p ON p.id=v.product_id
+          WHERE r.created_at>=? AND r.created_at<? AND p.product_family_id IS NOT NULL`,
+        )
+        .bind(since, until)
+        .all<{ id: string }>()
+    ).results.map((row) => row.id);
+    for (let i = 0; i < ids.length; i += 200)
+      await this.refresh({ familyIds: ids.slice(i, i + 200) }, now);
     await this.db
       .prepare(
-        "INSERT INTO community_recovery(prefix,cursor) VALUES('line-refresh',?) ON CONFLICT(prefix) DO UPDATE SET cursor=excluded.cursor",
+        "INSERT INTO community_recovery(prefix,cursor) VALUES('line-recent-window',?) ON CONFLICT(prefix) DO UPDATE SET cursor=excluded.cursor",
       )
-      .bind(after)
+      .bind(String(Math.max(since, until)))
       .run();
-    return refreshed;
+    return ids.length;
   }
 
   /** Every line, a page at a time. */

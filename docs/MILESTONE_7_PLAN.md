@@ -276,7 +276,7 @@ Most of what remains is sold as a few base recipes in several flavors:
   - category-merge rebuilds (`rebuildVersions`) and the integrity rebuild (`rebuildPage`, `scripts/rebuild-rankings.ts`);
   - every catalog decision that changes a product's family, current formula, lifecycle, classification, food membership or eligibility. That includes submission publication, `patchStatements`, duplicate consolidation and its reversal.
 
-  Because a D1 batch is one transaction, concurrent writes to two flavors of one line cannot lose each other's ratings. The hourly job also re-derives line rows in turn, up to 5,000 lines a run, as a backstop.
+  Because a D1 batch is one transaction, concurrent writes to two flavors of one line cannot lose each other's ratings. The hourly job only re-derives lines whose "people this week" changes as ratings turn seven days old; the integrity rebuild re-derives every line.
 
 - **Reference implementation.** A pure function in `server/ranking/domain` defines the line math for both rankings. Tests prove that the SQL, the reference function and the integrity rebuild agree.
 
@@ -341,7 +341,7 @@ Most of what remains is sold as a few base recipes in several flavors:
 - **Step 1, "What did you find?", runs in this order:**
   1. **Food.** The existing searchable picker, with inline suggestion of a missing food.
   2. **Brand.** An accessible combobox replaces the browser suggestion list.
-     - From 2 characters it suggests brands whose name or other names start with any typed word, contain the typed text, or are within two typos of it.
+     - From 3 characters (owner, 2026-10-13) it suggests brands whose name or other names start with any typed word, contain the typed text, or are within two typos of it, found through a trigram index of brand names.
      - Each suggestion shows how many products the brand has in the country.
      - The last option adds the typed text as a new brand.
   3. **"Already listed from [brand]."** This appears once the food and brand are chosen.
@@ -648,7 +648,7 @@ Existing foods keep their current names and other names unless a row says otherw
 | Line refresh backstop            | Hourly, every line                      |
 | Flavor label                     | 40 characters                           |
 | New launch food availability     | United States only                      |
-| Brand suggestions                | From 2 characters, up to 2 typos        |
+| Brand suggestions                | From 3 characters, up to 2 typos        |
 | Similar products while typing    | One shared word of 3+ letters           |
 | Brands in instant answers        | 3                                       |
 | Trending window / half-life      | 90 days / 30 days                       |

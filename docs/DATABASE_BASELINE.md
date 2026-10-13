@@ -526,7 +526,7 @@ Recommended ordering at initial setup:
 2. VeganAlts application baseline.
 3. Seed countries/categories/initial brands/products.
 
-**Version 1 baseline (owner decision, 2026-10-10).** Before the first release, the pre-release migrations `0000`–`0020` were folded into one executable baseline, `db/migrations/0001_initial.sql`. It produces exactly the schema those migrations produced (tables, indexes, triggers, the FTS5 index), plus the rows they inserted: the `veganalts-system` actor and the shared allergen list. Every database is created from it; local, staging and production databases carrying the old history are emptied (`npm run db:reset:<env>`) and migrated again rather than upgraded. Migrations are append-only from version 1 on. The milestone sections below keep their original migration names as the record of when each part of the schema was decided; the backfills and upgrade preflights they describe applied only to the old history.
+**Version 1 baseline (owner decision, 2026-10-10).** Before the first release, the pre-release migrations `0000`–`0020` were folded into one executable baseline, `db/migrations/0001_initial.sql`. It produces exactly the schema those migrations produced (tables, indexes, triggers, the FTS5 index), plus the rows they inserted: the `veganalts-system` actor and the shared allergen list. Every database is created from it; local, staging and production databases carrying the old history are emptied (`npm run db:reset:<env>`) and migrated again rather than upgraded. Until the first release, schema changes are folded into version 1 and every database is reset (owner decision, 2026-10-13); migrations are append-only from the first release on. The milestone sections below keep their original migration names as the record of when each part of the schema was decided; the backfills and upgrade preflights they describe applied only to the old history.
 
 ## 28. D1-specific notes
 
@@ -660,4 +660,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following. They we
 - **Availability.** `TAXONOMY_LEAVES` carries an optional `countries` list for launch availability.
 - **Existing environments.** For an environment that is not reset, the reshape script re-parents foods to aisles through the audited taxonomy path and retires the emptied shelves.
 
-**Seed processing (`0002_uncounted_seed_attempts`).** Adds `media_attempts.counted` (default 1). Owner-run demo seeding (`scripts/seed-images.ts`) records 0, so a reseed is neither held to nor spends the environment's daily processing allowance that web uploads share; both allowance checks count only `counted=1`.
+**Review fixes, folded into version 1 (owner decision, 2026-10-13).**
+
+- **Seed processing.** `media_attempts.counted` (default 1). Owner-run demo seeding (`scripts/seed-images.ts`) records 0, so a reseed is neither held to nor spends the environment's daily processing allowance that web uploads share; both allowance checks count only `counted=1`.
+- **Brand index.** `brand_search` is an FTS5 table with the trigram tokenizer: each brand's name and other names (`names`), and its other names as a JSON array (`aliases`). Triggers on `brands` and `brand_aliases` keep it current in the same transaction as any write, and the search rebuild rewrites it. Brand lookups read candidates sharing three letters in a row with the typed text, so they never read every brand.

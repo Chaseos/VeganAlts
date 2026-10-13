@@ -4750,6 +4750,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "counted": {
+          "name": "counted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
         }
       },
       "indexes": {

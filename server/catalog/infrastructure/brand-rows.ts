@@ -1,16 +1,41 @@
 import { matchBrands, nameMatch } from "../domain/brand-match";
 import type { BrandRow } from "../domain/contracts";
 
-const BRAND_LIMIT = 5000;
+// Lookups start at three letters or digits, the index's unit.
+export const BRAND_LOOKUP_MIN = 3;
+// The closest brands by shared trigrams, before the matcher orders them.
+const CANDIDATES = 200;
+const MAX_TRIGRAMS = 32;
 // The products a brand counts in a country: what search and pages show.
 const COUNTED = "p.lifecycle_status IN ('active','under_review')";
 
 /**
+ * The three-letter runs of the typed words and of the words run together
+ * (so "beyondm" still finds "Beyond Meat"), each quoted for FTS5.
+ */
+function trigrams(query: string) {
+  const words =
+    query
+      .normalize("NFKD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .match(/[\p{L}\p{N}]+/gu) ?? [];
+  const runs = new Set<string>();
+  for (const word of [...words, words.join("")]) {
+    const letters = Array.from(word);
+    for (let i = 0; i + 3 <= letters.length; i++)
+      runs.add(letters.slice(i, i + 3).join(""));
+  }
+  return [...runs].slice(0, MAX_TRIGRAMS).map((run) => `"${run}"`);
+}
+
+/**
  * Brands matching typed text through the shared matcher (milestone 7), for
- * search, instant answers and Add a product alike. Names and aliases are read
- * in one pass and products are counted only for the brands that match, so a
- * lookup never counts the whole catalog. `everyBrand` includes brands with
- * nothing in the country yet.
+ * search, instant answers and Add a product alike. The trigram index
+ * (`brand_search`) finds the brands sharing three letters in a row with the
+ * text, so a lookup never reads every brand; the matcher then keeps and
+ * orders the real matches, and products are counted only for those.
+ * `everyBrand` includes brands with nothing in the country yet.
  */
 export async function matchingBrands(
   db: D1Database,
@@ -19,15 +44,16 @@ export async function matchingBrands(
   limit: number,
   { everyBrand = false }: { everyBrand?: boolean } = {},
 ): Promise<BrandRow[]> {
-  if (query.trim().length < 2) return [];
+  const runs = trigrams(query);
+  if (!runs.length) return [];
   const rows = await db
     .prepare(
-      `SELECT b.id,b.slug,b.name,COALESCE(a.aliases,'[]') AS aliases FROM brands b
-      LEFT JOIN (SELECT brand_id,json_group_array(alias) AS aliases FROM brand_aliases GROUP BY brand_id) a ON a.brand_id=b.id
-      WHERE ?2 OR EXISTS(SELECT 1 FROM products p WHERE p.brand_id=b.id AND p.country_id=?1 AND ${COUNTED})
-      ORDER BY b.name LIMIT ${BRAND_LIMIT}`,
+      `SELECT b.id,b.slug,b.name,brand_search.aliases FROM brand_search JOIN brands b ON b.id=brand_search.brand_id
+      WHERE brand_search MATCH ?3
+        AND (?2 OR EXISTS(SELECT 1 FROM products p WHERE p.brand_id=b.id AND p.country_id=?1 AND ${COUNTED}))
+      ORDER BY brand_search.rank LIMIT ${CANDIDATES}`,
     )
-    .bind(countryId, everyBrand ? 1 : 0)
+    .bind(countryId, everyBrand ? 1 : 0, runs.join(" OR "))
     .all<{ id: string; slug: string; name: string; aliases: string }>();
   const named = rows.results.flatMap((row) => {
     const aliases = JSON.parse(row.aliases) as string[];

@@ -449,7 +449,7 @@ Tastiest has its own configurable `C` and `m`, which start at 3.5 and 10.
 
 - **Tables.** `family_category_stats`, `family_category_dimension_stats`, `family_category_daily_stats` and `family_category_trends` are rebuildable from canonical rows.
 - **When line rows are recomputed.** Line rows are recomputed in the same transaction as any rating write or exclusion, and any catalog decision that changes a product's family, current formula, lifecycle, classification, food membership or eligibility.
-- **Backstop and rebuild.** The hourly pass re-derives up to 5,000 lines a run, resuming where the last run stopped, so it stays bounded as the catalog grows; the integrity rebuild (§20) re-derives every line.
+- **Clock and rebuild.** The only figure that changes with time alone is "people this week" (`recent_count`): a person leaves it when their latest rating turns seven days old. The hourly pass re-derives just the lines with a rating that crossed that mark since its last run, found through `ratings.created_at`. The integrity rebuild (§20) re-derives every line.
 - **Implementation.**
   - `ranking/domain/lines.ts` (`aggregateLine`) is the reference definition. `ranking/infrastructure/line-refresh.ts` stores the same figures in SQL, and tests hold the two equal.
   - A line has one row per food where it has an eligible flavor: the current formula of an active product that isn't under review and is ranking-eligible in that food. A row holds the lead flavor even before anyone rates.

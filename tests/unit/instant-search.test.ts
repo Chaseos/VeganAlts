@@ -15,7 +15,7 @@ const answer = (query: string): Suggestions => ({
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-it("waits for a pause, needs two letters and aborts stale requests", async () => {
+it("waits for a pause, needs three letters and aborts stale requests", async () => {
   const signals: AbortSignal[] = [];
   const load = vi.fn((query: string, signal: AbortSignal) => {
     signals.push(signal);
@@ -26,8 +26,8 @@ it("waits for a pause, needs two letters and aborts stale requests", async () =>
   const changed = vi.fn();
   const search = new InstantSearchController(load, changed);
   search.input("b");
-  expect(search.state.status).toBe("idle");
   search.input("be");
+  expect(search.state.status).toBe("idle");
   search.input("bee");
   expect(search.state).toMatchObject({ query: "bee", status: "loading" });
   await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
@@ -56,6 +56,7 @@ it("reports failures and counts letters in any script", async () => {
   search.input("tofu");
   await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
   expect(search.state.status).toBe("error");
-  expect(suggestable("é1")).toBe(true);
+  expect(suggestable("é1ü")).toBe(true);
+  expect(suggestable("é1")).toBe(false);
   expect(suggestable("  ' ")).toBe(false);
 });

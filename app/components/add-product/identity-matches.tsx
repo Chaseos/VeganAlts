@@ -26,7 +26,8 @@ export function IdentityMatches({
 }) {
   const [matches, setMatches] = useState<Candidate[]>([]);
   const lastCountry = useRef(country);
-  const ready = brand.trim().length >= 2 && name.trim().length >= 2;
+  // Like other lookups while typing, from three characters of the name.
+  const ready = brand.trim().length >= 2 && name.trim().length >= 3;
   useEffect(() => {
     if (!ready) {
       setMatches([]);

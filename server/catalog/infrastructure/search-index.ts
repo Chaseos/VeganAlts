@@ -29,6 +29,12 @@ export const SEARCH_INDEX_STATEMENTS = [
       COALESCE((SELECT group_concat(a.name,' ') FROM product_categories pc JOIN ancestry a ON a.leaf=pc.category_id WHERE pc.product_id=p.id),'')
     FROM products p JOIN countries country ON country.id=p.country_id LEFT JOIN brands b ON b.id=p.brand_id
     WHERE p.lifecycle_status<>'hidden' AND country.is_active=1`,
+  // Brand lookups' trigram index; triggers keep it current between rebuilds.
+  "DELETE FROM brand_search",
+  `INSERT INTO brand_search(brand_id,aliases,names)
+    SELECT b.id,(SELECT json_group_array(alias) FROM brand_aliases WHERE brand_id=b.id),
+      b.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM brand_aliases WHERE brand_id=b.id),'')
+    FROM brands b`,
 ] as const;
 
 export async function rebuildSearchIndex(db: D1Database) {

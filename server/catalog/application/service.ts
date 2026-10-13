@@ -395,7 +395,8 @@ export class CatalogService {
   ) {
     const { query, expression } = searchExpression(input);
     const letters = query.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
-    if (!expression || letters < 2)
+    // Instant answers start at three letters or digits (docs/API.md).
+    if (!expression || letters < 3)
       return { query, foods: [], products: [], brands: [] };
     const [results, taxonomy, brands] = await Promise.all([
       this.repository.search(market.id, market.iso2, expression),
