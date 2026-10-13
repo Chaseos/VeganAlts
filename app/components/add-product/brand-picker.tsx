@@ -52,11 +52,15 @@ export function BrandPicker({
   // The text the suggestions answer; until it matches, they're loading, so
   // "Add as a new brand" never shows before a listed brand could.
   const [answered, setAnswered] = useState("");
+  // The text whose lookup failed. It stays unanswered: offering it as a new
+  // brand could duplicate a listed brand the server matches only exactly.
+  const [failed, setFailed] = useState("");
+  const [attempt, setAttempt] = useState(0);
   const typed = value.trim();
   // Like other lookups while typing, nothing is looked up or offered before
   // three characters.
   const searchable = typed.length >= 3;
-  const loading = searchable && answered !== typed;
+  const loading = searchable && answered !== typed && failed !== typed;
   useEffect(() => {
     if (chosen) return;
     if (!searchable) {
@@ -66,30 +70,30 @@ export function BrandPicker({
     let live = true;
     const timer = setTimeout(() => {
       const query = new URLSearchParams({ country, q: typed });
+      setFailed("");
       void communityRequest<BrandSuggestion[]>(`community/brands?${query}`)
-        // Suggestions are a convenience; a new brand can still be added.
-        .catch(() => [])
         .then((found) => {
           if (!live) return;
           setSuggestions(found);
           setAnswered(typed);
-        });
+        })
+        .catch(() => live && setFailed(typed));
     }, 200);
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [country, typed, chosen]);
-  const shown = loading ? [] : suggestions;
+  }, [country, typed, chosen, attempt]);
+  // Suggestions, and the new-brand option, only answer the text typed now.
+  const answeredNow = searchable && answered === typed;
+  const shown = answeredNow ? suggestions : [];
   // A listed brand's name or other name is never offered as a new brand.
   const exact = shown.some((b) =>
     [b.name, ...b.aliases].some((name) => compact(name) === compact(typed)),
   );
   const options: Option[] = [
     ...shown.map((brand) => ({ kind: "brand" as const, brand })),
-    ...(searchable && !exact && !loading
-      ? [{ kind: "new" as const, name: typed }]
-      : []),
+    ...(answeredNow && !exact ? [{ kind: "new" as const, name: typed }] : []),
   ];
   const combo = useCombobox({
     id,
@@ -159,9 +163,11 @@ export function BrandPicker({
         </p>
       )}
       <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {showing && !loading
+        {showing && answeredNow
           ? `${plural(shown.length, "brand")} found. Use the arrow keys to choose.`
-          : ""}
+          : showing && failed === typed
+            ? "We couldn’t check the brands. Try again."
+            : ""}
       </p>
       {showing && (
         <div className="va-combo__panel">
@@ -193,6 +199,21 @@ export function BrandPicker({
             ))}
           </div>
           {loading && <p className="va-combo__message">Looking for brands…</p>}
+          {failed === typed && (
+            <p className="va-combo__message">
+              We couldn’t check the brands.{" "}
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => {
+                  setAttempt((n) => n + 1);
+                  field.current?.focus();
+                }}
+              >
+                Try again
+              </button>
+            </p>
+          )}
         </div>
       )}
     </div>
