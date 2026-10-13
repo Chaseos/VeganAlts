@@ -61,11 +61,12 @@ it("finds categories and products through aliases, brands and category ancestry"
 it("reads current aggregate rankings separately from unrated and historical formulas", async () => {
   const category = await catalog.category(us, "beef-burgers");
   expect(category.ranked.length).toBeGreaterThan(0);
-  expect(category.unranked.some((p) => p.slug === "beyond-burger")).toBe(true);
+  expect(
+    category.unranked.some((p) => p.leadProduct.slug === "beyond-burger"),
+  ).toBe(true);
   expect(
     category.ranked.every(
-      (p, i, rows) =>
-        i === 0 || rows[i - 1]!.bayesianScore! >= p.bayesianScore!,
+      (p, i, rows) => i === 0 || rows[i - 1]!.score! >= p.score!,
     ),
   ).toBe(true);
   const current = await catalog.product(us, "beyond-beef", null);

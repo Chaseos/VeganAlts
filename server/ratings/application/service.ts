@@ -56,7 +56,10 @@ export class RatingsService {
           rating.userId === actor.id && rating.categoryId === categoryId,
       );
       const change = detailChange(snapshot, categoryId, details);
-      detailChanged = change.changed;
+      detailChanged =
+        change.changed ||
+        (details.enjoyment !== undefined &&
+          details.enjoyment !== (existing?.enjoyment ?? null));
       return {
         kind: "upsert",
         rating: {
@@ -64,8 +67,11 @@ export class RatingsService {
           userId: actor.id,
           categoryId,
           score,
-          // The Tastiest answer is kept as it stands.
-          enjoyment: existing?.enjoyment ?? null,
+          // An absent Tastiest answer keeps the stored one; null clears it.
+          enjoyment:
+            details.enjoyment === undefined
+              ? (existing?.enjoyment ?? null)
+              : details.enjoyment,
           isCounted: existing?.isCounted ?? true,
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
@@ -83,6 +89,7 @@ export class RatingsService {
         categoryId: rating.categoryId,
         overallSimilarity: rating.score,
         ...savedDetails(result.snapshot, categoryId, details),
+        enjoyment: rating.enjoyment,
         updatedAt: rating.updatedAt,
       },
       tried: true,

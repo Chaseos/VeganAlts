@@ -19,6 +19,7 @@ export interface PendingRating {
   overallSimilarity: number;
   dimensions?: Record<string, number | null>;
   conventionalRecency?: ConventionalRecency | null;
+  enjoyment?: number | null;
   createdAt: number;
   returnTo: string;
 }
@@ -36,7 +37,12 @@ const validDetails = (value: Partial<PendingRating>) =>
       ))) &&
   (value.conventionalRecency === undefined ||
     value.conventionalRecency === null ||
-    isConventionalRecency(value.conventionalRecency));
+    isConventionalRecency(value.conventionalRecency)) &&
+  (value.enjoyment === undefined ||
+    value.enjoyment === null ||
+    (Number.isInteger(value.enjoyment) &&
+      value.enjoyment >= 1 &&
+      value.enjoyment <= 5));
 
 export function readPendingRating(
   storage: Pick<Storage, "getItem" | "removeItem">,

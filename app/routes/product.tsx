@@ -15,6 +15,7 @@ import {
   AllergenLabel,
   Badge,
   EarlyBadge,
+  TrendingBadge,
   NewBadge,
   VeganStatusChip,
   veganStatusLabel,
@@ -22,6 +23,7 @@ import {
 import { DetailBars, DistributionBars } from "../components/ui/bars";
 import { Notice } from "../components/ui/feedback";
 import { formatScore, plural } from "../lib/format";
+import { FLAVOR_SCORE_MIN_ANSWERS } from "@server/ranking/domain/display";
 import { useHydrated } from "../lib/use-hydrated";
 import { saveFilters, useSavedFilters } from "../lib/ranking-filters";
 import { RatingControl } from "../components/rating-control";
@@ -227,9 +229,15 @@ export default function Product({
                 <VeganStatusChip status={p.veganStatus} />
                 <AllergenLabel allergens={allergens} />
                 {p.isNew && <NewBadge />}
+                {food?.line?.trending && <TrendingBadge />}
                 {!!p.developmentOnly && <Badge>Demo product</Badge>}
               </p>
               <h1 className="va-product__name">{p.name}</h1>
+              {p.flavor && (
+                <p className="va-product__flavor va-muted">
+                  Flavor: {p.flavor}
+                </p>
+              )}
             </div>
             {p.lifecycleStatus !== "active" && (
               <Notice>
@@ -310,6 +318,7 @@ export default function Product({
                       productSlug={p.slug}
                       foodSlug={food.slug}
                       dimensions={food.dimensions}
+                      flavored={p.flavor !== null}
                     />
                   </div>
                 </div>
@@ -373,14 +382,14 @@ export default function Product({
                       <span className="va-row-link__text">
                         <span className="va-row-link__title">{other.name}</span>
                         <span className="va-small va-muted">
-                          {other.rank
-                            ? `#${other.rank} of ${other.rankedCount} · ${plural(other.ratingCount, "rating")}`
+                          {other.line
+                            ? `#${other.line.closest.rank} of ${other.line.closest.of} · ${plural(other.line.closest.people, "person", "people")}`
                             : "Not ranked yet"}
                         </span>
                       </span>
-                      {other.rank && other.bayesianScore !== null && (
+                      {other.line && (
                         <ScoreLabel
-                          value={other.bayesianScore}
+                          value={other.line.closest.score}
                           size="compact"
                         />
                       )}
@@ -391,6 +400,47 @@ export default function Product({
               <p className="va-small">
                 Each food has its own ranking, so the same product can score
                 differently when you use it another way.
+              </p>
+            </section>
+          )}
+          {p.lifecycleStatus === "active" && (
+            <section
+              className="va-card va-product__card"
+              aria-labelledby="flavors-title"
+            >
+              <h2 id="flavors-title" className="va-heading-s">
+                Other flavors
+              </h2>
+              {p.otherFlavors.length > 0 ? (
+                <ul className="va-divided">
+                  {p.otherFlavors.map((other) => (
+                    <li key={other.id}>
+                      <Link
+                        to={`${productPath(code, other.slug)}${food ? `?food=${food.slug}` : ""}`}
+                      >
+                        {other.flavor ?? other.name}
+                      </Link>
+                      {other.flavor && (
+                        <span className="va-small va-muted">
+                          {" "}
+                          · {other.name}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="va-small va-muted">
+                  No other flavors of this recipe are listed yet.
+                </p>
+              )}
+              <p className="va-small">
+                <Link
+                  className="va-link"
+                  to={`/add-product?country=${code}${food ? `&food=${food.slug}` : ""}&line=${p.lineId}`}
+                >
+                  Add another flavor
+                </Link>
               </p>
             </section>
           )}
@@ -419,10 +469,18 @@ export default function Product({
                     <span className="va-rank-row__main">
                       <span className="va-rank-row__name">{other.name}</span>
                       <span className="va-small va-muted">
-                        {[other.brand, plural(other.ratingCount, "rating")]
+                        {[
+                          other.brand,
+                          plural(other.ratingCount, "person", "people"),
+                        ]
                           .filter(Boolean)
                           .join(" · ")}
                       </span>
+                      {other.trending && (
+                        <span className="va-rank-row__meta">
+                          <TrendingBadge />
+                        </span>
+                      )}
                     </span>
                     <ScoreLabel
                       value={other.score}
@@ -674,38 +732,70 @@ export default function Product({
   );
 }
 
-// The chosen food's score, recent eaters, details and a link to compare.
+// The chosen food's standing: the line in both rankings (milestone 7), this
+// flavor's own scores when the line has several, recent eaters, details and
+// a link to compare.
 function ScoreCard({ country, food }: { country: string; food: FoodView }) {
   const lower = food.name.toLowerCase();
+  const line = food.line;
   const detailCount = Math.max(0, ...food.details.map((d) => d.count));
+  const people = (count: number) => plural(count, "person", "people");
   return (
     <section className="va-score-card" aria-label="Score">
-      {food.rank && (
+      {line && (
         <Link className="va-score-card__flag" to={foodPath(country, food.slug)}>
           <RankFlag>
-            {food.rank === 1
+            {line.closest.rank === 1
               ? `#1 swap for ${lower}`
-              : `#${food.rank} of ${food.rankedCount} for ${lower}`}
+              : `#${line.closest.rank} of ${line.closest.of} for ${lower}`}
           </RankFlag>
         </Link>
       )}
       <div className="va-score-card__head">
-        {food.ratingCount > 0 && food.bayesianScore !== null ? (
-          <ScoreLabel value={food.bayesianScore} size="large" />
-        ) : null}
+        {line ? <ScoreLabel value={line.closest.score} size="large" /> : null}
         <div className="va-score-card__text">
           <strong>
-            {food.ratingCount
-              ? `${plural(food.ratingCount, "person", "people")} rated how close it is to ${lower}`
+            {line
+              ? `${people(line.closest.people)} rated how close ${line.flavorCount > 1 ? `${line.name}’s flavors are` : "it is"} to ${lower}`
               : `No ratings yet for ${lower}. Be the first to say how close it is.`}
           </strong>
-          {food.early && <EarlyBadge count={food.ratingCount} />}
+          {line?.closest.early && <EarlyBadge count={line.closest.people} />}
+          {line && (
+            <span>
+              {line.tastiest ? (
+                <>
+                  Tastiest <strong>#{line.tastiest.rank}</strong> of{" "}
+                  {line.tastiest.of} ·{" "}
+                  <strong>{formatScore(line.tastiest.score ?? 0)}</strong>{" "}
+                  <span className="va-muted">
+                    ({people(line.tastiest.people)})
+                  </span>
+                </>
+              ) : (
+                <span className="va-muted">
+                  No one has said how tasty it is yet.
+                </span>
+              )}
+            </span>
+          )}
+          {line && line.flavorCount > 1 && (
+            <span className="va-small">
+              This flavor:{" "}
+              {food.flavorScores.closest.count >= FLAVOR_SCORE_MIN_ANSWERS &&
+              food.flavorScores.closest.score !== null
+                ? `closest ${formatScore(food.flavorScores.closest.score)} (${people(food.flavorScores.closest.count)})`
+                : `${people(food.flavorScores.closest.count)} so far, too few for its own score`}
+              {food.flavorScores.tastiest.count >= FLAVOR_SCORE_MIN_ANSWERS &&
+                food.flavorScores.tastiest.score !== null &&
+                ` · tastiest ${formatScore(food.flavorScores.tastiest.score)}`}
+            </span>
+          )}
           {food.recentEaters && (
             <span>
               People who ate {lower} in the past year give it{" "}
               <strong>{formatScore(food.recentEaters.average)}</strong>{" "}
               <span className="va-muted">
-                ({plural(food.recentEaters.count, "person", "people")})
+                ({people(food.recentEaters.count)})
               </span>
             </span>
           )}
@@ -720,8 +810,7 @@ function ScoreCard({ country, food }: { country: string; food: FoodView }) {
         <div className="va-score-card__details">
           <DetailBars details={food.details} />
           <p className="va-small va-muted">
-            From {plural(detailCount, "person", "people")} who added detail
-            scores.
+            From {people(detailCount)} who added detail scores to this flavor.
           </p>
         </div>
       )}

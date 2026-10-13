@@ -18,6 +18,7 @@ const result = (
     ...input(score),
     dimensions,
     conventionalRecency: null,
+    enjoyment: null,
     id: "rating",
     updatedAt: 100,
   },

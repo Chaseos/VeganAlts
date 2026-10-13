@@ -133,7 +133,7 @@ it("counts a person once per line across the Trending window and ranks lines for
   // A line is shown by its lead flavor. The main product and Spicy each have
   // two ratings with the same score; the main product was never published,
   // so the earlier-published Spicy leads.
-  expect(view.ranked[0]!.id).toBe(spicy.id);
+  expect(view.ranked[0]!.leadProduct.id).toBe(spicy.id);
 });
 
 it("keeps a line's New date fixed when flavors come and go", async () => {
@@ -144,7 +144,7 @@ it("keeps a line's New date fixed when flavors come and go", async () => {
   const fresh = async () =>
     (
       await catalog.category(testMarket(f.countryId), cat, { view: "new" })
-    ).ranked.map((row) => row.id);
+    ).ranked.map((row) => row.leadProduct.id);
   const firstPublished = () =>
     db
       .prepare(
@@ -193,7 +193,9 @@ it("keeps a line's New date fixed when flavors come and go", async () => {
   const listed = await catalog.category(testMarket(f.countryId), cat, {
     view: "new",
   });
-  expect(listed.ranked.map((row) => row.id)).toEqual([`fresh-${f.productId}`]);
+  expect(listed.ranked.map((row) => row.leadProduct.id)).toEqual([
+    `fresh-${f.productId}`,
+  ]);
   expect(listed.ranked[0]).toMatchObject({
     publishedAt: NOW - 2 * DAY,
     isNew: true,

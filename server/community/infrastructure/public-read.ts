@@ -43,9 +43,12 @@ export function communityProductStatements(
       .bind(now - STALE_AFTER, productId),
     db
       .prepare(
-        `SELECT p.id,p.slug,p.name,c.iso2 AS country,COALESCE((SELECT relation_type FROM product_relationships WHERE from_product_id=? AND to_product_id=p.id LIMIT 1),'family') AS relationship FROM products p JOIN countries c ON c.id=p.country_id WHERE p.id<>? AND p.lifecycle_status<>'hidden' AND c.is_active=1 AND (p.id IN(SELECT to_product_id FROM product_relationships WHERE from_product_id=?) OR (p.product_family_id IS NOT NULL AND p.product_family_id=(SELECT product_family_id FROM products WHERE id=?))) ORDER BY c.iso2,p.name LIMIT 30`,
+        // Explicit links only: the product's own line is listed as its
+        // other flavors (milestone 7).
+        `SELECT p.id,p.slug,p.name,c.iso2 AS country,MIN(r.relation_type) AS relationship FROM product_relationships r JOIN products p ON p.id=r.to_product_id JOIN countries c ON c.id=p.country_id
+        WHERE r.from_product_id=? AND p.lifecycle_status<>'hidden' AND c.is_active=1 AND p.product_family_id<>(SELECT product_family_id FROM products WHERE id=?) GROUP BY p.id ORDER BY c.iso2,p.name LIMIT 30`,
       )
-      .bind(productId, productId, productId, productId),
+      .bind(productId, productId),
     db
       .prepare("SELECT revision FROM catalog_revisions WHERE product_id=?")
       .bind(productId),

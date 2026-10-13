@@ -145,7 +145,7 @@ export function AislePanel({
           <Heading className="va-aisle__name">{data.aisle.name}</Heading>
           <p className="va-small va-muted">
             {plural(foods.length, "food")}
-            {loading ? "" : ` · ${plural(ranked, "ranked product")}`} · top 3
+            {loading ? "" : ` · ${plural(ranked, "ranked swap")}`} · top 3
             for each
           </p>
         </div>

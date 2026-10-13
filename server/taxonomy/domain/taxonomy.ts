@@ -37,6 +37,8 @@ export const RESERVED_SLUGS = new Set([
   "my-contributions",
   "auth",
   "propose-category",
+  // Brand pages live at /{country}/brand/{slug} (milestone 7).
+  "brand",
 ]);
 export function categorySlug(value: string) {
   return value

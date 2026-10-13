@@ -15,6 +15,7 @@ export default [
       index("routes/home.tsx", { id: "routes/country-home" }),
       route("search", "routes/search.tsx"),
       route("products/:productSlug", "routes/product.tsx"),
+      route("brand/:brandSlug", "routes/brand.tsx"),
       route(":categorySlug", "routes/category.tsx"),
     ]),
   ]),

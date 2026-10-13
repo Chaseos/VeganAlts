@@ -157,7 +157,7 @@ it("lists recipe lines with their flavors in both rankings", async () => {
   const w = await world();
   const top = await catalog.category(w.us, w.cat);
   expect(
-    top.ranked.map((row) => [row.name, row.ratingCount, row.topRank]),
+    top.ranked.map((row) => [row.name, row.people, row.closestRank]),
   ).toEqual([
     [w.soy.name, 2, 1],
     [w.oatMilk.name, 3, 2],
@@ -167,12 +167,12 @@ it("lists recipe lines with their flavors in both rankings", async () => {
     lineId: w.oatMilk.id,
     flavorCount: 3,
     // The lead flavor (most ratings) supplies the link.
-    id: w.strawberry.id,
+    leadProduct: { id: w.strawberry.id },
     tastiestRank: 1,
     badges: ["Tastiest"],
   });
   // Flavors: too few answers for their own scores, so by ratings, then name.
-  expect(oat.flavors.map((f) => [f.flavor, f.count, f.score])).toEqual([
+  expect(oat.flavors.map((f) => [f.flavor, f.ratingCount, f.score])).toEqual([
     ["Strawberry", 2, null],
     [null, 1, null],
     ["Vanilla", 1, null],
@@ -191,7 +191,9 @@ it("lists recipe lines with their flavors in both rankings", async () => {
   expect(tastiest.summary.best?.lineId).toBe(w.oatMilk.id);
   expect(tastiest.summary.tastiestCount).toBe(2);
   // Each flavor shows its Tastiest answers in the Tastiest view.
-  expect(tastiest.ranked[0]!.flavors.map((f) => [f.flavor, f.count])).toEqual([
+  expect(
+    tastiest.ranked[0]!.flavors.map((f) => [f.flavor, f.ratingCount]),
+  ).toEqual([
     [null, 1],
     ["Strawberry", 0],
     ["Vanilla", 0],
@@ -224,11 +226,13 @@ it("shows a line when any flavor passes a filter and lists only those flavors", 
   expect(filtered.ranked.map((row) => row.lineId)).toEqual([w.oatMilk.id]);
   // The filter never changes the line's rank or score.
   expect(filtered.ranked[0]).toMatchObject({
-    topRank: 2,
+    closestRank: 2,
     matchedStores: [store],
     hiddenFlavorCount: 2,
   });
-  expect(filtered.ranked[0]!.flavors.map((f) => f.id)).toEqual([w.vanilla.id]);
+  expect(filtered.ranked[0]!.flavors.map((f) => f.productId)).toEqual([
+    w.vanilla.id,
+  ]);
   expect(
     filtered.storeOptions.find((option) => option.slug === store)?.count,
   ).toBe(1);

@@ -74,7 +74,8 @@ export function SortMenu({
             })}
           </ul>
           <p className="va-menu-note">
-            Only Closest match is the ranking. Other sorts never change it.
+            Closest to the original and Tastiest are the rankings. Other sorts
+            never change them.
           </p>
         </>
       )}
@@ -322,6 +323,6 @@ export function StoreLine({
 
 export function resultCount(shown: number, total: number, filtered: boolean) {
   return filtered
-    ? `${formatCount(shown)} of ${plural(total, "ranked product")} match`
-    : plural(total, "ranked product");
+    ? `${formatCount(shown)} of ${plural(total, "ranked swap")} match`
+    : plural(total, "ranked swap");
 }

@@ -121,13 +121,15 @@ async function world() {
   };
 }
 
-const ids = (rows: { id: string }[]) => rows.map((row) => row.id);
+// Lines are shown by their lead flavor (each product here is its own line).
+const ids = (rows: { leadProduct: { id: string } }[]) =>
+  rows.map((row) => row.leadProduct.id);
 
 it("combines stores with OR and counts only active reports in an active market", async () => {
   const w = await world();
   const all = await catalog.category(w.us, w.category);
   expect(ids(all.ranked)).toEqual([w.a.id, w.b.id, w.c.id]);
-  expect(all.ranked.map((row) => row.topRank)).toEqual([1, 2, 3]);
+  expect(all.ranked.map((row) => row.closestRank)).toEqual([1, 2, 3]);
 
   const target = await catalog.category(w.us, w.category, {
     filters: { stores: [w.target.slug], freeFrom: [] },
@@ -142,9 +144,9 @@ it("combines stores with OR and counts only active reports in an active market",
   });
   expect(ids(either.ranked)).toEqual([w.a.id, w.b.id]);
   // Filtered rows keep their overall Top rank and score.
-  expect(either.ranked.map((row) => row.topRank)).toEqual([1, 2]);
-  expect(either.ranked.map((row) => row.bayesianScore)).toEqual(
-    all.ranked.slice(0, 2).map((row) => row.bayesianScore),
+  expect(either.ranked.map((row) => row.closestRank)).toEqual([1, 2]);
+  expect(either.ranked.map((row) => row.score)).toEqual(
+    all.ranked.slice(0, 2).map((row) => row.score),
   );
 
   // A store whose market is inactive never qualifies a product.
@@ -275,11 +277,11 @@ it("sorts by detail scores and rating counts and filters by label without changi
   ]);
   const top = await catalog.category(w.us, w.category);
   const ranks = Object.fromEntries(
-    top.ranked.map((row) => [row.id, [row.topRank, row.bayesianScore]]),
+    top.ranked.map((row) => [row.leadProduct.id, [row.closestRank, row.score]]),
   );
   const same = (rows: typeof top.ranked) =>
     rows.forEach((row) =>
-      expect([row.topRank, row.bayesianScore]).toEqual(ranks[row.id]),
+      expect([row.closestRank, row.score]).toEqual(ranks[row.leadProduct.id]),
     );
   expect(top.questions.map((question) => question.key)).toEqual([
     "taste",
@@ -293,12 +295,14 @@ it("sorts by detail scores and rating counts and filters by label without changi
   expect(taste.qualified).toBe(2);
   same(taste.ranked);
   expect(taste.ranked[2]!.details[0]).toMatchObject({ mean: null, count: 2 });
-  // "Best taste" goes to B; A is already #1, so it gets no melt badge.
+  // "Closest taste" goes to B; A is already #1, so it gets no melt badge.
   expect(
-    Object.fromEntries(top.ranked.map((row) => [row.id, row.badges])),
+    Object.fromEntries(
+      top.ranked.map((row) => [row.leadProduct.id, row.badges]),
+    ),
   ).toEqual({
     [w.a.id]: [],
-    [w.b.id]: ["Best taste"],
+    [w.b.id]: ["Closest taste"],
     [w.c.id]: [],
   });
   const rated = await catalog.category(w.us, w.category, {
@@ -312,7 +316,7 @@ it("sorts by detail scores and rating counts and filters by label without changi
   });
   expect(ids(soyFree.ranked)).toEqual([w.b.id]);
   expect(soyFree.notConfirmedCount).toBe(1);
-  expect(soyFree.ranked[0]!.badges).toEqual(["Best taste"]);
+  expect(soyFree.ranked[0]!.badges).toEqual(["Closest taste"]);
   same(soyFree.ranked);
   expect(soyFree.summary.rankedCount).toBe(3);
   expect(top.ranked[0]!.allergens).toEqual({
@@ -353,9 +357,9 @@ it("ranks, counts and pages every product of a food with more than 1,000", async
     catalog.category(testMarket(f.countryId), category, { page: n });
   expect((await page(1)).summary.rankedCount).toBe(total);
   const last = await page(51);
-  expect(last.ranked.map((row) => [row.id, row.topRank])).toEqual([
-    [`bulk-${s}-${total}`, total],
-  ]);
+  expect(
+    last.ranked.map((row) => [row.leadProduct.id, row.closestRank]),
+  ).toEqual([[`bulk-${s}-${total}`, total]]);
   expect(last.hasNext).toBe(false);
   expect((await page(50)).hasNext).toBe(true);
 });

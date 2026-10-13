@@ -196,33 +196,52 @@ export const POLICIES: Record<string, Policy> = {
   rankings: {
     title: "How rankings work",
     description:
-      "Top, Trending and New, and why a few ratings cannot dominate.",
+      "Closest to the original, Tastiest, Trending and New, and why a few ratings cannot dominate.",
     body: () => (
       <>
-        <h2>Top</h2>
+        <h2>Closest to the original</h2>
         <p>
-          Each category asks one question: how close does this alternative come
-          to the conventional food? Rankings are based on community similarity
-          ratings and account for how many people rated a product, so a product
-          with only a few ratings cannot unfairly outrank an established one.
-          Products marked Early have fewer than ten ratings.
+          Each food asks one question: how close does this alternative come to
+          the conventional food? A flavored product is compared with the food in
+          the same flavor. Rankings are based on these community ratings and
+          account for how many people rated, so a swap with only a few ratings
+          cannot unfairly outrank an established one. Swaps marked Early have
+          been rated by fewer than ten people.
+        </p>
+        <h2>A brand’s recipe and its flavors rank together</h2>
+        <p>
+          A food’s ranking lists each brand’s recipe once, with its flavors
+          inside. You rate the exact flavor you ate, and the recipe is scored
+          over people: if you rate three flavors, you count once, as the average
+          of your ratings. Each flavor still shows its own score once enough
+          people have rated it. A different base recipe, such as a Lite or
+          soy-free version, ranks on its own. A discontinued flavor leaves its
+          recipe’s score until it returns.
         </p>
         <p>
-          A product can appear in several categories with independent scores.
-          When a recipe changes materially, the new formula starts fresh and
-          earlier ratings stay with the formula people tried.
+          A product can appear in several foods with independent scores. When a
+          recipe changes materially, the new formula starts fresh and earlier
+          ratings stay with the formula people tried.
+        </p>
+        <h2>Tastiest</h2>
+        <p>
+          Tastiest is a second ranking from the optional “how tasty is it?”
+          question, scored the same way. A swap can be the tastiest without
+          being the closest. Tastiest never changes Closest to the original.
         </p>
         <h2>Trending</h2>
         <p>
-          Trending highlights unusual recent activity — new ratings, tries and
-          discussion — compared with the week before, and fades as activity
-          slows. It never changes Top.
+          Trending highlights people rating, trying and discussing a swap over
+          the last three months, compared with the three months before, and
+          fades as activity slows. Each person counts once. It never changes a
+          ranking.
         </p>
         <h2>New</h2>
         <p>
-          New lists recently added products, newest first, so they can be found
-          before they have enough ratings to rank. Being new never raises a Top
-          score.
+          New lists recipes added to a food in the last 90 days, newest first,
+          so they can be found before they have enough ratings to rank. A new
+          flavor of an established recipe doesn’t make it new again, and being
+          new never raises a score.
         </p>
         <h2>What never affects rankings</h2>
         <p>

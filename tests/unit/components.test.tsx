@@ -76,8 +76,8 @@ describe("shared presentation components", () => {
   });
 
   it("always pairs badges and statuses with words", () => {
-    expect(html(<EarlyBadge count={6} />)).toContain("Early · 6 ratings");
-    expect(html(<EarlyBadge count={1} />)).toContain("Early · 1 rating");
+    expect(html(<EarlyBadge count={6} />)).toContain("Early · 6 people");
+    expect(html(<EarlyBadge count={1} />)).toContain("Early · 1 person");
     expect(html(<VeganStatusChip status="under_review" />)).toContain(
       "Under review",
     );

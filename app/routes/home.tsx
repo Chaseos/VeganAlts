@@ -10,7 +10,12 @@ import { InstantSearch } from "../components/catalog/instant-search";
 import { FoodIcon } from "../components/icons/food-icons";
 import { Icon } from "../components/icons/icon";
 import { ScoreLabel, RankFlag } from "../components/ui/score";
-import { Badge, EarlyBadge, SeasonBadge } from "../components/ui/badges";
+import {
+  Badge,
+  EarlyBadge,
+  SeasonBadge,
+  TrendingBadge,
+} from "../components/ui/badges";
 import { BROWSE_AISLE_FOODS } from "@server/ranking/domain/display";
 import type { Season } from "@server/taxonomy/domain/season";
 import { ButtonLink } from "../components/ui/button";
@@ -136,7 +141,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                   Trending now
                 </h2>
                 <span className="va-small va-muted">
-                  Rising this week · never changes rankings
+                  Rising this quarter · never changes rankings
                 </span>
               </div>
               <ol className="va-trending">
@@ -154,8 +159,8 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                         <span className="va-small va-muted">
                           For {product.foodName.toLowerCase()} ·{" "}
                           {product.recentRatingCount > 0
-                            ? `+${plural(product.recentRatingCount, "rating")} this week`
-                            : "rising this week"}
+                            ? `${plural(product.recentRatingCount, "person", "people")} this week`
+                            : "rising this quarter"}
                         </span>
                       </span>
                       {product.bayesianScore !== null &&
@@ -473,6 +478,11 @@ function FoodRow({
         <span className="va-small va-muted va-truncate">
           {best ? `${prefix}${best.name}` : missing}
         </span>
+        {best?.trending && (
+          <span className="va-chip-row">
+            <TrendingBadge />
+          </span>
+        )}
       </span>
       {best && (
         <ScoreLabel
@@ -502,7 +512,7 @@ function FoodPreview({
         <p className="va-small va-muted">Top swaps for</p>
         <h2 className="va-heading-m">{food.name}</h2>
         <p className="va-small va-muted">
-          {[food.aisle, plural(food.rankedCount, "ranked product")]
+          {[food.aisle, plural(food.rankedCount, "ranked swap")]
             .filter(Boolean)
             .join(" · ")}
         </p>

@@ -251,6 +251,115 @@
   flex: none;
 }
 
+/* A line of several flavors: the card holds its row and the flavor list. */
+.va-rank-row--line {
+  display: block;
+}
+
+.va-rank-row__link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.va-rank-row__link:hover .va-rank-row__name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.va-rank-row__link > .va-thumb {
+  display: none;
+}
+
+/* A line's flavors, behind a native disclosure. */
+.va-flavors {
+  margin-top: 10px;
+  padding-top: 2px;
+  border-top: 1px solid var(--va-line);
+}
+
+.va-flavors > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--va-ink-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.va-flavors > summary::-webkit-details-marker {
+  display: none;
+}
+
+.va-flavors > summary::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.va-flavors[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.va-flavors__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.va-flavors__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--va-line);
+}
+
+.va-flavors__item:first-child {
+  border-top: 0;
+}
+
+.va-flavors__name {
+  font-weight: 700;
+  color: var(--va-ink);
+}
+
+.va-flavors__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  grid-column: 1;
+}
+
+.va-flavors__meta:empty {
+  display: none;
+}
+
+.va-flavors__score {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.va-flavors__hidden {
+  margin: 6px 0 4px;
+}
+
 /* Not rated yet. */
 .va-ranking__unrated {
   display: flex;
@@ -342,8 +451,14 @@
     height: 160px;
   }
 
-  .va-rank-row > .va-thumb {
+  .va-rank-row > .va-thumb,
+  .va-rank-row__link > .va-thumb {
     display: grid;
+  }
+
+  .va-rank-row__link {
+    flex-wrap: nowrap;
+    gap: 12px 18px;
   }
 
   .va-rank-row__main {
@@ -428,4 +543,42 @@
     font-weight: 700;
     opacity: 0.85;
   }
+}
+
+/* A brand's page (milestone 7): its lines by aisle and food. */
+.va-brand__head {
+  margin: 8px 0 20px;
+}
+
+.va-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.va-brand__aisle {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.va-brand__aisle > h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.va-brand__food {
+  padding: 16px 18px;
+}
+
+.va-brand__line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.va-brand__flavors {
+  font-size: 14px;
 }

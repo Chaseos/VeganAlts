@@ -58,6 +58,8 @@ export interface RankedRow extends LineSummary {
   tastiestScore: number | null;
   tastiestCount: number;
   recentRatingCount: number;
+  // Its place among the food's trending lines, if it trends.
+  trendingRank: number | null;
   // A flavor matches the store choice; a flavor matches every filter.
   storeMatch: number;
   allergenMatch: number;
@@ -114,6 +116,7 @@ export interface TopProduct {
   brand: string | null;
   bayesianScore: number;
   ratingCount: number;
+  trendingRank: number | null;
   rank: number;
 }
 
@@ -202,6 +205,7 @@ export interface LineStanding {
   tastiestPeople: number;
   lineName: string;
   flavorCount: number;
+  trendingRank: number | null;
 }
 // Another product of the same line.
 export interface SiblingFlavor {
@@ -248,6 +252,7 @@ export interface CatalogRepository {
   sitemap(): Promise<{
     categories: { slug: string; updatedAt: number; country: string }[];
     products: { slug: string; updatedAt: number; country: string }[];
+    brands: { slug: string; updatedAt: number; country: string }[];
   }>;
   trending(
     countryId: string,

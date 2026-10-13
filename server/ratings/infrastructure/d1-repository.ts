@@ -142,7 +142,7 @@ export class D1RatingsRepository implements RatingsRepository {
           (id, user_id, product_version_id, category_id, overall_similarity, enjoyment, conventional_recency, is_counted, created_at, updated_at)
           SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${fence}
           ON CONFLICT(user_id, product_version_id, category_id) DO UPDATE SET
-            overall_similarity = excluded.overall_similarity, updated_at = excluded.updated_at,
+            overall_similarity = excluded.overall_similarity, enjoyment = excluded.enjoyment, updated_at = excluded.updated_at,
             conventional_recency = CASE WHEN ? THEN excluded.conventional_recency ELSE ratings.conventional_recency END`,
             )
             .bind(

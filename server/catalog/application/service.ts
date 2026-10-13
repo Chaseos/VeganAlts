@@ -108,7 +108,9 @@ export class CatalogService {
     private readonly newDays = DEFAULT_TRENDING.newDays,
   ) {}
 
-  private labelNew<T extends ProductSummary>(products: T[]) {
+  private labelNew<T extends Pick<ProductSummary, "publishedAt">>(
+    products: T[],
+  ) {
     const now = this.clock();
     return products.map((product) => ({
       ...product,
@@ -573,32 +575,42 @@ export class CatalogService {
     if (!tastiestView && tastiest && tastiest.topRank !== 1)
       badges.set(tastiest.id, ["Tastiest", ...(badges.get(tastiest.id) ?? [])]);
     const byId = new Map(all.map((row) => [row.id, row]));
+    // A line row in its documented shape (docs/API.md, milestone 7): score,
+    // people and early describe the ranking being viewed.
     const listing = (row: (typeof all)[number] | DiscoveryRow) => {
       const ranked = byId.get(row.id);
       return {
-        id: row.id,
-        slug: row.slug,
+        lineId: row.lineId,
         name: row.name,
         brand: row.brand,
-        versionId: row.versionId,
-        imageId: row.imageId,
+        leadProduct: {
+          id: row.id,
+          slug: row.slug,
+          versionId: row.versionId,
+          imageId: row.imageId,
+        },
         developmentOnly: row.developmentOnly,
         publishedAt: row.publishedAt ?? null,
-        lineId: row.lineId,
         flavorCount: row.flavorCount,
-        topRank: ranked?.topRank ?? null,
-        bayesianScore: ranked?.bayesianScore ?? null,
-        ratingCount: ranked?.ratingCount ?? row.ratingCount,
+        closestRank: ranked?.topRank ?? null,
         tastiestRank: tastiestRank.get(row.id) ?? null,
-        tastiestScore: ranked?.tastiestScore ?? null,
-        tastiestCount: ranked?.tastiestCount ?? 0,
-        recentRatingCount: row.recentRatingCount,
+        score: tastiestView
+          ? (ranked?.tastiestScore ?? null)
+          : (ranked?.bayesianScore ?? null),
+        people: tastiestView
+          ? (ranked?.tastiestCount ?? 0)
+          : (ranked?.ratingCount ?? row.ratingCount),
         // Early is counted separately for each ranking.
         early: ranked
           ? isEarly(tastiestView ? ranked.tastiestCount : ranked.ratingCount)
           : false,
+        recentPeople: row.recentRatingCount,
+        // The Trending view needs no tag of its own.
+        trending:
+          view !== "trending" && isTrendingRank(ranked?.trendingRank ?? null),
         matchedStores: row.matchedStores,
-        allergens: row.allergens,
+        // A line of several flavors shows allergens per flavor.
+        allergens: row.flavorCount > 1 ? null : row.allergens,
         details: ranked?.details ?? [],
         badges: badges.get(row.id) ?? [],
       };
@@ -686,7 +698,23 @@ export class CatalogService {
         : 0,
       ranked: this.labelNew(listed).map(withFlavors),
       qualified,
-      unranked: this.labelNew(unrankedShown).map(withFlavors),
+      unranked: this.labelNew(
+        unrankedShown.map((row) => ({
+          lineId: row.lineId,
+          name: row.name,
+          brand: row.brand,
+          leadProduct: {
+            id: row.id,
+            slug: row.slug,
+            versionId: row.versionId,
+            imageId: row.imageId,
+          },
+          developmentOnly: row.developmentOnly,
+          publishedAt: row.publishedAt ?? null,
+          flavorCount: row.flavorCount,
+          allergens: row.flavorCount > 1 ? null : row.allergens,
+        })),
+      ).map(withFlavors),
       newDays: this.newDays,
       page,
       unrankedPage,
@@ -796,6 +824,7 @@ export class CatalogService {
         line: rank
           ? {
               id: product.lineId,
+              trending: isTrendingRank(rank.trendingRank),
               name: rank.flavorCount > 1 ? rank.lineName : product.name,
               flavorCount: rank.flavorCount,
               closest: {
@@ -889,12 +918,21 @@ export class CatalogService {
 
   async search(market: Market, input: string) {
     const { query, expression } = searchExpression(input);
-    const results = expression
-      ? await this.repository.search(market.id, market.iso2, expression)
-      : { categories: [], products: [] };
+    const [results, brands] = expression
+      ? await Promise.all([
+          this.repository.search(market.id, market.iso2, expression),
+          this.repository.brands(market.id),
+        ])
+      : [{ categories: [], products: [] }, []];
     return {
       query,
       categories: results.categories,
+      // Up to ten brands by the shared matcher (docs/API.md, milestone 7).
+      brands: matchBrands(query, brands, 10).map((brand) => ({
+        slug: brand.slug,
+        name: brand.name,
+        productCount: brand.productCount,
+      })),
       products: this.labelNew(results.products),
     };
   }
@@ -916,8 +954,13 @@ function leaderProduct(product: TopProduct) {
     ratingCount: product.ratingCount,
     rank: product.rank,
     early: isEarly(product.ratingCount),
+    trending: isTrendingRank(product.trendingRank),
   };
 }
+
+// The top trending lines in a food carry a Trending tag in other views.
+export const isTrendingRank = (rank: number | null) =>
+  rank !== null && rank <= DEFAULT_TRENDING.taggedLines;
 
 /**
  * A line card's flavors (milestone 7): each with its own score in the current
@@ -929,15 +972,20 @@ export function lineFlavors(
   ranking: "closest" | "tastiest",
   now: number,
 ) {
+  // A line's one unlabeled flavor is its Original; several unlabeled
+  // flavors go by their product names.
+  const unlabeled = rows.filter((row) => row.flavor === null).length;
   const flavors = rows.map((row) => {
     const count = ranking === "tastiest" ? row.tastiestCount : row.closestCount;
     const score = ranking === "tastiest" ? row.tastiestScore : row.closestScore;
     return {
-      id: row.id,
+      productId: row.id,
       slug: row.slug,
       name: row.name,
       flavor: row.flavor,
-      count,
+      label: row.flavor ?? (unlabeled > 1 ? row.name : "Original"),
+      // Answers in the ranking shown.
+      ratingCount: count,
       score: count >= FLAVOR_SCORE_MIN_ANSWERS ? score : null,
       allergens: row.allergens,
       isNew: isNewProduct(row.publishedAt, now),
@@ -947,7 +995,7 @@ export function lineFlavors(
   flavors.sort(
     (a, b) =>
       (b.score ?? -Infinity) - (a.score ?? -Infinity) ||
-      b.count - a.count ||
+      b.ratingCount - a.ratingCount ||
       (a.flavor ?? "").localeCompare(b.flavor ?? "") ||
       a.name.localeCompare(b.name),
   );

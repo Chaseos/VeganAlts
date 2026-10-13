@@ -3,6 +3,7 @@ import { requireCatalogPreview } from "@server/catalog/http/loader";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { POLICIES } from "../content/policies";
 import {
+  brandPath,
   foodPath,
   homePath,
   productPath,
@@ -33,6 +34,10 @@ export async function loader() {
     ...entries.products.map((p) => ({
       path: productPath(p.country, p.slug),
       updatedAt: p.updatedAt,
+    })),
+    ...entries.brands.map((b) => ({
+      path: brandPath(b.country, b.slug),
+      updatedAt: b.updatedAt,
     })),
     ...Object.keys(POLICIES).map((slug) => ({
       path: `/about/${slug}`,

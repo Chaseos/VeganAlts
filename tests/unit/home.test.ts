@@ -20,6 +20,7 @@ const leader = (
         brand: null,
         bayesianScore: best.score,
         ratingCount: best.ratings,
+        trendingRank: null,
         rank: 1,
       }
     : null,

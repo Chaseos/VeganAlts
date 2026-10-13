@@ -90,5 +90,5 @@ it("awards a detail badge to the best qualifying product unless it is #1", () =>
     ],
     questions,
   );
-  expect(Object.fromEntries(badges)).toEqual({ b: ["Best melt"] });
+  expect(Object.fromEntries(badges)).toEqual({ b: ["Closest melt"] });
 });

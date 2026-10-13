@@ -179,6 +179,8 @@ const lineOrderSql =
 const tastiestOrderSql =
   "s.enjoyment_score DESC,s.enjoyment_people DESC,s.lead_product_id ASC";
 const lineSampleSql = "s.people_count>0 AND s.bayesian_score IS NOT NULL";
+// The line's place among its food's trending lines (the top few are tagged).
+const trendRankSql = `(SELECT t.rank FROM family_category_trends t WHERE t.product_family_id=s.product_family_id AND t.category_id=s.category_id)`;
 
 function parseStores<T extends { matchedStores?: unknown }>(rows: T[]) {
   return rows.map((row) => ({
@@ -257,7 +259,7 @@ export class D1CatalogRepository implements CatalogRepository {
   }
 
   async sitemap() {
-    const [categories, products] = await this.db.batch<{
+    const [categories, products, brands] = await this.db.batch<{
       slug: string;
       updatedAt: number;
       country: string;
@@ -281,8 +283,18 @@ export class D1CatalogRepository implements CatalogRepository {
         `SELECT p.slug,p.updated_at AS updatedAt,lower(country.iso2) AS country FROM products p JOIN countries country ON country.id=p.country_id AND country.is_active=1
         WHERE ${visible} ORDER BY country.iso2,p.slug LIMIT 40000`,
       ),
+      // A brand has a page in each country where it has a visible product.
+      this.db.prepare(
+        `SELECT b.slug,MAX(p.updated_at) AS updatedAt,lower(country.iso2) AS country FROM brands b
+        JOIN products p ON p.brand_id=b.id AND ${visible} JOIN countries country ON country.id=p.country_id AND country.is_active=1
+        GROUP BY b.id,country.id ORDER BY country.iso2,b.slug LIMIT 20000`,
+      ),
     ]);
-    return { categories: categories!.results, products: products!.results };
+    return {
+      categories: categories!.results,
+      products: products!.results,
+      brands: brands!.results,
+    };
   }
 
   async featuredCategories(countryId: string) {
@@ -474,7 +486,7 @@ export class D1CatalogRepository implements CatalogRepository {
       await this.db
         .prepare(
           `WITH ranked AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,p.id,p.slug,${lineNameSql} AS name,b.name AS brand,
-            s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,
+            s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,${trendRankSql} AS trendingRank,
             ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${lineOrderSql}) AS rank
           FROM family_category_stats s ${lineJoins}
           WHERE s.category_id IN (SELECT value FROM json_each(?)) AND ${lineSampleSql})
@@ -502,6 +514,7 @@ export class D1CatalogRepository implements CatalogRepository {
         .prepare(
           `SELECT ${lineIdentity()},s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,s.recent_count AS recentRatingCount,
             s.enjoyment_score AS tastiestScore,s.enjoyment_people AS tastiestCount,
+            ${trendRankSql} AS trendingRank,
             ROW_NUMBER() OVER (ORDER BY ${lineOrderSql}) AS topRank,
             CASE WHEN ${storeMatch.sql} THEN 1 ELSE 0 END AS storeMatch,
             CASE WHEN ${allMatch.sql} THEN 1 ELSE 0 END AS allergenMatch,
@@ -783,7 +796,7 @@ export class D1CatalogRepository implements CatalogRepository {
             s.bayesian_score AS score,s.people_count AS people,s.enjoyment_score AS tastiestScore,s.enjoyment_people AS tastiestPeople,
             ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${lineOrderSql}) AS rank,
             COUNT(*) OVER (PARTITION BY s.category_id) AS rankedCount,
-            fam.canonical_name AS lineName,${flavorCountSql} AS flavorCount
+            fam.canonical_name AS lineName,${flavorCountSql} AS flavorCount,${trendRankSql} AS trendingRank
             FROM family_category_stats s ${lineJoins}
             WHERE s.category_id IN (SELECT category_id FROM product_categories WHERE product_id=?) AND ${lineSampleSql}),
           tasty AS (SELECT s.categoryId,s.lineId,
@@ -791,7 +804,7 @@ export class D1CatalogRepository implements CatalogRepository {
             COUNT(*) OVER (PARTITION BY s.categoryId) AS tastiestCount
             FROM ranked s WHERE s.tastiestPeople>0)
           SELECT r.categoryId,r.rank,r.rankedCount,r.score,r.people,t.tastiestRank,COALESCE(t.tastiestCount,0) AS tastiestCount,
-            r.tastiestScore,r.tastiestPeople,r.lineName,r.flavorCount
+            r.tastiestScore,r.tastiestPeople,r.lineName,r.flavorCount,r.trendingRank
           FROM ranked r LEFT JOIN tasty t ON t.categoryId=r.categoryId AND t.lineId=r.lineId
           JOIN products x ON x.id=? AND x.product_family_id=r.lineId AND x.lifecycle_status='active' AND x.vegan_status<>'under_review'
           JOIN product_categories xpc ON xpc.product_id=x.id AND xpc.category_id=r.categoryId AND xpc.ranking_eligible=1

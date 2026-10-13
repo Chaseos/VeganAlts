@@ -17,12 +17,20 @@ export function Badge({
   return <span className={`va-badge va-badge--${tone}`}>{children}</span>;
 }
 
+// Rankings count people: each person counts once per line (milestone 7).
 export function EarlyBadge({ count }: { count: number }) {
-  return <Badge tone="early">Early · {plural(count, "rating")}</Badge>;
+  return (
+    <Badge tone="early">Early · {plural(count, "person", "people")}</Badge>
+  );
 }
 
 export function NewBadge() {
   return <Badge tone="new">New</Badge>;
+}
+
+// One of the top trending lines in its food, shown outside the Trending view.
+export function TrendingBadge() {
+  return <Badge tone="new">Trending</Badge>;
 }
 
 // A seasonal food stays listed all year; the badge says when it is sold.

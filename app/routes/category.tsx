@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Link, redirect } from "react-router";
+import { Link, redirect, useLocation } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   catalogPage,
@@ -39,7 +39,7 @@ import {
   parseCountryCode,
   productPath,
 } from "@server/catalog/domain/markets";
-import { Breadcrumb } from "../components/ui/navigation";
+import { Breadcrumb, TabLinks } from "../components/ui/navigation";
 import { AislePanel } from "../components/catalog/aisle-panel";
 import { PageShell } from "../components/layout/page-shell";
 import {
@@ -207,9 +207,10 @@ function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
               itemList(
                 origin,
                 `Top vegan alternatives to ${data.category.name}`,
-                data.ranked.map((p) => ({
-                  name: p.name,
-                  path: productPath(data.market.code, p.slug),
+                // Each line, linking its lead flavor.
+                data.ranked.map((line) => ({
+                  name: line.name,
+                  path: productPath(data.market.code, line.leadProduct.slug),
                 })),
                 (data.page - 1) * CATALOG_PAGE_SIZE + 1,
               ),
@@ -326,32 +327,47 @@ function FoodRankingList({ data }: { data: FoodData }) {
     stores: data.storeOptions.map((store) => store.slug),
     freeFrom: data.allergenOptions.map((option) => option.key),
   });
+  // The two rankings sit in the toggle; the other sorts reorder the lines
+  // and never change a score.
+  const tastiestView = data.view === "tastiest";
+  const ranking = data.view === "top" || tastiestView;
   const sorts = [
-    { view: "top", label: "Closest match", hint: "The ranking" },
-    { view: "trending", label: "Trending", hint: "Rising this week" },
+    {
+      view: ranking ? data.view : "top",
+      label: "Ranking",
+      hint: tastiestView ? "Tastiest" : "Closest to the original",
+    },
+    { view: "trending", label: "Trending", hint: "Rising this quarter" },
     { view: "new", label: "Newest", hint: "Recently added" },
     ...data.questions.map((question) => ({
       view: `detail-${question.key}`,
-      label: `Best ${question.label.toLowerCase()}`,
+      label: `Closest ${question.label.toLowerCase()}`,
       hint: "Detail score",
     })),
-    { view: "most-rated", label: "Most rated", hint: "Most ratings" },
+    { view: "most-rated", label: "Most rated", hint: "Most people" },
   ];
   const activeDetail = data.view.startsWith("detail-")
     ? data.view.slice(7)
     : null;
   const question = data.questions.find((q) => q.key === activeDetail);
-  // The #1 card only heads Closest match on its first page.
+  const rankOf = (line: (typeof data.ranked)[number]) =>
+    tastiestView ? line.tastiestRank : line.closestRank;
+  // Each ranking's #1 card heads its first page, once it has one.
+  const first = data.ranked[0];
   const featured =
-    data.view === "top" && data.page === 1 ? data.ranked[0] : undefined;
+    ranking && data.page === 1 && first && rankOf(first) !== null
+      ? first
+      : undefined;
   const rows = featured ? data.ranked.slice(1) : data.ranked;
   const freeLabel = data.filters.freeFrom
     .map((key) => `${(labels[key] ?? key).toLowerCase()}-free`)
     .join(", ");
   const flag =
-    featured?.topRank === 1
-      ? "#1 swap"
-      : `Closest match${freeLabel ? ` · ${freeLabel}` : ""}`;
+    featured && rankOf(featured) === 1
+      ? tastiestView
+        ? "Tastiest #1"
+        : "#1 swap"
+      : `${tastiestView ? "Tastiest" : "Closest match"}${freeLabel ? ` · ${freeLabel}` : ""}`;
   const clearHref = foodPath(code, data.category.slug);
   const aislePath = data.place.aisle
     ? foodPath(code, data.place.aisle.slug)
@@ -410,25 +426,30 @@ function FoodRankingList({ data }: { data: FoodData }) {
               {categorySummary({
                 food,
                 rankedCount: data.summary.rankedCount,
-                ratingCount: data.summary.ratingCount,
+                people: data.summary.ratingCount,
                 best: data.summary.best,
+                tastiest: tastiestView,
               })}
             </p>
             <details className="va-ranking__how">
               <summary>How these scores work</summary>
               <p>
                 People who’ve tried a product rate how close it is to{" "}
-                {food.toLowerCase()}, from 1 to 5. That overall score sets the
-                ranking, adjusted for how many ratings a product has. Products
-                with fewer than 10 ratings show an Early badge.
+                {food.toLowerCase()} in the same flavor, from 1 to 5. A brand’s
+                recipe and its flavors rank together: each person counts once,
+                as the average of the flavors they rated, adjusted for how many
+                people rated it. Swaps rated by fewer than 10 people show an
+                Early badge. Tastiest ranks the optional “how tasty is it?”
+                answers the same way and never changes Closest to the original.
                 {data.questions.length > 0 &&
                   ` ${joinList(data.questions.map((q) => q.label.toLowerCase())).replace(/^./, (c) => c.toUpperCase())} are optional detail ratings that explain the score.`}{" "}
-                Trending, Newest and detail sorts never change the ranking, and
+                Trending, Newest and detail sorts never change a ranking, and
                 brands can’t pay to move up.
               </p>
             </details>
           </header>
 
+          <RankingToggle current={data.view} />
           <div className="va-filter-bar">
             <SortMenu options={sorts} current={data.view} />
             <StoreChecklist
@@ -480,14 +501,15 @@ function FoodRankingList({ data }: { data: FoodData }) {
 
           {data.view === "trending" && (
             <p className="va-small va-muted">
-              Trending reflects recent ratings, tries and discussion compared
-              with the week before. It never changes the Top ranking.
+              Trending reflects the people rating, trying and discussing a swap
+              over the last three months, compared with the three months before.
+              It never changes a ranking.
             </p>
           )}
           {data.view === "new" && (
             <p className="va-small va-muted">
               Added in the last {data.newDays} days. Being new never raises a
-              Top score.
+              score.
             </p>
           )}
 
@@ -539,17 +561,18 @@ function FoodRankingList({ data }: { data: FoodData }) {
                   <FeaturedSwap
                     country={code}
                     food={data.category.slug}
-                    product={featured}
+                    line={featured}
+                    rank={rankOf(featured)}
                     flag={flag}
                     labels={labels}
                     stores={data.storeOptions}
                   />
                 </li>
               )}
-              {rows.map((product, index) => {
+              {rows.map((line, index) => {
                 const position = featured ? index + 1 : index;
                 return (
-                  <li key={product.id}>
+                  <li key={line.lineId}>
                     {question && data.qualified === position && (
                       <p className="va-rank-list__divider">
                         These have fewer than 5 answers about{" "}
@@ -557,11 +580,18 @@ function FoodRankingList({ data }: { data: FoodData }) {
                         ranking.
                       </p>
                     )}
+                    {tastiestView && data.qualified === position && (
+                      <p className="va-rank-list__divider">
+                        No one has said how tasty these are yet, so they follow
+                        Closest to the original.
+                      </p>
+                    )}
                     <RankedRow
                       country={code}
                       food={data.category.slug}
-                      product={product}
-                      note={sortNote(data.view, product)}
+                      line={line}
+                      rank={rankOf(line)}
+                      note={sortNote(data.view, line)}
                       activeDetail={activeDetail}
                       labels={labels}
                       stores={data.storeOptions}
@@ -585,21 +615,12 @@ function FoodRankingList({ data }: { data: FoodData }) {
                 These have no ratings, so they aren’t ranked. Tried one?
               </p>
               <ul className="va-unrated-list">
-                {data.unranked.map((product) => (
+                {data.unranked.map((line) => (
                   <UnratedRow
-                    key={product.id}
+                    key={line.lineId}
                     country={code}
                     food={data.category.slug}
-                    product={{
-                      ...product,
-                      publishedAt: product.publishedAt ?? null,
-                      topRank: null,
-                      bayesianScore: null,
-                      ratingCount: 0,
-                      recentRatingCount: 0,
-                      early: false,
-                      matchedStores: [],
-                    }}
+                    line={line}
                     labels={labels}
                   />
                 ))}
@@ -628,6 +649,40 @@ function FoodRankingList({ data }: { data: FoodData }) {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+/**
+ * Closest to the original and Tastiest are the two rankings (milestone 7).
+ * The toggle keeps the filters; any other sort leaves both unselected.
+ */
+function RankingToggle({ current }: { current: string }) {
+  const location = useLocation();
+  const href = (view: string) => {
+    const params = new URLSearchParams(location.search);
+    params.delete("page");
+    params.delete("unrankedPage");
+    if (view === "top") params.delete("view");
+    else params.set("view", view);
+    params.sort();
+    return `${location.pathname}${params.size ? `?${params}` : ""}`;
+  };
+  return (
+    <TabLinks
+      label="Ranking"
+      tabs={[
+        {
+          to: href("top"),
+          label: "Closest to the original",
+          current: current === "top",
+        },
+        {
+          to: href("tastiest"),
+          label: "Tastiest",
+          current: current === "tastiest",
+        },
+      ]}
+    />
   );
 }
 

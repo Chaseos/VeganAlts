@@ -50,6 +50,9 @@ async function handle(request: Request, path: string) {
         );
       if (path === "categories") return success(await catalog.home(market));
       if (slug && !extra) {
+        // A brand's page: its lines by aisle and food (milestone 7).
+        if (family === "brands")
+          return success(await catalog.brand(market, slug));
         if (family === "categories") {
           const moved = await catalog.categoryRedirect(slug);
           if (moved)

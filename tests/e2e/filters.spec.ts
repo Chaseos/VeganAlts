@@ -9,9 +9,11 @@ test("stores narrow a ranking with OR, are saved per country and never change To
   test.skip(!!process.env.TEST_BASE_URL, "Store data is arranged locally.");
   const ranked = (
     (await (await request.get("/api/v1/categories/ground-beef")).json()) as {
-      data: { ranked: { id: string; name: string; topRank: number }[] };
+      data: {
+        ranked: { leadProduct: { id: string }; name: string }[];
+      };
     }
-  ).data.ranked;
+  ).data.ranked.map((line) => ({ ...line, id: line.leadProduct.id }));
   expect(ranked.length).toBeGreaterThanOrEqual(2);
   const suffix = `${testInfo.project.name}-${Date.now().toString(36)}`;
   const stores = [
@@ -164,7 +166,7 @@ test("the sort menu works from the keyboard and keeps Top unchanged", async ({
   await page.goto("/us/ground-beef");
   const names = page.locator(".va-featured__name, .va-rank-row__name");
   const top = await names.allTextContents();
-  const sort = page.getByLabel("Sort: Closest match");
+  const sort = page.getByLabel("Sort: Ranking");
   await sort.focus();
   await page.keyboard.press("Enter");
   const trending = page
@@ -189,9 +191,14 @@ test("Free from shows only confirmed labels without the allergen and counts the 
   test.skip(!!process.env.TEST_BASE_URL, "Labels are arranged locally.");
   const ranked = (
     (await (await request.get("/api/v1/categories/ground-beef")).json()) as {
-      data: { ranked: { id: string; name: string; versionId: string }[] };
+      data: {
+        ranked: { leadProduct: { versionId: string }; name: string }[];
+      };
     }
-  ).data.ranked;
+  ).data.ranked.map((line) => ({
+    ...line,
+    versionId: line.leadProduct.versionId,
+  }));
   const [soy, plain] = ranked as [(typeof ranked)[0], (typeof ranked)[0]];
   await withLocalDb((db) =>
     db.batch([
@@ -265,14 +272,14 @@ test("detail and most-rated sorts reorder without changing ranks, and unknown on
 }) => {
   await page.goto("/us/ground-beef");
   const ranks = await page.locator(".va-rank-row__rank").allTextContents();
-  await page.getByLabel("Sort: Closest match").click();
+  await page.getByLabel("Sort: Ranking").click();
   await page
     .getByRole("group", { name: "Sort by" })
-    .getByRole("link", { name: /^Best taste/ })
+    .getByRole("link", { name: /^Closest taste/ })
     .click();
   await expect(page).toHaveURL(/view=detail-taste$/);
-  await expect(page.getByLabel("Sort: Best taste")).toBeVisible();
-  // The #1 card only heads Closest match.
+  await expect(page.getByLabel("Sort: Closest taste")).toBeVisible();
+  // The #1 card only heads a ranking.
   await expect(page.locator(".va-featured")).toHaveCount(0);
   await expect(
     page.getByText(
@@ -280,7 +287,7 @@ test("detail and most-rated sorts reorder without changing ranks, and unknown on
     ),
   ).toBeVisible();
   await accessible(page);
-  await page.getByLabel("Sort: Best taste").click();
+  await page.getByLabel("Sort: Closest taste").click();
   await page
     .getByRole("group", { name: "Sort by" })
     .getByRole("link", { name: /^Most rated/ })

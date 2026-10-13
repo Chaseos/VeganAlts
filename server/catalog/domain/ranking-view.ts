@@ -103,9 +103,10 @@ export function orderRows<T extends Orderable>(rows: T[], view: CategoryView) {
 }
 
 /**
- * "Best taste": for each question, the product with the highest mean among
+ * "Closest taste": for each question, the line with the highest mean among
  * those with enough answers, unless it is already the #1. Computed over the
- * unfiltered ranking so a filter never moves a badge.
+ * unfiltered ranking so a filter never moves a badge. "Closest" keeps it
+ * apart from Tastiest (milestone 7).
  */
 export function detailBadges<T extends Orderable>(
   rows: T[],
@@ -127,7 +128,7 @@ export function detailBadges<T extends Orderable>(
     if (best && best.row.topRank !== 1)
       badges.set(best.row.id, [
         ...(badges.get(best.row.id) ?? []),
-        `Best ${question.label.toLowerCase()}`,
+        `Closest ${question.label.toLowerCase()}`,
       ]);
   }
   return badges;

@@ -18,6 +18,11 @@ const PAGES = [
   ["aisle-single-food", "/us/butter-aisle"],
   ["seasonal-food", "/us/eggnog"],
   ["empty-country", "/ca"],
+  // Milestone 7: a line of several flavors, Tastiest, a flavor and a brand.
+  ["line-food", "/us/milk"],
+  ["tastiest", "/us/milk?view=tastiest"],
+  ["flavor-product", "/us/products/oatly-full-fat?food=milk"],
+  ["brand", "/us/brand/oatly"],
 ] as const;
 const WIDTHS = [
   ["phone", 390, 844],

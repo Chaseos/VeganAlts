@@ -4,6 +4,7 @@ import type { CatalogService } from "@server/catalog/application/service";
 export type Suggestions = Awaited<ReturnType<CatalogService["suggest"]>>;
 export type SuggestedFood = Suggestions["foods"][number];
 export type SuggestedProduct = Suggestions["products"][number];
+export type SuggestedBrand = Suggestions["brands"][number];
 export interface InstantSearchState {
   query: string;
   status: "idle" | "loading" | "ready" | "error";

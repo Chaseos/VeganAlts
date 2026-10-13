@@ -56,6 +56,7 @@ export function useCountryCode() {
 
 // One source for public paths, shared with the server.
 export {
+  brandPath,
   foodPath,
   homePath,
   productPath,

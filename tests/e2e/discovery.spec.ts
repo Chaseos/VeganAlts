@@ -43,7 +43,9 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   await expect(
     page.getByRole("heading", { level: 1, name: "Ground Beef" }),
   ).toBeVisible();
-  await expect(page.getByText(/^Early · \d+ ratings?$/).first()).toBeVisible();
+  await expect(
+    page.getByText(/^Early · \d+ (?:person|people)$/).first(),
+  ).toBeVisible();
   expect(
     await page.locator(".va-rank-row .va-score").first().textContent(),
   ).toMatch(/\d\.\d\/5/);

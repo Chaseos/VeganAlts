@@ -74,6 +74,7 @@ export async function saveRating(request: Request, env: Cloudflare.Env) {
       {
         dimensions: input.dimensions,
         conventionalRecency: input.conventionalRecency,
+        enjoyment: input.enjoyment,
       },
     );
     if (saved.outcome !== "unchanged")

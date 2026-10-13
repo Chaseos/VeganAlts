@@ -159,11 +159,18 @@ test("detail answers and last ate save on tap, clear on a second tap and survive
       form.getByRole("button", { name: "This month" }),
     ).toHaveAttribute("aria-pressed", "true");
     await expect(status).toContainText("Saved 3/5 with 1 detail");
+    // Tastiest is answered beside it and saves on tap.
+    await form.getByRole("button", { name: "5 Delicious (5 of 5)" }).click();
+    await expect(
+      form.getByRole("button", { name: "5 Delicious (5 of 5)" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(status).toContainText("Saved 3/5");
     // Every write carries the whole draft.
     expect(drafts.at(-1)).toMatchObject({
       overallSimilarity: 3,
       dimensions: { taste: null, texture: null, juiciness: 5 },
       conventionalRecency: "within_month",
+      enjoyment: 5,
     });
     await accessible(page);
 
@@ -178,6 +185,15 @@ test("detail answers and last ate save on tap, clear on a second tap and survive
     await expect(
       again.getByRole("button", { name: "This month" }),
     ).toHaveAttribute("aria-pressed", "true");
+    // Tapping the chosen Tastiest answer again clears it.
+    const delicious = again.getByRole("button", {
+      name: "5 Delicious (5 of 5)",
+    });
+    await expect(delicious).toHaveAttribute("aria-pressed", "true");
+    await delicious.click();
+    await expect(delicious).toHaveAttribute("aria-pressed", "false");
+    await expect(again.getByRole("status")).toContainText("Saved 3/5");
+    expect(drafts.at(-1)).toMatchObject({ enjoyment: null });
     await again.getByRole("button", { name: "Clear details" }).click();
     await expect(again.getByRole("status")).toHaveText(
       "Saved 3/5. You’ve tried this formula.",

@@ -13,6 +13,8 @@ export interface RatingControlState {
   // The rater's answers to the food's detail questions, by key.
   dimensions: Record<string, number>;
   recency: ConventionalRecency | null;
+  // The optional Tastiest answer.
+  enjoyment: number | null;
   status: SaveStatus;
   message: string;
   tried: boolean;
@@ -28,7 +30,7 @@ export class SaveError extends Error {
 }
 
 type StoredDetails = Partial<
-  Pick<PersonalRating, "dimensions" | "conventionalRecency">
+  Pick<PersonalRating, "dimensions" | "conventionalRecency" | "enjoyment">
 >;
 const answered = (dimensions: RatingInput["dimensions"]) =>
   Object.fromEntries(
@@ -53,6 +55,7 @@ export class RatingQueue {
     selected: null,
     dimensions: {},
     recency: null,
+    enjoyment: null,
     status: "idle",
     message: "",
     tried: false,
@@ -73,6 +76,7 @@ export class RatingQueue {
         tried,
         dimensions: details.dimensions ?? {},
         recency: details.conventionalRecency ?? null,
+        enjoyment: details.enjoyment ?? null,
       });
   }
   // Authentication may interrupt an older write after a newer score is queued.
@@ -87,6 +91,7 @@ export class RatingQueue {
       ...(input.conventionalRecency !== undefined
         ? { recency: input.conventionalRecency }
         : {}),
+      ...(input.enjoyment !== undefined ? { enjoyment: input.enjoyment } : {}),
       status: "saving",
       message: "Saving…",
     });
@@ -111,6 +116,7 @@ export class RatingQueue {
               selected: saved.rating.overallSimilarity,
               dimensions: saved.rating.dimensions,
               recency: saved.rating.conventionalRecency,
+              enjoyment: saved.rating.enjoyment,
               tried: saved.tried,
               status: "saved",
               message: savedMessage(saved.rating),
