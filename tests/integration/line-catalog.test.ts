@@ -190,6 +190,8 @@ it("lists recipe lines with their flavors in both rankings", async () => {
   ]);
   expect(tastiest.summary.best?.lineId).toBe(w.oatMilk.id);
   expect(tastiest.summary.tastiestCount).toBe(2);
+  // Its header counts only the people who said how tasty: u0 and u2.
+  expect(tastiest.summary.tastiestPeople).toBe(2);
   // Each flavor shows its Tastiest answers in the Tastiest view.
   expect(
     tastiest.ranked[0]!.flavors.map((f) => [f.flavor, f.ratingCount]),

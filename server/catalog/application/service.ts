@@ -688,6 +688,8 @@ export class CatalogService {
         rankedCount: all.length,
         tastiestCount: tastiestOrder.qualified,
         ratingCount: all.reduce((sum, row) => sum + row.ratingCount, 0),
+        // People who said how tasty a line is; Tastiest's own population.
+        tastiestPeople: all.reduce((sum, row) => sum + row.tastiestCount, 0),
         best: best && listing(best),
       },
       shownCount: shown.length,

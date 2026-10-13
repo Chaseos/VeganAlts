@@ -304,8 +304,10 @@ export function RankedRow({
             <span className="sr-only">Rank </span>#{rank}
           </>
         ) : (
+          // Unranked here: "New" only for a line that is new, since a line
+          // can trend on tries alone without being new.
           <span className="va-rank-row__unranked">
-            {line.closestRank ? "–" : "New"}
+            {line.isNew && !line.closestRank ? "New" : "–"}
           </span>
         )}
       </span>

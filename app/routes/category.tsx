@@ -425,8 +425,13 @@ function FoodRankingList({ data }: { data: FoodData }) {
             <p className="va-ranking__summary">
               {categorySummary({
                 food,
-                rankedCount: data.summary.rankedCount,
-                people: data.summary.ratingCount,
+                // Tastiest counts only lines and people with its answers.
+                rankedCount: tastiestView
+                  ? data.summary.tastiestCount
+                  : data.summary.rankedCount,
+                people: tastiestView
+                  ? data.summary.tastiestPeople
+                  : data.summary.ratingCount,
                 best: data.summary.best,
                 tastiest: tastiestView,
               })}
