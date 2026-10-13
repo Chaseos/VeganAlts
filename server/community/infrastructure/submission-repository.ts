@@ -21,6 +21,7 @@ import {
 import type { SubmissionContext } from "./lookup-repository";
 import type { StagedAttachment } from "./staged-media-repository";
 import { receiptStatement, type ReceiptWrite } from "./receipts";
+import type { LineRefresh } from "../../ranking/infrastructure/line-refresh";
 
 // The single rule for releasing or revoking a publication lease. Held
 // submissions and evidence for a still-pending proposal return to review.
@@ -51,6 +52,7 @@ export class SubmissionRepository {
   constructor(
     private readonly db: D1Database,
     private readonly limits: CommunityLimits,
+    private readonly lines: LineRefresh,
   ) {}
   get(id: string) {
     return this.db
@@ -776,6 +778,8 @@ export class SubmissionRepository {
       ...productSearchStatements(this.db, productId, guard, fence),
       // A food this product switched on in its country becomes searchable.
       ...categorySearchStatements(this.db, productId, guard, fence),
+      // The line the product starts or joins.
+      ...this.lines.statements({ productIds: [productId] }, now),
       this.db
         .prepare(
           `INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,after_data,created_at) SELECT ?,?,'product_published','product',?,?,? WHERE ${guard}`,

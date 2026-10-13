@@ -24,9 +24,13 @@ import {
   type DecisionGuard,
 } from "./moderation-repository";
 import type { ReceiptWrite } from "./receipts";
+import type { LineRefresh } from "../../ranking/infrastructure/line-refresh";
 
 export class CatalogDecisionRepository {
-  constructor(private readonly repository: ModerationRepository) {}
+  constructor(
+    private readonly repository: ModerationRepository,
+    private readonly lines: LineRefresh,
+  ) {}
   private get db() {
     return this.repository.db;
   }
@@ -555,6 +559,26 @@ export class CatalogDecisionRepository {
           snapshot.id,
           sql,
           values.filter((v): v is string | number => v !== null),
+        ),
+      );
+    // A change to which flavors count recomputes the product's line, and the
+    // line it leaves.
+    if (
+      patch.currentVersionId ||
+      patch.classification ||
+      patch.lifecycleStatus !== undefined ||
+      patch.familyId !== undefined ||
+      patch.categories?.length ||
+      patch.addedCategories?.length ||
+      patch.removedCategories?.length
+    )
+      statements.push(
+        ...this.lines.statements(
+          {
+            familyIds: [snapshot.familyId, patch.familyId],
+            productIds: [snapshot.id],
+          },
+          now,
         ),
       );
     return statements;

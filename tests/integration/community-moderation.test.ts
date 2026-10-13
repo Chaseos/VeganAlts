@@ -9,6 +9,7 @@ import {
 } from "../../server/community/domain/contracts";
 import { D1RatingsRepository } from "../../server/ratings/infrastructure/d1-repository";
 import { catalogService } from "../../server/catalog/infrastructure/composition";
+import { INITIAL_SCORING } from "../../server/ranking/domain/policy";
 
 const id = () => crypto.randomUUID();
 const evidence = {
@@ -111,6 +112,7 @@ it("deduplicates reports, prioritizes ingredient concerns, and requires an opera
       { kind: "rebuild" },
       [],
       Date.now(),
+      INITIAL_SCORING,
     ),
   ).toBe(false);
   await expect(

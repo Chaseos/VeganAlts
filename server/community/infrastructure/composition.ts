@@ -28,10 +28,12 @@ import {
 } from "../../moderation/infrastructure/composition";
 import { FoodSuggestions } from "../../taxonomy/application/food-suggestions";
 import { D1TaxonomyRepository } from "../../taxonomy/infrastructure/d1-taxonomy-repository";
+import { lineRefresh } from "../../ranking/infrastructure/line-refresh";
 
 export function communityServices(
   env: Pick<Cloudflare.Env, "DB" | "MEDIA_BUCKET" | "IMAGES"> &
-    Partial<Omit<ModerationEnv, "DB">> & {
+    Partial<Omit<ModerationEnv, "DB">> &
+    Parameters<typeof lineRefresh>[0] & {
       COMMUNITY_LIMITS?: string;
       PROPOSAL_AUTO_APPLY?: string;
     },
@@ -39,9 +41,10 @@ export function communityServices(
   clock = Date.now,
 ) {
   const limits = communityLimits(env.COMMUNITY_LIMITS),
-    lookup = new CommunityLookupRepository(env.DB);
+    lookup = new CommunityLookupRepository(env.DB),
+    lines = lineRefresh(env);
   const staged = new StagedMediaRepository(env.DB, limits),
-    receipts = new SubmissionRepository(env.DB, limits);
+    receipts = new SubmissionRepository(env.DB, limits, lines);
   const media = new StagedMediaService(
     staged,
     new R2EvidenceStorage(env.MEDIA_BUCKET),
@@ -92,7 +95,7 @@ export function communityServices(
     },
   );
   const contributionRepository = new ContributionRepository(env.DB, limits);
-  const catalog = new CatalogDecisionRepository(repository),
+  const catalog = new CatalogDecisionRepository(repository, lines),
     queue = new QueueDecisionRepository(repository, catalog, staged),
     duplicates = new DuplicateRepository(repository, catalog),
     autoApply = autoApplyPolicy(env.PROPOSAL_AUTO_APPLY);

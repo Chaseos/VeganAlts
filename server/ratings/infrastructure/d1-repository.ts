@@ -1,7 +1,9 @@
 import type {
   CategoryAggregate,
   CanonicalRating,
+  Scoring,
 } from "../../ranking/domain/policy";
+import { LineRefresh } from "../../ranking/infrastructure/line-refresh";
 import type {
   FormulaSnapshot,
   RaterDetails,
@@ -37,7 +39,7 @@ export class D1RatingsRepository implements RatingsRepository {
         .bind(versionId),
       this.db
         .prepare(
-          `SELECT id, user_id AS userId, category_id AS categoryId, overall_similarity AS score,
+          `SELECT id, user_id AS userId, category_id AS categoryId, overall_similarity AS score, enjoyment,
         is_counted AS isCounted, created_at AS createdAt, updated_at AS updatedAt FROM ratings WHERE product_version_id = ?`,
         )
         .bind(versionId),
@@ -85,6 +87,7 @@ export class D1RatingsRepository implements RatingsRepository {
             userId: String(row.userId),
             categoryId: String(row.categoryId),
             score: Number(row.score),
+            enjoyment: row.enjoyment === null ? null : Number(row.enjoyment),
             isCounted: row.isCounted === 1,
             createdAt: Number(row.createdAt),
             updatedAt: Number(row.updatedAt),
@@ -106,6 +109,7 @@ export class D1RatingsRepository implements RatingsRepository {
     mutation: RatingMutation,
     aggregates: CategoryAggregate[],
     now: number,
+    scoring: Scoring,
   ) {
     const token = crypto.randomUUID();
     const versionId = snapshot.versionId;
@@ -135,8 +139,8 @@ export class D1RatingsRepository implements RatingsRepository {
           this.db
             .prepare(
               `INSERT INTO ratings
-          (id, user_id, product_version_id, category_id, overall_similarity, conventional_recency, is_counted, created_at, updated_at)
-          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${fence}
+          (id, user_id, product_version_id, category_id, overall_similarity, enjoyment, conventional_recency, is_counted, created_at, updated_at)
+          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${fence}
           ON CONFLICT(user_id, product_version_id, category_id) DO UPDATE SET
             overall_similarity = excluded.overall_similarity, updated_at = excluded.updated_at,
             conventional_recency = CASE WHEN ? THEN excluded.conventional_recency ELSE ratings.conventional_recency END`,
@@ -147,6 +151,7 @@ export class D1RatingsRepository implements RatingsRepository {
               versionId,
               rating.categoryId,
               rating.score,
+              rating.enjoyment,
               recency?.value ?? null,
               Number(rating.isCounted),
               rating.createdAt,
@@ -239,8 +244,9 @@ export class D1RatingsRepository implements RatingsRepository {
         this.db
           .prepare(
             `INSERT INTO product_category_stats
-        (product_version_id, category_id, rating_count, rating_sum, raw_average, bayesian_score, tried_count, recent_rating_count, recomputed_at)
-        SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${fence}`,
+        (product_version_id, category_id, rating_count, rating_sum, raw_average, bayesian_score, tried_count, recent_rating_count,
+          enjoyment_count, enjoyment_sum, enjoyment_score, recomputed_at)
+        SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${fence}`,
           )
           .bind(
             versionId,
@@ -251,6 +257,9 @@ export class D1RatingsRepository implements RatingsRepository {
             aggregate.bayesianScore,
             aggregate.triedCount,
             aggregate.recentRatingCount,
+            aggregate.enjoymentCount,
+            aggregate.enjoymentSum,
+            aggregate.enjoymentScore,
             now,
             versionId,
             token,
@@ -293,6 +302,11 @@ export class D1RatingsRepository implements RatingsRepository {
         GROUP BY r.category_id, COALESCE(r.conventional_recency, 'unanswered'), r.overall_similarity`,
         )
         .bind(now, versionId, categoryIds, versionId, token),
+      // The formula's line, from the canonical rows as they now stand.
+      ...new LineRefresh(this.db, scoring).statements(
+        { versionIds: [versionId] },
+        now,
+      ),
     );
     try {
       const result = await this.db.batch(statements);

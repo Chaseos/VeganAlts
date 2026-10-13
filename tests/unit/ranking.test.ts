@@ -23,7 +23,13 @@ describe("authoritative ranking policy", () => {
     expect([b, a, c].sort(compareRankedProducts)).toEqual([c, a, b]);
   });
   it("counts categories independently, excludes flagged ratings and deduplicates Tried", () => {
-    const base = { userId: "u", isCounted: true, createdAt: 1, updatedAt: 1 };
+    const base = {
+      userId: "u",
+      enjoyment: null,
+      isCounted: true,
+      createdAt: 1,
+      updatedAt: 1,
+    };
     const result = aggregateFormula(
       ["burger", "ground"],
       [

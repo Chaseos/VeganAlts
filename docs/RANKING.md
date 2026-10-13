@@ -449,6 +449,12 @@ Tastiest has its own configurable `C` and `m`, which start at 3.5 and 10.
 - **Tables.** `family_category_stats`, `family_category_dimension_stats`, `family_category_daily_stats` and `family_category_trends` are rebuildable from canonical rows.
 - **When line rows are recomputed.** Line rows are recomputed in the same transaction as any rating write or exclusion, and any catalog decision that changes a product's family, current formula, lifecycle, classification, food membership or eligibility.
 - **Backstop and rebuild.** An hourly pass and the integrity rebuild (§20) re-derive every line.
+- **Implementation.**
+  - `ranking/domain/lines.ts` (`aggregateLine`) is the reference definition. `ranking/infrastructure/line-refresh.ts` stores the same figures in SQL, and tests hold the two equal.
+  - A line has one row per food where it has an eligible flavor: the current formula of an active product that isn't under review and is ranking-eligible in that food. A row holds the lead flavor even before anyone rates.
+  - A food's and a country's active state are applied when lines are read, as they are for products, so retiring or restoring a food needs no line refresh.
+  - Each flavor's own Tastiest figures (`enjoyment_count`, `enjoyment_sum`, `enjoyment_score`) sit on `product_category_stats` beside its Closest figures.
+  - Tastiest's prior comes from `RANKING_TASTIEST_PRIOR_MEAN` and `RANKING_TASTIEST_PRIOR_STRENGTH`, which start at 3.5 and 10.
 
 **Invariants added to §22:**
 

@@ -4,6 +4,7 @@ import {
 } from "../../shared/domain/errors";
 import {
   aggregateFormula,
+  INITIAL_SCORING,
   type RankingParameters,
 } from "../../ranking/domain/policy";
 import type {
@@ -20,6 +21,7 @@ export class RatingsService {
     private readonly parameters: RankingParameters,
     private readonly newId: () => string,
     private readonly clock: () => number = Date.now,
+    private readonly tastiest: RankingParameters = INITIAL_SCORING.tastiest,
   ) {}
 
   async rate(
@@ -62,6 +64,8 @@ export class RatingsService {
           userId: actor.id,
           categoryId,
           score,
+          // The Tastiest answer is kept as it stands.
+          enjoyment: existing?.enjoyment ?? null,
           isCounted: existing?.isCounted ?? true,
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
@@ -210,8 +214,14 @@ export class RatingsService {
         [...tried],
         this.parameters,
         now,
+        this.tastiest,
       );
-      if (await this.repository.commit(snapshot, mutation, aggregates, now))
+      if (
+        await this.repository.commit(snapshot, mutation, aggregates, now, {
+          closest: this.parameters,
+          tastiest: this.tastiest,
+        })
+      )
         return {
           aggregates,
           mutation,

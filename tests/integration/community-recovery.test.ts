@@ -20,6 +20,7 @@ import {
 } from "../../server/community/infrastructure/recovery";
 import { readMedia } from "../../server/media/infrastructure/media-reader";
 import { moderationDecisions } from "../../server/moderation/infrastructure/composition";
+import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
 
 const id = () => crypto.randomUUID(),
   bytes = () =>
@@ -33,7 +34,7 @@ async function setup(overrides: Partial<typeof DEFAULT_LIMITS> = {}) {
   const limits = { ...DEFAULT_LIMITS, ...overrides },
     clock = { now: Date.now() },
     staged = new StagedMediaRepository(env.DB, limits),
-    receipts = new SubmissionRepository(env.DB, limits),
+    receipts = new SubmissionRepository(env.DB, limits, lineRefresh(env)),
     storage = new R2EvidenceStorage(env.MEDIA_BUCKET),
     transformer = new CloudflareImageTransformer(env.IMAGES);
   const media = new StagedMediaService(

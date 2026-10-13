@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { D1RatingsRepository } from "../../server/ratings/infrastructure/d1-repository";
 import { RatingsService } from "../../server/ratings/application/service";
 import { D1RankingReader } from "../../server/ranking/infrastructure/d1-ranking-reader";
-import { INITIAL_RANKING_PARAMETERS as parameters } from "../../server/ranking/domain/policy";
+import {
+  INITIAL_RANKING_PARAMETERS as parameters,
+  INITIAL_SCORING,
+} from "../../server/ranking/domain/policy";
 import { catalogFixture } from "./fixtures";
 
 const repository = new D1RatingsRepository(env.DB);
@@ -119,6 +122,7 @@ describe("canonical writes and atomic aggregates", () => {
         },
         [],
         1,
+        INITIAL_SCORING,
       ),
     ).toBe(false);
     expect(
@@ -135,6 +139,7 @@ describe("canonical writes and atomic aggregates", () => {
             userId: "missing",
             categoryId: f.categories[0]!,
             score: 3,
+            enjoyment: null,
             isCounted: true,
             createdAt: 1,
             updatedAt: 1,
@@ -142,6 +147,7 @@ describe("canonical writes and atomic aggregates", () => {
         },
         [],
         1,
+        INITIAL_SCORING,
       ),
     ).rejects.toThrow(/FOREIGN KEY/);
     expect((await repository.snapshot(f.versionId))!.revision).toBe(

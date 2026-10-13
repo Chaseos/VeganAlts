@@ -6,7 +6,10 @@ import { parse } from "jsonc-parser";
 import { v7 as uuid } from "uuid";
 import { RatingsService } from "../server/ratings/application/service";
 import { D1RatingsRepository } from "../server/ratings/infrastructure/d1-repository";
-import { validateRankingParameters } from "../server/ranking/domain/policy";
+import {
+  LineRefresh,
+  scoringFromEnv,
+} from "../server/ranking/infrastructure/line-refresh";
 import { trendingService } from "../server/ranking/infrastructure/trending-composition";
 
 const environment = process.argv[2];
@@ -37,13 +40,13 @@ try {
     persist: { path: resolve(".wrangler/state/v3") },
   });
   try {
+    const scoring = scoringFromEnv(target.vars);
     const service = new RatingsService(
       new D1RatingsRepository(proxy.env.DB),
-      validateRankingParameters({
-        priorMean: Number(target.vars.RANKING_PRIOR_MEAN),
-        priorStrength: Number(target.vars.RANKING_PRIOR_STRENGTH),
-      }),
+      scoring.closest,
       uuid,
+      Date.now,
+      scoring.tastiest,
     );
     let cursor: string | null = null;
     let rebuilt = 0;
@@ -52,6 +55,9 @@ try {
       rebuilt += page.rebuilt;
       cursor = page.next;
     } while (cursor);
+    // Lines are re-derived per formula above; this also clears lines that
+    // lost every product.
+    const lines = await new LineRefresh(proxy.env.DB, scoring).refreshAll();
     // Daily statistics and Trending are derived too; rebuild them afterwards.
     const trending = await trendingService({
       DB: proxy.env.DB,
@@ -59,7 +65,7 @@ try {
       RANKING_PRIOR_STRENGTH: target.vars.RANKING_PRIOR_STRENGTH,
       RANKING_TRENDING: target.vars.RANKING_TRENDING,
     } as Parameters<typeof trendingService>[0]).rebuild();
-    console.log(JSON.stringify({ environment, rebuilt, trending }));
+    console.log(JSON.stringify({ environment, rebuilt, lines, trending }));
   } finally {
     await proxy.dispose();
   }

@@ -2,16 +2,17 @@ import { RatingsService } from "../application/service";
 import { PersonalRatingsService } from "../application/personal-service";
 import { D1RatingsRepository } from "./d1-repository";
 import { D1PersonalRatingsRepository } from "./personal-repository";
-import { validateRankingParameters } from "../../ranking/domain/policy";
+import { scoringFromEnv } from "../../ranking/infrastructure/line-refresh";
 
-export const ratingsService = (env: Cloudflare.Env) =>
-  new RatingsService(
+export const ratingsService = (env: Cloudflare.Env) => {
+  const scoring = scoringFromEnv(env);
+  return new RatingsService(
     new D1RatingsRepository(env.DB),
-    validateRankingParameters({
-      priorMean: Number(env.RANKING_PRIOR_MEAN),
-      priorStrength: Number(env.RANKING_PRIOR_STRENGTH),
-    }),
+    scoring.closest,
     () => crypto.randomUUID(),
+    Date.now,
+    scoring.tastiest,
   );
+};
 export const personalRatingsService = (env: Pick<Cloudflare.Env, "DB">) =>
   new PersonalRatingsService(new D1PersonalRatingsRepository(env.DB));

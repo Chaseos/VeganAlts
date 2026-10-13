@@ -6,6 +6,16 @@ export const INITIAL_RANKING_PARAMETERS: Readonly<RankingParameters> = {
   priorMean: 3.5,
   priorStrength: 10,
 };
+// Closest to the original and Tastiest each have their own prior (milestone
+// 7); Tastiest starts with the same values.
+export interface Scoring {
+  closest: RankingParameters;
+  tastiest: RankingParameters;
+}
+export const INITIAL_SCORING: Readonly<Scoring> = {
+  closest: INITIAL_RANKING_PARAMETERS,
+  tastiest: INITIAL_RANKING_PARAMETERS,
+};
 
 export function validateRankingParameters(
   parameters: RankingParameters,
@@ -69,6 +79,8 @@ export interface CanonicalRating {
   userId: string;
   categoryId: string;
   score: number;
+  // The optional Tastiest answer; it never enters Closest.
+  enjoyment: number | null;
   isCounted: boolean;
   createdAt: number;
   updatedAt: number;
@@ -81,6 +93,10 @@ export interface CategoryAggregate {
   bayesianScore: number | null;
   triedCount: number;
   recentRatingCount: number;
+  // The flavor's Tastiest figures over counted ratings with an answer.
+  enjoymentCount: number;
+  enjoymentSum: number;
+  enjoymentScore: number | null;
   recomputedAt: number;
 }
 
@@ -91,6 +107,7 @@ export function aggregateFormula(
   triedUserIds: readonly string[],
   parameters: RankingParameters,
   now: number,
+  tastiest: RankingParameters = INITIAL_SCORING.tastiest,
 ): CategoryAggregate[] {
   return categoryIds.map((categoryId) => {
     const counted = ratings.filter(
@@ -98,11 +115,20 @@ export function aggregateFormula(
     );
     const ratingCount = counted.length;
     const ratingSum = counted.reduce((sum, rating) => sum + rating.score, 0);
+    const enjoyed = counted.filter((rating) => rating.enjoyment !== null);
+    const enjoymentSum = enjoyed.reduce(
+      (sum, rating) => sum + rating.enjoyment!,
+      0,
+    );
     return {
       categoryId,
       ratingCount,
       ratingSum,
       ...scoreAggregate(ratingSum, ratingCount, parameters),
+      enjoymentCount: enjoyed.length,
+      enjoymentSum,
+      enjoymentScore: scoreAggregate(enjoymentSum, enjoyed.length, tastiest)
+        .bayesianScore,
       triedCount: new Set(triedUserIds).size,
       recentRatingCount: counted.filter(
         (rating) => rating.createdAt >= now - 7 * 86400_000,

@@ -16,6 +16,7 @@ import {
 import { submissionInput } from "../../server/community/domain/contracts";
 import { communityServices } from "../../server/community/infrastructure/composition";
 import { moderationDecisions } from "../../server/moderation/infrastructure/composition";
+import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
 
 const id = () => crypto.randomUUID();
 async function setup() {
@@ -24,7 +25,11 @@ async function setup() {
   await env.DB.prepare("UPDATE countries SET iso2='US' WHERE id=?")
     .bind(f.countryId)
     .run();
-  const repo = new SubmissionRepository(env.DB, DEFAULT_LIMITS),
+  const repo = new SubmissionRepository(
+      env.DB,
+      DEFAULT_LIMITS,
+      lineRefresh(env),
+    ),
     staged = new StagedMediaRepository(env.DB, DEFAULT_LIMITS);
   const transformer = new CloudflareImageTransformer(env.IMAGES);
   const media = new StagedMediaService(
