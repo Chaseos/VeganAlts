@@ -627,7 +627,7 @@ The approved [milestone 6 specification](MILESTONE_6_PLAN.md) adds the following
 The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following. They were built as migrations `0002`–`0004` and folded into version 1, `0001_initial.sql`, before staging (owner decision, 2026-10-12). Every database is reset to version 1, so their backfills went with them. The folded file produces exactly the schema the four migrations produced.
 
 - **Aisle order and seasons**
-  - Adds `categories.position`, the default order of an aisle where a country has no ratings yet, seeded for the 18 aisles.
+  - Adds `categories.position`, the default order of an aisle where a country has no ratings yet, seeded for every aisle.
   - Adds `categories.season_start` and `categories.season_end`, both months 1–12; a season may wrap past December. Both are null for a food without a season, and a check keeps them both set or both null.
   - Adds `products.seasonal` (0 or 1).
 - **Recipe lines**
@@ -656,7 +656,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following. They we
 **Taxonomy shape.** This replaces milestone 5's three-level shape and milestone 6's starter shelves.
 
 - **Depth.** Aisles are children of the root and foods are children of aisles.
-- **Seed.** The taxonomy seed writes the 18 aisles and the launch foods.
+- **Seed.** The taxonomy seed writes the aisles and the launch foods.
 - **Availability.** `TAXONOMY_LEAVES` carries an optional `countries` list for launch availability.
 - **Existing environments.** For an environment that is not reset, the reshape script re-parents foods to aisles through the audited taxonomy path and retires the emptied shelves.
 

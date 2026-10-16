@@ -899,7 +899,8 @@ it("seeds the two-level launch tree, countries, allergen lists, display names an
   expect(parent["milk-chocolate"]).toBe("chocolate");
   expect(parent["gummy-candy"]).toBe("candy");
   expect(parent["peanut-butter-cups"]).toBe("chocolate");
-  expect(parent["pies-and-cheesecake"]).toBe("bakery-and-desserts");
+  expect(parent["pies-and-cheesecake"]).toBe("desserts");
+  expect(parent.muffins).toBe("bakery");
   expect(parent.cheese).toBe("food");
   expect(parent.mayonnaise).toBe("condiments");
   const countries = (

@@ -1241,7 +1241,7 @@ Every product belongs to the one country it is added in.
 **Two levels: aisle › food (§04).** This replaces the milestone 5 taxonomy shape (aisle › shelf › food, with foods at depth three) and the milestone 6 starter shelves.
 
 - **Shape.** The taxonomy is two levels below the root, and shelves are removed.
-- **The 18 aisles are universal,** the same in every country: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, and Bakery and desserts.
+- **The 23 aisles are universal,** the same in every country: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Desserts, Bakery, Toaster Pastries, Pizza, Meals, and Sauces. Pizza was added and Bakery and desserts split into Desserts and Bakery on 2026-10-15; Toaster Pastries, Meals and Sauces were added on 2026-10-16.
 - **Each food has one aisle, and an aisle names a kind of product, never an occasion** such as Breakfast. Thin foods are broadened rather than held back, and foods without products stay listed.
 - **An aisle follows how a food is used, not what the original is made from.** Mayonnaise is a condiment and Tzatziki a dip, as stores shelve them. Search finds a food from either side.
 - **Foods sit directly under an aisle.** They can be as specific as each country needs.
@@ -1252,7 +1252,7 @@ Every product belongs to the one country it is added in.
 **Ordering and browsing (§03).**
 
 - **Popularity order.** In each country, aisles and the foods within them are ordered by popularity: most counted ratings first, from the rating aggregates.
-- **Default order.** A country without ratings uses a default store order: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Bakery and desserts.
+- **Default order.** A country without ratings uses a default store order: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Desserts, Bakery, Toaster Pastries, Pizza, Meals, Sauces.
 - **Browse every food** shows each aisle as a card with its three most popular foods and "See all" when there are more.
 - **New aisles.** Operators can add aisles for any country, and an aisle shows only where it holds a food. Contributor aisle suggestions and per-country aisle names follow in milestone 8.
 
@@ -1265,32 +1265,39 @@ Every product belongs to the one country it is added in.
 
 **United States launch foods.** The initial database focuses on direct replacements in the United States.
 
-- **The list.** The plan's [launch food list](MILESTONE_7_PLAN.md#united-states-launch-foods) proposes 64 foods: the 10 launch foods plus 54 United States foods. Among them, each condiment and dip is its own food, Queso sits with the dips, sweets split into Chocolate and Candy, baked goods share one Bakery and desserts aisle, and Eggs for Baking is separate from cooked Eggs.
+- **The list.** The plan's [launch food list](MILESTONE_7_PLAN.md#united-states-launch-foods) proposes 64 foods: the 10 launch foods plus 54 United States foods. Among them, each condiment and dip is its own food, Queso sits with the dips, sweets split into Chocolate and Candy, baked goods shared one Bakery and desserts aisle (split into Desserts and Bakery on 2026-10-15), and Eggs for Baking is separate from cooked Eggs.
 - **A starting set.** The list is a starting set, not a fixed one. Foods grow through suggestions, and each country grows its own.
+- **Added from the first photo batch (owner, 2026-10-15).** Steak, Beef Deli Slices, Chicken Bites, Dinner Sausages, Bottled Lattes, Heavy Cream, Swiss Cheese, Feta and Pizza, in a new Pizza aisle. Bakery and desserts split into Desserts and Bakery, and cookie dough is part of Cookies. A swap is any plant-based alternative to an animal product, including dishes defined by one such as mac and cheese, Alfredo sauce and bouillon; foods are added as products are found.
+- **Added from the full photo batch (owner, 2026-10-16).** 37 foods and the Toaster Pastries, Meals and Sauces aisles (see the plan's list). Kimchi counts because traditional kimchi uses fish sauce; plain dark chocolate stays out. Foods are added when their first product is found, so the seven launch foods still without one (Pepper Jack, Spinach Artichoke Dip, French Onion Dip, White Chocolate, Chocolate Hazelnut Spread, Brownies, and Brioche and Rolls) were removed for now.
 - **Detail questions.** Milk's "In coffee" becomes "In hot drinks", and Milk and Eggs gain Baking.
 
 The owner confirmed the tree on 2026-10-12. The 10 launch foods stay on in all six launch countries, the 32 new foods start in the United States, and the aisles are shared by every country. Eggs for Baking and Turkey Deli Slices were added on 2026-10-12:
 
 ```text
 Food
-├─ Beef ── Ground Beef · Beef Burgers · Meatballs · Hot Dogs
-├─ Chicken ── Chicken Nuggets · Grilled Chicken Strips · Chicken Patties · Chicken Tenders · Boneless Wings
-├─ Pork ── Bacon · Breakfast Sausage · Chorizo · Italian Sausage
+├─ Beef ── Ground Beef · Beef Burgers · Meatballs · Hot Dogs · Steak · Beef Deli Slices · Corn Dogs · Canned Roast Beef
+├─ Chicken ── Chicken Nuggets · Grilled Chicken Strips · Chicken Patties · Chicken Tenders · Boneless Wings · Chicken Bites · Shredded Chicken · Chicken Breasts
+├─ Pork ── Bacon · Breakfast Sausage · Chorizo · Italian Sausage · Dinner Sausages · Pulled Pork · Ribs · Ham Roast · Ham Deli Slices · Salami Deli Slices · Luncheon Meat
 ├─ Turkey ── Turkey Roast · Turkey Deli Slices
 ├─ Lamb ── (no food yet)
 ├─ Fish and seafood ── Fish Fillets
-├─ Milk ── Milk · Chocolate Milk · Eggnog
-├─ Cream ── Coffee Creamer · Half-and-Half · Sour Cream · Whipped Cream
+├─ Milk ── Milk · Chocolate Milk · Eggnog · Bottled Lattes
+├─ Cream ── Coffee Creamer · Half-and-Half · Sour Cream · Whipped Cream · Heavy Cream
 ├─ Butter ── Butter
 ├─ Yogurt ── Yogurt · Greek Yogurt
 ├─ Ice cream ── Ice Cream
-├─ Cheese ── Cheddar · Mozzarella · Smoked Gouda · Pepper Jack · American Cheese · Mexican Blend · Parmesan · Cream Cheese
+├─ Cheese ── Cheddar · Mozzarella · Smoked Gouda · American Cheese · Mexican Blend · Parmesan · Swiss Cheese · Feta · Ricotta · Provolone · Soft Cheese · Italian Blend · Cheddar Mozzarella Blend · Cream Cheese
 ├─ Eggs ── Eggs · Eggs for Baking
-├─ Condiments ── Mayonnaise · Ranch Dressing · Caesar Dressing · Worcestershire Sauce
-├─ Dips and spreads ── Queso · Spinach Artichoke Dip · French Onion Dip · Tzatziki
-├─ Chocolate ── Milk Chocolate · White Chocolate · Chocolate Chips · Peanut Butter Cups · Candy Bars · Candy-Coated Chocolates · Chocolate Hazelnut Spread
-├─ Candy ── Gummy Candy · Marshmallows · Caramels
-└─ Bakery and desserts ── Cookies · Cake · Brownies · Muffins · Cinnamon Rolls · Pies and Cheesecake · Brioche and Rolls · Pudding Cups · Baking Mixes
+├─ Condiments ── Mayonnaise · Ranch Dressing · Caesar Dressing · Worcestershire Sauce · Green Goddess Dressing · Thousand Island Dressing · Kimchi
+├─ Dips and spreads ── Queso · Tzatziki
+├─ Chocolate ── Milk Chocolate · Chocolate Chips · Peanut Butter Cups · Candy Bars · Candy-Coated Chocolates · Chocolate Peanut Spread · Hot Cocoa Mix · Caramel Cups
+├─ Candy ── Gummy Candy · Marshmallows · Caramels · Fruit Chews
+├─ Desserts ── Cookies · Cake · Pies and Cheesecake · Pudding Cups · Gelatin Cups
+├─ Bakery ── Muffins · Cinnamon Rolls · Baking Mixes
+├─ Toaster Pastries ── Toaster Pastries
+├─ Pizza ── Pizza
+├─ Meals ── Mac and Cheese · Skillet Meals · Jamaican Beef Patties · Breakfast Burritos · Lasagna · Cheese Ravioli · Dumplings
+└─ Sauces ── Alfredo Sauce · Creamy Pasta Sauce · Pesto · Vodka Sauce · Gravy · Bouillon
 ```
 
 People see the top level as aisles.
