@@ -16,7 +16,7 @@ import type {
 } from "../domain/moderation";
 import type { ChangePlan, NewFormula } from "../domain/change-policy";
 import { normalizeName, slug } from "../domain/policy";
-import { imageInsertStatements } from "./submission-repository";
+import { imageInsertStatements } from "./catalog-entry";
 import type { StagedAttachment } from "./staged-media-repository";
 import {
   ModerationRepository,
