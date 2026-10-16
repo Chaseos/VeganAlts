@@ -158,6 +158,17 @@ Most of what remains is sold as a few base recipes in several flavors:
 - **New aisles have a path everywhere.** Operators add an aisle for any country with the taxonomy tools, and it shows only where it holds a food. Milestone 8 lets contributors suggest new aisles and gives aisles per-country names.
 - **The launch foods are a starting set, not a fixed list.** Foods grow through suggestions, and each country grows its own. Japan's foods may look nothing like the United States'. The aisles are the macro categories shared by every country.
 
+## Owner decisions (2026-10-16): store photo import
+
+The owner's reviewed store photos reach the catalog through an importer, planned in the [store photo importer plan](IMPORTER_PLAN.md).
+
+1. **No review queue.** Imported products skip the moderation review queue: they are the owner's own contributions ([MODERATION](MODERATION.md), "Owner imports").
+2. **Review data stays internal.** Risk levels and ingredient checks never reach the site.
+3. **Barcodes wait.** They are left out of this importer.
+4. **Demo data goes first.** Staging's demo products are fake and are cleared before the import, so every imported product is new, even when a name matches.
+5. **Shelf-stable later.** A shelf-stable tag for products such as milk and creamer comes later, outside the importer.
+6. **The documented classification.** Vegan-labelled packages keep the Vegan manufacturer label and read "Ingredients not checked yet".
+
 ## Agreed boundaries
 
 - **Staging only.** No production migrations, secrets, deployment or DNS changes.

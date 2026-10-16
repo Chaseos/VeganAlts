@@ -104,11 +104,13 @@ try {
       count: outside.length,
       sample: outside.slice(0, 10).map((node) => node.id),
     };
+    // Ingredient evidence is optional (milestone 6; owner, 2026-10-16):
+    // products without it are reported and read "Ingredients not checked
+    // yet", but don't block launch.
     const blocking = [
       "developmentProducts",
       "demoAccounts",
       "productsWithoutFrontPhoto",
-      "productsWithoutIngredientEvidence",
       "veganWithoutReview",
       "possibleDuplicates",
       "foodsWithoutQuestions",

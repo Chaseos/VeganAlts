@@ -35,6 +35,8 @@
     "db:seed-images:staging": "tsx scripts/seed-images.ts staging",
     "photos:prepare": "tsx scripts/prepare-photos.ts",
     "photos:review": "tsx scripts/photo-review/cli.ts",
+    "catalog:import:local": "tsx scripts/catalog-import/cli.ts local",
+    "catalog:import:staging": "tsx scripts/catalog-import/cli.ts staging",
     "moderation:calibrate": "tsx scripts/calibrate-clef.ts",
     "taxonomy:seed:local": "tsx scripts/seed-taxonomy.ts local",
     "taxonomy:seed:staging": "tsx scripts/seed-taxonomy.ts staging",

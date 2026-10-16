@@ -43,12 +43,8 @@ export const LABEL_RANK: Record<PackageLabel, number> = {
   plant_based: 1,
   appears_plant_based: 2,
 };
-// The site's manufacturer label for each (contracts.ts manufacturerLabel).
-export const MANUFACTURER_LABEL: Record<PackageLabel, string> = {
-  vegan: "vegan",
-  plant_based: "plant_based",
-  appears_plant_based: "unknown",
-};
+// The site's manufacturer label for each, as the importer writes it.
+export { MANUFACTURER_LABEL } from "../../server/community/domain/catalog-import";
 export const riskLevel = z.enum(["low", "medium", "high"]);
 
 export const photoEntry = z

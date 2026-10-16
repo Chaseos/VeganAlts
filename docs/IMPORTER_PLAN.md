@@ -1,6 +1,6 @@
 # Store Photo Importer Plan
 
-Written on 2026-10-16 from the owner's decisions of 2026-10-15 and 2026-10-16. Nothing is built yet.
+Written on 2026-10-16 from the owner's decisions of 2026-10-15 and 2026-10-16. Built and rehearsed locally the same day ([verification](verification/catalog-import.md), [runbook](operations/catalog-import.md)); staging waits for the owner.
 
 The importer turns the owner's three reviewed store-photo batches into real catalog data, on a local database first and then on staging. The owner answered its four [questions](#owner-answers) on 2026-10-16, so nothing blocks the first run.
 
