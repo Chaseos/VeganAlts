@@ -33,8 +33,8 @@ Production last applied the pre-release migrations through `0004`, which no long
 
 ## 4. Launch catalog
 
-- [ ] Operators add the initial real products through the normal submission and review flow (front photo plus ingredient evidence).
-- [ ] `npx tsx scripts/audit-launch-dataset.ts production` reports `readyForLaunch: true` (no development products, demo accounts, missing evidence, unreviewed Vegan classifications or likely duplicates).
+- [ ] Operators add the initial real products, through the owner's store-photo import ([importer plan](../IMPORTER_PLAN.md)) or the normal submission flow. Ingredient evidence is optional (milestone 6): a product without it shows "Ingredients not checked yet" (owner, 2026-10-16).
+- [ ] `npx tsx scripts/audit-launch-dataset.ts production` reports `readyForLaunch: true` (no development products, demo accounts, unreviewed Vegan classifications or likely duplicates). Products without ingredient evidence are reported but don't block launch (owner, 2026-10-16).
 - [ ] Homepage features reviewed for each launch country in the taxonomy workspace (seeded with Ground Beef, Beef Burgers, Milk, Cheddar, Butter and Eggs).
 - [ ] Retailers reported in each country where products are added (retailer and retailer-market proposals), so store filters have options.
 
