@@ -39,6 +39,7 @@ import {
   reportReasonLabel,
 } from "../lib/community";
 import { PhotoProposalForm } from "../components/photo-proposal-form";
+import { SLOT_LABELS } from "../components/photo-slots";
 import type { Route } from "./+types/contribute";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -131,6 +132,7 @@ export default function Contribute({
       (i.slot === "ingredients" || i.slot === "nutrition"),
   );
   const [tab, setTab] = useState(initialAction),
+    [reportImage, setReportImage] = useState(image ?? ""),
     [kind, setKind] = useState<ProductChange["kind"]>(initialKind ?? "rename"),
     [newRetailer, setNewRetailer] = useState(false),
     [query, setQuery] = useState(""),
@@ -161,9 +163,14 @@ export default function Contribute({
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     await action.run(async () => {
+      if (
+        reportImage &&
+        !product.images.some((photo) => photo.id === reportImage)
+      )
+        throw new Error("Choose a photo of this product.");
       const saved = await action.request<{ id: string }>("reports", {
-        targetType: image ? "product_image" : "product",
-        targetId: image ?? product.id,
+        targetType: reportImage ? "product_image" : "product",
+        targetId: reportImage || product.id,
         reason: form.get("reason"),
         note: String(form.get("note") ?? ""),
         evidenceUrls: form.get("evidenceUrl") ? [form.get("evidenceUrl")] : [],
@@ -372,17 +379,41 @@ export default function Contribute({
           )}
           {tab === "report" && (
             <form className="community-form" onSubmit={saveReport}>
-              <h2>{image ? "Report this photo" : "Report this product"}</h2>
-              {image && (
+              <h2>Report this product</h2>
+              <label htmlFor="report-target">
+                What would you like to report?
+              </label>
+              <select
+                id="report-target"
+                name="reportTarget"
+                value={reportImage}
+                onChange={(event) => setReportImage(event.target.value)}
+              >
+                <option value="">Product information</option>
+                {product.images.map((photo) => (
+                  <option key={photo.id} value={photo.id}>
+                    {SLOT_LABELS[photo.slot as ImageSlot]} photo
+                    {photo.versionId !== product.versionId
+                      ? " (earlier formula)"
+                      : ""}
+                    {photo.state === "archived" ? " (replaced)" : ""}
+                  </option>
+                ))}
+              </select>
+              {reportImage && (
                 <img
                   className="upload-preview"
-                  src={`/media/${image}/thumbnail`}
+                  src={`/media/${reportImage}/thumbnail`}
                   alt="Photo being reported"
                 />
               )}
               <label htmlFor="reason">Reason</label>
-              <select id="reason" name="reason">
-                {reportReasons[image ? "product_image" : "product"].map(
+              <select
+                id="reason"
+                name="reason"
+                key={reportImage ? "product_image" : "product"}
+              >
+                {reportReasons[reportImage ? "product_image" : "product"].map(
                   (reason) => (
                     <option key={reason} value={reason}>
                       {reportReasonLabel(reason)}

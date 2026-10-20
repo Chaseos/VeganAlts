@@ -154,8 +154,8 @@ export function aggregateLine(
 
 /**
  * The flavor that represents the line (its card photo and link): the most
- * counted ratings, then its own Closest score, then the earliest published,
- * then the product ID.
+ * counted ratings answering either question, then its own Closest score,
+ * then the earliest published and product ID.
  */
 export function leadFlavor(
   eligible: readonly LineFlavor[],
@@ -164,14 +164,18 @@ export function leadFlavor(
 ) {
   const ranked = eligible.map((flavor) => {
     const own = counted.filter(
-      (rating) =>
-        rating.productId === flavor.productId && rating.similarity !== null,
+      (rating) => rating.productId === flavor.productId,
     );
-    const sum = own.reduce((total, rating) => total + rating.similarity!, 0);
+    const compared = own.filter((rating) => rating.similarity !== null);
+    const sum = compared.reduce(
+      (total, rating) => total + rating.similarity!,
+      0,
+    );
     return {
       flavor,
       count: own.length,
-      score: scoreAggregate(sum, own.length, scoring.closest).bayesianScore,
+      score: scoreAggregate(sum, compared.length, scoring.closest)
+        .bayesianScore,
     };
   });
   ranked.sort(

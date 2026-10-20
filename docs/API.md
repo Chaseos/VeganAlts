@@ -470,9 +470,10 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) extends the v1 contracts. E
   - `score`, `people` and `early` describe the ranking being viewed;
   - `allergens` appears only for a single-flavor line.
 - **Each entry in `flavors`:**
-  - `{productId, slug, name, flavor, label, score, ratingCount, isNew, allergens, matchesFilters}`;
+  - `{productId, slug, name, flavor, label, imageId, score, ratingCount, isNew, allergens, matchesFilters}`;
   - `label` is the flavor, "Original" for a line's one unflavored product, or the product name when several have no flavor;
   - `ratingCount` counts answers in the ranking being viewed;
+  - `imageId` is that flavor's current accepted front photo, or `null`; product-page `otherFlavors` also includes its own `imageId`;
   - `score` is shown from 5 answers, otherwise `null`.
 - **Discontinued flavors** are never returned.
 - **Filtered views** return only lines with a matching flavor, with `hiddenFlavorCount` for the flavors that don't match.

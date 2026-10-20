@@ -7,7 +7,7 @@ import {
   requireCatalogPreview,
 } from "@server/catalog/http/loader";
 import { PageShell } from "../components/layout/page-shell";
-import { PhotoGallery } from "../components/catalog/photo-gallery";
+import { ProductPhotos } from "../components/catalog/product-photos";
 import { ProductThumbnail } from "../components/catalog/product-thumbnail";
 import { allergenSummary } from "../components/catalog/ranking-list";
 import { FoodIcon } from "../components/icons/food-icons";
@@ -31,7 +31,6 @@ import { saveFilters, useSavedFilters } from "../lib/ranking-filters";
 import { RatingControl, SCORE_MEANINGS } from "../components/rating-control";
 import { CommentSection } from "../components/comments/comment-section";
 import { ProposalResponses } from "../components/proposal-responses";
-import { PhotoSlots } from "../components/photo-slots";
 import { commentServices } from "@server/comments/infrastructure/composition";
 import { breadcrumbs, publicMetadata } from "../lib/metadata";
 import {
@@ -376,18 +375,30 @@ export default function Product({
                     Other flavors
                   </h2>
                   {p.otherFlavors.length > 0 ? (
-                    <ul className="va-divided">
+                    <ul className="va-divided va-product__flavors">
                       {p.otherFlavors.map((other) => (
                         <li key={other.id}>
-                          <Link to={productPath(code, other.slug, other.food)}>
-                            {other.flavor ?? productName(other.name, p.brand)}
-                          </Link>
-                          {other.flavor && (
-                            <span className="va-small va-muted">
-                              {" "}
-                              · {productName(other.name, p.brand)}
+                          <Link
+                            className="va-product__flavor-link"
+                            to={productPath(code, other.slug, other.food)}
+                          >
+                            <ProductThumbnail
+                              imageId={other.imageId}
+                              food={other.food ?? food?.slug ?? "food"}
+                              size="small"
+                            />
+                            <span>
+                              <strong>
+                                {other.flavor ??
+                                  productName(other.name, p.brand)}
+                              </strong>
+                              {other.flavor && (
+                                <span className="va-small va-muted">
+                                  {productName(other.name, p.brand)}
+                                </span>
+                              )}
                             </span>
-                          )}
+                          </Link>
                         </li>
                       ))}
                     </ul>
@@ -409,26 +420,16 @@ export default function Product({
             </div>
           </div>
           <div className="va-product__visuals">
-            <div className="va-product__photos">
-              <PhotoGallery
-                key={p.versionId}
-                productName={title}
-                food={food?.slug ?? "food"}
-                images={p.images}
-              />
-              <details className="va-gallery__manage">
-                <summary>Add or improve photos</summary>
-                <PhotoSlots
-                  productId={p.id}
-                  productName={title}
-                  images={p.images}
-                  canPropose={
-                    Boolean(p.formula.isCurrent) &&
-                    p.lifecycleStatus !== "hidden"
-                  }
-                />
-              </details>
-            </div>
+            <ProductPhotos
+              key={p.versionId}
+              productId={p.id}
+              productName={title}
+              food={food?.slug ?? "food"}
+              images={p.images}
+              canPropose={
+                Boolean(p.formula.isCurrent) && p.lifecycleStatus !== "hidden"
+              }
+            />
             {food && p.others.length > 0 && (
               <section
                 className="va-product__alternatives"
@@ -500,16 +501,6 @@ export default function Product({
               <Link to={`/contribute/${p.id}?action=report`}>
                 Report product
               </Link>
-              {p.imageId && (
-                <>
-                  {" · "}
-                  <Link
-                    to={`/contribute/${p.id}?action=report&image=${p.imageId}`}
-                  >
-                    Report front photo
-                  </Link>
-                </>
-              )}
             </p>
           </div>
           <dl className="va-facts">
@@ -820,21 +811,19 @@ function ScoreCard({
                   tone={metric.tone}
                 />
               ) : (
-                <span className="va-score-card__unrated">Not rated yet</span>
+                <UnratedScore />
               )}
-              <div className="va-score-card__text">
-                {metric.value && (
+              {metric.value && metric.value.people > 0 && (
+                <div className="va-score-card__text">
                   <strong>
                     #{metric.value.rank} of {metric.value.of}
                   </strong>
-                )}
-                <span>
-                  {plural(metric.value?.people ?? 0, "person", "people")}
-                </span>
-                {metric.value?.early && (
-                  <EarlyBadge count={metric.value.people} />
-                )}
-              </div>
+                  <span>{plural(metric.value.people, "person", "people")}</span>
+                  {metric.value.early && (
+                    <EarlyBadge count={metric.value.people} />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -855,14 +844,18 @@ function ScoreCard({
                       size="mini"
                       tone={metric === "tastiest" ? "tasty" : "neutral"}
                     />
+                  ) : own.count === 0 ? (
+                    <UnratedScore />
                   ) : (
                     <span className="va-small va-muted">
                       Too few ratings yet
                     </span>
                   )}
-                  <span className="va-small va-muted">
-                    {plural(own.count, "person", "people")}
-                  </span>
+                  {own.count > 0 && (
+                    <span className="va-small va-muted">
+                      {plural(own.count, "person", "people")}
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -870,6 +863,14 @@ function ScoreCard({
         </div>
       )}
     </div>
+  );
+}
+
+function UnratedScore() {
+  return (
+    <span className="va-score-card__unrated">
+      <span aria-hidden="true">—</span> Unrated
+    </span>
   );
 }
 
@@ -939,7 +940,10 @@ function StoreToggles({
   );
   if (!retailers.length)
     return (
-      <p className="va-small">Nobody has reported where it’s sold yet. {add}</p>
+      <div className="va-store-toggles">
+        <p className="va-small">Nobody has reported where it’s sold yet.</p>
+        <p>{add}</p>
+      </div>
     );
   return (
     <div className="va-store-toggles">
@@ -978,8 +982,8 @@ function StoreToggles({
             );
           })}
         </ul>
-        {add}
       </div>
+      <p>{add}</p>
       <p className="va-small va-muted">
         Tap every store you shop at to save them on this device. Rankings will
         show what you can find at any of them.

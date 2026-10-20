@@ -115,8 +115,44 @@
   font-size: 11px;
 }
 .va-score-card__unrated {
-  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px dashed var(--va-line-strong);
+  border-radius: var(--va-radius-button);
+  background: var(--va-surface);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--va-ink-2);
+}
+.va-score-card__unrated > span {
   color: var(--va-muted);
+  font-size: 22px;
+  line-height: 1;
+}
+.va-score-card__flavor .va-score-card__unrated {
+  padding: 3px 7px;
+  font-size: 12px;
+}
+.va-product__flavor-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  text-decoration: none;
+}
+.va-product__flavor-link > span {
+  display: grid;
+  gap: 3px;
+}
+.va-product__flavor-link .va-thumb {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+}
+.va-product__flavor-link:hover strong {
+  text-decoration: underline;
 }
 .va-score-card__flavor {
   display: grid;
@@ -245,7 +281,7 @@
 }
 .va-product__editor .va-rate__title,
 .va-product__editor .va-rate__tasty > legend {
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   font-size: 15px;
   font-weight: 700;
   line-height: 1.4;
@@ -465,10 +501,6 @@
   .va-product__editor .va-rate__more > fieldset {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px;
-  }
-  .va-product__editor .va-rate__title,
-  .va-product__editor .va-rate__tasty > legend {
-    min-height: 42px;
   }
   .va-product__editor .va-rate__last {
     grid-column: 1 / -1;

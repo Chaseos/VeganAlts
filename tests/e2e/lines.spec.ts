@@ -15,8 +15,29 @@ test("a recipe line lists its flavors, and its brand has a page", async ({
   await expect(flavors.locator("summary")).toContainText("2 flavors");
   await flavors.locator("summary").click();
   await expect(flavors.locator(".va-flavors__name")).toHaveCount(2);
+  const photos = flavors.locator(".va-flavors__name img");
+  await expect(photos).toHaveCount(2);
+  for (const image of await photos.all()) {
+    await expect(image).toHaveAttribute("src", /^\/media\/.+\/thumbnail$/);
+    await expect
+      .poll(() =>
+        image.evaluate((element: HTMLImageElement) => element.naturalWidth),
+      )
+      .toBeGreaterThan(0);
+  }
   await expect(flavors.getByRole("link", { name: /^Rate it:/ })).toHaveCount(2);
   await accessible(page);
+
+  await page.goto("/us/products/oatly-full-fat?food=milk");
+  // Decorative images belong to each linked flavor and retain empty alt text.
+  const siblingPhoto = page.locator(".va-product__flavor-link img");
+  await expect(siblingPhoto).toHaveCount(1);
+  await expect(siblingPhoto).toHaveAttribute("src", /^\/media\/.+\/thumbnail$/);
+  await expect
+    .poll(() =>
+      siblingPhoto.evaluate((image: HTMLImageElement) => image.naturalWidth),
+    )
+    .toBeGreaterThan(0);
 
   // Instant answers find the brand from part of its name.
   const answers = await request.get("/api/v1/suggest?country=us&q=oatl");

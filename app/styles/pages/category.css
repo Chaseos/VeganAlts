@@ -375,8 +375,20 @@
 }
 
 .va-flavors__name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
   font-weight: 700;
   color: var(--va-ink);
+}
+.va-flavors__name .va-thumb {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+}
+.va-flavors__score {
+  max-width: 110px;
 }
 
 .va-flavors__meta {

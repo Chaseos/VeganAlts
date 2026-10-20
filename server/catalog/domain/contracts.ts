@@ -74,6 +74,7 @@ export interface RankedRow extends LineSummary {
 }
 // One eligible flavor of a listed line, with its own scores in the food.
 export interface FlavorRow {
+  imageId: string | null;
   lineId: string;
   id: string;
   slug: string;
@@ -214,6 +215,7 @@ export interface LineStanding {
 }
 // Another product of the same line.
 export interface SiblingFlavor {
+  imageId: string | null;
   id: string;
   slug: string;
   name: string;

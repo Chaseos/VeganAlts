@@ -178,6 +178,31 @@ describe("recipe lines", () => {
       ).productId,
     ).toBe("z");
   });
+
+  it("chooses the most reviewed flavor across either question, counting both answers once", () => {
+    const line = aggregateLine(
+      [
+        flavor("original"),
+        flavor("vanilla"),
+        { ...flavor("retired"), eligible: false },
+      ],
+      [
+        rating("original", "u1", 5, { enjoyment: 5 }),
+        rating("vanilla", "u1", 1, { similarity: null, enjoyment: 3 }),
+        rating("vanilla", "u2", 1, { similarity: null, enjoyment: 4 }),
+        ...["u1", "u2", "u3"].map((user) => rating("retired", user, 5)),
+        ...["u2", "u3", "u4"].map((user) =>
+          rating("original", user, 5, { counted: false }),
+        ),
+      ],
+      [],
+      INITIAL_SCORING,
+      NOW,
+    )!;
+    expect(line.leadProductId).toBe("vanilla");
+    expect(line.peopleCount).toBe(1);
+    expect(line.rawAverage).toBe(5);
+  });
 });
 
 it("averages each person's answered flavors independently for each ranking", () => {

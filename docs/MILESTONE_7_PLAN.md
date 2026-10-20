@@ -232,13 +232,13 @@ Most of what remains is sold as a few base recipes in several flavors:
 - **Other line figures:**
   - **Tried** is the number of distinct people with a trial on an eligible flavor.
   - **Recent** is the number of distinct people who rated one in the last 7 days.
-- **Order.** Each ranking sorts by full-precision score descending, then people descending, then the lead flavor's product ID. With one flavor per line, Closest is exactly today's order.
+- **Order.** Each ranking sorts by full-precision score descending, then people descending, then the stable recipe line ID, so changing its representative cannot reorder tied rankings (owner revision, 2026-10-20).
 - **Labels and sorts:**
   - Early applies at 1–9 people, counted separately for each ranking.
   - Most rated sorts by people.
   - "Start with these" and "Still waiting" use Closest.
 - **Lead flavor.** It supplies the card photo and title link.
-  - It is the eligible flavor with the most counted ratings in that food.
+  - It is the eligible flavor with the most counted ratings in that food answering either primary question; answering both counts once (owner revision, 2026-10-20).
   - Ties go to the flavor's own Closest score, then the earliest published.
   - It is stored on the stats row.
 - **Flavor scores** come from `product_category_stats`.

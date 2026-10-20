@@ -21,6 +21,7 @@ import { productPath } from "../../lib/site-chrome";
 
 // One flavor of a recipe line, with its own score in the ranking shown.
 export interface ListedFlavor {
+  imageId: string | null;
   productId: string;
   slug: string;
   name: string;
@@ -135,8 +136,15 @@ export function FlavorList({
                 className="va-flavors__name"
                 to={productPath(country, flavor.slug, food)}
               >
-                {flavor.label}
-                <span className="sr-only">: {flavor.name}</span>
+                <ProductThumbnail
+                  imageId={flavor.imageId}
+                  food={food}
+                  size="small"
+                />
+                <span>
+                  {flavor.label}
+                  <span className="sr-only">: {flavor.name}</span>
+                </span>
               </Link>
               <span className="va-flavors__meta va-small va-muted">
                 {flavor.isNew && <NewBadge />}

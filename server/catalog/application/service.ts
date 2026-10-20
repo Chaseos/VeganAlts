@@ -1005,6 +1005,7 @@ export function lineFlavors(
       name: row.name,
       flavor: row.flavor,
       label: flavorLabel(row, rows),
+      imageId: row.imageId,
       // Answers in the ranking shown.
       ratingCount: count,
       score: count >= FLAVOR_SCORE_MIN_ANSWERS ? score : null,

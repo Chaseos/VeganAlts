@@ -58,7 +58,7 @@ tried AS (
   GROUP BY e.family_id,e.category_id
 ),
 flavor AS (
-  SELECT e.family_id,e.category_id,e.product_id,e.published_at,COUNT(r.similarity) AS n,TOTAL(r.similarity) AS total
+  SELECT e.family_id,e.category_id,e.product_id,e.published_at,COUNT(r.rating_id) AS reviews,COUNT(r.similarity) AS n,TOTAL(r.similarity) AS total
   FROM eligible e LEFT JOIN rated r ON r.product_id=e.product_id AND r.category_id=e.category_id
   GROUP BY e.family_id,e.category_id,e.product_id
 )
@@ -73,7 +73,7 @@ SELECT g.family_id,g.category_id,
   CASE WHEN l.enjoying>0 THEN (l.enjoyment_sum+?7)/(l.enjoying+?8) END,
   COALESCE(tr.tried,0),COALESCE(l.recent,0),
   (SELECT f.product_id FROM flavor f WHERE f.family_id=g.family_id AND f.category_id=g.category_id
-    ORDER BY f.n DESC,CASE WHEN f.n>0 THEN (f.total+?5)/(f.n+?6) END DESC,f.published_at IS NULL,f.published_at,f.product_id
+    ORDER BY f.reviews DESC,CASE WHEN f.n>0 THEN (f.total+?5)/(f.n+?6) END DESC,f.published_at IS NULL,f.published_at,f.product_id
     LIMIT 1),
   ?4
 FROM (SELECT DISTINCT family_id,category_id FROM eligible) g

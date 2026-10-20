@@ -180,11 +180,11 @@ const lineFirstPublishedSql = `COALESCE((SELECT f.first_published_at FROM family
   WHERE f.product_family_id=s.product_family_id AND f.category_id=s.category_id),p.published_at)`;
 const lineIdentity = (publishedAt = lineFirstPublishedSql) =>
   `${identityOf(lineNameSql, publishedAt)},s.product_family_id AS lineId,${flavorCountSql} AS flavorCount`;
-// Closest order (RANKING milestone 7): score, people, then the lead flavor.
+// Stable line IDs keep representative flavor changes out of ranking ties.
 const lineOrderSql =
-  "s.bayesian_score DESC,s.people_count DESC,s.lead_product_id ASC";
+  "s.bayesian_score DESC,s.people_count DESC,s.product_family_id ASC";
 const tastiestOrderSql =
-  "s.enjoyment_score DESC,s.enjoyment_people DESC,s.lead_product_id ASC";
+  "s.enjoyment_score DESC,s.enjoyment_people DESC,s.product_family_id ASC";
 const lineSampleSql = "s.people_count>0 AND s.bayesian_score IS NOT NULL";
 const tastiestSampleSql =
   "s.enjoyment_people>0 AND s.enjoyment_score IS NOT NULL";
@@ -481,7 +481,7 @@ export class D1CatalogRepository implements CatalogRepository {
           `SELECT lf.product_family_id AS lineId,lf.id,lf.slug,lf.name,lf.flavor,lf.seasonal,lfv.id AS versionId,lf.published_at AS publishedAt,
             ps.bayesian_score AS closestScore,COALESCE(ps.rating_count,0) AS closestCount,
             ps.enjoyment_score AS tastiestScore,COALESCE(ps.enjoyment_count,0) AS tastiestCount,
-            ${allergensSql("lfv")} AS allergens,
+            ${allergensSql("lfv")} AS allergens,${frontImageSql("lfv")} AS imageId,
             CASE WHEN 1=1${match.sql} THEN 1 ELSE 0 END AS matches
           FROM ${lineFlavorJoins("?")}
           LEFT JOIN product_category_stats ps ON ps.product_version_id=lfv.id AND ps.category_id=lfc.category_id
@@ -816,7 +816,7 @@ export class D1CatalogRepository implements CatalogRepository {
             FROM family_category_stats s ${lineJoins}
             WHERE s.category_id IN (SELECT category_id FROM product_categories WHERE product_id=?) AND (${anyLineSampleSql})),
           tasty AS (SELECT s.categoryId,s.lineId,
-            ROW_NUMBER() OVER (PARTITION BY s.categoryId ORDER BY s.tastiestScore DESC,s.tastiestPeople DESC,s.leadId) AS tastiestRank,
+            ROW_NUMBER() OVER (PARTITION BY s.categoryId ORDER BY s.tastiestScore DESC,s.tastiestPeople DESC,s.lineId) AS tastiestRank,
             COUNT(*) OVER (PARTITION BY s.categoryId) AS tastiestCount
             FROM ranked s WHERE s.tastiestPeople>0)
           SELECT r.categoryId,r.rank,r.rankedCount,r.score,r.people,t.tastiestRank,COALESCE(t.tastiestCount,0) AS tastiestCount,
@@ -876,9 +876,10 @@ export class D1CatalogRepository implements CatalogRepository {
     return (
       await this.db
         .prepare(
-          `SELECT p.id,p.slug,p.name,p.flavor,
+          `SELECT p.id,p.slug,p.name,p.flavor,${frontImageSql("v")} AS imageId,
             COALESCE((SELECT json_group_array(c.slug) FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 WHERE pc.product_id=p.id),'[]') AS foods
-          FROM products p WHERE p.product_family_id=? AND p.country_id=? AND p.id<>? AND p.lifecycle_status='active'
+          FROM products p LEFT JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
+          WHERE p.product_family_id=? AND p.country_id=? AND p.id<>? AND p.lifecycle_status='active'
           ORDER BY p.flavor IS NOT NULL,p.flavor,p.name,p.id LIMIT 50`,
         )
         .bind(lineId, countryId, productId)

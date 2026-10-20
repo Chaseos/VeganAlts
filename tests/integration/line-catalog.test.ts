@@ -154,6 +154,85 @@ async function world() {
   };
 }
 
+it("returns each flavor's own accepted front photo in cards and product siblings", async () => {
+  const w = await world();
+  for (const [product, state] of [
+    [w.original, "accepted"],
+    [w.vanilla, "accepted"],
+    [w.strawberry, "pending"],
+  ] as const)
+    await db
+      .prepare(
+        "INSERT INTO product_images(id,product_version_id,slot,state,full_r2_key,thumbnail_r2_key,created_at,updated_at) VALUES(?,?,'front',?,'full','thumb',1,1)",
+      )
+      .bind(`photo-${product.id}`, product.version, state)
+      .run();
+  const page = await catalog.category(w.us, w.cat);
+  const oat = page.ranked.find((line) => line.lineId === w.oatMilk.id)!;
+  expect(
+    Object.fromEntries(
+      oat.flavors.map((flavor) => [flavor.productId, flavor.imageId]),
+    ),
+  ).toEqual({
+    [w.original.id]: `photo-${w.original.id}`,
+    [w.vanilla.id]: `photo-${w.vanilla.id}`,
+    [w.strawberry.id]: null,
+  });
+  expect(
+    (await catalog.product(w.us, w.strawberry.id, null)).otherFlavors,
+  ).toMatchObject([
+    { id: w.original.id, imageId: `photo-${w.original.id}` },
+    { id: w.vanilla.id, imageId: `photo-${w.vanilla.id}` },
+  ]);
+});
+
+it("uses taste-only reviews to choose the representative without adding Closest votes", async () => {
+  const w = await world();
+  const before = (await catalog.category(w.us, w.cat)).ranked.find(
+    (line) => line.lineId === w.oatMilk.id,
+  )!;
+  expect(before.leadProduct.id).toBe(w.strawberry.id);
+  for (const user of w.f.users.slice(0, 2))
+    await ratings.rate(user, w.vanilla.version, w.cat, null, { enjoyment: 5 });
+  const after = (await catalog.category(w.us, w.cat)).ranked.find(
+    (line) => line.lineId === w.oatMilk.id,
+  )!;
+  expect(after.leadProduct.id).toBe(w.vanilla.id);
+  expect(after.score).toBe(before.score);
+  expect(after.people).toBe(before.people);
+  await ratings.rebuildVersions([w.vanilla.version]);
+  expect(
+    (await catalog.category(w.us, w.cat)).ranked.find(
+      (line) => line.lineId === w.oatMilk.id,
+    )!.leadProduct.id,
+  ).toBe(w.vanilla.id);
+});
+
+it("breaks tied rankings by stable line ID instead of the representative product", async () => {
+  const w = await world();
+  await db
+    .prepare(
+      "UPDATE family_category_stats SET people_count=3,bayesian_score=4,enjoyment_people=3,enjoyment_score=4 WHERE product_family_id IN (?,?) AND category_id=?",
+    )
+    .bind(w.oatMilk.id, w.beanMilk.id, w.cat)
+    .run();
+  for (const lead of [w.original.id, w.vanilla.id]) {
+    await db
+      .prepare(
+        "UPDATE family_category_stats SET lead_product_id=? WHERE product_family_id=? AND category_id=?",
+      )
+      .bind(lead, w.oatMilk.id, w.cat)
+      .run();
+    for (const view of ["top", "tastiest"] as const) {
+      const ranked = (await catalog.category(w.us, w.cat, { view })).ranked;
+      expect(ranked.map((line) => line.lineId)).toEqual([
+        w.beanMilk.id,
+        w.oatMilk.id,
+      ]);
+    }
+  }
+});
+
 it("lists recipe lines with their flavors in both rankings", async () => {
   const w = await world();
   const top = await catalog.category(w.us, w.cat);

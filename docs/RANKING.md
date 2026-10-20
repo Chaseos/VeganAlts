@@ -410,11 +410,11 @@ Tastiest has its own configurable `C` and `m`, which start at 3.5 and 10.
 
 **Order and labels.**
 
-- **Sort order.** Each ranking sorts by full-precision score descending, then people descending, then the lead flavor's product ID.
+- **Sort order.** Each ranking sorts by full-precision score descending, then people descending, then the recipe line's ID. The stable line ID keeps a change of representative flavor from reordering tied rankings.
 - **Early** applies at 1–9 people, per ranking.
 - **Most rated** sorts by people.
-- **The lead flavor** supplies the row's photo and link: the eligible flavor with the most counted ratings in that food, with ties going to its Closest score and then the earliest published.
-- **Equivalence.** With exactly one flavor per line, every Closest score, rank and order equals the §8 and §13 result for that product.
+- **The lead flavor** supplies the row's photo and link: the eligible flavor with the most counted ratings in that food, answering either primary question (owner revision, 2026-10-20). A rating answering both counts once. Ties go to its own Closest score, then the earliest published, then product ID. Excluded ratings and historical formulas do not count.
+- **Equivalence.** With exactly one flavor per line, the Closest score, population and eligibility equal the §8 and §13 result for that product; exact score-and-population ties use the stable line ID.
 
 **Flavors inside a line.**
 

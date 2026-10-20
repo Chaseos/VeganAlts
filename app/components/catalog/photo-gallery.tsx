@@ -3,6 +3,7 @@ import type { ImageSlot } from "@server/media/domain/media";
 import { FoodIcon } from "../icons/food-icons";
 import { SLOT_LABELS } from "../photo-slots";
 import { useHydrated } from "../../lib/use-hydrated";
+import { usePhotoSwipe } from "../../lib/use-photo-swipe";
 
 const SLOTS = Object.keys(SLOT_LABELS) as ImageSlot[];
 
@@ -11,20 +12,23 @@ export function PhotoGallery({
   productName,
   food,
   images,
+  onOpenPhoto,
 }: {
   productName: string;
   food: string;
   images: { id: string; slot: string; hasEvidence: number }[];
+  onOpenPhoto?: (id: string, opener: HTMLAnchorElement) => void;
 }) {
   const id = useId();
   const hydrated = useHydrated();
   const [active, setActive] = useState(0);
   const radios = useRef<(HTMLInputElement | null)[]>([]);
-  const gesture = useRef<{ id: number; x: number; y: number } | null>(null);
-  const swiped = useRef(false);
   const photos = SLOTS.flatMap((slot) => {
     const image = images.find((image) => image.slot === slot);
     return image ? [{ ...image, slot }] : [];
+  });
+  const swipe = usePhotoSwipe((direction) => {
+    if (photos.length > 1) step(direction);
   });
   if (!photos.length)
     return (
@@ -42,41 +46,7 @@ export function PhotoGallery({
   return (
     <fieldset className="va-gallery" aria-roledescription="carousel">
       <legend className="sr-only">Package photos</legend>
-      <div
-        className="va-gallery__stage"
-        onPointerDown={(event) => {
-          swiped.current = false;
-          gesture.current = event.isPrimary
-            ? { id: event.pointerId, x: event.clientX, y: event.clientY }
-            : null;
-        }}
-        onPointerCancel={() => {
-          gesture.current = null;
-        }}
-        onPointerUp={(event) => {
-          const start = gesture.current;
-          gesture.current = null;
-          if (!start || start.id !== event.pointerId || photos.length < 2)
-            return;
-          const dx = event.clientX - start.x;
-          const dy = event.clientY - start.y;
-          if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy) * 1.3) {
-            swiped.current = true;
-            step(dx < 0 ? 1 : -1);
-          }
-        }}
-        onClickCapture={(event) => {
-          if (swiped.current) {
-            swiped.current = false;
-            // A drag may synthesize a click on the full-size link. Keyboard
-            // activation has detail 0 and must remain available after a swipe.
-            if (event.detail > 0) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-          }
-        }}
-      >
+      <div className="va-gallery__stage" {...swipe}>
         <div className="va-gallery__track">
           {photos.map((image, index) => (
             <div
@@ -85,6 +55,20 @@ export function PhotoGallery({
             >
               <a
                 href={`/media/${image.id}/${image.hasEvidence ? "evidence" : "full"}`}
+                aria-haspopup={onOpenPhoto ? "dialog" : undefined}
+                onClick={(event) => {
+                  if (
+                    !onOpenPhoto ||
+                    event.button !== 0 ||
+                    event.metaKey ||
+                    event.ctrlKey ||
+                    event.shiftKey ||
+                    event.altKey
+                  )
+                    return;
+                  event.preventDefault();
+                  onOpenPhoto(image.id, event.currentTarget);
+                }}
               >
                 <img
                   src={`/media/${image.id}/full`}

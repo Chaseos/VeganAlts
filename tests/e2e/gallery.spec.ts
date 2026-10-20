@@ -30,8 +30,12 @@ async function extraPhotos() {
   };
 }
 
-async function swipe(page: Page, direction: "left" | "right") {
-  const box = (await page.locator(".va-gallery__stage").boundingBox())!;
+async function swipe(
+  page: Page,
+  direction: "left" | "right",
+  stage = ".va-gallery__stage",
+) {
+  const box = (await page.locator(stage).boundingBox())!;
   const start = box.x + box.width * (direction === "left" ? 0.75 : 0.25);
   const end = box.x + box.width * (direction === "left" ? 0.25 : 0.75);
   const y = box.y + box.height * 0.35;
@@ -120,6 +124,77 @@ test("photo thumbnails, arrows and horizontal swipes keep the page in place", as
       await page.setViewportSize({ width: 320, height: 844 });
       await accessible(page);
     }
+  } finally {
+    await page.close();
+    await cleanup();
+  }
+});
+
+test("full-size photos stay in an accessible overlay with carousel controls and focus restoration", async ({
+  page,
+}) => {
+  test.skip(!!process.env.TEST_BASE_URL, "Gallery fixtures are local only.");
+  const cleanup = await extraPhotos();
+  try {
+    await page.goto("/us/products/oatly-full-fat?food=milk");
+    const gallery = page.getByRole("group", { name: "Package photos" });
+    await gallery.locator(".va-gallery__tab--back").click();
+    const opener = gallery.getByRole("link", {
+      name: "Oatly Oatmilk Full Fat: Back",
+      exact: true,
+    });
+    await opener.scrollIntoViewIfNeeded();
+    const scroll = await page.evaluate(() => scrollY);
+    const url = page.url();
+    await opener.click();
+    const viewer = page.getByRole("dialog", {
+      name: "Oatly Oatmilk Full Fat photos",
+      exact: true,
+    });
+    await expect(viewer).toBeVisible();
+    await expect(viewer.getByRole("img")).toHaveAccessibleName(
+      "Oatly Oatmilk Full Fat: Back",
+    );
+    await expect(
+      viewer.getByRole("button", { name: "Close full-size photos" }),
+    ).toBeFocused();
+    await viewer.getByRole("button", { name: "Next full-size photo" }).click();
+    await expect(viewer.getByRole("img")).toHaveAccessibleName(
+      "Oatly Oatmilk Full Fat: Nutrition & allergens",
+    );
+    await page.keyboard.press("ArrowRight");
+    await expect(viewer.getByRole("img")).toHaveAccessibleName(
+      "Oatly Oatmilk Full Fat: Front",
+    );
+    await page.keyboard.press("ArrowLeft");
+    await swipe(page, "right", ".va-photo-viewer__stage");
+    await expect(viewer.getByRole("img")).toHaveAccessibleName(
+      "Oatly Oatmilk Full Fat: Back",
+    );
+    await swipe(page, "left", ".va-photo-viewer__stage");
+    await expect(viewer.getByRole("img")).toHaveAccessibleName(
+      "Oatly Oatmilk Full Fat: Nutrition & allergens",
+    );
+    await accessible(page);
+    expect(page.url()).toBe(url);
+    await page.keyboard.press("Escape");
+    await expect(viewer).not.toBeVisible();
+    await expect(opener).toBeFocused();
+    expect(await page.evaluate(() => scrollY)).toBe(scroll);
+    await page.getByText("Add or improve photos", { exact: true }).click();
+    await page
+      .locator(".photo-slots")
+      .getByRole("link", { name: "Oatly Oatmilk Full Fat: Front", exact: true })
+      .click();
+    await expect(viewer).toBeVisible();
+    await expect(viewer.getByRole("img")).toHaveAccessibleName(
+      "Oatly Oatmilk Full Fat: Front",
+    );
+    await viewer
+      .getByRole("button", { name: "Close full-size photos" })
+      .click();
+    await expect(viewer).not.toBeVisible();
+    expect(page.url()).toBe(url);
   } finally {
     await page.close();
     await cleanup();
