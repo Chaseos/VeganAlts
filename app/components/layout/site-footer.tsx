@@ -43,7 +43,7 @@ export function SiteFooter({
         <nav className="va-footer__columns" aria-label="Footer">
           {variant === "full" && aisles.length > 0 && (
             <div className="va-footer__group">
-              <h2 className="va-footer__heading">Popular aisles</h2>
+              <h2 className="va-footer__heading">Popular categories</h2>
               <ul>
                 {aisles.slice(0, POPULAR_AISLE_COUNT).map((aisle) => (
                   <li key={aisle.slug}>
@@ -53,7 +53,9 @@ export function SiteFooter({
                   </li>
                 ))}
                 <li>
-                  <Link to={searchPath(country.code)}>Browse all aisles</Link>
+                  <Link to={searchPath(country.code)}>
+                    Browse all categories
+                  </Link>
                 </li>
               </ul>
             </div>

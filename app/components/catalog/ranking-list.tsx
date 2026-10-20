@@ -10,7 +10,7 @@ import {
   Badge,
   EarlyBadge,
   NewBadge,
-  SeasonalProductBadge,
+  SeasonalBadge,
   TrendingBadge,
 } from "../ui/badges";
 import { DetailBars, DetailCells } from "../ui/bars";
@@ -142,7 +142,7 @@ export function FlavorList({
               <div className="va-flavors__body">
                 <div className="va-flavors__heading">
                   {flavor.isNew && <NewBadge />}
-                  {flavor.seasonal && <SeasonalProductBadge />}
+                  {flavor.seasonal && <SeasonalBadge />}
                   <Link
                     className="va-flavors__name"
                     to={productPath(country, flavor.slug, food)}
@@ -220,7 +220,7 @@ function LineChips({
       {line.early && <EarlyBadge count={line.people} />}
       {line.isNew && <NewBadge />}
       {line.trending && <TrendingBadge />}
-      {line.seasonal && <SeasonalProductBadge />}
+      {line.seasonal && <SeasonalBadge />}
       {line.badges.map((badge) => (
         <Badge key={badge} tone="good">
           {badge}

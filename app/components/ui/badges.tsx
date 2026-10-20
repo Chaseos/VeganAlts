@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "../icons/icon";
 import { joinList, plural } from "../../lib/format";
-import { seasonLabel, type Season } from "@server/taxonomy/domain/season";
 
 export type BadgeTone =
   "early" | "new" | "detail" | "neutral" | "good" | "warn";
@@ -33,14 +32,9 @@ export function TrendingBadge() {
   return <Badge tone="new">Trending</Badge>;
 }
 
-// A product sold only part of the year (milestone 7).
-export function SeasonalProductBadge() {
+// Foods and products sold only part of the year use the same label.
+export function SeasonalBadge() {
   return <Badge tone="neutral">Seasonal</Badge>;
-}
-
-// A seasonal food stays listed all year; the badge says when it is sold.
-export function SeasonBadge({ season }: { season: Season }) {
-  return <Badge tone="neutral">Seasonal · {seasonLabel(season)}</Badge>;
 }
 
 const VEGAN_STATUS: Record<string, { label: string; tone: string }> = {

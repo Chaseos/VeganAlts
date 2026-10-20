@@ -3,7 +3,7 @@ import { Form, Link } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
 import { Icon } from "../icons/icon";
 import { ScoreLabel } from "../ui/score";
-import { Badge, SeasonBadge } from "../ui/badges";
+import { Badge, SeasonalBadge } from "../ui/badges";
 import type { Season } from "@server/taxonomy/domain/season";
 import { plural, productName } from "../../lib/format";
 import { ProductThumbnail } from "./product-thumbnail";
@@ -39,14 +39,12 @@ export function FoodCard({
   country,
   food,
   place,
-  loading = false,
   level = 3,
 }: {
   country: string;
   food: AisleFood;
   // Where the food sits ("Cheese"), where cards from several aisles mix.
   place?: string;
-  loading?: boolean;
   // One below the heading that introduces the cards.
   level?: 2 | 3;
 }) {
@@ -60,7 +58,7 @@ export function FoodCard({
           <Heading className="va-food-card__name">
             <Link to={href}>{food.name}</Link>
           </Heading>
-          {food.season && <SeasonBadge season={food.season} />}
+          {food.season && <SeasonalBadge />}
         </div>
         <span className="va-food-card__count">
           {plural(food.productCount, "product")}
@@ -97,9 +95,7 @@ export function FoodCard({
           ))}
         </ol>
       ) : (
-        <p className="va-food-card__empty">
-          {loading ? "Loading the top products…" : "No ranked swaps yet."}
-        </p>
+        <p className="va-food-card__empty">No ranked swaps yet.</p>
       )}
       {food.top.length > 0 && food.top.length < 3 && (
         <p className="va-food-card__more">
@@ -113,23 +109,15 @@ export function FoodCard({
   );
 }
 
-// An aisle's foods, as a page or in the desktop aisle menu.
+// A category page's foods and ranked product previews.
 export function AislePanel({
   country,
   data,
-  mode,
-  headingLevel = 1,
-  loading = false,
 }: {
   country: string;
   data: AisleData;
-  mode: "page" | "menu";
-  headingLevel?: 1 | 2;
-  // Top products are still loading (the menu shows names and counts first).
-  loading?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const Heading = headingLevel === 1 ? "h1" : "h2";
   const foods = data.foods;
   const ranked = foods.reduce((sum, food) => sum + food.rankedCount, 0);
   const lower = query.trim().toLowerCase();
@@ -143,17 +131,16 @@ export function AislePanel({
   );
   const aisleName = data.aisle.name.toLowerCase();
   return (
-    <div className={`va-aisle va-aisle--${mode}`}>
+    <div className="va-aisle va-aisle--page">
       <div className="va-aisle__top">
         <span className="va-aisle__tile" aria-hidden="true">
           <FoodIcon slug={data.aisle.slug} size={28} />
         </span>
         <div className="va-aisle__title">
-          <Heading className="va-aisle__name">{data.aisle.name}</Heading>
+          <h1 className="va-aisle__name">{data.aisle.name}</h1>
           <p className="va-small va-muted">
             {plural(foods.length, "food")}
-            {loading ? "" : ` · ${plural(ranked, "ranked swap")}`} · top 3 for
-            each
+            {` · ${plural(ranked, "ranked swap")}`} · top 3 for each
           </p>
         </div>
         <Form
@@ -176,14 +163,6 @@ export function AislePanel({
             />
           </label>
         </Form>
-        {mode === "menu" && (
-          <Link
-            className="va-link va-aisle__all"
-            to={foodPath(country, data.aisle.slug)}
-          >
-            See the whole aisle <Icon name="arrowRight" size={16} />
-          </Link>
-        )}
       </div>
       <div className="va-aisle__body va-aisle__body--single">
         <div className="va-aisle__foods">
@@ -191,12 +170,7 @@ export function AislePanel({
             <ul className="va-food-grid">
               {shown.map((food) => (
                 <li key={food.slug}>
-                  <FoodCard
-                    country={country}
-                    food={food}
-                    loading={loading}
-                    level={headingLevel === 1 ? 2 : 3}
-                  />
+                  <FoodCard country={country} food={food} level={2} />
                 </li>
               ))}
             </ul>
@@ -205,7 +179,7 @@ export function AislePanel({
               <p className="va-heading-s">
                 {lower
                   ? `No ${aisleName} foods match “${query.trim()}”`
-                  : `No foods in this aisle yet`}
+                  : `No foods in this category yet`}
               </p>
               <p className="va-muted">
                 Try the search bar above, or suggest it as a new food.

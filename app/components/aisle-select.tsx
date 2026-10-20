@@ -16,7 +16,7 @@ export function AisleSelect({
   name,
   required = false,
   error,
-  hint = "Where would you find it in a store?",
+  hint = "Choose the broad category this food belongs to.",
 }: {
   id: string;
   aisles: AisleOption[];
@@ -31,7 +31,7 @@ export function AisleSelect({
     errorId = `${id}-error`;
   return (
     <>
-      <label htmlFor={id}>Aisle{required ? " (required)" : ""}</label>
+      <label htmlFor={id}>Category{required ? " (required)" : ""}</label>
       <select
         id={id}
         name={name}
@@ -42,7 +42,7 @@ export function AisleSelect({
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${hintId} ${errorId}` : hintId}
       >
-        <option value="">Choose an aisle</option>
+        <option value="">Choose a category</option>
         {aisles.map((aisle) => (
           <option key={aisle.id} value={aisle.id}>
             {aisle.name}

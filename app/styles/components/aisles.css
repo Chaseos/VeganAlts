@@ -280,11 +280,18 @@
   grid-template-columns: 250px minmax(0, 1fr);
 }
 
+.va-foods-menu__categories {
+  padding: var(--va-space-4) var(--va-space-4) var(--va-space-4) 0;
+  border-right: 1px solid var(--va-line);
+}
+.va-foods-menu__categories > h2 {
+  margin: 0 10px 10px;
+  color: var(--va-muted);
+}
 .va-foods-menu__aisles {
   margin: 0;
-  padding: var(--va-space-4) var(--va-space-4) var(--va-space-4) 0;
+  padding: 0;
   list-style: none;
-  border-right: 1px solid var(--va-line);
 }
 
 .va-foods-menu__aisle {
@@ -329,4 +336,44 @@
 
 .va-foods-menu__preview {
   padding: var(--va-space-6) 0 var(--va-space-6) var(--va-space-6);
+}
+
+.va-foods-menu__foods {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.va-foods-menu__food {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 80px;
+  padding: 14px;
+  border: 1px solid var(--va-line);
+  border-radius: var(--va-radius-card);
+  background: var(--va-surface);
+  color: var(--va-ink);
+  text-decoration: none;
+}
+.va-foods-menu__food:hover {
+  background: var(--va-hover);
+}
+.va-foods-menu__food > svg {
+  flex: none;
+  color: var(--va-good);
+}
+.va-foods-menu__food > span {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.va-foods-menu__more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
 }

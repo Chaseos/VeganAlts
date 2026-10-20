@@ -16,7 +16,7 @@ import {
   AllergenLabel,
   Badge,
   EarlyBadge,
-  SeasonalProductBadge,
+  SeasonalBadge,
   TrendingBadge,
   NewBadge,
   VeganStatusChip,
@@ -186,10 +186,10 @@ export default function Product({
             ...(p.place?.aisle
               ? [
                   {
-                    // "Eggs aisle / Eggs" rather than "Eggs / Eggs".
+                    // Distinguish the broad category from its namesake food.
                     label:
                       p.place.aisle.name === food?.name
-                        ? `${p.place.aisle.name} aisle`
+                        ? `${p.place.aisle.name} category`
                         : p.place.aisle.name,
                     to: aislePath,
                   },
@@ -217,7 +217,7 @@ export default function Product({
                 <AllergenLabel allergens={allergens} />
                 {p.isNew && <NewBadge />}
                 {food?.line?.trending && <TrendingBadge />}
-                {p.seasonal === 1 && <SeasonalProductBadge />}
+                {p.seasonal === 1 && <SeasonalBadge />}
                 {!!p.developmentOnly && <Badge>Demo product</Badge>}
               </p>
               <h1 className="va-product__name">{title}</h1>

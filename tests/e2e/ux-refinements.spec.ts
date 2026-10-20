@@ -109,6 +109,10 @@ test("phone country selection is visible, keyboard accessible and before aisles"
 }) => {
   test.skip(!isPhone(page), "Phone header and sheet.");
   await page.goto("/us/milk");
+  // Escape and focus restoration belong to the hydrated header.
+  await expect(
+    page.getByRole("button", { name: "Menu", exact: true }),
+  ).toBeVisible();
   const country = page.getByLabel(/^Country: United States/);
   await expect(country).toBeVisible();
   await expect(country).toContainText("US");
@@ -132,7 +136,7 @@ test("phone country selection is visible, keyboard accessible and before aisles"
   expect(headings.slice(0, 3).map((s) => s.trim())).toEqual([
     "Country",
     "Account",
-    "Aisles",
+    "Categories",
   ]);
   await page.keyboard.press("Escape");
   await expect(

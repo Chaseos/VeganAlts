@@ -14,7 +14,7 @@ import {
 import { EmptyState } from "../components/ui/feedback";
 import { Pagination } from "../components/ui/navigation";
 import { ButtonLink } from "../components/ui/button";
-import { CheckThePackage, SeasonBadge } from "../components/ui/badges";
+import { CheckThePackage, SeasonalBadge } from "../components/ui/badges";
 import { seasonOf } from "@server/taxonomy/domain/season";
 import { FoodIcon } from "../components/icons/food-icons";
 import {
@@ -191,8 +191,8 @@ export function meta({ loaderData, matches }: Route.MetaArgs) {
 function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
   if (loaderData?.kind === "aisle")
     return publicMetadata(
-      `${loaderData.aisle.name} aisle · Vegan swaps by food`,
-      `Every food in the ${loaderData.aisle.name.toLowerCase()} aisle with its closest vegan swaps, ranked by people who’ve tried them.`,
+      `${loaderData.aisle.name} category · Vegan swaps by food`,
+      `Every food in the ${loaderData.aisle.name.toLowerCase()} category with its closest vegan swaps, ranked by people who’ve tried them.`,
       foodPath(loaderData.market.code, loaderData.aisle.slug),
       loaderData.origin,
       loaderData.staging,
@@ -261,7 +261,7 @@ function AislePage({ data }: { data: AisleData }) {
           { label: data.aisle.name },
         ]}
       />
-      <AislePanel country={data.market.code} data={data} mode="page" />
+      <AislePanel country={data.market.code} data={data} />
     </PageShell>
   );
 }
@@ -408,10 +408,10 @@ function FoodRankingList({ data }: { data: FoodData }) {
                 ...(data.place.aisle
                   ? [
                       {
-                        // "Eggs aisle / Eggs" rather than "Eggs / Eggs".
+                        // Distinguish the category from its food of the same name.
                         label:
                           data.place.aisle.name === food
-                            ? `${food} aisle`
+                            ? `${food} category`
                             : data.place.aisle.name,
                         to: aislePath,
                       },
@@ -425,7 +425,7 @@ function FoodRankingList({ data }: { data: FoodData }) {
             </h1>
             {season && (
               <p className="va-ranking__season">
-                <SeasonBadge season={season} />
+                <SeasonalBadge />
               </p>
             )}
             <p className="va-ranking__summary">
@@ -705,7 +705,7 @@ function FoodSidebar({
 }) {
   const aisle = sidebar.aisle!;
   return (
-    <nav className="va-food-side" aria-label={`${aisle.name} aisle`}>
+    <nav className="va-food-side" aria-label={`${aisle.name} category`}>
       <Link className="va-food-side__aisle" to={foodPath(country, aisle.slug)}>
         <FoodIcon slug={aisle.slug} size={20} />
         {aisle.name}
@@ -729,7 +729,7 @@ function FoodSidebar({
       </ul>
       {sidebar.otherAisles.length > 0 && (
         <div>
-          <p className="va-overline">Other aisles</p>
+          <p className="va-overline">Other categories</p>
           <ul>
             {sidebar.otherAisles.map((other) => (
               <li key={other.slug}>

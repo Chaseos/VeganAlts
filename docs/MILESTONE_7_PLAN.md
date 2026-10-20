@@ -140,10 +140,10 @@ Most of what remains is sold as a few base recipes in several flavors:
 
 - **Popularity orders the aisles and foods in each country.** Most ratings come first. A country without ratings falls back to a default store order.
 - **Browse every food shows aisle cards.** Each card holds an aisle's three most popular foods and "See all" when there are more. A card is only as tall as its foods; a one-food aisle isn't padded out to match its row.
-- **One Foods menu on desktop.** A "Foods" button in the header row opens every aisle, with the aisle under the pointer or focus showing its foods beside them, so the header stays one row with a wider search however many aisles a country has (owner decision, 2026-10-12). A mouse opens it by resting on it. Touch and the keyboard open it on press.
+- **One Foods menu on desktop (owner revision, 2026-10-20).** A "Foods" button opens every category (the public name for the existing aisles), with the category under the pointer or focus showing its food types and product counts from the embedded country navigation data. Opening, switching or filtering the menu sends no route-data requests or prefetches. Branded products and rankings stay on the food pages. A mouse opens it by resting on it; touch and the keyboard open it on press.
 - **A Trending tag marks rising swaps everywhere.** A line that is trending in its food carries a Trending tag in every other list and on its product page, the way New already does.
 - **Trending looks back a quarter.** People shop every week or two and may check the site every month or two, so what rose over the last 90 days is still news to them.
-- **Seasonal foods and products are tagged.** Eggnog and Turkey Roast are seasonal foods with their months, and any product can carry a Seasonal tag.
+- **Seasonal foods and products are tagged.** Eggnog and Turkey Roast are seasonal foods, and any product can carry a Seasonal tag. Public tags show only "Seasonal", without months or dates (owner revision, 2026-10-20).
 - **Eggs for Baking is its own food.** Baking powders are not for scrambling. Fried and hard-boiled eggs join the watch list.
 - **Deli meats sit in their animal's aisle,** named "[Animal] Deli Slices". Turkey Deli Slices starts now.
 
@@ -553,7 +553,7 @@ Existing foods keep their current names and other names unless a row says otherw
   - Each card is as tall as its content. Cards in a row align at the top, not by stretching the shorter ones.
 - **Seasonal foods.**
   - A food can carry season months, for example Eggnog in November–January and Turkey Roast in October–December.
-  - Its ranking page, cards and search results show "Seasonal · Nov–Jan". It stays listed and ranked all year.
+  - Its ranking page, cards and search results show only "Seasonal", without months or dates (owner revision, 2026-10-20). It stays listed and ranked all year.
   - Operators set the months in the taxonomy tools, and the seed sets the two above.
 - **Seasonal products.**
   - A product can carry a Seasonal tag, for example a pumpkin-spice creamer.

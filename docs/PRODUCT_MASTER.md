@@ -1242,6 +1242,7 @@ Every product belongs to the one country it is added in.
 **Two levels: aisle › food (§04).** This replaces the milestone 5 taxonomy shape (aisle › shelf › food, with foods at depth three) and the milestone 6 starter shelves.
 
 - **Shape.** The taxonomy is two levels below the root, and shelves are removed.
+- **Public wording (owner, 2026-10-20).** Navigation calls the broad aisles "Categories" and their foods "food types". The desktop Foods menu shows these from the embedded country tree without requests on hover, focus or filtering. Branded products and rankings stay on the food pages. Existing internal identifiers and routes remain stable.
 - **The 18 aisles are universal,** the same in every country: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, and Bakery and desserts.
 - **Each food has one aisle, and an aisle names a kind of product, never an occasion** such as Breakfast. Thin foods are broadened rather than held back, and foods without products stay listed.
 - **An aisle follows how a food is used, not what the original is made from.** Mayonnaise is a condiment and Tzatziki a dip, as stores shelve them. Search finds a food from either side.
@@ -1259,7 +1260,7 @@ Every product belongs to the one country it is added in.
 
 **Seasons.**
 
-- **Seasonal foods.** A food can carry season months, for example Eggnog in November–January and Turkey Roast in October–December. It shows "Seasonal" with its months and stays listed and ranked all year.
+- **Seasonal foods.** A food can carry season months, for example Eggnog in November–January and Turkey Roast in October–December. Its public tag says only "Seasonal", with no months or dates (owner, 2026-10-20), and it stays listed and ranked all year.
 - **Seasonal products.** Any product can carry a Seasonal tag. A product in a seasonal food has it by default. A seasonal product off the shelf is not treated as discontinued.
 
 **Trending (§05).** Trending looks back a quarter, so a shopper who checks every month or two still sees what rose recently (RANKING, milestone 7).

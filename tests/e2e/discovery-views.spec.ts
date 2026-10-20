@@ -7,7 +7,7 @@ test("categories offer separate Top, Trending and New views and the homepage sur
 }) => {
   await page.goto("/");
   for (const name of [
-    "Popular aisles",
+    "Popular categories",
     "Trending now",
     "New and needs ratings",
   ])
@@ -63,14 +63,14 @@ test("home and footer show the same popular aisles and retain the complete direc
   await expect(cards).toHaveCount(6);
   const homeNames = await cards.locator(".va-browse__name").allTextContents();
   const footer = page.locator(".va-footer__group").filter({
-    has: page.getByRole("heading", { name: "Popular aisles" }),
+    has: page.getByRole("heading", { name: "Popular categories" }),
   });
   const links = footer.getByRole("link");
   await expect(links).toHaveCount(7);
   expect((await links.allTextContents()).slice(0, 6)).toEqual(homeNames);
   await page
     .getByRole("main")
-    .getByRole("link", { name: "Browse all aisles" })
+    .getByRole("link", { name: "Browse all categories" })
     .click();
   await expect(page).toHaveURL(/\/us\/search$/);
   await expect

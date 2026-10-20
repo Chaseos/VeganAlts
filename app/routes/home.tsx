@@ -14,7 +14,7 @@ import { ScoreLabel, RankFlag } from "../components/ui/score";
 import {
   Badge,
   EarlyBadge,
-  SeasonBadge,
+  SeasonalBadge,
   TrendingBadge,
 } from "../components/ui/badges";
 import { BROWSE_AISLE_FOODS } from "@server/ranking/domain/display";
@@ -309,7 +309,7 @@ function BrowseAisles({
     >
       <div className="va-home__heading">
         <h2 id="browse-title" className="va-home__title">
-          Popular aisles
+          Popular categories
         </h2>
         <p className="va-muted">
           {empty
@@ -318,7 +318,7 @@ function BrowseAisles({
         </p>
       </div>
       <Link className="va-link va-browse__all" to={searchPath(country)}>
-        Browse all aisles <Icon name="arrowRight" size={16} />
+        Browse all categories <Icon name="arrowRight" size={16} />
       </Link>
       {/* Phones: an accordion of aisles. Desktop: popular aisles in columns. */}
       <ul className="va-browse va-browse--phone">
@@ -512,7 +512,7 @@ function FoodRow({
           {food.season && (
             <>
               {" "}
-              <SeasonBadge season={food.season} />
+              <SeasonalBadge />
             </>
           )}
         </span>

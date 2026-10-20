@@ -9,11 +9,11 @@ export function AisleBar() {
   const { country, aisles } = useSiteChrome();
   if (!aisles.length) return null;
   return (
-    <nav className="va-aisle-bar" aria-label="Aisles">
+    <nav className="va-aisle-bar" aria-label="Categories">
       <ul>
         {aisles.map((aisle) => (
           <li key={aisle.slug}>
-            <NavLink to={foodPath(country.code, aisle.slug)} prefetch="intent">
+            <NavLink to={foodPath(country.code, aisle.slug)} discover="none">
               <FoodIcon slug={aisle.slug} size={20} className="va-tag-icon" />
               <span>{aisle.name}</span>
             </NavLink>

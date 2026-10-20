@@ -309,9 +309,11 @@ test("suggests a missing food inline and publishes the product once a moderator 
     await page.getByRole("button", { name: "Continue" }).click();
     // The aisle is part of the basics for a new food.
     await expect(page.getByRole("alert")).toContainText(
-      "Choose the aisle where you’d find it",
+      "Choose the category this food belongs in.",
     );
-    await page.getByLabel("Aisle (required)").selectOption({ label: "Pork" });
+    await page
+      .getByLabel("Category (required)")
+      .selectOption({ label: "Pork" });
     await chooseBrand(page, `Grill House ${stamp}`);
     await page.getByLabel("Product name (required)").fill(name);
     await page

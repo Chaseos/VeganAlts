@@ -994,7 +994,7 @@ function SeasonFields({
     <fieldset className="form-field">
       <legend>Season (optional)</legend>
       <p className="small muted">
-        A seasonal food stays listed all year and shows its months.
+        A seasonal food stays listed all year with a Seasonal tag.
       </p>
       <label htmlFor={`seasonStart-${id}`}>From</label>
       {month("seasonStart", start)}

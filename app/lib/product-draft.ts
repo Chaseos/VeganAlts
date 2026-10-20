@@ -206,7 +206,7 @@ export function basicsErrors(
   else if (draft.food.kind === "new") {
     if (!enough(draft.food.name)) errors.food = "Name the food it replaces.";
     if (!draft.food.aisleId)
-      errors.aisle = "Choose the aisle where you’d find it in a store.";
+      errors.aisle = "Choose the category this food belongs in.";
   }
   if (!enough(draft.brand)) errors.brand = "Enter the brand.";
   else if (!draft.brandChosen)

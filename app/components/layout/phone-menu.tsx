@@ -112,7 +112,7 @@ export function PhoneMenu() {
             {aisles.length > 0 && (
               <section aria-labelledby="sheet-aisles">
                 <h2 id="sheet-aisles" className="va-menu-heading">
-                  Aisles
+                  Categories
                 </h2>
                 <ul className="va-sheet__list">
                   {aisles.map((aisle) => (

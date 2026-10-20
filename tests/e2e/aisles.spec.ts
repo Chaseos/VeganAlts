@@ -2,7 +2,7 @@ import { expect, test } from "./fixtures";
 import { accessible } from "./a11y";
 import { isPhone } from "./site";
 
-test("the desktop Foods menu opens from the keyboard, shows each aisle's foods and returns focus", async ({
+test("the desktop Foods menu navigates categories and food types without catalog requests", async ({
   page,
 }) => {
   test.skip(isPhone(page), "Phones open aisle pages from the aisle chips.");
@@ -11,13 +11,23 @@ test("the desktop Foods menu opens from the keyboard, shows each aisle's foods a
   await page.goto("/us/beef-burgers");
   const foods = page.getByRole("button", { name: "Foods", exact: true });
   await expect(foods).toHaveAttribute("aria-expanded", "false");
+  const catalogRequests: string[] = [];
+  page.on("request", (request) => {
+    const { pathname } = new URL(request.url());
+    if (
+      pathname.endsWith(".data") ||
+      pathname.includes("/__manifest") ||
+      /^\/api\/v1\/(categories|products|search|suggest)(\/|$)/.test(pathname)
+    )
+      catalogRequests.push(request.url());
+  });
   await foods.focus();
   await page.keyboard.press("Enter");
   await expect(foods).toHaveAttribute("aria-expanded", "true");
   const menu = page.getByRole("region", { name: "Foods" });
   await expect(menu).toBeVisible();
   // Tab reaches the aisle shown, and its foods sit beside the list.
-  const aisles = menu.getByRole("list", { name: "Aisles" });
+  const aisles = menu.getByRole("list", { name: "Categories" });
   const beef = aisles.getByRole("link", { name: "Beef", exact: true });
   const names = (await aisles.getByRole("link").allInnerTexts()).map((n) =>
     n.trim(),
@@ -25,13 +35,13 @@ test("the desktop Foods menu opens from the keyboard, shows each aisle's foods a
   const next = names[(names.indexOf("Beef") + 1) % names.length]!;
   await page.keyboard.press("Tab");
   await expect(beef).toBeFocused();
-  await expect(
-    menu.getByRole("heading", { name: "Ground Beef" }),
-  ).toBeVisible();
-  // The top products arrive from the aisle page's cached data.
-  await expect(
-    menu.getByRole("link", { name: /Beyond Beef/ }).first(),
-  ).toBeVisible();
+  await expect(menu.getByRole("link", { name: /^Ground Beef/ })).toBeVisible();
+  // Counts come from the country tree; no ranked-product preview is loaded.
+  await expect(menu.getByRole("link", { name: /^Ground Beef/ })).toContainText(
+    /\d+ products?/,
+  );
+  await expect(menu.getByRole("link", { name: /Beyond Beef/ })).toHaveCount(0);
+  await expect(menu).not.toContainText(/Loading|No ranked swaps|top 3/);
   await accessible(page);
 
   // The arrow keys move between aisles, showing each one's foods.
@@ -47,14 +57,10 @@ test("the desktop Foods menu opens from the keyboard, shows each aisle's foods a
 
   // Foods sit directly in the aisle; the filter narrows them in place.
   await menu
-    .getByRole("searchbox", { name: "Find a food in Beef" })
+    .getByRole("searchbox", { name: "Find a food type in Beef" })
     .fill("burg");
-  await expect(
-    menu.getByRole("heading", { name: "Beef Burgers" }),
-  ).toBeVisible();
-  await expect(menu.getByRole("heading", { name: "Ground Beef" })).toHaveCount(
-    0,
-  );
+  await expect(menu.getByRole("link", { name: /^Beef Burgers/ })).toBeVisible();
+  await expect(menu.getByRole("link", { name: /^Ground Beef/ })).toHaveCount(0);
 
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
@@ -71,15 +77,32 @@ test("the desktop Foods menu opens from the keyboard, shows each aisle's foods a
   // closes by leaving.
   await foods.hover();
   await expect(menu).toBeVisible();
+  for (const name of names) {
+    await aisles.getByRole("link", { name, exact: true }).hover();
+    await expect(
+      menu.getByRole("heading", { level: 2, name, exact: true }),
+    ).toBeVisible();
+    await expect(
+      menu.getByRole("list", { name: `Food types in ${name}`, exact: true }),
+    ).toBeVisible();
+  }
   await aisles.getByRole("link", { name: "Cheese", exact: true }).hover();
-  await expect(menu.getByRole("heading", { name: "Cheddar" })).toBeVisible();
+  await expect(menu.getByRole("link", { name: /^Cheddar/ })).toBeVisible();
   await page.mouse.move(2, 2);
   await expect(menu).toBeHidden();
 
   await foods.click();
   await aisles.getByRole("link", { name: "Cheese", exact: true }).hover();
-  await expect(menu.getByRole("heading", { name: "Cheddar" })).toBeVisible();
-  await menu.getByRole("link", { name: "See the whole aisle" }).click();
+  await expect(menu.getByRole("link", { name: /^Cheddar/ })).toBeVisible();
+  await accessible(page);
+  await page.setViewportSize({ width: 760, height: 900 });
+  await expect(menu.getByRole("link", { name: /^Cheddar/ })).toBeVisible();
+  await accessible(page);
+  expect(
+    catalogRequests,
+    "Opening, switching and filtering need no catalog requests",
+  ).toEqual([]);
+  await menu.getByRole("link", { name: "Browse Cheese" }).click();
   await expect(page).toHaveURL(/\/us\/cheese$/);
   await expect(
     page.getByRole("heading", { level: 1, name: "Cheese" }),
@@ -129,9 +152,13 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
       .locator(".va-browse__more", { hasText: "See all 8 cheese foods" })
       .first(),
   ).toHaveAttribute("href", "/us/cheese");
-  // A seasonal food says when it is sold.
+  // Seasonal tags use a single label without dates or month ranges.
   await page.goto("/us/eggnog");
-  await expect(page.getByText("Seasonal · Nov–Jan").first()).toBeVisible();
+  const seasonal = page.locator(".va-badge").filter({ hasText: /^Seasonal/ });
+  await expect(seasonal.first()).toBeVisible();
+  expect(await seasonal.allTextContents()).toEqual(
+    Array(await seasonal.count()).fill("Seasonal"),
+  );
 
   // An aisle's Suggest a food link starts in that aisle.
   await page.goto("/us/eggs-aisle");
@@ -145,17 +172,17 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
     page.getByRole("main").getByRole("link", { name: "Suggest a food" }),
   ).toHaveAttribute("href", "/propose-category?country=us&aisle=eggs-aisle");
   // Crumbs (phones show a back link instead) skip an aisle that only repeats
-  // its one food, and name a shared one "Eggs aisle" rather than repeat it.
+  // its one food, and name a shared one "Eggs category" rather than repeat it.
   await page.goto("/us/butter");
   if (!isPhone(page)) {
     const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
-    await expect(crumbs).not.toContainText("Butter aisle");
+    await expect(crumbs).not.toContainText("Butter category");
     await expect(crumbs.getByRole("link")).toHaveCount(1);
   }
   await page.goto("/us/eggs");
   if (!isPhone(page)) {
     const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
-    await expect(crumbs).toContainText("Eggs aisle");
+    await expect(crumbs).toContainText("Eggs category");
     await expect(crumbs.getByRole("link")).toHaveCount(2);
   }
   await expect(
@@ -194,7 +221,7 @@ test("without JavaScript and on phones, aisles are links to their pages", async 
 
   test.skip(!isPhone(page), "Desktop opens aisles from the Foods menu.");
   await page.goto("/");
-  const chips = page.getByRole("navigation", { name: "Aisles" });
+  const chips = page.getByRole("navigation", { name: "Categories" });
   await expect(chips.getByRole("button")).toHaveCount(0);
   await chips.getByRole("link", { name: "Cheese", exact: true }).click();
   await expect(page).toHaveURL(/\/us\/cheese$/);

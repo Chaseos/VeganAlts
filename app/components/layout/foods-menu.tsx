@@ -5,16 +5,11 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Link, useFetcher, useLocation } from "react-router";
+import { Link, useLocation } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
 import { Icon } from "../icons/icon";
-import { AislePanel, type AisleData } from "../catalog/aisle-panel";
-import {
-  foodPath,
-  searchPath,
-  useSiteChrome,
-  type ChromeAisle,
-} from "../../lib/site-chrome";
+import { FoodNavigation } from "./food-navigation";
+import { foodPath, searchPath, useSiteChrome } from "../../lib/site-chrome";
 import { useHydrated } from "../../lib/use-hydrated";
 import { useMediaQuery } from "../../lib/use-media-query";
 
@@ -30,7 +25,7 @@ const FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled])";
 /**
  * The desktop Foods menu (owner decision, 2026-10-12). One button in the
  * header row opens every aisle, and the aisle under the pointer or keyboard
- * focus shows its foods and their top three beside the list, so the header
+ * focus shows its food types from the embedded navigation tree, so the header
  * keeps one row however many aisles a country has. A mouse opens it on hover;
  * touch and the keyboard open it on press, and the arrow keys move between
  * aisles. Without JavaScript the button links to the page listing every
@@ -191,87 +186,53 @@ export function FoodsMenu() {
           aria-label="Foods"
         >
           <div className="va-foods-menu__inner">
-            <ul className="va-foods-menu__aisles" aria-label="Aisles">
-              {aisles.map((aisle, index) => {
-                const isShown = aisle.slug === shown?.slug;
-                return (
-                  <li key={aisle.slug}>
-                    <Link
-                      ref={(link) => {
-                        links.current[index] = link;
-                      }}
-                      to={foodPath(country.code, aisle.slug)}
-                      prefetch="intent"
-                      // One aisle is in the Tab order; the arrow keys move
-                      // between them and Tab moves on to its foods.
-                      tabIndex={isShown ? 0 : -1}
-                      className={`va-foods-menu__aisle${isShown ? " is-shown" : ""}`}
-                      onFocus={() => setActive(aisle.slug)}
-                      onPointerEnter={(event) => hoverAisle(event, aisle.slug)}
-                      onPointerLeave={(event) => hoverAisle(event, null)}
-                      onKeyDown={(event) => onAisleKey(event, index)}
-                    >
-                      <FoodIcon
-                        slug={aisle.slug}
-                        size={20}
-                        className="va-tag-icon"
-                      />
-                      <span>{aisle.name}</span>
-                      <Icon name="chevronRight" size={14} strokeWidth={2.5} />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="va-foods-menu__categories">
+              <h2 className="va-overline">Categories</h2>
+              <ul className="va-foods-menu__aisles" aria-label="Categories">
+                {aisles.map((aisle, index) => {
+                  const isShown = aisle.slug === shown?.slug;
+                  return (
+                    <li key={aisle.slug}>
+                      <Link
+                        ref={(link) => {
+                          links.current[index] = link;
+                        }}
+                        to={foodPath(country.code, aisle.slug)}
+                        discover="none"
+                        // One aisle is in the Tab order; the arrow keys move
+                        // between them and Tab moves on to its foods.
+                        tabIndex={isShown ? 0 : -1}
+                        className={`va-foods-menu__aisle${isShown ? " is-shown" : ""}`}
+                        onFocus={() => setActive(aisle.slug)}
+                        onPointerEnter={(event) =>
+                          hoverAisle(event, aisle.slug)
+                        }
+                        onPointerLeave={(event) => hoverAisle(event, null)}
+                        onKeyDown={(event) => onAisleKey(event, index)}
+                      >
+                        <FoodIcon
+                          slug={aisle.slug}
+                          size={20}
+                          className="va-tag-icon"
+                        />
+                        <span>{aisle.name}</span>
+                        <Icon name="chevronRight" size={14} strokeWidth={2.5} />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
             <div ref={preview} className="va-foods-menu__preview">
-              <AislePreview
+              <FoodNavigation
                 key={shown!.slug}
                 country={country.code}
-                aisle={shown!}
+                category={shown!}
               />
             </div>
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-// An aisle's foods with their top three, read from that aisle page's cached
-// data; names and counts from the header data show until it arrives.
-function AislePreview({
-  country,
-  aisle,
-}: {
-  country: string;
-  aisle: ChromeAisle;
-}) {
-  const fetcher = useFetcher<{ kind: string } & Partial<AisleData>>({
-    key: `aisle:${country}:${aisle.slug}`,
-  });
-  const href = foodPath(country, aisle.slug);
-  useEffect(() => {
-    // Once per aisle shown; the fetcher keeps its data while mounted.
-    if (fetcher.state === "idle" && !fetcher.data) void fetcher.load(href);
-  }, [href]);
-  const data =
-    fetcher.data?.kind === "aisle" ? (fetcher.data as AisleData) : null;
-  return data ? (
-    <AislePanel country={country} data={data} mode="menu" headingLevel={2} />
-  ) : (
-    <AislePanel
-      country={country}
-      mode="menu"
-      headingLevel={2}
-      loading
-      data={{
-        aisle: { slug: aisle.slug, name: aisle.name },
-        foods: aisle.foods.map((food) => ({
-          ...food,
-          rankedCount: 0,
-          top: [],
-        })),
-      }}
-    />
   );
 }
