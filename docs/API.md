@@ -488,6 +488,8 @@ The `related` list keeps only companion and successor links.
 
 **Search and brands.**
 
+Public discovery summaries include the accepted current front photo's `imageId` (or `null`) for thumbnails. Brand lines also include `leadProduct: {slug, imageId}`; an unranked line falls back to its first published visible flavor.
+
 | Method | Path beneath `/api/v1`   | Contract                                                                                                                                                                                                                                                                         |
 | ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/suggest?country=&q=`   | Adds up to 3 `brands`: `{slug, name, productCount}`. Foods keep their #1 line and score; products show their line's rank.                                                                                                                                                        |

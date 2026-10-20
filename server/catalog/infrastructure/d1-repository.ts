@@ -34,12 +34,14 @@ import {
 } from "../../community/infrastructure/public-read";
 import { matchingBrands } from "./brand-rows";
 
+const frontImageSql = (version = "v") =>
+  `(SELECT i.id FROM product_images i WHERE i.product_version_id=${version}.id AND i.slot='front' AND i.state='accepted' LIMIT 1)`;
 // A product's identity, with its name and date expressions.
 const identityOf = (
   name: string,
   publishedAt: string,
 ) => `p.id,p.slug,${name} AS name,b.name AS brand,v.id AS versionId,p.development_only AS developmentOnly,${publishedAt} AS publishedAt,
-  (SELECT i.id FROM product_images i WHERE i.product_version_id=v.id AND i.slot='front' AND i.state='accepted' LIMIT 1) AS imageId`;
+  ${frontImageSql()} AS imageId`;
 const identity = identityOf("p.name", "p.published_at");
 // Every catalog read is scoped to one active country, bound as its ID.
 const productJoins = `JOIN products p ON p.id=v.product_id AND p.country_id=? JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id`;
@@ -494,7 +496,7 @@ export class D1CatalogRepository implements CatalogRepository {
     return (
       await this.db
         .prepare(
-          `WITH ranked AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,p.id,p.slug,${lineNameSql} AS name,b.name AS brand,
+          `WITH ranked AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,p.id,p.slug,${lineNameSql} AS name,b.name AS brand,${frontImageSql()} AS imageId,
             s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,${trendRankSql} AS trendingRank,
             ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${lineOrderSql}) AS rank
           FROM family_category_stats s ${lineJoins}
@@ -920,6 +922,12 @@ export class D1CatalogRepository implements CatalogRepository {
               FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=?
               WHERE s.category_id IN (SELECT categoryId FROM placed) AND ${lineSampleSql} AND s.enjoyment_people>0)
           SELECT pl.categoryId,pl.lineId,CASE WHEN pl.flavorCount>1 THEN fam.canonical_name ELSE pl.onlyName END AS name,
+            (SELECT json_object('slug',lp.slug,'imageId',${frontImageSql("lv")})
+              FROM products lp JOIN product_versions lv ON lv.product_id=lp.id AND lv.is_current=1
+              JOIN product_categories lpc ON lpc.product_id=lp.id AND lpc.category_id=pl.categoryId
+              LEFT JOIN family_category_stats ls ON ls.product_family_id=lp.product_family_id AND ls.category_id=lpc.category_id
+              WHERE lp.product_family_id=pl.lineId AND ${listed("lp")}
+              ORDER BY lp.id IS NOT ls.lead_product_id,lp.published_at,lp.id LIMIT 1) AS leadProduct,
             r.closestRank,CASE WHEN ${lineSampleSql} THEN s.bayesian_score END AS closestScore,COALESCE(s.people_count,0) AS people,
             t.tastiestRank,s.enjoyment_score AS tastiestScore,
             COALESCE(s.enjoyment_people,0) AS tastiestPeople,${flavorCountSql} AS rankedFlavorCount,
@@ -934,10 +942,16 @@ export class D1CatalogRepository implements CatalogRepository {
           ORDER BY pl.categoryId,r.closestRank IS NULL,r.closestRank,name`,
         )
         .bind(brandId, countryId, countryId, countryId)
-        .all<Omit<BrandLineRow, "flavors"> & { flavors: string }>()
+        .all<
+          Omit<BrandLineRow, "flavors" | "leadProduct"> & {
+            flavors: string;
+            leadProduct: string;
+          }
+        >()
     ).results;
     return rows.map((row) => ({
       ...row,
+      leadProduct: JSON.parse(row.leadProduct) as BrandLineRow["leadProduct"],
       flavors: JSON.parse(row.flavors) as BrandLineRow["flavors"],
     }));
   }

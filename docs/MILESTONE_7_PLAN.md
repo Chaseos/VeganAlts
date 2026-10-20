@@ -539,6 +539,7 @@ Existing foods keep their current names and other names unless a row says otherw
 
 ### Aisle order, browsing and seasons
 
+- **Home and footer selection (owner, 2026-10-20).** Show the first six aisles in the country's popularity order, then link to the complete aisle directory. This replaces showing every aisle on the home page and in the footer, including in empty countries; ordering and the full navigation stay shared.
 - **Popularity order.**
   - In each country, aisles are ordered by the number of counted ratings across their foods there, most first. Ties go to product count, then the default order, then name.
   - Foods within an aisle follow the same rule.

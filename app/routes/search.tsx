@@ -8,13 +8,14 @@ import {
 import { PageShell } from "../components/layout/page-shell";
 import { InstantSearch } from "../components/catalog/instant-search";
 import { FoodCard } from "../components/catalog/aisle-panel";
+import { ProductThumbnail } from "../components/catalog/product-thumbnail";
 import { FoodIcon } from "../components/icons/food-icons";
 import { ScoreLabel } from "../components/ui/score";
 import { Badge } from "../components/ui/badges";
 import { ButtonLink } from "../components/ui/button";
 import { EmptyState } from "../components/ui/feedback";
 import { publicMetadata } from "../lib/metadata";
-import { joinList, plural } from "../lib/format";
+import { joinList, plural, productName } from "../lib/format";
 import {
   brandPath,
   foodPath,
@@ -164,13 +165,16 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
                       className="va-row-link"
                       to={productPath(code, product.slug, product.food.slug)}
                     >
+                      <ProductThumbnail
+                        imageId={product.imageId}
+                        food={product.food.slug}
+                      />
                       <span className="va-row-link__text">
                         <span className="va-row-link__title">
-                          {product.name}
+                          {productName(product.name, product.brand)}
                         </span>
                         <span className="va-small va-muted">
                           {[
-                            product.brand,
                             product.rank
                               ? `Closest #${product.rank} for ${product.food.name.toLowerCase()}`
                               : `Not ranked yet for ${product.food.name.toLowerCase()}`,

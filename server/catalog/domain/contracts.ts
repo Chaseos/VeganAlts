@@ -116,6 +116,7 @@ export interface TopProduct {
   slug: string;
   name: string;
   brand: string | null;
+  imageId: string | null;
   bayesianScore: number;
   ratingCount: number;
   trendingRank: number | null;
@@ -233,6 +234,7 @@ export interface BrandLineRow {
   categoryId: string;
   lineId: string;
   name: string;
+  leadProduct: { slug: string; imageId: string | null };
   closestRank: number | null;
   closestScore: number | null;
   people: number;

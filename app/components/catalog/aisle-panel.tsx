@@ -5,7 +5,8 @@ import { Icon } from "../icons/icon";
 import { ScoreLabel } from "../ui/score";
 import { Badge, SeasonBadge } from "../ui/badges";
 import type { Season } from "@server/taxonomy/domain/season";
-import { plural } from "../../lib/format";
+import { plural, productName } from "../../lib/format";
+import { ProductThumbnail } from "./product-thumbnail";
 import { useFoodHref } from "../../lib/ranking-filters";
 import { foodPath, productPath, searchPath } from "../../lib/site-chrome";
 
@@ -13,6 +14,7 @@ export interface AisleTopProduct {
   slug: string;
   name: string;
   brand: string | null;
+  imageId: string | null;
   score: number;
   ratingCount: number;
   rank: number;
@@ -74,11 +76,16 @@ export function FoodCard({
               >
                 {product.rank}
               </span>
+              <ProductThumbnail
+                imageId={product.imageId}
+                food={food.slug}
+                size="small"
+              />
               <Link
                 className="va-food-card__product"
                 to={productPath(country, product.slug, food.slug)}
               >
-                {product.name}
+                {productName(product.name, product.brand)}
               </Link>
               {product.early && <Badge tone="early">Early</Badge>}
               <ScoreLabel
@@ -145,8 +152,8 @@ export function AislePanel({
           <Heading className="va-aisle__name">{data.aisle.name}</Heading>
           <p className="va-small va-muted">
             {plural(foods.length, "food")}
-            {loading ? "" : ` · ${plural(ranked, "ranked swap")}`} · top 3
-            for each
+            {loading ? "" : ` · ${plural(ranked, "ranked swap")}`} · top 3 for
+            each
           </p>
         </div>
         <Form

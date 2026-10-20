@@ -2,8 +2,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Form, Link, useNavigate } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
 import { Icon } from "../icons/icon";
+import { ProductThumbnail } from "./product-thumbnail";
 import { RankFlag, ScoreLabel } from "../ui/score";
-import { plural } from "../../lib/format";
+import { plural, productName } from "../../lib/format";
 import { useHydrated } from "../../lib/use-hydrated";
 import {
   useInstantSearch,
@@ -302,7 +303,7 @@ function FoodOption({ food }: { food: SuggestedFood }) {
         <>
           <span className="va-instant__best">
             <RankFlag size="small">#1</RankFlag>
-            <span>{best.name}</span>
+            <span>{productName(best.name, best.brand)}</span>
           </span>
           <ScoreLabel value={best.score} size="compact" />
         </>
@@ -329,8 +330,15 @@ function BrandOption({ brand }: { brand: SuggestedBrand }) {
 function ProductOption({ product }: { product: SuggestedProduct }) {
   return (
     <>
+      <ProductThumbnail
+        imageId={product.imageId}
+        food={product.food.slug}
+        size="small"
+      />
       <span className="va-instant__food">
-        <span className="va-instant__name">{product.name}</span>
+        <span className="va-instant__name">
+          {productName(product.name, product.brand)}
+        </span>
         <span className="va-instant__meta">
           {product.rank
             ? `Closest #${product.rank} for ${product.food.name.toLowerCase()}`

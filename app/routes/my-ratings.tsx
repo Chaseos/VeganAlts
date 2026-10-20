@@ -7,6 +7,7 @@ import { ProductImage } from "../components/catalog";
 import { PageShell } from "../components/layout/page-shell";
 import { EmptyState } from "../components/ui/feedback";
 import { ButtonLink } from "../components/ui/button";
+import { productName } from "../lib/format";
 import type { MyRating } from "@server/ratings/domain/contracts";
 import type { Route } from "./+types/my-ratings";
 
@@ -65,14 +66,14 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
         <ul className="va-divided va-my-ratings">
           {data.items.map((rating) => (
             <li key={rating.id}>
-              <ProductImage id={rating.imageId} name={rating.productName} />
+              <ProductImage
+                id={rating.imageId}
+                name={productName(rating.productName, rating.brand)}
+              />
               <div className="va-my-ratings__body">
-                {rating.brand && (
-                  <span className="small muted">{rating.brand}</span>
-                )}
                 <h2 className="va-heading-s">
                   <Link to={ratingHref(rating, true)}>
-                    {rating.productName}
+                    {productName(rating.productName, rating.brand)}
                   </Link>
                 </h2>
                 <p className="small">

@@ -3,7 +3,7 @@ import { useId } from "react";
 import type { AllergenDeclaration } from "@server/community/domain/allergens";
 import type { StoreOption } from "@server/catalog/domain/contracts";
 import type { DetailScore } from "@server/catalog/domain/ranking-view";
-import { FoodIcon } from "../icons/food-icons";
+import { ProductThumbnail } from "./product-thumbnail";
 import { RankFlag, ScoreLabel } from "../ui/score";
 import {
   AllergenLabel,
@@ -16,7 +16,7 @@ import {
 import { DetailBars, DetailCells } from "../ui/bars";
 import { ButtonLink } from "../ui/button";
 import { StoreLine } from "./ranking-filters";
-import { formatScore, plural, shortDate } from "../../lib/format";
+import { formatScore, plural, shortDate, productName } from "../../lib/format";
 import { productPath } from "../../lib/site-chrome";
 
 // One flavor of a recipe line, with its own score in the ranking shown.
@@ -83,31 +83,6 @@ export function allergenSummary(
         contains: named(declaration.contains),
         mayContain: named(declaration.mayContain),
       };
-}
-
-function Thumb({
-  line,
-  food,
-  size,
-}: {
-  line: Pick<ListedLine, "leadProduct">;
-  food: string;
-  size: number;
-}) {
-  return line.leadProduct.imageId ? (
-    <img
-      className="va-thumb"
-      src={`/media/${line.leadProduct.imageId}/thumbnail`}
-      alt=""
-      width={size}
-      height={size}
-      loading="lazy"
-    />
-  ) : (
-    <span className="va-thumb va-thumb--empty" aria-hidden="true">
-      <FoodIcon slug={food} size={Math.round(size / 2.4)} />
-    </span>
-  );
 }
 
 const people = (count: number) => plural(count, "person", "people");
@@ -268,16 +243,19 @@ export function FeaturedSwap({
       <span className="va-featured__flag">
         <RankFlag>{flag}</RankFlag>
       </span>
-      <Thumb line={line} food={food} size={160} />
+      <ProductThumbnail
+        imageId={line.leadProduct.imageId}
+        food={food}
+        size="featured"
+      />
       <div className="va-featured__body">
         <div className="va-featured__head">
           <div className="va-featured__title">
             <h2 id={titleId} className="va-featured__name">
-              <Link to={href}>{line.name}</Link>
+              <Link to={href}>{productName(line.name, line.brand)}</Link>
             </h2>
             <p className="va-muted">
               {[
-                line.brand,
                 people(line.people),
                 rank && rank !== 1 ? `#${rank} overall` : null,
               ]
@@ -358,12 +336,13 @@ export function RankedRow({
           </span>
         )}
       </span>
-      <Thumb line={line} food={food} size={60} />
+      <ProductThumbnail imageId={line.leadProduct.imageId} food={food} />
       <span className="va-rank-row__main">
-        <span className="va-rank-row__name">{line.name}</span>
+        <span className="va-rank-row__name">
+          {productName(line.name, line.brand)}
+        </span>
         <span className="va-small va-muted">
           {[
-            line.brand,
             // Rated lines with no answers yet only appear in Tastiest.
             line.people
               ? people(line.people)
@@ -437,17 +416,15 @@ export function UnratedRow({
   const flavorsId = useId();
   return (
     <li className="va-unrated">
+      <Link to={href} aria-label={`View ${productName(line.name, line.brand)}`}>
+        <ProductThumbnail imageId={line.leadProduct.imageId} food={food} />
+      </Link>
       <span className="va-unrated__main">
         <Link className="va-unrated__name" to={href}>
-          {line.name}
+          {productName(line.name, line.brand)}
         </Link>
         <span className="va-small va-muted">
-          {[
-            line.brand,
-            line.publishedAt ? `added ${shortDate(line.publishedAt)}` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+          {line.publishedAt && `added ${shortDate(line.publishedAt)}`}
           {allergens && (
             <>
               {" · "}
@@ -472,7 +449,8 @@ export function UnratedRow({
             : undefined
         }
       >
-        Be the first to rate<span className="sr-only">: {line.name}</span>
+        Be the first to rate
+        <span className="sr-only">: {productName(line.name, line.brand)}</span>
       </a>
     </li>
   );

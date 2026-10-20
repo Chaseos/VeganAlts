@@ -24,7 +24,13 @@ import {
   sortNote,
 } from "../components/catalog/ranking-list";
 import { categorySummary } from "../lib/summaries";
-import { formatScore, joinList, plural, withArticle } from "../lib/format";
+import {
+  formatScore,
+  joinList,
+  plural,
+  withArticle,
+  productName,
+} from "../lib/format";
 import {
   breadcrumbs,
   countryAlternates,
@@ -209,7 +215,7 @@ function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
                 `Top vegan alternatives to ${data.category.name}`,
                 // Each line, linking its lead flavor.
                 data.ranked.map((line) => ({
-                  name: line.name,
+                  name: productName(line.name, line.brand),
                   path: productPath(data.market.code, line.leadProduct.slug),
                 })),
                 (data.page - 1) * CATALOG_PAGE_SIZE + 1,

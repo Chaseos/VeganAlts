@@ -95,18 +95,33 @@
 
 /* Thumbnails: the package photo, or the food's icon. */
 .va-thumb {
+  display: block;
   flex: none;
   border-radius: 10px;
   background: var(--va-surface-2);
-  object-fit: cover;
+  object-fit: contain;
+}
+.va-thumb--small {
+  width: 56px;
+  height: 56px;
+}
+.va-thumb--list {
+  width: 88px;
+  height: 88px;
+}
+.va-thumb--featured {
+  width: 160px;
+  height: 160px;
 }
 
 .va-thumb--empty {
   display: grid;
   place-items: center;
-  width: 60px;
-  height: 60px;
   color: var(--va-muted);
+}
+.va-thumb--empty svg {
+  max-width: 50%;
+  max-height: 50%;
 }
 
 /* The #1 card. */
@@ -173,12 +188,38 @@
   text-decoration: underline;
 }
 
+@media (max-width: 759px) {
+  .va-featured {
+    display: grid;
+    grid-template-columns: 128px minmax(0, 1fr);
+    gap: 16px;
+  }
+  .va-featured > .va-thumb {
+    width: 128px;
+    height: 128px;
+  }
+  .va-featured__body {
+    display: contents;
+  }
+  .va-featured__head {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .va-featured__name {
+    font-size: 22px;
+    overflow-wrap: anywhere;
+  }
+  .va-featured__body > :not(.va-featured__head) {
+    grid-column: 1 / -1;
+  }
+}
+
 /* Ranked rows. */
 .va-rank-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 24px 88px minmax(0, 1fr);
   align-items: center;
-  gap: 10px 14px;
+  gap: 10px;
   padding: 14px;
   border: 1px solid var(--va-line);
   border-radius: var(--va-radius-card);
@@ -194,8 +235,8 @@
 
 .va-rank-row__rank {
   flex: none;
-  min-width: 34px;
-  font-size: 24px;
+  min-width: 0;
+  font-size: 20px;
   font-weight: 800;
   font-stretch: 72%;
   font-variant-numeric: tabular-nums;
@@ -219,8 +260,7 @@
   overflow: hidden;
   font-size: 17px;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .va-rank-row__meta {
@@ -232,23 +272,29 @@
 }
 
 .va-rank-row .va-detail-cells {
-  flex: 1 1 100%;
-  order: 3;
+  grid-column: 2 / -1;
+  grid-row: 3;
 }
 
-/* Phones keep rank, name and score on one line; photos are on product
-   pages. */
-.va-rank-row > .va-thumb,
-.va-featured > .va-thumb {
-  display: none;
+/* Keep the package visible on phones, with the score beneath its name. */
+.va-rank-row__rank {
+  grid-column: 1;
+  grid-row: 1;
+}
+.va-rank-row .va-thumb {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .va-rank-row__main {
-  flex-basis: 0;
+  grid-column: 3;
+  grid-row: 1;
 }
 
 .va-rank-row__score {
-  flex: none;
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: start;
 }
 
 /* A line of several flavors: the card holds its row and the flavor list. */
@@ -257,10 +303,10 @@
 }
 
 .va-rank-row__link {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 24px 88px minmax(0, 1fr);
   align-items: center;
-  gap: 10px 14px;
+  gap: 10px;
   color: inherit;
   text-decoration: none;
 }
@@ -268,10 +314,6 @@
 .va-rank-row__link:hover .va-rank-row__name {
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.va-rank-row__link > .va-thumb {
-  display: none;
 }
 
 /* A line's flavors, behind a native disclosure. */
@@ -391,13 +433,17 @@
 }
 
 .va-unrated {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 10px 18px;
   padding: 14px 16px;
   border: 1.5px dashed var(--va-line-strong);
   border-radius: var(--va-radius-card);
+}
+.va-unrated > .button {
+  grid-column: 2;
+  justify-self: start;
 }
 
 .va-unrated__main {
@@ -454,23 +500,24 @@
   }
 
   .va-featured > .va-thumb {
-    display: grid;
-    width: 160px;
-    height: 160px;
+    width: 200px;
+    height: 200px;
   }
 
-  .va-rank-row > .va-thumb,
-  .va-rank-row__link > .va-thumb {
-    display: grid;
+  .va-thumb--list {
+    width: 128px;
+    height: 128px;
   }
 
+  .va-rank-row,
   .va-rank-row__link {
-    flex-wrap: nowrap;
-    gap: 12px 18px;
+    grid-template-columns: 34px 128px minmax(0, 1fr) auto;
+    gap: 12px 16px;
   }
 
-  .va-rank-row__main {
-    flex-basis: 180px;
+  .va-rank-row__score {
+    grid-column: 4;
+    grid-row: 1;
   }
 
   .va-featured__name {
@@ -478,14 +525,12 @@
   }
 
   .va-rank-row {
-    flex-wrap: nowrap;
-    gap: 12px 18px;
     padding: 14px 18px;
   }
 
   .va-rank-row .va-detail-cells {
-    flex: 0 1 270px;
-    order: 0;
+    grid-column: 3 / -1;
+    grid-row: 2;
   }
 }
 
@@ -604,7 +649,7 @@
 
 @media (max-width: 759px) {
   .va-brand__line > .va-row-link__text {
-    flex-basis: 100%;
+    flex-basis: calc(100% - 100px);
   }
 }
 

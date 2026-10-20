@@ -22,6 +22,8 @@ import { DEFAULT_LIMITS, LEASE } from "../../server/community/domain/policy";
 import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
 
 const id = () => crypto.randomUUID();
+// The ratings service's fixed clock.
+const RATED_AT = 1791360000000;
 const evidence = {
   urls: ["https://example.com/ingredients"],
   imageIds: [],
@@ -40,7 +42,7 @@ async function fixture() {
       new D1RatingsRepository(env.DB),
       INITIAL_RANKING_PARAMETERS,
       id,
-      () => 1791360000000,
+      () => RATED_AT,
     ),
     ranking = new D1RankingReader(env.DB);
   const propose = async (fields: Record<string, unknown>) =>
@@ -291,7 +293,8 @@ it("discontinues and reintroduces equivalent or new formulas while preserving ra
         .all()
     ).results.map(({ recomputed_at: _, ...row }) => row);
   const linesBefore = await lines();
-  await lineRefresh(env).refreshAll();
+  // Rebuild at the write's clock so "people this week" describes the same instant.
+  await lineRefresh(env).refreshAll(RATED_AT);
   expect(await lines()).toEqual(linesBefore);
   const before = (
     await env.DB.prepare(

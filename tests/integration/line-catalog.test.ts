@@ -322,6 +322,7 @@ it("finds brands loosely and lists a brand's lines by aisle and food", async () 
   expect(brand.aisles).toHaveLength(1);
   const food = brand.aisles[0]!.foods[0]!;
   expect(food.lines[0]).toMatchObject({
+    leadProduct: { slug: w.strawberry.id, imageId: null },
     people: 3,
     tastiestPeople: 1,
     rankedFlavorCount: 3,
@@ -381,4 +382,52 @@ it("finds brands loosely and lists a brand's lines by aisle and food", async () 
   expect(await listed()).toBe(false);
   // A line's ID is a product family; it never leaks into the line's name.
   expect(lineOf("x")).toBe("line-x");
+});
+
+it("returns the accepted front photo of the lead flavor across discovery reads", async () => {
+  const w = await world();
+  const imageId = `front-${w.s}`;
+  for (const [id, slot, state] of [
+    [imageId, "front", "accepted"],
+    [`pending-${w.s}`, "front", "pending"],
+    [`back-${w.s}`, "back", "accepted"],
+  ]) {
+    await db
+      .prepare(
+        "INSERT INTO product_images(id,product_version_id,slot,state,full_r2_key,thumbnail_r2_key,created_at,updated_at) VALUES(?,?,?,?,?,?,1,1)",
+      )
+      .bind(
+        id,
+        w.strawberry.version,
+        slot,
+        state,
+        `${id}/full`,
+        `${id}/thumbnail`,
+      )
+      .run();
+  }
+  const repository = new D1CatalogRepository(db);
+  const top = await repository.topProducts(w.us.id, [w.cat], 3);
+  expect(top.find((row) => row.lineId === w.oatMilk.id)).toMatchObject({
+    imageId,
+  });
+  const brand = await catalog.brand(w.us, w.oat);
+  expect(brand.aisles[0]!.foods[0]!.lines[0]!.leadProduct).toEqual({
+    slug: w.strawberry.id,
+    imageId,
+  });
+  const search = await catalog.searchResults(w.us, w.strawberry.name);
+  expect(
+    search.products.find((row) => row.slug === w.strawberry.id),
+  ).toMatchObject({ imageId });
+  // Removing the accepted image must not expose a pending replacement or a back photo.
+  await db
+    .prepare("UPDATE product_images SET state='archived' WHERE id=?")
+    .bind(imageId)
+    .run();
+  expect(
+    (await repository.topProducts(w.us.id, [w.cat], 3)).find(
+      (row) => row.lineId === w.oatMilk.id,
+    )?.imageId,
+  ).toBeNull();
 });

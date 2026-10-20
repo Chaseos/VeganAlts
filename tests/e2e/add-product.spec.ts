@@ -228,6 +228,14 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
     await expect(
       page.getByText("Ingredients not checked yet").first(),
     ).toBeVisible();
+    await expect(page.locator(".va-product__labels")).not.toContainText(
+      "Ingredients not checked yet",
+    );
+    const facts = await page.locator(".va-product__facts").boundingBox();
+    const ingredientNotice = await page
+      .getByRole("link", { name: "Add an ingredients photo" })
+      .boundingBox();
+    expect(ingredientNotice!.y).toBeGreaterThan(facts!.y + facts!.height);
     // The notice is navigation state, never part of the cached page.
     await page.reload();
     await expect(page.getByText("Your product is live")).toHaveCount(0);
