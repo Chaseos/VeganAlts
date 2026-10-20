@@ -579,6 +579,14 @@ may move records between requests; clients deduplicate by identity and retain
 the order already presented. A cursor from another context is a 400
 `INVALID_CURSOR`; a cursor requires a section.
 
+Brand matching also bounds candidate work to 200 trigram candidates and 2,000
+initial-letter candidates for typo matching, each with one lookahead row.
+Once the matches from a truncated candidate set are consumed, the brand batch
+returns `nextCursor: null` and `limitReached: true`, even before batch 100.
+This invites a more specific query instead of falsely reporting exhaustion.
+The same warning is shown if the bounded candidate set yields no final matches.
+Legacy search and suggestion responses retain their array contracts.
+
 Initial batches are server rendered. Document URLs accept the same section and
 cursor for crawlable, JavaScript-disabled continuation links. Search documents
 with a query remain `noindex, follow`; production robots allows their crawl so

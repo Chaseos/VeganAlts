@@ -259,7 +259,7 @@ function SearchList({
               <SeeMore {...foods.control} />
             </section>
           )}
-          {brands.count > 0 && (
+          {(brands.count > 0 || brands.control.limitReached) && (
             <section
               className="va-search-page__section"
               aria-labelledby="brands-title"
@@ -301,7 +301,7 @@ function SearchList({
               <SeeMore {...products.control} />
             </section>
           )}
-          {!found && (
+          {!found && !brands.control.limitReached && (
             <EmptyState
               title={
                 (data.query.match(/[\p{L}\p{N}]/gu)?.length ?? 0) < 3

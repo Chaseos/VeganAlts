@@ -1312,6 +1312,9 @@ Loading prevents duplicate requests; failures retain the list and offer Retry.
 The first new result receives focus without scrolling, and a polite message
 announces the number added. Exhausted sections remove their control. At the
 100-batch bound, visitors are invited to refine their query or filters.
+Broad brand queries can reach the matching-work limit earlier; they receive
+the same refinement notice rather than implying that every matching brand was
+shown.
 
 Changing country, query, view, or filters starts fresh and cancels earlier
 continuations. Back navigation restores recent loaded batches from a per-tab
@@ -1320,6 +1323,8 @@ evicted contexts start at the server-rendered batch; they never redownload a
 history of batches automatically. The query-free grouped directory stays
 complete; the Foods menu keeps its three-food shortcuts and unrestricted local
 filtering without requests. Account and admin lists keep their current behavior.
+Restored rankings keep their featured card, summary and result counts with the
+cached rows, so a later ranking update cannot mix new labels with old standings.
 
 Unchanged batches retain their component and data identities. Supported engines
 skip offscreen row rendering with `content-visibility: auto` and remembered

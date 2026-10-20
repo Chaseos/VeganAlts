@@ -74,3 +74,21 @@ it("retains at most three contexts, expires them, and enforces a byte budget", (
   small.write("a", "foods", [batch("a".repeat(600))]);
   expect(small.read("a", "foods")).toBeUndefined();
 });
+
+it("keeps ranking metadata with its batches through appends and eviction", () => {
+  let now = 0;
+  const cache = new BrowseCache(() => now, 1000);
+  const summary = { best: "first", count: 40 };
+  const first = batch("first");
+  cache.write("ranking", "ranked", [first], ["first"], summary);
+  cache.write("ranking", "ranked", [first, batch("second")]);
+  expect(cache.readMetadata("ranking", "ranked")).toBe(summary);
+  expect(cache.readOpen("ranking", "ranked")).toEqual(["first"]);
+  expect(cache.read("ranking", "ranked")).toHaveLength(2);
+  now = 10 * 60_000;
+  expect(cache.readMetadata("ranking", "ranked")).toBeUndefined();
+  expect(cache.read("ranking", "ranked")).toBeUndefined();
+  cache.write("ranking", "ranked", [first], [], { text: "x".repeat(1000) });
+  expect(cache.read("ranking", "ranked")).toBeUndefined();
+  expect(cache.readMetadata("ranking", "ranked")).toBeUndefined();
+});

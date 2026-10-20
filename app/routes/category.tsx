@@ -371,14 +371,18 @@ function FoodRankingList({
   params.delete("unrankedPage");
   params.delete("section");
   params.delete("cursor");
-  params.delete("section");
-  params.delete("cursor");
   params.set("country", code);
   const endpoint = `/api/v1/categories/${data.category.slug}?${params}`;
+  const initialMetadata = {
+    summary: data.summary,
+    shownCount: data.shownCount,
+    notConfirmedCount: data.notConfirmedCount,
+  };
   const ranked = useBatches({
     context,
     section: "ranked",
     initial: data.batches.ranked,
+    initialMetadata,
     endpoint,
     identity: (line) => line.lineId,
   });
@@ -389,6 +393,8 @@ function FoodRankingList({
     endpoint,
     identity: (line) => line.lineId,
   });
+  const { summary, shownCount, notConfirmedCount } =
+    ranked.metadata ?? initialMetadata;
   useApplySavedFilters(code, {
     stores: data.storeOptions.map((store) => store.slug),
     freeFrom: data.allergenOptions.map((option) => option.key),
@@ -418,10 +424,11 @@ function FoodRankingList({
   const question = data.questions.find((q) => q.key === activeDetail);
   const rankOf = (line: (typeof data.ranked)[number]) =>
     tastiestView ? line.tastiestRank : line.closestRank;
-  // Each ranking's #1 card heads its first page, once it has one.
-  const first = data.ranked[0];
+  // A restored list keeps its original featured card and ranking snapshot.
+  const firstBatch = ranked.batches[0]!;
+  const first = firstBatch.items[0];
   const featured =
-    ranking && data.page === 1 && first && rankOf(first) !== null
+    ranking && firstBatch.start === 0 && first && rankOf(first) !== null
       ? first
       : undefined;
 
@@ -562,12 +569,12 @@ function FoodRankingList({
                 food,
                 // Tastiest counts only lines and people with its answers.
                 rankedCount: tastiestView
-                  ? data.summary.tastiestCount
-                  : data.summary.rankedCount,
+                  ? summary.tastiestCount
+                  : summary.rankedCount,
                 people: tastiestView
-                  ? data.summary.tastiestPeople
-                  : data.summary.ratingCount,
-                best: data.summary.best,
+                  ? summary.tastiestPeople
+                  : summary.ratingCount,
+                best: summary.best,
                 tastiest: tastiestView,
               })}
             </p>
@@ -606,8 +613,8 @@ function FoodRankingList({
               />
             )}
             <RankingResultCount
-              shown={data.shownCount}
-              total={data.summary.rankedCount}
+              shown={shownCount}
+              total={summary.rankedCount}
               filtered={filtered}
             />
           </div>
@@ -615,12 +622,11 @@ function FoodRankingList({
             <CheckThePackage>
               Allergens come from package labels, confirmed by members against
               the label photo.
-              {data.notConfirmedCount > 0 && (
+              {notConfirmedCount > 0 && (
                 <>
                   {" "}
-                  {plural(data.notConfirmedCount, "product")} without a
-                  confirmed label {data.notConfirmedCount === 1 ? "is" : "are"}{" "}
-                  hidden.{" "}
+                  {plural(notConfirmedCount, "product")} without a confirmed
+                  label {notConfirmedCount === 1 ? "is" : "are"} hidden.{" "}
                   <Link
                     className="va-link"
                     to={filteredHref(
@@ -629,7 +635,7 @@ function FoodRankingList({
                       { ...data.filters, freeFrom: [] },
                     )}
                   >
-                    Show {data.notConfirmedCount} not confirmed yet
+                    Show {notConfirmedCount} not confirmed yet
                   </Link>
                 </>
               )}
@@ -650,7 +656,7 @@ function FoodRankingList({
             </p>
           )}
 
-          {!data.ranked.length && data.page === 1 ? (
+          {!ranked.count && firstBatch.start === 0 ? (
             filtered ? (
               <EmptyState
                 title="No ranked swaps match your filters yet"
@@ -695,7 +701,7 @@ function FoodRankingList({
             <ol
               ref={ranked.list}
               className="va-rank-list"
-              start={data.batches.ranked.start + 1}
+              start={firstBatch.start + 1}
             >
               {ranked.batches.map((batch, index) => (
                 <BatchItems key={index} batch={batch} render={renderRanked} />

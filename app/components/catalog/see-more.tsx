@@ -10,27 +10,35 @@ import { useNavigation, useNavigationType } from "react-router";
 import type { CatalogBatch } from "@server/catalog/domain/batches";
 import { appendBatch, browseCache } from "../../lib/browse-cache";
 
-export function useBatches<T>({
+export function useBatches<T, M = undefined>({
   context,
   section,
   initial,
+  initialMetadata,
   endpoint,
   identity,
 }: {
   context: string;
   section: string;
   initial: CatalogBatch<T>;
+  initialMetadata?: M;
   endpoint: string;
   identity: (item: T) => string;
 }) {
   const navigation = useNavigationType();
   const pendingNavigation = useNavigation();
-  const [batches, setBatches] = useState(
-    () =>
-      (navigation === "POP" &&
-        typeof window !== "undefined" &&
-        browseCache.read<T>(context, section)) || [initial],
-  );
+  const [{ batches, metadata }, setState] = useState(() => {
+    const cached =
+      navigation === "POP" && typeof window !== "undefined"
+        ? browseCache.read<T>(context, section)
+        : undefined;
+    return {
+      batches: cached ?? [initial],
+      metadata: cached
+        ? (browseCache.readMetadata<M>(context, section) ?? initialMetadata)
+        : initialMetadata,
+    };
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [announcement, setAnnouncement] = useState("");
@@ -60,9 +68,15 @@ export function useBatches<T>({
           "[data-result]:has(details[open])",
         ) ?? [],
       ).map((row) => row.dataset.result!);
-      browseCache.write(context, section, currentBatches.current, open);
+      browseCache.write(
+        context,
+        section,
+        currentBatches.current,
+        open,
+        metadata,
+      );
     };
-  }, [context, section]);
+  }, [context, section, metadata]);
   useEffect(
     () => () => {
       request.current?.abort();
@@ -79,8 +93,8 @@ export function useBatches<T>({
     }
   }, [pendingNavigation.location, context]);
   useEffect(() => {
-    browseCache.write(context, section, batches);
-  }, [batches, context, section]);
+    browseCache.write(context, section, batches, undefined, metadata);
+  }, [batches, context, section, metadata]);
   useLayoutEffect(() => {
     if (pendingFocus.current) {
       const row = Array.from(
@@ -143,7 +157,7 @@ export function useBatches<T>({
         }
       }
       position.current = { x: window.scrollX, y: window.scrollY, anchor, top };
-      setBatches(next);
+      setState((current) => ({ ...current, batches: next }));
       setAnnouncement(
         `${added.length} more ${section === "unranked" ? "unrated products" : section === "ranked" ? "results" : section} added.`,
       );
@@ -168,8 +182,11 @@ export function useBatches<T>({
   href.searchParams.delete("unrankedPage");
   href.searchParams.set("section", section);
   if (last.nextCursor) href.searchParams.set("cursor", last.nextCursor);
+  // The gateway normalizes document queries before SSR; match that order.
+  href.searchParams.sort();
   return {
     batches,
+    metadata,
     list,
     count: batches.reduce((sum, batch) => sum + batch.items.length, 0),
     control: {

@@ -248,6 +248,11 @@ export interface BrandRow {
   aliases: string[];
   productCount: number;
 }
+export interface BrandMatches {
+  items: BrandRow[];
+  // Candidate work was bounded; exhausting these items is not exhaustive search.
+  truncated: boolean;
+}
 // One of a brand's lines in a food, with its ranks there.
 export interface BrandLineRow {
   categoryId: string;
@@ -420,7 +425,7 @@ export interface CatalogRepository {
     query: string,
     limit: number,
     after?: BrandPosition | null,
-  ): Promise<BrandRow[]>;
+  ): Promise<BrandMatches>;
   // A brand by slug, with its product count in the country (maybe 0).
   brand(
     countryId: string,

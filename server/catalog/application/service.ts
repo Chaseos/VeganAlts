@@ -10,6 +10,7 @@ import {
 } from "../domain/batches";
 import { brandPosition } from "../domain/brand-match";
 import type {
+  BrandRow,
   CatalogRepository,
   CategoryView,
   DiscoveryRow,
@@ -460,7 +461,7 @@ export class CatalogService {
             size + 1,
           )
         : { categories: [], products: [] };
-    const brands =
+    const brandMatches =
       valid && section === "brands"
         ? await this.repository.brands(
             market.id,
@@ -468,7 +469,8 @@ export class CatalogService {
             size + 1,
             cursor.after as BrandPosition | null,
           )
-        : [];
+        : { items: [], truncated: false };
+    const brands = brandMatches.items;
     const matches =
       section === "brands"
         ? brands
@@ -490,7 +492,7 @@ export class CatalogService {
       section === "brands" ? size : 0,
       { rows, brands: brands.slice(0, size) },
     );
-    return {
+    const batch = {
       foods: catalogBatch(
         answers.foods,
         size,
@@ -513,6 +515,9 @@ export class CatalogService {
         after,
       ),
     }[section];
+    if (section === "brands" && !batch.nextCursor && brandMatches.truncated)
+      batch.limitReached = true;
+    return batch;
   }
   private async answers(
     market: Market,
@@ -522,7 +527,7 @@ export class CatalogService {
     brandLimit: number,
     supplied?: {
       rows: Awaited<ReturnType<CatalogRepository["search"]>>;
-      brands: Awaited<ReturnType<CatalogRepository["brands"]>>;
+      brands: BrandRow[];
     },
   ) {
     const { query, expression } = searchExpression(input);
@@ -539,7 +544,9 @@ export class CatalogService {
         : { categories: [], counts: [] },
       supplied
         ? supplied.brands
-        : this.repository.brands(market.id, query, brandLimit),
+        : this.repository
+            .brands(market.id, query, brandLimit)
+            .then((matches) => matches.items),
     ]);
     const shape = taxonomyShape(taxonomy.categories);
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
@@ -1216,12 +1223,15 @@ export class CatalogService {
           this.repository.search(market.id, market.iso2, expression),
           this.repository.brands(market.id, query, 10),
         ])
-      : [{ categories: [], products: [] }, []];
+      : [
+          { categories: [], products: [] },
+          { items: [], truncated: false },
+        ];
     return {
       query,
       categories: results.categories,
       // Up to ten brands by the shared matcher (docs/API.md, milestone 7).
-      brands: brands.map((brand) => ({
+      brands: brands.items.map((brand) => ({
         id: brand.id,
         slug: brand.slug,
         name: brand.name,

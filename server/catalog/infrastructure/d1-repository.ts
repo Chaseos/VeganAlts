@@ -32,7 +32,7 @@ import {
   publicVeganStatusSql,
   readCanonicalRedirect,
 } from "../../community/infrastructure/public-read";
-import { matchingBrands } from "./brand-rows";
+import { matchingBrandResults } from "./brand-rows";
 import type { SearchPosition, BrandPosition } from "../domain/batches";
 
 const frontImageSql = (version = "v") =>
@@ -903,7 +903,7 @@ export class D1CatalogRepository implements CatalogRepository {
     limit: number,
     after?: BrandPosition | null,
   ) {
-    return matchingBrands(this.db, countryId, query, limit, { after });
+    return matchingBrandResults(this.db, countryId, query, limit, { after });
   }
 
   brand(countryId: string, slug: string) {
