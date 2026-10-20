@@ -76,7 +76,7 @@ export function InstantSearch({
         })),
       ]
     : [];
-  const showing = open && state.status !== "idle";
+  const showing = open && Boolean(state.query);
   // While the next answer loads, the previous one stays visible but cannot
   // be chosen: Enter searches for what is typed now.
   const stale = state.status === "loading";
@@ -88,6 +88,12 @@ export function InstantSearch({
     onPreview?.(showing ? previewFood : null, state.query);
   }, [onPreview, showing, previewFood, state.query]);
   useEffect(() => setActive(-1), [result]);
+  useEffect(() => {
+    if (open && active >= 0)
+      document
+        .getElementById(`${optionId}-${active}`)
+        ?.scrollIntoView({ block: "nearest" });
+  }, [active, open, optionId]);
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
@@ -106,7 +112,13 @@ export function InstantSearch({
       ? options.length
         ? `${plural(foods.length, "food")}${result!.brands.length ? `, ${plural(result!.brands.length, "brand")}` : ""} and ${plural(result!.products.length, "product")} found. Use the arrow keys to choose.`
         : `No foods match ${state.query} yet.`
-      : "";
+      : open && state.status === "loading"
+        ? "Loading suggestions…"
+        : open && state.status === "error"
+          ? "Suggestions couldn’t load. Press Enter to search."
+          : open && state.query
+            ? "Enter at least 3 letters or numbers to see suggestions."
+            : "";
   return (
     <div
       ref={root}
@@ -203,6 +215,12 @@ export function InstantSearch({
       </p>
       {showing && (
         <div className="va-instant__panel">
+          {state.status === "idle" && (
+            <p className="va-instant__message">
+              Enter at least 3 letters or numbers.
+            </p>
+          )}
+          {stale && <p className="va-instant__message">Loading suggestions…</p>}
           {state.status === "error" ? (
             <p className="va-instant__message">
               Suggestions aren’t available right now. Press Enter to search.
@@ -267,17 +285,19 @@ export function InstantSearch({
               </p>
             </div>
           )}
-          <div className="va-instant__footer">
-            <Link to={searchHref} onClick={() => setOpen(false)}>
-              See all results for “{state.query}”
-            </Link>
-            <Link
-              to={`/propose-category?country=${country}&name=${encodeURIComponent(state.query)}`}
-              onClick={() => setOpen(false)}
-            >
-              Can’t find a food? Suggest it
-            </Link>
-          </div>
+          {state.status !== "idle" && (
+            <div className="va-instant__footer">
+              <Link to={searchHref} onClick={() => setOpen(false)}>
+                See all results for “{state.query}”
+              </Link>
+              <Link
+                to={`/propose-category?country=${country}&name=${encodeURIComponent(state.query)}`}
+                onClick={() => setOpen(false)}
+              >
+                Can’t find a food? Suggest it
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </div>

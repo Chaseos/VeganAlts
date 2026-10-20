@@ -1,4 +1,9 @@
-import { matchBrands, nameMatch } from "../domain/brand-match";
+import {
+  nameMatch,
+  brandPosition,
+  compareBrandPositions,
+} from "../domain/brand-match";
+import type { BrandPosition } from "../domain/batches";
 import type { BrandRow } from "../domain/contracts";
 
 // Lookups start at three letters or digits, the index's unit.
@@ -74,7 +79,10 @@ export async function matchingBrands(
   countryId: string,
   query: string,
   limit: number,
-  { everyBrand = false }: { everyBrand?: boolean } = {},
+  {
+    everyBrand = false,
+    after,
+  }: { everyBrand?: boolean; after?: BrandPosition | null } = {},
 ): Promise<BrandRow[]> {
   const runs = trigrams(query);
   if (!runs.length) return [];
@@ -83,7 +91,7 @@ export async function matchingBrands(
     .prepare(
       `SELECT b.id,b.slug,b.name,brand_search.aliases FROM brand_search JOIN brands b ON b.id=brand_search.brand_id
       WHERE brand_search MATCH ?3 AND ${here}
-      ORDER BY brand_search.rank LIMIT ${CANDIDATES}`,
+      ORDER BY brand_search.rank,b.id LIMIT ${CANDIDATES}`,
     )
     .bind(countryId, everyBrand ? 1 : 0, runs.join(" OR "))
     .all<{ id: string; slug: string; name: string; aliases: string }>();
@@ -99,6 +107,7 @@ export async function matchingBrands(
           WHERE b.id IN (SELECT id FROM brands WHERE ${initialRanges(initials)}
             UNION SELECT brand_id FROM brand_aliases WHERE ${initialRanges(initials)})
             AND ${here}
+          ORDER BY b.normalized_name,b.id
           LIMIT ${INITIAL_CANDIDATES}`,
         )
         .bind(
@@ -130,12 +139,15 @@ export async function matchingBrands(
     .bind(countryId, JSON.stringify(named.map((brand) => brand.id)))
     .all<{ id: string; count: number }>();
   const count = new Map(counts.results.map((row) => [row.id, row.count]));
-  return matchBrands(
-    query,
-    named.map((brand) => ({
-      ...brand,
-      productCount: count.get(brand.id) ?? 0,
-    })),
-    limit,
-  );
+  // Compute the shared match key once per candidate, not on every comparison
+  // during sorting or continuation checks (especially useful for typo matches).
+  return named
+    .map((row) => {
+      const brand = { ...row, productCount: count.get(row.id) ?? 0 };
+      return { brand, position: brandPosition(query, brand) };
+    })
+    .sort((a, b) => compareBrandPositions(a.position, b.position))
+    .filter((row) => !after || compareBrandPositions(row.position, after) > 0)
+    .slice(0, limit)
+    .map(({ brand }) => brand);
 }

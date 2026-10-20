@@ -34,9 +34,11 @@ export function BrandLines({
 }) {
   const [lines, setLines] = useState<BrandLine[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const code = country.toLowerCase();
   useEffect(() => {
     let live = true;
+    const controller = new AbortController();
     setLines(null);
     setFailed(false);
     const query = new URLSearchParams({
@@ -45,6 +47,10 @@ export function BrandLines({
     });
     void communityRequest<BrandLine[]>(
       `community/brands/${brand.id}/lines?${query}`,
+      undefined,
+      undefined,
+      undefined,
+      { signal: controller.signal },
     )
       .then((found) => {
         if (!live) return;
@@ -55,14 +61,22 @@ export function BrandLines({
       .catch(() => live && setFailed(true));
     return () => {
       live = false;
+      controller.abort();
     };
     // The callbacks change identity on each render; the list depends only
     // on these.
-  }, [country, brand.id, food?.id]);
+  }, [country, brand.id, food?.id, attempt]);
   if (failed)
     return (
       <div className="va-listed" id="brand-lines">
         <p>We couldn’t check what’s listed from {brand.name}.</p>
+        <button
+          type="button"
+          className="button secondary"
+          onClick={() => setAttempt((value) => value + 1)}
+        >
+          Retry
+        </button>
         <button
           type="button"
           className="button secondary"

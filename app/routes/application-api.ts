@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { z } from "zod";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { catalogPage, categoryView } from "@server/catalog/application/service";
+import { batchSection } from "@server/catalog/domain/batches";
 import { readFilters } from "@server/catalog/domain/filters";
 import { brandResponse } from "@server/catalog/http/brand-response";
 import {
@@ -41,10 +42,28 @@ async function handle(request: Request, path: string) {
       const market = await catalog.market(
         url.searchParams.get("country") ?? "us",
       );
-      if (path === "search")
+      if (path === "search") {
+        const section = batchSection(url.searchParams.get("section"), [
+          "foods",
+          "products",
+          "brands",
+        ] as const);
+        if (url.searchParams.has("cursor") && !section)
+          throw new ApplicationError(
+            "INVALID_CURSOR",
+            "Choose a results section.",
+          );
         return success(
-          await catalog.search(market, url.searchParams.get("q") ?? ""),
+          section
+            ? await catalog.searchBatch(
+                market,
+                url.searchParams.get("q") ?? "",
+                section,
+                url.searchParams.get("cursor"),
+              )
+            : await catalog.search(market, url.searchParams.get("q") ?? ""),
         );
+      }
       if (path === "suggest")
         return success(
           await catalog.suggest(market, url.searchParams.get("q") ?? ""),
@@ -73,14 +92,39 @@ async function handle(request: Request, path: string) {
               "INVALID_FILTER",
               "Choose stores and allergens offered in this country.",
             );
-          return success(
-            await catalog.category(market, slug, {
-              page: catalogPage(url.searchParams.get("page")),
-              unrankedPage: catalogPage(url.searchParams.get("unrankedPage")),
-              view: categoryView(url.searchParams.get("view")),
-              filters: checked.filters,
-            }),
-          );
+          const section = batchSection(url.searchParams.get("section"), [
+            "ranked",
+            "unranked",
+          ] as const);
+          if (url.searchParams.has("cursor") && !section)
+            throw new ApplicationError(
+              "INVALID_CURSOR",
+              "Choose a results section.",
+            );
+          if (section)
+            return success(
+              await catalog.categoryBatch(
+                market,
+                slug,
+                {
+                  view: categoryView(url.searchParams.get("view")),
+                  filters: checked.filters,
+                },
+                section,
+                url.searchParams.get("cursor"),
+              ),
+            );
+          const {
+            batches: _batches,
+            boundaryId: _boundary,
+            ...category
+          } = await catalog.category(market, slug, {
+            page: catalogPage(url.searchParams.get("page")),
+            unrankedPage: catalogPage(url.searchParams.get("unrankedPage")),
+            view: categoryView(url.searchParams.get("view")),
+            filters: checked.filters,
+          });
+          return success(category);
         }
         if (family === "products") {
           const canonical = await catalog.canonicalRedirect(market, slug);

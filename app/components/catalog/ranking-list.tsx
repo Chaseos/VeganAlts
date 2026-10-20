@@ -1,5 +1,6 @@
 import { Link } from "react-router";
-import { useId } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useHydrated } from "../../lib/use-hydrated";
 import type { AllergenDeclaration } from "@server/community/domain/allergens";
 import type { StoreOption } from "@server/catalog/domain/contracts";
 import type { DetailScore } from "@server/catalog/domain/ranking-view";
@@ -94,13 +95,7 @@ export const flavorLabel = (flavor: string | null) => flavor ?? "Original";
  * JavaScript. Each flavor links to its own page with its score in the
  * ranking shown, or its rating count before the score is available.
  */
-export function FlavorList({
-  country,
-  food,
-  line,
-  labels,
-  id,
-}: {
+interface FlavorListProps {
   country: string;
   food: string;
   line: Pick<
@@ -109,11 +104,28 @@ export function FlavorList({
   >;
   labels: Labels;
   id?: string;
-}) {
-  if (line.flavorCount < 2) return null;
+}
+export function FlavorList(props: FlavorListProps) {
+  return props.line.flavorCount < 2 ? null : <ExpandableFlavors {...props} />;
+}
+function ExpandableFlavors({
+  country,
+  food,
+  line,
+  labels,
+  id,
+}: FlavorListProps) {
+  const hydrated = useHydrated();
+  const disclosure = useRef<HTMLDetailsElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  useLayoutEffect(() => {
+    setExpanded(disclosure.current?.open ?? false);
+  }, []);
   return (
     <details
+      ref={disclosure}
       className="va-flavors"
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
       onKeyDown={(event) => {
         if (event.key === "Escape" && event.currentTarget.open) {
           event.stopPropagation();
@@ -127,7 +139,11 @@ export function FlavorList({
         <span className="sr-only"> of {line.name}</span>
       </summary>
       {/* A fragment inside the disclosure reveals it even before hydration. */}
-      <ul className="va-flavors__list" id={id}>
+      <ul
+        className="va-flavors__list"
+        id={id}
+        aria-hidden={hydrated && !expanded ? true : undefined}
+      >
         {line.flavors.map((flavor) => {
           const allergens = allergenSummary(flavor.allergens, labels);
           return (
@@ -430,7 +446,11 @@ export function UnratedRow({
   const allergens = allergenSummary(line.allergens, labels);
   const href = productPath(country, line.leadProduct.slug, food);
   return (
-    <li className="va-unrated">
+    <li
+      className="va-unrated va-result"
+      data-result={line.lineId}
+      tabIndex={-1}
+    >
       <Link
         className="va-unrated__photo"
         to={href}

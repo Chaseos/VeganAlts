@@ -43,6 +43,11 @@ export function FoodNavigation({
           </label>
         </div>
       </div>
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {query.trim()
+          ? `${navigationSections(group, query).reduce((sum, section) => sum + section.foods.length, 0)} food types match ${query.trim()}.`
+          : ""}
+      </p>
       <FoodGroupSections country={country} group={group} query={query} />
       <div className="va-foods-menu__more va-small">
         <Link

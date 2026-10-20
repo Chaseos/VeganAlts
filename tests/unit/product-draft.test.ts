@@ -9,6 +9,7 @@ import {
   extrasErrors,
   forCountry,
   fromSubmission,
+  hasDraftEdits,
   loadDraft,
   saveDraft,
   toSubmission,
@@ -25,6 +26,30 @@ const memory = () => {
     removeItem: (key: string) => void values.delete(key),
   };
 };
+it("protects food-only edits without treating link prefills as new work", () => {
+  const initial = emptyDraft("us", { food: { kind: "existing", id: "milk" } });
+  expect(
+    hasDraftEdits(
+      { ...initial, id: "another", savedAt: 20, country: "GB" },
+      initial,
+    ),
+  ).toBe(false);
+  expect(
+    hasDraftEdits(
+      { ...initial, food: { kind: "existing", id: "beef" } },
+      initial,
+    ),
+  ).toBe(true);
+  expect(
+    hasDraftEdits(
+      {
+        ...initial,
+        food: { kind: "new", name: "Kofta", aisleId: "lamb", otherNames: [] },
+      },
+      initial,
+    ),
+  ).toBe(true);
+});
 // A new brand: something else from it is the only choice.
 const basics = () => ({
   ...emptyDraft("gb", { food: { kind: "existing", id: "ground-beef" } }, 1),
@@ -284,4 +309,22 @@ describe("moving a draft to another country", () => {
       line: null,
     });
   });
+});
+
+it("reports unsafe writes while recognizing an unchanged restored draft", () => {
+  const store = memory();
+  const draft = basics();
+  expect(saveDraft(null, draft, 10)).toBe(false);
+  expect(saveDraft(store, draft, 10)).toBe(true);
+  const blocked = {
+    ...store,
+    setItem: () => {
+      throw new Error("quota");
+    },
+  };
+  expect(saveDraft(blocked, draft, 11)).toBe(true);
+  expect(saveDraft(blocked, { ...draft, name: "A new unsaved name" }, 11)).toBe(
+    false,
+  );
+  expect(loadDraft(blocked, 11)?.name).toBe(draft.name);
 });

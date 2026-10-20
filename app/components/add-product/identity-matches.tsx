@@ -42,6 +42,7 @@ export function IdentityMatches({
     setMatches((found) => (moved ? [] : found.filter((c) => !c.exact)));
     onExact(null);
     let active = true;
+    const controller = new AbortController();
     const timer = setTimeout(() => {
       const query = new URLSearchParams({
         country,
@@ -49,7 +50,13 @@ export function IdentityMatches({
         name: name.trim(),
         ...(lineId ? { line: lineId } : {}),
       });
-      void communityRequest<Candidate[]>(`community/identity-matches?${query}`)
+      void communityRequest<Candidate[]>(
+        `community/identity-matches?${query}`,
+        undefined,
+        undefined,
+        undefined,
+        { signal: controller.signal },
+      )
         .then((found) => {
           if (!active) return;
           setMatches(found);
@@ -65,6 +72,7 @@ export function IdentityMatches({
     }, 600);
     return () => {
       active = false;
+      controller.abort();
       clearTimeout(timer);
     };
   }, [country, brand, name, lineId, ready, onExact]);

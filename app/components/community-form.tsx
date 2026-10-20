@@ -19,6 +19,15 @@ export function CommunityFeedback({
         className={action.error ? "form-error" : ""}
       >
         {action.error}
+        {action.sessionExpired && (
+          <>
+            {" "}
+            <a href="/sign-in" target="_blank" rel="noopener">
+              Sign in again (new tab)
+            </a>
+            , then return here and retry.
+          </>
+        )}
       </div>
       {action.challenge && (
         <Turnstile
@@ -150,13 +159,21 @@ export function CommunityControls({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
   return (
-    <fieldset
-      className="community-controls"
-      disabled={!ready}
-      aria-busy={!ready}
-    >
-      {children}
-    </fieldset>
+    <>
+      <noscript>
+        <p className="notice">
+          JavaScript is required to add or edit contributions. Enable it, then
+          reload to continue.
+        </p>
+      </noscript>
+      <fieldset
+        className="community-controls"
+        disabled={!ready}
+        aria-busy={!ready}
+      >
+        {children}
+      </fieldset>
+    </>
   );
 }
 

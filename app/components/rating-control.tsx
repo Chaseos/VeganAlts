@@ -173,6 +173,12 @@ export function RatingControl({
   const helpId = `rating-help-${categoryId}`;
   return (
     <section className="va-rate" aria-label={`Rate it as ${food}`}>
+      <noscript>
+        <p className="notice">
+          JavaScript is required to save a rating. Enable it, then reload to
+          rate this product.
+        </p>
+      </noscript>
       <p className="va-rate__product">
         {productName}
         {flavor ? ` · ${flavor}` : ""}

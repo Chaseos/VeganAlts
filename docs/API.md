@@ -535,3 +535,53 @@ Public discovery summaries include the accepted current front photo's `imageId` 
 - **Brand tags.** Cache tags add `brand:<cc>:<slug>`.
 - **What a product change purges.** A product change purges its brand page. A line move or rename purges the products of both lines, their foods' listings and the brand page.
 - **Ratings** still never purge.
+
+## Public continuation reads (October 2026)
+
+Public browsing appends batches with “See more”. Existing requests without
+`section` and `cursor` retain their response contracts, including legacy
+`page` and `unrankedPage` category URLs. Account and admin pagination is unchanged.
+
+- `GET /api/v1/search?country=us&q=beef&section=foods|brands|products&cursor=…`
+  returns only that section: 12 foods, 10 brands, or 20 products.
+- `GET /api/v1/categories/:slug?country=us&section=ranked|unranked&cursor=…`
+  returns 20 recipe lines from that section. `view`, `stores`, and `freeFrom`
+  retain their existing meanings. The API spelling `unranked` names the
+  “Not rated yet” section.
+
+The ordinary `{data: …}` envelope contains a typed batch:
+
+```ts
+{
+  items: Item[];
+  nextCursor: string | null;
+  limitReached: boolean;
+  start: number; // zero-based position in this section
+  boundaryId: string | null; // first line after a qualification boundary
+}
+```
+
+Search items include their stable entity `id`; ranking items retain `lineId`.
+Global Closest and Tastiest ranks remain unchanged by pagination or filters.
+`boundaryId` identifies the single place to show a detail/Tastiest qualification
+message, even when it falls between batches. A first-page featured card appears
+once. A continuation includes no navigation tree, filter options, other result
+sections, previous cards, or their flavors. Full aggregate ordering and badge
+calculations precede hydration of the selected cards; raw ratings are not read.
+
+Each read uses one lookahead record (or the complete thin aggregate ordering)
+to determine `nextCursor`. Search cursors encode stable match/sort keys and
+entity IDs; ranking cursors encode the existing bounded page position. Cursors
+are opaque, validated against country, query/category, section, view, and
+filters, and bounded to 100 batches. `limitReached` means more matches may
+exist: invite refinement, never claim all matches were shown. Changed catalogs
+may move records between requests; clients deduplicate by identity and retain
+the order already presented. A cursor from another context is a 400
+`INVALID_CURSOR`; a cursor requires a section.
+
+Initial batches are server rendered. Document URLs accept the same section and
+cursor for crawlable, JavaScript-disabled continuation links. Search documents
+with a query remain `noindex, follow`; production robots allows their crawl so
+that directive can be read. Staging remains disallowed. Anonymous continuation
+requests use shared caching, with every result-affecting input normalized into
+the cache key. No schema or infrastructure change is required.

@@ -102,10 +102,10 @@ export function ProductPhotos({
           </div>
           <div className="va-photo-viewer__stage" {...swipe}>
             {photo && (
-              <img
+              <ViewerImage
+                key={photo.id}
                 src={`/media/${photo.id}/${photo.hasEvidence ? "evidence" : "full"}`}
                 alt={`${productName}: ${SLOT_LABELS[photo.slot]}`}
-                draggable={false}
               />
             )}
           </div>
@@ -138,5 +138,42 @@ export function ProductPhotos({
         </div>
       </dialog>
     </div>
+  );
+}
+
+function ViewerImage({ src, alt }: { src: string; alt: string }) {
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [attempt, setAttempt] = useState(0);
+  return (
+    <>
+      {state === "loading" && (
+        <p className="va-photo-viewer__status" role="status">
+          Loading photo…
+        </p>
+      )}
+      {state === "error" ? (
+        <div className="va-photo-viewer__status" role="alert">
+          <p>This photo couldn’t load.</p>
+          <button
+            className="button secondary"
+            onClick={() => {
+              setState("loading");
+              setAttempt((value) => value + 1);
+            }}
+          >
+            Retry photo
+          </button>
+        </div>
+      ) : (
+        <img
+          key={attempt}
+          src={attempt ? `${src}?retry=${attempt}` : src}
+          alt={alt}
+          draggable={false}
+          onLoad={() => setState("ready")}
+          onError={() => setState("error")}
+        />
+      )}
+    </>
   );
 }

@@ -38,6 +38,12 @@ export function useCombobox<T>({
     errorId = `${id}-error`;
   useEffect(() => setActive(-1), [text]);
   useEffect(() => {
+    if (open && active >= 0)
+      document
+        .getElementById(`${optionId}-${active}`)
+        ?.scrollIntoView({ block: "nearest" });
+  }, [active, open, optionId]);
+  useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
       if (!root.current?.contains(event.target as Node)) setOpen(false);

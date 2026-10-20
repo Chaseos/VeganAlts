@@ -29,6 +29,8 @@ export function SortMenu({
   const href = (view: string) => {
     const params = new URLSearchParams(location.search);
     params.delete("page");
+    params.delete("section");
+    params.delete("cursor");
     params.delete("unrankedPage");
     if (view === "top") params.delete("view");
     else params.set("view", view);
@@ -238,7 +240,7 @@ export function FreeFromChecklist({
     : "Any";
   return (
     <Popover
-      className={`va-store-menu${chosen.size ? " va-store-menu--active" : ""}`}
+      className={`va-free-menu va-store-menu${chosen.size ? " va-store-menu--active" : ""}`}
       summaryLabel={`Free from: ${names.length ? `${summary}. Allergens: ${names.join(", ")}` : "any allergens"}`}
       panelLabel="Allergens to avoid"
       summary={

@@ -1,6 +1,40 @@
 import { expect, it, vi } from "vitest";
 import gateway from "../../workers/app";
 
+it("serves readable gateway document errors and retains API errors and response policy", async () => {
+  const env = {
+    APP_ENV: "staging",
+    APP_URL: "https://staging.veganalts.com",
+    WEB_ANALYTICS_TOKEN: "",
+    VERSION_METADATA: { id: "gateway-error" },
+    SEARCH_RATE_LIMIT: { limit: async () => ({ success: false }) },
+  } as unknown as Cloudflare.Env;
+  for (const path of ["/us/search?q=beef", "/api/v1/search?q=beef"]) {
+    const response = await gateway.fetch(
+      new Request(env.APP_URL + path) as Request<
+        unknown,
+        IncomingRequestCfProperties
+      >,
+      env,
+      {} as ExecutionContext,
+    );
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(response.headers.get("Cache-Control")).toContain("no-store");
+    expect(response.headers.get("Content-Security-Policy")).toBeTruthy();
+    expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    if (path.startsWith("/us/")) {
+      expect(response.headers.get("Content-Type")).toContain("text/html");
+      expect(await response.text()).toContain("Retry this page");
+    } else {
+      expect(response.headers.get("Content-Type")).toContain(
+        "application/problem+json",
+      );
+      expect(await response.json()).toMatchObject({ status: 429 });
+    }
+  }
+});
+
 it("serves cached product documents, data and API reads without touching D1", async () => {
   const prepare = vi.fn(() => {
     throw new Error("D1 must not run before a cache hit");

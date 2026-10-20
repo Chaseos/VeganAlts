@@ -17,7 +17,7 @@ import type {
   ProductPlacement,
   ProductSummary,
   PublicProfile,
-  RankedRow,
+  RankingOrderRow,
   StoreOption,
   TaxonomyCounts,
   TopProduct,
@@ -33,6 +33,7 @@ import {
   readCanonicalRedirect,
 } from "../../community/infrastructure/public-read";
 import { matchingBrands } from "./brand-rows";
+import type { SearchPosition, BrandPosition } from "../domain/batches";
 
 const frontImageSql = (version = "v") =>
   `(SELECT i.id FROM product_images i WHERE i.product_version_id=${version}.id AND i.slot='front' AND i.state='accepted' LIMIT 1)`;
@@ -523,11 +524,10 @@ export class D1CatalogRepository implements CatalogRepository {
   ) {
     const storeMatch = lineMatchExpr({ stores: filters.stores, freeFrom: [] });
     const allMatch = lineMatchExpr(filters);
-    const stores = lineMatchedStoresSql(filters);
     const rows = (
       await this.db
         .prepare(
-          `SELECT ${lineIdentity()},s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,s.recent_count AS recentRatingCount,
+          `SELECT p.id,s.product_family_id AS lineId,s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,s.recent_count AS recentRatingCount,
             s.enjoyment_score AS tastiestScore,s.enjoyment_people AS tastiestCount,
             ${trendRankSql} AS trendingRank,
             CASE WHEN ${lineSampleSql} THEN ROW_NUMBER() OVER (ORDER BY ${lineOrderSql}) END AS topRank,
@@ -535,34 +535,40 @@ export class D1CatalogRepository implements CatalogRepository {
             CASE WHEN ${allMatch.sql} THEN 1 ELSE 0 END AS allergenMatch,
             EXISTS(SELECT 1 FROM ${lineFlavorJoins("s.category_id")} JOIN product_version_allergen_declarations d ON d.product_version_id=lfv.id
               WHERE ${lineFlavorWhere("s.product_family_id")}) AS confirmed,
-            ${allergensSql()} AS allergens,
             (SELECT json_group_object(ds.dimension_id,json_array(ds.people_count,ds.mean_sum)) FROM family_category_dimension_stats ds
-              WHERE ds.product_family_id=s.product_family_id AND ds.category_id=s.category_id) AS details${stores.sql}
+              WHERE ds.product_family_id=s.product_family_id AND ds.category_id=s.category_id) AS details
           FROM family_category_stats s ${lineJoins}
           WHERE s.category_id=? AND (${anyLineSampleSql})
           ORDER BY topRank`,
         )
-        .bind(
-          ...storeMatch.binds,
-          ...allMatch.binds,
-          ...stores.binds,
-          countryId,
-          categoryId,
-        )
-        .all<
-          Omit<RankedRow, "details" | "allergens" | "matchedStores"> & {
-            details: string | null;
-            allergens: unknown;
-            matchedStores: unknown;
-          }
-        >()
+        .bind(...storeMatch.binds, ...allMatch.binds, countryId, categoryId)
+        .all<Omit<RankingOrderRow, "details"> & { details: string | null }>()
     ).results;
-    return parseStores(rows).map((row) => ({
-      ...parseAllergens(row),
-      details: (row.details
-        ? JSON.parse(row.details)
-        : {}) as RankedRow["details"],
+    return rows.map((row) => ({
+      ...row,
+      details: row.details
+        ? (JSON.parse(row.details) as RankingOrderRow["details"])
+        : {},
     }));
+  }
+
+  async rankedCards(
+    countryId: string,
+    categoryId: string,
+    lineIds: string[],
+    filters: RankingFilters,
+  ) {
+    if (!lineIds.length) return [];
+    const stores = lineMatchedStoresSql(filters);
+    const rows = await this.db
+      .prepare(
+        `SELECT ${lineIdentity()},${allergensSql()} AS allergens ${stores.sql}
+      FROM family_category_stats s ${lineJoins}
+      WHERE s.category_id=? AND s.product_family_id IN (SELECT value FROM json_each(?))`,
+      )
+      .bind(...stores.binds, countryId, categoryId, JSON.stringify(lineIds))
+      .all<LineSummary & { allergens: unknown; matchedStores: unknown }>();
+    return parseStores(rows.results).map(parseAllergens);
   }
 
   // A food's active detail questions, in order.
@@ -891,8 +897,13 @@ export class D1CatalogRepository implements CatalogRepository {
   }
 
   // Brands with products in the country matching typed text (brand-rows.ts).
-  brands(countryId: string, query: string, limit: number) {
-    return matchingBrands(this.db, countryId, query, limit);
+  brands(
+    countryId: string,
+    query: string,
+    limit: number,
+    after?: BrandPosition | null,
+  ) {
+    return matchingBrands(this.db, countryId, query, limit, { after });
   }
 
   brand(countryId: string, slug: string) {
@@ -960,6 +971,50 @@ export class D1CatalogRepository implements CatalogRepository {
       leadProduct: JSON.parse(row.leadProduct) as BrandLineRow["leadProduct"],
       flavors: JSON.parse(row.flavors) as BrandLineRow["flavors"],
     }));
+  }
+
+  async searchPage(
+    countryId: string,
+    iso2: string,
+    expression: string,
+    section: "foods" | "products",
+    after: SearchPosition | null,
+    limit: number,
+  ) {
+    // Select thin FTS keys first; hydrate only this batch, never prior matches.
+    const food = section === "foods";
+    const candidates = food
+      ? `SELECT c.id,c.name AS searchName,search_index.rank AS searchRank FROM search_index JOIN categories c ON c.id=entity_id WHERE search_index MATCH ? AND entity_type='category' AND country_code=? AND c.is_active=1 AND c.is_rankable=1 AND ${onHere("c")}`
+      : `SELECT p.id,p.name AS searchName,search_index.rank AS searchRank FROM search_index JOIN products p ON p.id=entity_id JOIN countries co ON co.id=p.country_id WHERE search_index MATCH ? AND entity_type='product' AND country_code=? AND p.country_id=? AND co.is_active=1 AND p.lifecycle_status NOT IN ('hidden','discontinued') AND EXISTS(SELECT 1 FROM product_versions v WHERE v.product_id=p.id AND v.is_current=1) AND EXISTS(SELECT 1 FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 WHERE pc.product_id=p.id)`;
+    const prefix = `WITH matched AS MATERIALIZED (${candidates}), selected AS (SELECT * FROM matched ${after ? "WHERE (searchRank,searchName,id)>(?,?,?)" : ""} ORDER BY searchRank,searchName,id LIMIT ?) `;
+    const tail = food
+      ? `SELECT ${categoryFields},s.searchRank,s.searchName FROM selected s JOIN categories c ON c.id=s.id ORDER BY s.searchRank,s.searchName,s.id`
+      : `SELECT ${identity},s.searchRank,s.searchName FROM selected s JOIN product_versions v ON v.product_id=s.id AND v.is_current=1 ${productJoins} ORDER BY s.searchRank,s.searchName,s.id`;
+    const rows = await this.db
+      .prepare(prefix + tail)
+      .bind(
+        expression,
+        iso2,
+        countryId,
+        ...(after ?? []),
+        limit,
+        ...(food ? [countryId, countryId, countryId] : [countryId]),
+      )
+      .all();
+    return {
+      categories: food
+        ? (rows.results as unknown as (CategorySummary & {
+            searchRank: number;
+            searchName: string;
+          })[])
+        : [],
+      products: food
+        ? []
+        : (rows.results as unknown as (ProductSummary & {
+            searchRank: number;
+            searchName: string;
+          })[]),
+    };
   }
 
   async search(countryId: string, iso2: string, expression: string) {

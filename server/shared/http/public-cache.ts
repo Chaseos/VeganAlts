@@ -159,15 +159,17 @@ export function normalizedPublicRequest(
     );
   const url = new URL(route.pathname, origin);
   const keys =
-    route.kind === "search" || route.kind === "suggest"
-      ? ["q"]
-      : route.kind === "category"
-        ? ["page", "unrankedPage", "view"]
-        : route.kind === "product"
-          ? ["version", "food"]
-          : route.kind === "comments"
-            ? ["sort", "formula", "cursor"]
-            : [];
+    route.kind === "search"
+      ? ["q", "section", "cursor"]
+      : route.kind === "suggest"
+        ? ["q"]
+        : route.kind === "category"
+          ? ["page", "unrankedPage", "view", "section", "cursor"]
+          : route.kind === "product"
+            ? ["version", "food"]
+            : route.kind === "comments"
+              ? ["sort", "formula", "cursor"]
+              : [];
   if (route.kind === "category") {
     // Several values are allowed and merged into one normalized parameter.
     const filters = readFilters(incoming.searchParams);
@@ -195,7 +197,9 @@ export function normalizedPublicRequest(
         : key === "q"
           ? 80
           : key === "cursor"
-            ? 300
+            ? route.kind === "comments"
+              ? 300
+              : 3000
             : 100)
     )
       throw new ApplicationError("INVALID_QUERY", "The query is too long.");

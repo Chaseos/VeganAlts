@@ -91,6 +91,17 @@ const draftSchema = z.object({
   savedAt: z.number(),
 });
 export type ProductDraft = z.infer<typeof draftSchema>;
+/** Ignore URL context and bookkeeping when identifying work to protect. */
+export function hasDraftEdits(draft: ProductDraft, initial: ProductDraft) {
+  return (Object.keys(draft) as (keyof ProductDraft)[]).some(
+    (key) =>
+      key !== "id" &&
+      key !== "savedAt" &&
+      key !== "country" &&
+      key !== "startedFrom" &&
+      JSON.stringify(draft[key]) !== JSON.stringify(initial[key]),
+  );
+}
 export type FoodPick = z.infer<typeof foodPick>;
 export type LinePick = z.infer<typeof linePick>;
 // Where a link started the draft: a food page, a product's "Add another
@@ -436,9 +447,20 @@ export function saveDraft(
   key = DRAFT_KEY,
 ) {
   try {
-    storage?.setItem(key, JSON.stringify({ ...draft, savedAt: now }));
+    if (!storage) return false;
+    storage.setItem(key, JSON.stringify({ ...draft, savedAt: now }));
+    return true;
   } catch {
-    // Quota or privacy settings: the form still works without a draft.
+    // An unchanged restored draft is still safe even if a redundant write
+    // is denied. Only newer work needs a leave-page warning.
+    const stored = loadDraft(storage, now, key);
+    const current = draftSchema.safeParse(draft);
+    return (
+      stored !== null &&
+      current.success &&
+      JSON.stringify({ ...stored, savedAt: 0 }) ===
+        JSON.stringify({ ...current.data, savedAt: 0 })
+    );
   }
 }
 export function clearDraft(storage: DraftStorage | null, key = DRAFT_KEY) {

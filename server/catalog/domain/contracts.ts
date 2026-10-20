@@ -2,6 +2,7 @@ import type { CommunityProductDetails } from "../../community/domain/public";
 import type { TaxonomyNode } from "../../taxonomy/domain/shape";
 import type { RankingFilters } from "./filters";
 import type { AllergenDeclaration } from "../../community/domain/allergens";
+import type { SearchPosition, BrandPosition } from "./batches";
 
 export interface CategorySummary {
   id: string;
@@ -72,6 +73,22 @@ export interface RankedRow extends LineSummary {
   // Detail answers per question id: [people, sum of their means].
   details: Record<string, [number, number]>;
 }
+export type RankingOrderRow = Pick<
+  RankedRow,
+  | "id"
+  | "lineId"
+  | "bayesianScore"
+  | "ratingCount"
+  | "topRank"
+  | "tastiestScore"
+  | "tastiestCount"
+  | "recentRatingCount"
+  | "trendingRank"
+  | "storeMatch"
+  | "allergenMatch"
+  | "confirmed"
+  | "details"
+>;
 // One eligible flavor of a listed line, with its own scores in the food.
 export interface FlavorRow {
   imageId: string | null;
@@ -310,7 +327,18 @@ export interface CatalogRepository {
     countryId: string,
     categoryId: string,
     filters: RankingFilters,
-  ): Promise<RankedRow[]>;
+  ): Promise<RankingOrderRow[]>;
+  rankedCards(
+    countryId: string,
+    categoryId: string,
+    lineIds: string[],
+    filters: RankingFilters,
+  ): Promise<
+    (LineSummary & {
+      allergens: AllergenDeclaration | null;
+      matchedStores: string[];
+    })[]
+  >;
   questions(
     categoryId: string,
   ): Promise<{ id: string; key: string; label: string }[]>;
@@ -372,8 +400,27 @@ export interface CatalogRepository {
     iso2: string,
     expression: string,
   ): Promise<{ categories: CategorySummary[]; products: ProductSummary[] }>;
+  searchPage(
+    countryId: string,
+    iso2: string,
+    expression: string,
+    section: "foods" | "products",
+    after: SearchPosition | null,
+    limit: number,
+  ): Promise<{
+    categories: (CategorySummary & {
+      searchRank: number;
+      searchName: string;
+    })[];
+    products: (ProductSummary & { searchRank: number; searchName: string })[];
+  }>;
   // Brands with products in the country matching typed text, best first.
-  brands(countryId: string, query: string, limit: number): Promise<BrandRow[]>;
+  brands(
+    countryId: string,
+    query: string,
+    limit: number,
+    after?: BrandPosition | null,
+  ): Promise<BrandRow[]>;
   // A brand by slug, with its product count in the country (maybe 0).
   brand(
     countryId: string,

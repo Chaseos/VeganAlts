@@ -26,23 +26,24 @@ function open(): Promise<IDBDatabase | null> {
 async function transaction(
   mode: IDBTransactionMode,
   work: (store: IDBObjectStore) => void,
-): Promise<void> {
+): Promise<boolean> {
   const db = await open();
-  if (!db) return;
+  if (!db) return false;
   return new Promise((resolve) => {
     try {
       const tx = db.transaction(STORE, mode);
       work(tx.objectStore(STORE));
-      tx.oncomplete =
-        tx.onerror =
-        tx.onabort =
-          () => {
-            db.close();
-            resolve();
-          };
+      tx.oncomplete = () => {
+        db.close();
+        resolve(true);
+      };
+      tx.onerror = tx.onabort = () => {
+        db.close();
+        resolve(false);
+      };
     } catch {
       db.close();
-      resolve();
+      resolve(false);
     }
   });
 }
@@ -75,8 +76,8 @@ export function saveDraftPhoto(
 export async function loadDraftPhotos(draftId: string, now = Date.now()) {
   const photos: Partial<Record<PhotoSlot, File>> = {};
   const db = await open();
-  if (!db) return photos;
-  await new Promise<void>((resolve) => {
+  if (!db) return { photos, available: false };
+  const available = await new Promise<boolean>((resolve) => {
     try {
       const tx = db.transaction(STORE, "readonly");
       const cursor = tx.objectStore(STORE).openCursor();
@@ -92,13 +93,14 @@ export async function loadDraftPhotos(draftId: string, now = Date.now()) {
           photos[stored.slot] = stored.file;
         row.continue();
       };
-      tx.oncomplete = tx.onerror = tx.onabort = () => resolve();
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = tx.onabort = () => resolve(false);
     } catch {
-      resolve();
+      resolve(false);
     }
   });
   db.close();
-  return photos;
+  return { photos, available };
 }
 
 // Removes stored photos the predicate picks; others (another tab's draft)

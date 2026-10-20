@@ -1,4 +1,6 @@
+import { ApplicationError } from "@server/shared/domain/errors";
 import { env } from "cloudflare:workers";
+import { batchSection } from "@server/catalog/domain/batches";
 import { Link, redirect, useLocation } from "react-router";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
@@ -12,7 +14,12 @@ import {
   requireCatalogPreview,
 } from "@server/catalog/http/loader";
 import { EmptyState } from "../components/ui/feedback";
-import { Pagination } from "../components/ui/navigation";
+import { useCallback, useMemo } from "react";
+import {
+  BatchItems,
+  SeeMore,
+  useBatches,
+} from "../components/catalog/see-more";
 import { ButtonLink } from "../components/ui/button";
 import { CheckThePackage, SeasonalBadge } from "../components/ui/badges";
 import { seasonOf } from "@server/taxonomy/domain/season";
@@ -73,6 +80,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       headers: { "Cache-Control": "private, no-store" },
     });
   return publicLoader(async () => {
+    const continuation = new URL(request.url).searchParams;
+    if (continuation.has("cursor") && !continuation.has("section"))
+      throw new ApplicationError(
+        "INVALID_CURSOR",
+        "Choose a results section before continuing.",
+      );
     const url = new URL(request.url);
     const market = await catalog.market(country);
     // Aisles are groups with their own page; a deeper group (a retired shelf
@@ -107,6 +120,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     const view = categoryView(url.searchParams.get("view"));
     const ranking = await catalog
       .category(market, params.categorySlug, {
+        section: batchSection(url.searchParams.get("section"), [
+          "ranked",
+          "unranked",
+        ] as const),
+        cursor: url.searchParams.get("cursor"),
         page: catalogPage(url.searchParams.get("page")),
         unrankedPage: catalogPage(url.searchParams.get("unrankedPage")),
         view,
@@ -117,6 +135,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         if (error instanceof UnknownViewError) {
           const params = new URLSearchParams(url.search);
           params.delete("view");
+          params.delete("section");
+          params.delete("cursor");
           params.delete("page");
           params.delete("_routes");
           throw redirect(
@@ -317,18 +337,58 @@ function NotHereYet({ data }: { data: FoodData }) {
 }
 
 function FoodRanking({ data }: { data: FoodData }) {
+  const location = useLocation();
   if (!data.availability.here) return <NotHereYet data={data} />;
-  return <FoodRankingList data={data} />;
+  return (
+    <FoodRankingList
+      key={location.pathname + location.search}
+      data={data}
+      context={location.pathname + location.search}
+    />
+  );
 }
 
-function FoodRankingList({ data }: { data: FoodData }) {
+function FoodRankingList({
+  data,
+  context,
+}: {
+  data: FoodData;
+  context: string;
+}) {
   const code = data.market.code;
   const food = data.category.name;
   const season = seasonOf(data.category.seasonStart, data.category.seasonEnd);
   const filtered = hasFilters(data.filters);
-  const labels = Object.fromEntries(
-    data.allergenOptions.map((option) => [option.key, option.label]),
+  const labels = useMemo(
+    () =>
+      Object.fromEntries(
+        data.allergenOptions.map((option) => [option.key, option.label]),
+      ),
+    [data.allergenOptions],
   );
+  const params = new URLSearchParams(context.split("?")[1]);
+  params.delete("page");
+  params.delete("unrankedPage");
+  params.delete("section");
+  params.delete("cursor");
+  params.delete("section");
+  params.delete("cursor");
+  params.set("country", code);
+  const endpoint = `/api/v1/categories/${data.category.slug}?${params}`;
+  const ranked = useBatches({
+    context,
+    section: "ranked",
+    initial: data.batches.ranked,
+    endpoint,
+    identity: (line) => line.lineId,
+  });
+  const unrated = useBatches({
+    context,
+    section: "unranked",
+    initial: data.batches.unranked,
+    endpoint,
+    identity: (line) => line.lineId,
+  });
   useApplySavedFilters(code, {
     stores: data.storeOptions.map((store) => store.slug),
     freeFrom: data.allergenOptions.map((option) => option.key),
@@ -364,7 +424,7 @@ function FoodRankingList({ data }: { data: FoodData }) {
     ranking && data.page === 1 && first && rankOf(first) !== null
       ? first
       : undefined;
-  const rows = featured ? data.ranked.slice(1) : data.ranked;
+
   const freeLabel = data.filters.freeFrom
     .map((key) => `${(labels[key] ?? key).toLowerCase()}-free`)
     .join(", ");
@@ -374,6 +434,75 @@ function FoodRankingList({ data }: { data: FoodData }) {
         ? "Tastiest #1"
         : "#1 swap"
       : `${tastiestView ? "Tastiest" : "Closest match"}${freeLabel ? ` · ${freeLabel}` : ""}`;
+  const renderRanked = useCallback(
+    (line: (typeof data.ranked)[number], batch: typeof data.batches.ranked) => (
+      <li
+        key={line.lineId}
+        className="va-result"
+        data-result={line.lineId}
+        tabIndex={-1}
+      >
+        {line.lineId === batch.boundaryId && question && (
+          <p className="va-rank-list__divider">
+            These have fewer than 5 answers about {question.label.toLowerCase()}
+            , so they follow the ranking.
+          </p>
+        )}
+        {line.lineId === batch.boundaryId && tastiestView && (
+          <p className="va-rank-list__divider">
+            No one has said how tasty these are yet, so they follow Closest to
+            the original.
+          </p>
+        )}
+        {line.lineId === featured?.lineId ? (
+          <FeaturedSwap
+            country={code}
+            food={data.category.slug}
+            line={line}
+            rank={tastiestView ? line.tastiestRank : line.closestRank}
+            flag={flag}
+            labels={labels}
+            stores={data.storeOptions}
+          />
+        ) : (
+          <RankedRow
+            country={code}
+            food={data.category.slug}
+            line={line}
+            rank={tastiestView ? line.tastiestRank : line.closestRank}
+            note={sortNote(data.view, line)}
+            activeDetail={activeDetail}
+            labels={labels}
+            stores={data.storeOptions}
+          />
+        )}
+      </li>
+    ),
+    [
+      code,
+      data.category.slug,
+      data.storeOptions,
+      data.view,
+      featured?.lineId,
+      flag,
+      labels,
+      question,
+      tastiestView,
+      activeDetail,
+    ],
+  );
+  const renderUnrated = useCallback(
+    (line: (typeof data.unranked)[number]) => (
+      <UnratedRow
+        key={line.lineId}
+        country={code}
+        food={data.category.slug}
+        line={line}
+        labels={labels}
+      />
+    ),
+    [code, data.category.slug, labels],
+  );
   const clearHref = foodPath(code, data.category.slug);
   const aislePath = data.place.aisle
     ? foodPath(code, data.place.aisle.slug)
@@ -563,55 +692,19 @@ function FoodRankingList({ data }: { data: FoodData }) {
               </EmptyState>
             )
           ) : (
-            <ol className="va-rank-list" start={(data.page - 1) * 20 + 1}>
-              {featured && (
-                <li>
-                  <FeaturedSwap
-                    country={code}
-                    food={data.category.slug}
-                    line={featured}
-                    rank={rankOf(featured)}
-                    flag={flag}
-                    labels={labels}
-                    stores={data.storeOptions}
-                  />
-                </li>
-              )}
-              {rows.map((line, index) => {
-                const position = featured ? index + 1 : index;
-                return (
-                  <li key={line.lineId}>
-                    {question && data.qualified === position && (
-                      <p className="va-rank-list__divider">
-                        These have fewer than 5 answers about{" "}
-                        {question.label.toLowerCase()}, so they follow the
-                        ranking.
-                      </p>
-                    )}
-                    {tastiestView && data.qualified === position && (
-                      <p className="va-rank-list__divider">
-                        No one has said how tasty these are yet, so they follow
-                        Closest to the original.
-                      </p>
-                    )}
-                    <RankedRow
-                      country={code}
-                      food={data.category.slug}
-                      line={line}
-                      rank={rankOf(line)}
-                      note={sortNote(data.view, line)}
-                      activeDetail={activeDetail}
-                      labels={labels}
-                      stores={data.storeOptions}
-                    />
-                  </li>
-                );
-              })}
+            <ol
+              ref={ranked.list}
+              className="va-rank-list"
+              start={data.batches.ranked.start + 1}
+            >
+              {ranked.batches.map((batch, index) => (
+                <BatchItems key={index} batch={batch} render={renderRanked} />
+              ))}
             </ol>
           )}
-          <Pagination page={data.page} hasNext={data.hasNext} />
+          <SeeMore {...ranked.control} />
 
-          {(data.unranked.length > 0 || data.unrankedPage > 1) && (
+          {(unrated.count > 0 || data.unrankedPage > 1) && (
             <section
               className="va-ranking__unrated"
               aria-labelledby="unrated-title"
@@ -622,23 +715,16 @@ function FoodRankingList({ data }: { data: FoodData }) {
               <p className="va-muted">
                 These have no ratings, so they aren’t ranked. Tried one?
               </p>
-              <ul className="va-unrated-list">
-                {data.unranked.map((line) => (
-                  <UnratedRow
-                    key={line.lineId}
-                    country={code}
-                    food={data.category.slug}
-                    line={line}
-                    labels={labels}
+              <ul ref={unrated.list} className="va-unrated-list">
+                {unrated.batches.map((batch, index) => (
+                  <BatchItems
+                    key={index}
+                    batch={batch}
+                    render={renderUnrated}
                   />
                 ))}
               </ul>
-              <Pagination
-                page={data.unrankedPage}
-                hasNext={data.hasNextUnranked}
-                parameter="unrankedPage"
-                label="Unrated products"
-              />
+              <SeeMore {...unrated.control} />
             </section>
           )}
           <p className="va-ranking__add">
@@ -670,6 +756,8 @@ function RankingToggle({ current }: { current: string }) {
     const params = new URLSearchParams(location.search);
     params.delete("page");
     params.delete("unrankedPage");
+    params.delete("section");
+    params.delete("cursor");
     if (view === "top") params.delete("view");
     else params.set("view", view);
     params.sort();

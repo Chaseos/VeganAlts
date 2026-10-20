@@ -4,6 +4,7 @@ import { FoodIcon } from "../icons/food-icons";
 import { SLOT_LABELS } from "../photo-slots";
 import { useHydrated } from "../../lib/use-hydrated";
 import { usePhotoSwipe } from "../../lib/use-photo-swipe";
+import { ProductThumbnail } from "./product-thumbnail";
 
 const SLOTS = Object.keys(SLOT_LABELS) as ImageSlot[];
 
@@ -122,14 +123,7 @@ export function PhotoGallery({
               defaultChecked={index === 0}
               onChange={() => setActive(index)}
             />
-            <img
-              src={`/media/${image.id}/thumbnail`}
-              alt=""
-              width={72}
-              height={72}
-              loading="lazy"
-              draggable={false}
-            />
+            <ProductThumbnail imageId={image.id} food={food} size="small" />
             <span className="sr-only">{SLOT_LABELS[image.slot]}</span>
           </label>
         ))}

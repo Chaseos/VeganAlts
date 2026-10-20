@@ -1301,3 +1301,47 @@ People see the top level as aisles.
 **Countries.** The main countries for vegan shoppers are planned next (milestone 8). The site stays in English until a separate language setting and translations arrive.
 
 **Wording.** People see flavors, line names, Closest to the original and Tastiest. "Line" and "family" are internal terms.
+
+### Public browsing and recovery — October 20, 2026
+
+Search foods, brands, and products, ranked recipe lines, and unrated products
+use independent **See more** controls. Each appends a small batch, keeping
+existing cards, open flavor disclosures, global ranks, and the reader's
+position. Foods load 12 at a time, brands 10, and product/ranking sections 20.
+Loading prevents duplicate requests; failures retain the list and offer Retry.
+The first new result receives focus without scrolling, and a polite message
+announces the number added. Exhausted sections remove their control. At the
+100-batch bound, visitors are invited to refine their query or filters.
+
+Changing country, query, view, or filters starts fresh and cancels earlier
+continuations. Back navigation restores recent loaded batches from a per-tab
+memory cache of at most three contexts, ten minutes, and 5 MiB. Full reloads and
+evicted contexts start at the server-rendered batch; they never redownload a
+history of batches automatically. The query-free grouped directory stays
+complete; the Foods menu keeps its three-food shortcuts and unrestricted local
+filtering without requests. Account and admin lists keep their current behavior.
+
+Unchanged batches retain their component and data identities. Supported engines
+skip offscreen row rendering with `content-visibility: auto` and remembered
+intrinsic sizes; expanded disclosures keep their full geometry and closed
+flavors stay out of the accessibility tree. The first 20 rows use normal layout
+to avoid shifts on the initial paint. WebKit uses normal layout because
+estimated row heights can move controls during touch interaction. The bounded
+batch requests, lazy images, and memoized batches apply in every browser.
+
+Keyboard navigation keeps selected suggestions visible and announces loading,
+errors, and local filter results. Ordinary navigation focuses the page heading;
+directory/rating anchors, filter focus, and Back/Forward restoration take
+precedence. Delayed route feedback avoids flashing on quick transitions.
+Motion is brief (120–180 ms), respects reduced motion, keeps the header stable,
+and never animates list heights or replays earlier result rows.
+
+Gateway document failures offer readable HTML and retry paths while retaining
+status, security, cache, and rate-limit policy. Contribution connection and
+parser failures offer understandable retry guidance; expired sessions can be
+renewed in a separate tab without losing the current retry state. Failed
+submissions retain draft values, idempotency keys, and upload receipts.
+Text/photo persistence failures are visible, and leaving is warned about only
+when work cannot safely survive navigation or reload. Contribution controls
+explain their JavaScript requirement. Full-size photos show loading, failure,
+and retry states; failed list thumbnails show the food icon.

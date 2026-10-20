@@ -1,5 +1,13 @@
+import { ApplicationError } from "@server/shared/domain/errors";
 import { env } from "cloudflare:workers";
-import { Link } from "react-router";
+import { batchSection } from "@server/catalog/domain/batches";
+import { Link, useLocation } from "react-router";
+import { useCallback } from "react";
+import {
+  BatchItems,
+  SeeMore,
+  useBatches,
+} from "../components/catalog/see-more";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import {
   publicLoader,
@@ -29,12 +37,24 @@ import type { Route } from "./+types/search";
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env);
   return publicLoader(async () => {
+    const continuation = new URL(request.url).searchParams;
+    if (continuation.has("cursor") && !continuation.has("section"))
+      throw new ApplicationError(
+        "INVALID_CURSOR",
+        "Choose a results section before continuing.",
+      );
     const catalog = catalogService(env);
     const market = await catalog.market(params.country);
     return {
       ...(await catalog.searchResults(
         market,
         new URL(request.url).searchParams.get("q") ?? "",
+        batchSection(new URL(request.url).searchParams.get("section"), [
+          "foods",
+          "products",
+          "brands",
+        ] as const),
+        new URL(request.url).searchParams.get("cursor"),
       )),
       market,
       origin: env.APP_URL,
@@ -68,8 +88,132 @@ export function meta({ loaderData }: Route.MetaArgs) {
 // The full search page: every matching food with its top three, then products
 // with where each ranks. Without a query it lists every aisle.
 export default function Search({ loaderData: data }: Route.ComponentProps) {
+  const location = useLocation();
+  return (
+    <SearchList
+      key={location.pathname + location.search}
+      data={data}
+      context={location.pathname + location.search}
+    />
+  );
+}
+function SearchList({
+  data,
+  context,
+}: {
+  data: Route.ComponentProps["loaderData"];
+  context: string;
+}) {
   const code = data.market.code;
-  const found = data.foods.length + data.brands.length + data.products.length;
+  const endpoint = `/api/v1/search?country=${code}&q=${encodeURIComponent(data.query)}`;
+  const foods = useBatches({
+    context,
+    section: "foods",
+    initial: data.batches.foods,
+    endpoint,
+    identity: (item) => item.id,
+  });
+  const brands = useBatches({
+    context,
+    section: "brands",
+    initial: data.batches.brands,
+    endpoint,
+    identity: (item) => item.id,
+  });
+  const products = useBatches({
+    context,
+    section: "products",
+    initial: data.batches.products,
+    endpoint,
+    identity: (item) => item.id,
+  });
+  const found = foods.count + brands.count + products.count;
+  const renderProducts = useCallback(
+    (product: (typeof data.products)[number]) => (
+      <li
+        className="va-result"
+        tabIndex={-1}
+        data-result={product.id}
+        key={product.id}
+      >
+        <Link
+          className="va-row-link"
+          to={productPath(code, product.slug, product.food.slug)}
+        >
+          <ProductThumbnail
+            imageId={product.imageId}
+            food={product.food.slug}
+          />
+          <span className="va-row-link__text">
+            <span className="va-row-link__title">
+              {productName(product.name, product.brand)}
+            </span>
+            <span className="va-small va-muted">
+              {[
+                product.rank
+                  ? `Closest #${product.rank} for ${product.food.name.toLowerCase()}`
+                  : `Not ranked yet for ${product.food.name.toLowerCase()}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+            {product.rank !== null && (
+              <span className="va-small va-muted">
+                Score includes this recipe’s flavors
+              </span>
+            )}
+          </span>
+          {product.early && <Badge tone="early">Early</Badge>}
+          {product.rank !== null && product.score !== null && (
+            <ScoreLabel
+              value={product.score}
+              size="compact"
+              tone={product.rank === 1 ? "tag" : "neutral"}
+            />
+          )}
+        </Link>
+      </li>
+    ),
+    [code, data.market.name],
+  );
+  const renderBrands = useCallback(
+    (brand: (typeof data.brands)[number]) => (
+      <li
+        className="va-result"
+        tabIndex={-1}
+        data-result={brand.id}
+        key={brand.id}
+      >
+        <Link className="va-row-link" to={brandPath(code, brand.slug)}>
+          <span className="va-row-link__text">
+            <span className="va-row-link__title">{brand.name}</span>
+            <span className="va-small va-muted">
+              {plural(brand.productCount, "product")} in {data.market.name}
+            </span>
+          </span>
+        </Link>
+      </li>
+    ),
+    [code, data.market.name],
+  );
+  const renderFoods = useCallback(
+    (food: (typeof data.foods)[number]) => (
+      <li
+        className="va-result"
+        tabIndex={-1}
+        data-result={food.id}
+        key={food.id}
+      >
+        <FoodCard
+          country={code}
+          food={food}
+          place={food.aisle ?? undefined}
+          level={3}
+        />
+      </li>
+    ),
+    [code, data.market.name],
+  );
   return (
     <PageShell search={false}>
       <header className="va-search-page__head">
@@ -79,14 +223,12 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
         {data.query && (
           <p className="va-muted">
             {joinList([
-              plural(data.foods.length, "food"),
+              plural(foods.count, "food"),
               // Brands are named only when some match.
-              ...(data.brands.length
-                ? [plural(data.brands.length, "brand")]
-                : []),
-              plural(data.products.length, "product"),
+              ...(brands.count ? [plural(brands.count, "brand")] : []),
+              plural(products.count, "product"),
             ])}{" "}
-            in {data.market.name}
+            shown in {data.market.name}
           </p>
         )}
         <InstantSearch
@@ -101,7 +243,7 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
         <AllAisles country={code} />
       ) : (
         <>
-          {data.foods.length > 0 && (
+          {foods.count > 0 && (
             <section
               className="va-search-page__section"
               aria-labelledby="foods-title"
@@ -109,21 +251,15 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
               <h2 id="foods-title" className="va-heading-m">
                 Foods
               </h2>
-              <ul className="va-food-grid">
-                {data.foods.map((food) => (
-                  <li key={food.slug}>
-                    <FoodCard
-                      country={code}
-                      food={food}
-                      place={food.aisle ?? undefined}
-                      level={3}
-                    />
-                  </li>
+              <ul ref={foods.list} className="va-food-grid">
+                {foods.batches.map((batch, index) => (
+                  <BatchItems key={index} batch={batch} render={renderFoods} />
                 ))}
               </ul>
+              <SeeMore {...foods.control} />
             </section>
           )}
-          {data.brands.length > 0 && (
+          {brands.count > 0 && (
             <section
               className="va-search-page__section"
               aria-labelledby="brands-title"
@@ -131,27 +267,18 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
               <h2 id="brands-title" className="va-heading-m">
                 Brands
               </h2>
-              <ul className="va-divided va-card va-search-page__products">
-                {data.brands.map((brand) => (
-                  <li key={brand.slug}>
-                    <Link
-                      className="va-row-link"
-                      to={brandPath(code, brand.slug)}
-                    >
-                      <span className="va-row-link__text">
-                        <span className="va-row-link__title">{brand.name}</span>
-                        <span className="va-small va-muted">
-                          {plural(brand.productCount, "product")} in{" "}
-                          {data.market.name}
-                        </span>
-                      </span>
-                    </Link>
-                  </li>
+              <ul
+                ref={brands.list}
+                className="va-divided va-card va-search-page__products"
+              >
+                {brands.batches.map((batch, index) => (
+                  <BatchItems key={index} batch={batch} render={renderBrands} />
                 ))}
               </ul>
+              <SeeMore {...brands.control} />
             </section>
           )}
-          {data.products.length > 0 && (
+          {products.count > 0 && (
             <section
               className="va-search-page__section"
               aria-labelledby="products-title"
@@ -159,53 +286,28 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
               <h2 id="products-title" className="va-heading-m">
                 Products
               </h2>
-              <ul className="va-divided va-card va-search-page__products">
-                {data.products.map((product) => (
-                  <li key={product.slug}>
-                    <Link
-                      className="va-row-link"
-                      to={productPath(code, product.slug, product.food.slug)}
-                    >
-                      <ProductThumbnail
-                        imageId={product.imageId}
-                        food={product.food.slug}
-                      />
-                      <span className="va-row-link__text">
-                        <span className="va-row-link__title">
-                          {productName(product.name, product.brand)}
-                        </span>
-                        <span className="va-small va-muted">
-                          {[
-                            product.rank
-                              ? `Closest #${product.rank} for ${product.food.name.toLowerCase()}`
-                              : `Not ranked yet for ${product.food.name.toLowerCase()}`,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                        {product.rank !== null && (
-                          <span className="va-small va-muted">
-                            Score includes this recipe’s flavors
-                          </span>
-                        )}
-                      </span>
-                      {product.early && <Badge tone="early">Early</Badge>}
-                      {product.rank !== null && product.score !== null && (
-                        <ScoreLabel
-                          value={product.score}
-                          size="compact"
-                          tone={product.rank === 1 ? "tag" : "neutral"}
-                        />
-                      )}
-                    </Link>
-                  </li>
+              <ul
+                ref={products.list}
+                className="va-divided va-card va-search-page__products"
+              >
+                {products.batches.map((batch, index) => (
+                  <BatchItems
+                    key={index}
+                    batch={batch}
+                    render={renderProducts}
+                  />
                 ))}
               </ul>
+              <SeeMore {...products.control} />
             </section>
           )}
           {!found && (
             <EmptyState
-              title={`No foods, brands or products match “${data.query}” yet`}
+              title={
+                (data.query.match(/[\p{L}\p{N}]/gu)?.length ?? 0) < 3
+                  ? "Enter at least 3 letters or numbers"
+                  : `No foods, brands or products match “${data.query}” yet`
+              }
               actions={
                 <>
                   <ButtonLink

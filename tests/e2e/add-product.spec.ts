@@ -229,14 +229,15 @@ test("publishes a front-photo-only product with its ingredients not checked yet"
       "Everything here is optional",
     );
     await accessible(page);
-    // Ratings chosen before a reload are still chosen after it; how tasty
-    // it is waits for how close.
+    // The independent ratings can be entered in either order and both
+    // survive a reload with the draft.
     const tasty = page.getByRole("button", { name: "5 Delicious (5 of 5)" });
-    await expect(tasty).toBeDisabled();
+    await expect(tasty).toBeEnabled();
+    await tasty.click();
     await page
       .getByRole("button", { name: "4 Very close (4 of 5)", exact: true })
       .click();
-    await tasty.click();
+    await expect(tasty).toHaveAttribute("aria-pressed", "true");
     await page.waitForTimeout(100);
     // A reload keeps the picked photo too (phones often reload after the
     // camera), so step 2 stays open.

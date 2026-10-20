@@ -10,6 +10,33 @@ export interface BrandCandidate {
   productCount: number;
 }
 
+export function brandPosition(
+  query: string,
+  brand: BrandCandidate & { id: string },
+): import("./batches").BrandPosition {
+  return [
+    Math.min(
+      ...[brand.name, ...brand.aliases].map(
+        (name) => nameMatch(query, name) ?? Infinity,
+      ),
+    ),
+    -brand.productCount,
+    brand.name,
+    brand.id,
+  ];
+}
+export function compareBrandPositions(
+  a: import("./batches").BrandPosition,
+  b: import("./batches").BrandPosition,
+) {
+  return (
+    a[0] - b[0] ||
+    a[1] - b[1] ||
+    a[2].localeCompare(b[2]) ||
+    a[3].localeCompare(b[3])
+  );
+}
+
 const words = (value: string) =>
   value
     .normalize("NFKD")
