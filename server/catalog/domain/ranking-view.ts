@@ -58,7 +58,7 @@ export function detailScores(
 
 interface Orderable {
   id: string;
-  topRank: number;
+  topRank: number | null;
   ratingCount: number;
   tastiestScore: number | null;
   tastiestCount: number;
@@ -72,7 +72,9 @@ interface Orderable {
  * follow in Top order; `qualified` says where they start.
  */
 export function orderRows<T extends Orderable>(rows: T[], view: CategoryView) {
-  const byTop = (a: T, b: T) => a.topRank - b.topRank;
+  const byTop = (a: T, b: T) =>
+    (a.topRank ?? Infinity) - (b.topRank ?? Infinity) ||
+    a.id.localeCompare(b.id);
   if (view === "tastiest") {
     const scored = rows
       .filter((row) => row.tastiestScore !== null)
@@ -121,7 +123,8 @@ export function detailBadges<T extends Orderable>(
       if (
         !best ||
         mean > best.mean ||
-        (mean === best.mean && row.topRank < best.row.topRank)
+        (mean === best.mean &&
+          (row.topRank ?? Infinity) < (best.row.topRank ?? Infinity))
       )
         best = { row, mean };
     }

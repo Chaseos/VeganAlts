@@ -388,6 +388,8 @@ Rating identity (§2), the 1–5 scale, formula transitions (§10) and the Close
 - **Tastiest.** It answers a second question: how much people enjoyed a swap, whether or not it is like the original. The answer is an optional 1–5 enjoyment score stored on the same rating row.
 - **Independence.** Neither ranking ever changes the other's score, rank or order.
 
+**Independent answers (owner revision, 2026-10-20).** Both questions are optional and either can be answered first or alone. A missing similarity or enjoyment answer is excluded from that ranking's per-person mean and population, never treated as zero. Recent Closest counts, familiarity, detail aggregates and the lead flavor's Closest tie-breaks use only closeness answers. Taste-only ratings still mark Tried and contribute to Tastiest; they do not give a line a Closest rank. Clearing both answers removes the rating and keeps Tried.
+
 **Line score.** The same calculation runs for each ranking, over similarity for Closest and over enjoyment for Tastiest. For each person, take the mean of their counted answers for the line's eligible flavors in that food.
 
 ```text

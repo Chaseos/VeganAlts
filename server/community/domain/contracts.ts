@@ -92,7 +92,7 @@ export const submissionInput = z
     manufacturerLabel: manufacturerLabel.optional(),
     // Applied once the product is published (the rating to its primary food).
     rating: z.number().int().min(1).max(5).optional(),
-    // The optional Tastiest answer, saved with the rating.
+    // The independent Tastiest answer, saved after publication.
     enjoyment: z.number().int().min(1).max(5).optional(),
     retailerIds: z
       .array(id)
@@ -121,10 +121,6 @@ export const submissionInput = z
   .refine(
     (v) => !(v.lineId && v.lineName),
     "Choose a listed line or name a new one, not both.",
-  )
-  .refine(
-    (v) => v.enjoyment === undefined || v.rating !== undefined,
-    "Say how close it is before how tasty it is.",
   );
 export type SubmissionInput = z.infer<typeof submissionInput>;
 export const submissionIdentity = z

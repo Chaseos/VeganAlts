@@ -282,13 +282,14 @@ Most of what remains is sold as a few base recipes in several flavors:
 
 ### Rating
 
-- **Closest question.** Similarity stays the one required answer, saved on tap.
+- **Independent answers (owner revision, 2026-10-20).** Closeness and tastiness can each be answered alone, and save on tap. Each ranking counts only people with its own answer. Neither control is locked or labeled optional. Tapping a chosen answer clears it without changing the other; clearing both removes the rating and keeps Tried.
+- **Closest question.** Similarity saves on tap.
   - A flavored product asks "Tried it? How close is it to [food] in the same flavor?"
   - Unflavored products keep the current question.
 - **Tastiest question.** "How tasty is it, whether or not it's like the original?" appears beside the similarity question.
   - It is optional and saves on tap; tapping the chosen answer again clears it.
   - Its scale runs: 1 Not for me, 2 It's OK, 3 Good, 4 Really good, 5 Delicious.
-- **Detail and familiarity questions** follow, as today.
+- **Detail and familiarity questions** follow a closeness answer and clear when closeness is removed.
 - **The same order applies** to the rating row in Add a product.
 - **The ranking methodology page** explains lines, one vote per person and the two rankings.
 

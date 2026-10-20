@@ -4068,7 +4068,7 @@
           "name": "overall_similarity",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "enjoyment": {
@@ -4205,7 +4205,7 @@
       "checkConstraints": {
         "ck_ratings_1": {
           "name": "ck_ratings_1",
-          "value": "typeof(overall_similarity) = 'integer' AND overall_similarity BETWEEN 1 AND 5"
+          "value": "overall_similarity IS NULL OR (typeof(overall_similarity) = 'integer' AND overall_similarity BETWEEN 1 AND 5)"
         },
         "ck_ratings_2": {
           "name": "ck_ratings_2",
@@ -4214,6 +4214,10 @@
         "ck_ratings_3": {
           "name": "ck_ratings_3",
           "value": "is_counted IN (0, 1)"
+        },
+        "ck_ratings_answer": {
+          "name": "ck_ratings_answer",
+          "value": "overall_similarity IS NOT NULL OR enjoyment IS NOT NULL"
         }
       }
     },

@@ -50,11 +50,11 @@ export interface DiscoveryRow extends LineSummary {
 // A ranked line of one food, before views and filters are applied. Counts
 // are people: each person counts once per line.
 export interface RankedRow extends LineSummary {
-  bayesianScore: number;
+  bayesianScore: number | null;
   ratingCount: number;
   // Position in the unfiltered Closest order, so a filtered view still shows
   // where a line actually ranks.
-  topRank: number;
+  topRank: number | null;
   tastiestScore: number | null;
   tastiestCount: number;
   recentRatingCount: number;
@@ -200,9 +200,9 @@ export interface ProductDetails
 // A recipe line's place in one food, in both rankings.
 export interface LineStanding {
   categoryId: string;
-  rank: number;
+  rank: number | null;
   rankedCount: number;
-  score: number;
+  score: number | null;
   people: number;
   tastiestRank: number | null;
   tastiestCount: number;
@@ -295,6 +295,7 @@ export interface CatalogRepository {
     limit: number,
     // Only lines that first appeared before this time (or never), when set.
     publishedBefore?: number,
+    ranking?: "closest" | "tastiest",
   ): Promise<(LineSummary & { allergens: AllergenDeclaration | null })[]>;
   // The eligible flavors of listed lines, in one query.
   flavors(
@@ -331,6 +332,7 @@ export interface CatalogRepository {
     countryId: string,
     categoryId: string,
     freeFrom: string[],
+    ranking?: "closest" | "tastiest",
   ): Promise<StoreOption[]>;
   filterOptions(
     countryId: string,

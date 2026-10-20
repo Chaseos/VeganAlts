@@ -44,11 +44,11 @@ const RATED = `rated AS (
 // ?9 the start of the recent window.
 const INSERT_STATS = `WITH ${TARGETS},${ELIGIBLE},${RATED},
 person AS (
-  SELECT family_id,category_id,user_id,AVG(similarity) AS similarity,AVG(enjoyment) AS enjoyment,MAX(created_at) AS latest
+  SELECT family_id,category_id,user_id,AVG(similarity) AS similarity,AVG(enjoyment) AS enjoyment,MAX(CASE WHEN similarity IS NOT NULL THEN created_at END) AS latest
   FROM rated GROUP BY family_id,category_id,user_id
 ),
 line AS (
-  SELECT family_id,category_id,COUNT(*) AS people,SUM(similarity) AS mean_sum,
+  SELECT family_id,category_id,COUNT(similarity) AS people,TOTAL(similarity) AS mean_sum,
     COUNT(enjoyment) AS enjoying,TOTAL(enjoyment) AS enjoyment_sum,SUM(latest>=?9) AS recent
   FROM person GROUP BY family_id,category_id
 ),
@@ -58,7 +58,7 @@ tried AS (
   GROUP BY e.family_id,e.category_id
 ),
 flavor AS (
-  SELECT e.family_id,e.category_id,e.product_id,e.published_at,COUNT(r.rating_id) AS n,TOTAL(r.similarity) AS total
+  SELECT e.family_id,e.category_id,e.product_id,e.published_at,COUNT(r.similarity) AS n,TOTAL(r.similarity) AS total
   FROM eligible e LEFT JOIN rated r ON r.product_id=e.product_id AND r.category_id=e.category_id
   GROUP BY e.family_id,e.category_id,e.product_id
 )
@@ -66,8 +66,8 @@ INSERT INTO family_category_stats(product_family_id,category_id,people_count,mea
   enjoyment_people,enjoyment_mean_sum,enjoyment_average,enjoyment_score,tried_count,recent_count,lead_product_id,recomputed_at)
 SELECT g.family_id,g.category_id,
   COALESCE(l.people,0),COALESCE(l.mean_sum,0),
-  l.mean_sum/l.people,
-  (l.mean_sum+?5)/(l.people+?6),
+  CASE WHEN l.people>0 THEN l.mean_sum/l.people END,
+  CASE WHEN l.people>0 THEN (l.mean_sum+?5)/(l.people+?6) END,
   COALESCE(l.enjoying,0),COALESCE(l.enjoyment_sum,0),
   CASE WHEN l.enjoying>0 THEN l.enjoyment_sum/l.enjoying END,
   CASE WHEN l.enjoying>0 THEN (l.enjoyment_sum+?7)/(l.enjoying+?8) END,
@@ -84,6 +84,7 @@ const INSERT_DIMENSIONS = `WITH ${TARGETS},${ELIGIBLE},${RATED},
 answers AS (
   SELECT r.family_id,r.category_id,a.dimension_id,r.user_id,AVG(a.score) AS mean
   FROM rated r JOIN rating_dimension_values a ON a.rating_id=r.rating_id
+  WHERE r.similarity IS NOT NULL
   GROUP BY r.family_id,r.category_id,a.dimension_id,r.user_id
 )
 INSERT INTO family_category_dimension_stats(product_family_id,category_id,dimension_id,people_count,mean_sum,recomputed_at)

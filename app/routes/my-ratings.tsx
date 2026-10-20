@@ -7,6 +7,7 @@ import { ProductImage } from "../components/catalog";
 import { PageShell } from "../components/layout/page-shell";
 import { EmptyState } from "../components/ui/feedback";
 import { ButtonLink } from "../components/ui/button";
+import { TASTE_MEANINGS } from "../components/rating-control";
 import { productName } from "../lib/format";
 import type { MyRating } from "@server/ratings/domain/contracts";
 import type { Route } from "./+types/my-ratings";
@@ -77,11 +78,27 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
                   </Link>
                 </h2>
                 <p className="small">
-                  As {rating.categoryName.toLowerCase()} · You said{" "}
-                  <strong>
-                    {rating.overallSimilarity},{" "}
-                    {SCORE_WORDS[rating.overallSimilarity]}
-                  </strong>
+                  As {rating.categoryName.toLowerCase()}
+                  {rating.overallSimilarity !== null && (
+                    <>
+                      {" "}
+                      · Closeness:{" "}
+                      <strong>
+                        {rating.overallSimilarity},{" "}
+                        {SCORE_WORDS[rating.overallSimilarity]}
+                      </strong>
+                    </>
+                  )}
+                  {rating.enjoyment !== null && (
+                    <>
+                      {" "}
+                      · Taste:{" "}
+                      <strong>
+                        {rating.enjoyment},{" "}
+                        {TASTE_MEANINGS[rating.enjoyment - 1]}
+                      </strong>
+                    </>
+                  )}
                 </p>
                 <p className="small muted">
                   {rating.versionLabel} ·{" "}

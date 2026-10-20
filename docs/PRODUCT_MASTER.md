@@ -1197,9 +1197,10 @@ This replaces the §04 table's flavor rows and its working rule:
 
 **Ratings (§05).**
 
-- **The closeness question.** People rate the flavor they ate. Similarity stays the one required answer.
+- **Independent answers (owner revision, 2026-10-20).** People can rate closeness, tastiness, or both for the flavor they ate. Neither answer requires the other; a lifelong vegan can answer tastiness alone. Each ranking counts only its own answers. Tapping a selected answer again clears just that answer; clearing both removes the rating while keeping Tried.
+- **The closeness question.** People rate the flavor they ate.
   - A flavored product asks "How close is it to [food] in the same flavor?"
-- **The tastiness question.** "How tasty is it, whether or not it's like the original?" is optional and appears beside the closeness question.
+- **The tastiness question.** "How tasty is it, whether or not it's like the original?" appears beside the closeness question. Both controls are available immediately, without optional labels. Closeness details and familiarity still follow a closeness answer and clear when it is removed.
 - **One vote per person per line.** The leaderboard scores each line from all its eligible flavors in that food, for each ranking.
   - Each person counts once, as the average of their ratings of that line's flavors.
   - The sample-size-adjusted score is applied over people, never to the best flavor alone.

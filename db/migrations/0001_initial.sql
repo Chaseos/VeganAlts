@@ -347,7 +347,7 @@ CREATE TABLE `ratings` (
 	`user_id` text NOT NULL,
 	`product_version_id` text NOT NULL,
 	`category_id` text NOT NULL,
-	`overall_similarity` integer NOT NULL,
+	`overall_similarity` integer,
 	`conventional_recency` text,
 	`is_counted` integer DEFAULT 1 NOT NULL,
 	`moderation_note` text,
@@ -356,9 +356,10 @@ CREATE TABLE `ratings` (
 	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`product_version_id`) REFERENCES `product_versions`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE restrict,
-	CONSTRAINT "ck_ratings_1" CHECK(typeof(overall_similarity) = 'integer' AND overall_similarity BETWEEN 1 AND 5),
+	CONSTRAINT "ck_ratings_1" CHECK(overall_similarity IS NULL OR (typeof(overall_similarity) = 'integer' AND overall_similarity BETWEEN 1 AND 5)),
 	CONSTRAINT "ck_ratings_2" CHECK(conventional_recency IS NULL OR conventional_recency IN ( 'current_or_week', 'within_month', 'within_year', 'over_year', 'prefer_not_to_say' )),
-	CONSTRAINT "ck_ratings_3" CHECK(is_counted IN (0, 1))
+	CONSTRAINT "ck_ratings_3" CHECK(is_counted IN (0, 1)),
+	CONSTRAINT "ck_ratings_answer" CHECK(overall_similarity IS NOT NULL OR enjoyment IS NOT NULL)
 );
 --> statement-breakpoint
 CREATE TABLE `reports` (

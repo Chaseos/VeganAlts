@@ -78,8 +78,8 @@ export interface CanonicalRating {
   id: string;
   userId: string;
   categoryId: string;
-  score: number;
-  // The optional Tastiest answer; it never enters Closest.
+  score: number | null;
+  // The independent Tastiest answer; it never enters Closest.
   enjoyment: number | null;
   isCounted: boolean;
   createdAt: number;
@@ -113,8 +113,9 @@ export function aggregateFormula(
     const counted = ratings.filter(
       (rating) => rating.categoryId === categoryId && rating.isCounted,
     );
-    const ratingCount = counted.length;
-    const ratingSum = counted.reduce((sum, rating) => sum + rating.score, 0);
+    const compared = counted.filter((rating) => rating.score !== null);
+    const ratingCount = compared.length;
+    const ratingSum = compared.reduce((sum, rating) => sum + rating.score!, 0);
     const enjoyed = counted.filter((rating) => rating.enjoyment !== null);
     const enjoymentSum = enjoyed.reduce(
       (sum, rating) => sum + rating.enjoyment!,
@@ -130,7 +131,7 @@ export function aggregateFormula(
       enjoymentScore: scoreAggregate(enjoymentSum, enjoyed.length, tastiest)
         .bayesianScore,
       triedCount: new Set(triedUserIds).size,
-      recentRatingCount: counted.filter(
+      recentRatingCount: compared.filter(
         (rating) => rating.createdAt >= now - 7 * 86400_000,
       ).length,
       recomputedAt: now,

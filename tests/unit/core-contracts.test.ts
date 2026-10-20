@@ -31,7 +31,7 @@ it("treats malformed search and FTS syntax as bounded literal tokens", () => {
 });
 
 it("validates scores, opaque private cursors, and same-origin application return paths", () => {
-  for (const score of [0, 6, 2.5, "4", null, NaN])
+  for (const score of [0, 6, 2.5, "4", NaN])
     expect(
       ratingInput.safeParse({
         productVersionId: "formula",
@@ -203,4 +203,71 @@ it("bounds anonymous personal-state requests before any repository read", async 
   expect(() => service.state(null, "x".repeat(1481))).toThrow(
     "valid formula IDs",
   );
+});
+
+it("preserves a taste-only selection across sign-in and accepts independent rating answers", () => {
+  const draft = {
+    id: "pending",
+    productVersionId: "formula",
+    categoryId: "category",
+    overallSimilarity: null,
+    enjoyment: 5,
+    returnTo: "/us/products/milk#rate-category",
+    createdAt: 100,
+  };
+  let stored = "";
+  const storage = {
+    getItem: () => stored || null,
+    setItem: (_key: string, value: string) => {
+      stored = value;
+    },
+    removeItem: () => {
+      stored = "";
+    },
+  };
+  storePendingRating(storage, draft);
+  expect(
+    readPendingRating(storage, "https://staging.veganalts.com", 101),
+  ).toEqual(draft);
+  expect(
+    ratingInput.safeParse({
+      productVersionId: "formula",
+      categoryId: "category",
+      overallSimilarity: null,
+      enjoyment: 5,
+    }).success,
+  ).toBe(true);
+  expect(
+    ratingInput.safeParse({
+      productVersionId: "formula",
+      categoryId: "category",
+      overallSimilarity: null,
+      enjoyment: 0,
+    }).success,
+  ).toBe(false);
+});
+
+it("does not forget a newer taste-only pending answer when an older save finishes", async () => {
+  const { matchesPendingRating } = await import("../../app/lib/pending-rating");
+  const pending = {
+    id: "pending",
+    productVersionId: "formula",
+    categoryId: "category",
+    overallSimilarity: null,
+    enjoyment: 5,
+    createdAt: 100,
+    returnTo: "/",
+  };
+  const saved = {
+    id: "saved",
+    productVersionId: "formula",
+    categoryId: "category",
+    overallSimilarity: null,
+    enjoyment: 3,
+    dimensions: {},
+    conventionalRecency: null,
+    updatedAt: 100,
+  };
+  expect(matchesPendingRating(pending, saved)).toBe(false);
+  expect(matchesPendingRating(pending, { ...saved, enjoyment: 5 })).toBe(true);
 });

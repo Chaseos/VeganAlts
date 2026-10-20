@@ -179,3 +179,42 @@ describe("recipe lines", () => {
     ).toBe("z");
   });
 });
+
+it("averages each person's answered flavors independently for each ranking", () => {
+  const line = aggregateLine(
+    [flavor("a"), flavor("b"), flavor("c")],
+    [
+      rating("a", "u1", 2, { enjoyment: null }),
+      rating("b", "u1", 4, { enjoyment: 5 }),
+      rating("c", "u1", 1, { similarity: null, enjoyment: 3 }),
+      rating("a", "u2", 1, { similarity: null, enjoyment: 5 }),
+    ],
+    [],
+    INITIAL_SCORING,
+    NOW,
+  )!;
+  expect(line).toMatchObject({
+    peopleCount: 1,
+    meanSum: 3,
+    rawAverage: 3,
+    enjoymentPeople: 2,
+    enjoymentMeanSum: 9,
+    enjoymentAverage: 4.5,
+    recentCount: 1,
+  });
+  const tasteOnly = aggregateLine(
+    [flavor("a")],
+    [rating("a", "u", 1, { similarity: null, enjoyment: 5 })],
+    [],
+    INITIAL_SCORING,
+    NOW,
+  )!;
+  expect(tasteOnly).toMatchObject({
+    peopleCount: 0,
+    bayesianScore: null,
+    meanSum: 0,
+    recentCount: 0,
+    enjoymentPeople: 1,
+    enjoymentScore: 40 / 11,
+  });
+});

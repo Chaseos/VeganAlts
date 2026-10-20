@@ -450,8 +450,8 @@ function FoodRankingList({ data }: { data: FoodData }) {
                 recipe and its flavors rank together: each person counts once,
                 as the average of the flavors they rated, adjusted for how many
                 people rated it. Swaps rated by fewer than 10 people show an
-                Early badge. Tastiest ranks the optional “how tasty is it?”
-                answers the same way and never changes Closest to the original.
+                Early badge. Tastiest ranks the “how tasty is it?” answers the
+                same way and never changes Closest to the original.
                 {data.questions.length > 0 &&
                   ` ${joinList(data.questions.map((q) => q.label.toLowerCase())).replace(/^./, (c) => c.toUpperCase())} are optional detail ratings that explain the score.`}{" "}
                 Trending, Newest and detail sorts never change a ranking, and

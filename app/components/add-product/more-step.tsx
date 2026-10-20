@@ -118,18 +118,13 @@ export function MoreStep({
           {draft.flavor.trim() ? ` · ${draft.flavor.trim()}` : ""}
         </p>
         <h3 id="rate-title" className="va-heading-s">
-          Tried it? How close is it to {foodName.toLowerCase()}?{" "}
-          <span className="va-optional__tag">Optional</span>
+          Tried it? How close is it to {foodName.toLowerCase()}?
         </h3>
         <div className="va-rate">
           <OverallScale
             selected={draft.rating}
             onChoose={(rating) =>
-              update(
-                draft.rating === rating
-                  ? { rating: null, enjoyment: null }
-                  : { rating },
-              )
+              update(draft.rating === rating ? { rating: null } : { rating })
             }
           />
         </div>
@@ -138,21 +133,14 @@ export function MoreStep({
             ? `${SCORE_MEANINGS[draft.rating - 1]}. Saved as your rating when the product goes live; tap it again to clear.`
             : "Saved as your rating when the product goes live."}
         </p>
-        <fieldset
-          className="va-rate__group va-rate__tasty"
-          disabled={!draft.rating}
-        >
+        <fieldset className="va-rate__group va-rate__tasty">
           <legend className="va-rate__subtitle">
-            How tasty is it, whether or not it’s like the original?{" "}
-            <span>optional</span>
+            How tasty is it, whether or not it’s like the original?
           </legend>
           <TasteScale
             selected={draft.enjoyment}
             onChoose={(enjoyment) => update({ enjoyment })}
           />
-          {!draft.rating && (
-            <p className="va-rate__note">Say how close it is first.</p>
-          )}
         </fieldset>
       </section>
 

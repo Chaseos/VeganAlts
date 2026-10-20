@@ -379,7 +379,7 @@ The approved [milestone 5 specification](MILESTONE_5_PLAN.md) extends the v1 con
 }
 ```
 
-- `overallSimilarity` stays required. An absent field leaves its stored value unchanged.
+- `overallSimilarity` must be present; the milestone 7 revision below permits `null` to leave closeness unanswered. Absent detail fields leave their stored values unchanged.
 - In `dimensions`, a key with `null` clears that answer, and keys left out are unchanged.
 - `conventionalRecency` is `current_or_week`, `within_month`, `within_year`, `over_year`, `prefer_not_to_say` or `null` to clear.
 - Unknown dimension keys return 422 `INVALID_DIMENSION`; retired ones return 409 `STALE_DIMENSIONS`.
@@ -459,7 +459,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) extends the v1 contracts. E
 - **Seasonal products.** Product reads and ranking rows add `seasonal`. `SubmissionInput` adds an optional `seasonal` boolean, which defaults to the food's season. `ProductChange` adds kind `seasonal` (tier 2).
 - **Administration.** `POST /admin/taxonomy/categories/:id` accepts `position` for an aisle and `season` for a food.
 
-**Ratings.** `PUT /ratings` adds an optional `enjoyment`: an integer 1–5, or `null` to clear it. As with the other optional fields, leaving it out leaves the stored value unchanged. `overallSimilarity` stays required. The response's `rating` and `GET /me/rating-state` include `enjoyment`.
+**Ratings (owner revision, 2026-10-20).** `PUT /ratings` accepts `overallSimilarity` as an integer 1–5 or `null`. `enjoyment` is independently an integer 1–5 or `null`; omitting it preserves the stored answer. Either answer may be supplied alone. Clearing closeness also clears its detail and familiarity answers; submitting non-null details without closeness is rejected. Clearing both deletes the canonical rating and retains Tried. The response still carries the cleared answer snapshot (the previous rating ID, or a generated response ID for an already-clear selection), with outcome `removed` or `unchanged`; no empty rating is stored. The response, `GET /me/rating-state`, and My ratings include both nullable answers. Missing answers never enter the other ranking's score or sample.
 
 **Ranking reads.** `GET /categories/:slug?country=&view=…`
 
@@ -513,7 +513,7 @@ Public discovery summaries include the accepted current front photo's `imageId` 
 
 **Submissions.** `SubmissionInput` changes as follows.
 
-- **Added:** `flavor` (optional, at most 40 characters); `enjoyment` (optional, 1–5, only with `rating`), saved with the rating once the product is live; `seasonal` (optional), which otherwise follows the primary food's season.
+- **Added:** `flavor` (optional, at most 40 characters); `enjoyment` (optional, 1–5, independent of `rating`), saved once the product is live; `seasonal` (optional), which otherwise follows the primary food's season.
 - **Choosing a line.** Either `lineId`, an existing line of the same brand and country, or optionally `lineName` for a new line, which defaults to the product name. Giving both returns 422.
 - **Removed:** `productFamilyId`, `relatedProductId`, `relationship` and `specialtyFlavor`. A payload that carries them returns 422.
 - **Holds.** Joining a line never holds a submission on its own.

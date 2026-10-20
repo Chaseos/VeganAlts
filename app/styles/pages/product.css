@@ -203,27 +203,6 @@
   color: var(--va-good);
 }
 
-/* Native anchor navigation keeps every section searchable and deep-linkable. */
-.va-product__nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 24px;
-  padding: 4px 0;
-  border-top: 1px solid var(--va-line-strong);
-  border-bottom: 1px solid var(--va-line-strong);
-}
-.va-product__nav a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  font-size: 14px;
-  font-weight: 700;
-  text-decoration: none;
-}
-.va-product__nav a:hover {
-  text-decoration: underline;
-  text-underline-offset: 5px;
-}
 .va-product
   :is(
     #scores-title,
@@ -471,9 +450,6 @@
   }
   .va-score-card__flavor-scores > div > :last-child {
     flex-basis: 100%;
-  }
-  .va-product__nav {
-    gap: 0 18px;
   }
 }
 

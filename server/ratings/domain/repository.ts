@@ -40,7 +40,7 @@ export interface DetailChange {
 
 export type RatingMutation =
   | { kind: "upsert"; rating: CanonicalRating; details?: DetailChange }
-  | { kind: "delete"; userId: string; categoryId: string }
+  | { kind: "delete"; userId: string; categoryId: string; markTried?: true }
   | { kind: "tried"; userId: string; tried: boolean }
   | { kind: "exclude"; ratingId: string; counted: boolean }
   | { kind: "rebuild" };

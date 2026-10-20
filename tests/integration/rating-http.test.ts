@@ -125,7 +125,7 @@ it("rejects invalid scores, foreign origins, spoofed ownership, unrelated catego
       headers,
       body: JSON.stringify(payload),
     });
-  for (const score of [0, 6, 1.5, "4", null])
+  for (const score of [0, 6, 1.5, "4"])
     await expect(
       saveRating(put({ ...body, overallSimilarity: score }), actor.authEnv),
     ).rejects.toMatchObject({ code: "INVALID_RATING" });

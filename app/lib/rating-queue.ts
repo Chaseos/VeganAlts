@@ -41,7 +41,13 @@ const answered = (dimensions: RatingInput["dimensions"]) =>
 
 export function savedMessage(rating: PersonalRating) {
   const details = Object.keys(rating.dimensions).length;
-  return `Saved ${rating.overallSimilarity}/5${details ? ` with ${plural(details, "detail")}` : ""}. You’ve tried this formula.`;
+  if (rating.overallSimilarity === null && rating.enjoyment === null)
+    return "Rating removed. You’ve tried this formula.";
+  const answer =
+    rating.overallSimilarity === null
+      ? `taste ${rating.enjoyment}/5`
+      : `${rating.overallSimilarity}/5${rating.enjoyment !== null ? `; taste ${rating.enjoyment}/5` : ""}`;
+  return `Saved ${answer}${details ? ` with ${plural(details, "detail")}` : ""}. You’ve tried this formula.`;
 }
 
 // One queue per user/formula/category. Network writes are serialized; while one

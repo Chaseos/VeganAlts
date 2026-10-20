@@ -452,7 +452,7 @@ export const ratings = sqliteTable(
       .references((): AnySQLiteColumn => categories.id, {
         onDelete: "restrict",
       }),
-    overallSimilarity: integer("overall_similarity").notNull(),
+    overallSimilarity: integer("overall_similarity"),
     // Optional Tastiest answer, 1–5 (milestone 7); never part of Closest.
     enjoyment: integer("enjoyment"),
     conventionalRecency: text("conventional_recency"),
@@ -483,7 +483,7 @@ export const ratings = sqliteTable(
     check(
       "ck_ratings_1",
       sql.raw(
-        "typeof(overall_similarity) = 'integer' AND overall_similarity BETWEEN 1 AND 5",
+        "overall_similarity IS NULL OR (typeof(overall_similarity) = 'integer' AND overall_similarity BETWEEN 1 AND 5)",
       ),
     ),
     check(
@@ -493,6 +493,10 @@ export const ratings = sqliteTable(
       ),
     ),
     check("ck_ratings_3", sql.raw("is_counted IN (0, 1)")),
+    check(
+      "ck_ratings_answer",
+      sql.raw("overall_similarity IS NOT NULL OR enjoyment IS NOT NULL"),
+    ),
   ],
 );
 

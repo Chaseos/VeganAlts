@@ -346,14 +346,14 @@ export default function Product({
                               {other.name}
                             </span>
                             <span className="va-small va-muted">
-                              {other.line
+                              {other.line?.closest
                                 ? `#${other.line.closest.rank} of ${other.line.closest.of} · ${plural(other.line.closest.people, "person", "people")}`
                                 : "Not ranked yet"}
                             </span>
                           </span>
-                          {other.line && (
+                          {other.line?.closest && (
                             <ScoreLabel
-                              value={other.line.closest.score}
+                              value={other.line.closest.score!}
                               size="compact"
                             />
                           )}
@@ -484,14 +484,6 @@ export default function Product({
             )}
           </div>
         </div>
-
-        <nav className="va-product__nav" aria-label="Product sections">
-          {food && <a href="#scores-title">Rate it</a>}
-          <a href="#facts-title">Product facts</a>
-          <a href="#retailers">Where to find it</a>
-          <a href="#formula-history">Formula history</a>
-          <a href="#comments-title">Community notes</a>
-        </nav>
 
         <section className="va-product__facts" aria-labelledby="facts-title">
           <div>
@@ -781,7 +773,7 @@ function ScoreCard({
   return (
     <div className="va-score-card" role="group" aria-label="Community ratings">
       <div className="va-score-card__standing">
-        {line && (
+        {line?.closest && (
           <Link
             className="va-score-card__flag"
             to={foodPath(country, food.slug)}

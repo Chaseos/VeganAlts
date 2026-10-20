@@ -67,7 +67,7 @@ const draftSchema = z.object({
   // Null follows the food's season.
   seasonal: z.boolean().nullable(),
   rating: z.number().int().min(1).max(5).nullable(),
-  // The optional Tastiest answer, given with a rating.
+  // The independent Tastiest answer.
   enjoyment: z.number().int().min(1).max(5).nullable(),
   ingredients: z.object({
     url: z.string(),
@@ -312,7 +312,7 @@ export function toSubmission(
       ? { manufacturerLabel: draft.ingredients.label }
       : {}),
     ...(draft.rating ? { rating: draft.rating } : {}),
-    ...(draft.rating && draft.enjoyment ? { enjoyment: draft.enjoyment } : {}),
+    ...(draft.enjoyment ? { enjoyment: draft.enjoyment } : {}),
     ...(draft.retailerIds.length ? { retailerIds: draft.retailerIds } : {}),
     ...(status === "none_declared"
       ? { allergens: { status } }

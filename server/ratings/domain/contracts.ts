@@ -13,7 +13,7 @@ export const ratingInput = z
   .object({
     productVersionId: recordId,
     categoryId: recordId,
-    overallSimilarity: similarity,
+    overallSimilarity: similarity.nullable(),
     // Absent fields leave stored details unchanged; null clears one.
     dimensions: z
       .record(z.string().regex(DIMENSION_KEY), similarity.nullable())
@@ -35,7 +35,7 @@ export interface PersonalRating {
   id: string;
   productVersionId: string;
   categoryId: string;
-  overallSimilarity: number;
+  overallSimilarity: number | null;
   // Answers to the food's active detail questions, by key.
   dimensions: Record<string, number>;
   conventionalRecency: ConventionalRecency | null;
@@ -47,7 +47,7 @@ export interface PersonalRating {
 export interface SavedRating {
   rating: PersonalRating;
   tried: true;
-  outcome: "created" | "updated" | "unchanged";
+  outcome: "created" | "updated" | "removed" | "unchanged";
 }
 
 export interface RatingState {

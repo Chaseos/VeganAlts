@@ -14,11 +14,9 @@ test("the product overview groups ratings, collapses their breakdown and keeps n
   await expect(page.locator(".va-score-card__flavor")).toContainText(
     "This flavor",
   );
-  await page
-    .getByRole("navigation", { name: "Product sections" })
-    .getByRole("link", { name: "Rate it", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\?food=milk#scores-title$/);
+  await expect(
+    page.getByRole("navigation", { name: "Product sections" }),
+  ).toHaveCount(0);
   const editor = page.getByRole("region", { name: "Rate it as milk" });
   await expect(editor.locator(".va-rate__product")).toHaveText(
     "Oatly Oatmilk Full Fat",

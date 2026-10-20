@@ -543,6 +543,7 @@ export class CatalogService {
               market.id,
               category.id,
               filters.freeFrom,
+              view === "tastiest" ? "tastiest" : "closest",
             )
           : [],
         here
@@ -554,6 +555,7 @@ export class CatalogService {
               CATALOG_PAGE_SIZE + 1,
               // Newest already lists unrated products from the New window.
               view === "new" ? this.newSince() : undefined,
+              view === "tastiest" ? "tastiest" : "closest",
             )
           : [],
         this.repository.taxonomy(market.id),
@@ -577,7 +579,8 @@ export class CatalogService {
         .map((row, index) => [row.id, index + 1]),
     );
     // Badges come from the unfiltered rankings so filters never move them.
-    const badges = detailBadges(all, questions);
+    const closest = all.filter((row) => row.topRank !== null);
+    const badges = detailBadges(closest, questions);
     const tastiest = tastiestOrder.qualified ? tastiestOrder.rows[0]! : null;
     // The Tastiest #1 is marked in the other views when it isn't Closest #1.
     if (!tastiestView && tastiest && tastiest.topRank !== 1)
@@ -624,7 +627,12 @@ export class CatalogService {
         badges: badges.get(row.id) ?? [],
       };
     };
-    const shown = all.filter((row) => row.storeMatch && row.allergenMatch);
+    const shown = all.filter(
+      (row) =>
+        (tastiestView || row.topRank !== null) &&
+        row.storeMatch &&
+        row.allergenMatch,
+    );
     let listed: ReturnType<typeof listing>[];
     let hasNext: boolean;
     // The position on this page where lines without enough answers for a
@@ -683,7 +691,7 @@ export class CatalogService {
         ),
       }) as T & ReturnType<typeof lineFlavors>;
     // Each ranking has its own featured #1.
-    const best = tastiestView ? tastiest : (all[0] ?? null);
+    const best = tastiestView ? tastiest : (closest[0] ?? null);
     return {
       view,
       category,
@@ -694,7 +702,7 @@ export class CatalogService {
       filters,
       storeOptions,
       summary: {
-        rankedCount: all.length,
+        rankedCount: closest.length,
         tastiestCount: tastiestOrder.qualified,
         ratingCount: all.reduce((sum, row) => sum + row.ratingCount, 0),
         // People who said how tasty a line is; Tastiest's own population.
@@ -705,7 +713,9 @@ export class CatalogService {
       // Ranked lines the Free-from choice hides only because no flavor's
       // label is confirmed yet.
       notConfirmedCount: filters.freeFrom.length
-        ? all.filter((row) => row.storeMatch && !row.confirmed).length
+        ? (tastiestView ? all : closest).filter(
+            (row) => row.storeMatch && !row.confirmed,
+          ).length
         : 0,
       ranked: this.labelNew(listed).map(withFlavors),
       qualified,
@@ -838,13 +848,16 @@ export class CatalogService {
               trending: this.isTrendingRank(rank.trendingRank),
               name: rank.flavorCount > 1 ? rank.lineName : product.name,
               flavorCount: rank.flavorCount,
-              closest: {
-                rank: rank.rank,
-                of: rank.rankedCount,
-                score: rank.score,
-                people: rank.people,
-                early: isEarly(rank.people),
-              },
+              closest:
+                rank.rank === null
+                  ? null
+                  : {
+                      rank: rank.rank,
+                      of: rank.rankedCount,
+                      score: rank.score,
+                      people: rank.people,
+                      early: isEarly(rank.people),
+                    },
               tastiest:
                 rank.tastiestRank === null
                   ? null

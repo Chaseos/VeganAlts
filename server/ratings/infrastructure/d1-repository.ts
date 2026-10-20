@@ -86,7 +86,7 @@ export class D1RatingsRepository implements RatingsRepository {
             id: String(row.id),
             userId: String(row.userId),
             categoryId: String(row.categoryId),
-            score: Number(row.score),
+            score: row.score === null ? null : Number(row.score),
             enjoyment: row.enjoyment === null ? null : Number(row.enjoyment),
             isCounted: row.isCounted === 1,
             createdAt: Number(row.createdAt),
@@ -187,6 +187,7 @@ export class D1RatingsRepository implements RatingsRepository {
         break;
       }
       case "delete":
+        if (mutation.markTried) statements.push(trial(mutation.userId));
         statements.push(
           this.db
             .prepare(
@@ -283,7 +284,7 @@ export class D1RatingsRepository implements RatingsRepository {
         (product_version_id, category_id, dimension_id, answer_count, answer_sum, recomputed_at)
         SELECT r.product_version_id, r.category_id, a.dimension_id, COUNT(*), SUM(a.score), ?
         FROM ratings r JOIN rating_dimension_values a ON a.rating_id = r.id
-        WHERE r.product_version_id = ? AND r.is_counted = 1 AND r.category_id IN (SELECT value FROM json_each(?)) AND ${fence}
+        WHERE r.product_version_id = ? AND r.is_counted = 1 AND r.overall_similarity IS NOT NULL AND r.category_id IN (SELECT value FROM json_each(?)) AND ${fence}
         GROUP BY r.category_id, a.dimension_id`,
         )
         .bind(now, versionId, categoryIds, versionId, token),
@@ -298,7 +299,7 @@ export class D1RatingsRepository implements RatingsRepository {
         (product_version_id, category_id, recency, overall_similarity, rating_count, recomputed_at)
         SELECT r.product_version_id, r.category_id, COALESCE(r.conventional_recency, 'unanswered'), r.overall_similarity, COUNT(*), ?
         FROM ratings r
-        WHERE r.product_version_id = ? AND r.is_counted = 1 AND r.category_id IN (SELECT value FROM json_each(?)) AND ${fence}
+        WHERE r.product_version_id = ? AND r.is_counted = 1 AND r.overall_similarity IS NOT NULL AND r.category_id IN (SELECT value FROM json_each(?)) AND ${fence}
         GROUP BY r.category_id, COALESCE(r.conventional_recency, 'unanswered'), r.overall_similarity`,
         )
         .bind(now, versionId, categoryIds, versionId, token),

@@ -18,7 +18,7 @@ export interface ExtrasPorts {
     userId: string,
     versionId: string,
     categoryId: string,
-    score: number,
+    score: number | null,
     enjoyment: number | null,
   ): Promise<void>;
   revision(productId: string): Promise<number>;
@@ -50,7 +50,12 @@ export class PublicationExtras {
    */
   async applyRating(receiptId: string): Promise<RatingOutcome> {
     const marker = await this.receipts.extras(receiptId);
-    if (!marker?.rating || !marker.categoryId) return "dropped";
+    if (
+      !marker ||
+      (marker.rating === null && marker.enjoyment == null) ||
+      !marker.categoryId
+    )
+      return "dropped";
     if ((await this.ports.account(marker.userId)) !== "active")
       return "dropped";
     const saved = () =>
@@ -61,7 +66,7 @@ export class PublicationExtras {
         marker.userId,
         marker.versionId,
         marker.categoryId!,
-        marker.rating!,
+        marker.rating,
         marker.enjoyment ?? null,
       ),
     );
@@ -74,7 +79,7 @@ export class PublicationExtras {
     // A contributor suspended since then adds nothing further.
     if ((await this.ports.account(marker.userId)) === "active") {
       if (
-        marker.rating &&
+        (marker.rating !== null || marker.enjoyment != null) &&
         marker.categoryId &&
         !(await this.ports.rated(
           marker.userId,
@@ -87,7 +92,7 @@ export class PublicationExtras {
             marker.userId,
             marker.versionId,
             marker.categoryId!,
-            marker.rating!,
+            marker.rating,
             marker.enjoyment ?? null,
           ),
         );

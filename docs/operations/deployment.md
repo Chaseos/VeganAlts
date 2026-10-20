@@ -20,7 +20,9 @@ Use Node 24 LTS and the committed npm lockfile. Wrangler authentication is requi
 
 Before the first release, the owner folded the pre-release migrations (`0000`–`0020`) into this baseline (2026-10-10). Every database is created from it, never upgraded from the old history; the legacy upgrade preflights were removed with it. A database still carrying the old history is reset with `npm run db:reset:<env>` (below) and migrated again.
 
-Check exact filenames in the directory before operating. Migrations are append-only from version 1 on. Generate future schema changes with `npm run db:generate`, inspect generated SQL, and add reviewed custom SQL for unsupported constructs. Better Auth schema generation uses `npm run auth:schema`; diff its output before creating any migration. Never run the reference baseline in addition to the migration history.
+Check exact filenames in the directory before operating. Until the first release, fold schema changes into version 1 and reset affected databases as AGENTS.md requires; add no new migrations. After the first release, migrations are append-only: generate changes with `npm run db:generate`, inspect generated SQL, and add reviewed custom SQL for unsupported constructs. Better Auth schema generation uses `npm run auth:schema`; diff its output before creating any migration. Never run the reference baseline in addition to the migration history.
+
+The owner approved one staging exception on 2026-10-20 for independent ratings: recreate only the empty `ratings` and `rating_dimension_values` tables in one atomic batch, with a guard that aborts if either has rows. Take a fresh Time Travel bookmark and table export, verify the live schema against the reviewed plan, restore related triggers/indexes and check foreign keys and unchanged catalog/account counts afterward. This exception was applied successfully; see [verification](../verification/independent-ratings.md). Other pre-release schema changes still use the full-reset rule.
 
 ```sh
 npm run db:migrate:local
