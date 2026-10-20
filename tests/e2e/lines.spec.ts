@@ -3,19 +3,20 @@ import { accessible } from "./a11y";
 import { createBrowserSession } from "./session-fixture";
 import { withLocalDb } from "./local-db";
 import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
+import { isPhone } from "./site";
 
 // Milestone 7: a brand's recipe and its flavors rank as one line.
 test("a recipe line lists its flavors, and its brand has a page", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   await page.goto("/us/milk");
   // The demo Oatly line has two flavors behind a native disclosure.
   const flavors = page.locator(".va-flavors").first();
   await expect(flavors.locator("summary")).toContainText("2 flavors");
   await flavors.locator("summary").click();
   await expect(flavors.locator(".va-flavors__name")).toHaveCount(2);
-  const photos = flavors.locator(".va-flavors__name img");
+  const photos = flavors.locator(".va-flavors__photo img");
   await expect(photos).toHaveCount(2);
   for (const image of await photos.all()) {
     await expect(image).toHaveAttribute("src", /^\/media\/.+\/thumbnail$/);
@@ -26,7 +27,30 @@ test("a recipe line lists its flavors, and its brand has a page", async ({
       .toBeGreaterThan(0);
   }
   await expect(flavors.getByRole("link", { name: /^Rate it:/ })).toHaveCount(2);
+  const card = (await flavors.locator("..").boundingBox())!;
+  const disclosure = (await flavors.boundingBox())!;
+  expect(disclosure.width).toBeGreaterThan(card.width * 0.85);
+  for (const row of await flavors.locator(".va-flavors__item").all()) {
+    const image = (await row.locator(".va-flavors__photo").boundingBox())!;
+    const status = (await row.locator(".va-flavors__score").boundingBox())!;
+    const rate = (await row
+      .getByRole("link", { name: /^Rate it:/ })
+      .boundingBox())!;
+    expect(Math.abs(image.x - disclosure.x)).toBeLessThanOrEqual(1);
+    expect(image.width).toBeGreaterThanOrEqual(88);
+    expect(rate.y).toBeGreaterThanOrEqual(status.y + status.height);
+    expect(
+      Math.abs(rate.x + rate.width - status.x - status.width),
+    ).toBeLessThanOrEqual(1);
+  }
   await accessible(page);
+  if (isPhone(page)) {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await accessible(page);
+    await page
+      .locator(".va-featured")
+      .screenshot({ path: testInfo.outputPath("expanded-flavors.png") });
+  }
 
   await page.goto("/us/products/oatly-full-fat?food=milk");
   // Decorative images belong to each linked flavor and retain empty alt text.
@@ -106,6 +130,22 @@ test("Add another flavor joins the product's line and publishes without review",
     ).toBeVisible();
     await expect(page.getByText("Your product is live")).toBeVisible();
     await expect(page.getByText(`Flavor: ${flavor}`)).toBeVisible();
+
+    await page.goto("/us/chicken-nuggets");
+    const choice = page.locator(".va-flavors").filter({ hasText: flavor });
+    await choice.locator("summary").click();
+    const addedFlavor = choice
+      .locator(".va-flavors__item")
+      .filter({ hasText: flavor });
+    await expect(addedFlavor.locator(".va-flavors__score")).toHaveText(
+      "No ratings",
+    );
+    await expect(addedFlavor.locator(".va-flavors__heading")).toContainText(
+      "New",
+    );
+    await expect(addedFlavor.locator(".va-flavors__heading")).toContainText(
+      flavor,
+    );
 
     // A brand page's link starts with its brand and lists its lines.
     await page.goto("/add-product?country=us&brand=oatly");

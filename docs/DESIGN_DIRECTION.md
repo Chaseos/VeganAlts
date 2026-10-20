@@ -202,7 +202,7 @@ Agreed on 2026-10-11 and 2026-10-12 for the [milestone 7 specification](MILESTON
 **Line rows.**
 
 - **What a row shows.** A row shows the lead flavor's photo, the line name and brand, and the score and people for the current view.
-- **Flavor disclosure.** A line with several flavors adds a "3 flavors" disclosure listing each flavor with its score or "Too few ratings yet", its New tag and allergens. Lists use dividers, not nested cards.
+- **Flavor disclosure (owner revision, 2026-10-20).** A line with several flavors adds a "3 flavors" disclosure spanning the full card width. When expanded, individual flavor photos replace the lead-photo preview, aligned with its thumbnail column and size. Each divided row places New beside or above the flavor name and allergens below it. The score or rating status is on the right, with Rate it directly underneath. Zero answers read "No ratings"; one to four show the actual rating count, and the flavor score appears from five answers. Lists use dividers, not nested cards.
 - **Tastiest badge.** A line that leads Tastiest but not Closest carries a "Tastiest" badge in the Closest list.
 
 **Rating form.** The closeness question comes first, then "How tasty is it, whether or not it's like the original?" on the same 1–5 control with its own labels (Not for me, It's OK, Good, Really good, Delicious). Both save on tap. Detail and "last ate" questions follow.

@@ -242,7 +242,7 @@ Most of what remains is sold as a few base recipes in several flavors:
   - Ties go to the flavor's own Closest score, then the earliest published.
   - It is stored on the stats row.
 - **Flavor scores** come from `product_category_stats`.
-  - Inside a card, each flavor shows its score in the current ranking once it has 5 answers, otherwise "Too few ratings yet".
+  - Inside a card, each flavor shows its score in the current ranking once it has 5 answers, otherwise "No ratings" at zero or the actual rating count at one to four (owner revision, 2026-10-20).
   - Flavors with a score are listed first, by score; the rest follow by ratings, then flavor name.
 - **Detail questions.**
   - New foods ask Taste and Texture, the existing default.
@@ -305,7 +305,7 @@ Most of what remains is sold as a few base recipes in several flavors:
   - score, people, Early and New;
   - detail badges and stores.
 - **Allergens** stay on the row for a single-flavor line. Otherwise they appear per flavor.
-- **"3 flavors" disclosure.** A multi-flavor line has a disclosure button (`aria-expanded`) that lists each flavor's label, score or "Too few ratings yet", allergens and New tag.
+- **"3 flavors" disclosure.** A multi-flavor line has a native disclosure spanning the full card width. Its divided rows show each flavor's large photo, label, allergens and New tag beside or above the label. Scores appear from five answers; otherwise show "No ratings" at zero or the actual count. Rate it sits on the right below that status. Expanded rows replace the lead-photo preview (owner revision, 2026-10-20).
   - Each flavor links to its product page.
   - Discontinued flavors are not listed. Their pages stay and say they are discontinued.
 - **A single-flavor line has no disclosure,** and its row links to the product, as today.

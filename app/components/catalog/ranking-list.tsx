@@ -92,7 +92,7 @@ export const flavorLabel = (flavor: string | null) => flavor ?? "Original";
 /**
  * A line's flavors behind a native disclosure, so it works without
  * JavaScript. Each flavor links to its own page with its score in the
- * ranking shown, or "Too few ratings yet".
+ * ranking shown, or its rating count before the score is available.
  */
 export function FlavorList({
   country,
@@ -133,45 +133,53 @@ export function FlavorList({
           return (
             <li key={flavor.productId} className="va-flavors__item">
               <Link
-                className="va-flavors__name"
+                className="va-flavors__photo"
                 to={productPath(country, flavor.slug, food)}
+                aria-label={`View ${flavor.label}: ${flavor.name}`}
               >
-                <ProductThumbnail
-                  imageId={flavor.imageId}
-                  food={food}
-                  size="small"
-                />
-                <span>
-                  {flavor.label}
-                  <span className="sr-only">: {flavor.name}</span>
-                </span>
+                <ProductThumbnail imageId={flavor.imageId} food={food} />
               </Link>
-              <span className="va-flavors__meta va-small va-muted">
-                {flavor.isNew && <NewBadge />}
-                {flavor.seasonal && line.flavorCount > 1 && (
-                  <SeasonalProductBadge />
-                )}
+              <div className="va-flavors__body">
+                <div className="va-flavors__heading">
+                  {flavor.isNew && <NewBadge />}
+                  {flavor.seasonal && <SeasonalProductBadge />}
+                  <Link
+                    className="va-flavors__name"
+                    to={productPath(country, flavor.slug, food)}
+                  >
+                    {flavor.label}
+                    <span className="sr-only">: {flavor.name}</span>
+                  </Link>
+                </div>
                 {allergens && (
-                  <AllergenLabel allergens={allergens} variant="line" />
+                  <div className="va-flavors__meta va-small va-muted">
+                    <AllergenLabel allergens={allergens} variant="line" />
+                  </div>
                 )}
-              </span>
-              <span className="va-flavors__score">
-                {flavor.score !== null ? (
-                  <>
-                    <span className="sr-only">Score </span>
-                    {formatScore(flavor.score)}
-                  </>
-                ) : (
-                  <span className="va-small va-muted">Too few ratings yet</span>
-                )}
-              </span>
-              <Link
-                className="va-link va-flavors__rate"
-                to={`${productPath(country, flavor.slug, food)}#scores-title`}
-                aria-label={`Rate it: ${flavor.name}${flavor.flavor ? ` · ${flavor.flavor}` : ""}`}
-              >
-                Rate it
-              </Link>
+              </div>
+              <div className="va-flavors__actions">
+                <span className="va-flavors__score">
+                  {flavor.score !== null ? (
+                    <>
+                      <span className="sr-only">Score </span>
+                      {formatScore(flavor.score)}
+                    </>
+                  ) : (
+                    <span className="va-small va-muted">
+                      {flavor.ratingCount === 0
+                        ? "No ratings"
+                        : plural(flavor.ratingCount, "rating")}
+                    </span>
+                  )}
+                </span>
+                <Link
+                  className="va-link va-flavors__rate"
+                  to={`${productPath(country, flavor.slug, food)}#scores-title`}
+                  aria-label={`Rate it: ${flavor.name}${flavor.flavor ? ` · ${flavor.flavor}` : ""}`}
+                >
+                  Rate it
+                </Link>
+              </div>
             </li>
           );
         })}
@@ -279,13 +287,6 @@ export function FeaturedSwap({
           )}
         </div>
         <DetailBars details={line.details} />
-        <FlavorList
-          id={flavorsId}
-          country={country}
-          food={food}
-          line={line}
-          labels={labels}
-        />
         <div className="button-row">
           <ButtonLink to={href}>View product</ButtonLink>
           {line.flavorCount > 1 ? (
@@ -303,6 +304,13 @@ export function FeaturedSwap({
           )}
         </div>
       </div>
+      <FlavorList
+        id={flavorsId}
+        country={country}
+        food={food}
+        line={line}
+        labels={labels}
+      />
     </article>
   );
 }
@@ -421,10 +429,13 @@ export function UnratedRow({
 }) {
   const allergens = allergenSummary(line.allergens, labels);
   const href = productPath(country, line.leadProduct.slug, food);
-  const flavorsId = useId();
   return (
     <li className="va-unrated">
-      <Link to={href} aria-label={`View ${productName(line.name, line.brand)}`}>
+      <Link
+        className="va-unrated__photo"
+        to={href}
+        aria-label={`View ${productName(line.name, line.brand)}`}
+      >
         <ProductThumbnail imageId={line.leadProduct.imageId} food={food} />
       </Link>
       <span className="va-unrated__main">
@@ -440,26 +451,19 @@ export function UnratedRow({
             </>
           )}
         </span>
-        <FlavorList
-          id={flavorsId}
-          country={country}
-          food={food}
-          line={line}
-          labels={labels}
-        />
       </span>
-      <a
-        className="button secondary small-button"
-        href={line.flavorCount > 1 ? `#${flavorsId}` : `${href}#scores-title`}
-        onClick={
-          line.flavorCount > 1
-            ? (event) => openFlavors(event, flavorsId)
-            : undefined
-        }
-      >
-        Be the first to rate
-        <span className="sr-only">: {productName(line.name, line.brand)}</span>
-      </a>
+      {line.flavorCount < 2 && (
+        <a
+          className="button secondary small-button"
+          href={`${href}#scores-title`}
+        >
+          Be the first to rate
+          <span className="sr-only">
+            : {productName(line.name, line.brand)}
+          </span>
+        </a>
+      )}
+      <FlavorList country={country} food={food} line={line} labels={labels} />
     </li>
   );
 }
