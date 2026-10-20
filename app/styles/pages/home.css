@@ -531,6 +531,21 @@
 
 .va-search-page__aisles > li {
   padding: 4px 16px 8px;
+  align-self: start;
+}
+
+.va-category-directory {
+  display: grid;
+  gap: var(--va-space-8);
+}
+.va-category-directory__group {
+  scroll-margin-top: var(--va-space-6);
+}
+.va-category-directory__group > h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--va-space-4);
 }
 
 .va-search-page__aisles .va-browse__summary {

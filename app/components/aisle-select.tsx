@@ -1,3 +1,5 @@
+import { groupCategories } from "../lib/navigation-groups";
+
 export interface AisleOption {
   id: string;
   slug: string;
@@ -43,10 +45,14 @@ export function AisleSelect({
         aria-describedby={error ? `${hintId} ${errorId}` : hintId}
       >
         <option value="">Choose a category</option>
-        {aisles.map((aisle) => (
-          <option key={aisle.id} value={aisle.id}>
-            {aisle.name}
-          </option>
+        {groupCategories(aisles).map((group) => (
+          <optgroup key={group.id} label={group.name}>
+            {group.categories.map((aisle) => (
+              <option key={aisle.id} value={aisle.id}>
+                {aisle.name}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
       <p id={hintId} className="small muted">

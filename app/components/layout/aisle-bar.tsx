@@ -1,22 +1,42 @@
-import { NavLink } from "react-router";
+import { Link, useLocation } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
-import { foodPath, useSiteChrome } from "../../lib/site-chrome";
+import { useSiteChrome } from "../../lib/site-chrome";
+import { useHydrated } from "../../lib/use-hydrated";
+import {
+  currentNavigationGroup,
+  groupCategories,
+  navigationGroupPath,
+} from "../../lib/navigation-groups";
 
-// The phone header's second row: each aisle is a chip linking to its aisle
-// page, and the row scrolls sideways. Desktop opens aisles from the Foods
-// menu in the header row instead (FoodsMenu).
+// Phone shortcuts open group sections in the server-rendered directory.
 export function AisleBar() {
   const { country, aisles } = useSiteChrome();
-  if (!aisles.length) return null;
+  const location = useLocation();
+  const hydrated = useHydrated();
+  const groups = groupCategories(aisles);
+  // URL fragments are absent from the shared server document.
+  const current = currentNavigationGroup(groups, {
+    ...location,
+    hash: hydrated ? location.hash : "",
+  });
+  if (!groups.length) return null;
   return (
     <nav className="va-aisle-bar" aria-label="Categories">
       <ul>
-        {aisles.map((aisle) => (
-          <li key={aisle.slug}>
-            <NavLink to={foodPath(country.code, aisle.slug)} discover="none">
-              <FoodIcon slug={aisle.slug} size={20} className="va-tag-icon" />
-              <span>{aisle.name}</span>
-            </NavLink>
+        {groups.map((group) => (
+          <li key={group.id}>
+            <Link
+              to={navigationGroupPath(country.code, group.id)}
+              discover="none"
+              aria-current={current === group.id ? "true" : undefined}
+            >
+              <FoodIcon
+                slug={group.iconSlug}
+                size={20}
+                className="va-tag-icon"
+              />
+              <span>{group.name}</span>
+            </Link>
           </li>
         ))}
       </ul>

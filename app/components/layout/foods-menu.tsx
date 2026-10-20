@@ -9,7 +9,12 @@ import { Link, useLocation } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
 import { Icon } from "../icons/icon";
 import { FoodNavigation } from "./food-navigation";
-import { foodPath, searchPath, useSiteChrome } from "../../lib/site-chrome";
+import { searchPath, useSiteChrome } from "../../lib/site-chrome";
+import {
+  currentNavigationGroup,
+  groupCategories,
+  navigationGroupPath,
+} from "../../lib/navigation-groups";
 import { useHydrated } from "../../lib/use-hydrated";
 import { useMediaQuery } from "../../lib/use-media-query";
 
@@ -17,25 +22,22 @@ import { useMediaQuery } from "../../lib/use-media-query";
 // open the menu, and one leaving it briefly doesn't close it.
 const HOVER_OPEN_MS = 150;
 const HOVER_CLOSE_MS = 300;
-// A pointer crossing aisles on its way to the foods doesn't switch them.
-const AISLE_SWITCH_MS = 120;
+// A pointer crossing groups on its way to the foods doesn't switch them.
+const GROUP_SWITCH_MS = 120;
 
 const FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled])";
 
 /**
- * The desktop Foods menu (owner decision, 2026-10-12). One button in the
- * header row opens every aisle, and the aisle under the pointer or keyboard
- * focus shows its food types from the embedded navigation tree, so the header
- * keeps one row however many aisles a country has. A mouse opens it on hover;
- * touch and the keyboard open it on press, and the arrow keys move between
- * aisles. Without JavaScript the button links to the page listing every
- * aisle. Phones keep the aisle chips under the header (AisleBar).
+ * Six presentation groups keep the header compact as countries add foods.
+ * Pointer and keyboard previews use embedded data; clicking a group opens
+ * its directory section. Without JavaScript, Foods opens the full directory.
  */
 export function FoodsMenu() {
   const { country, aisles } = useSiteChrome();
   const hydrated = useHydrated();
   const desktop = useMediaQuery("(min-width: 760px)");
   const location = useLocation();
+  const groups = groupCategories(aisles);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -43,37 +45,31 @@ export function FoodsMenu() {
   const links = useRef<(HTMLAnchorElement | null)[]>([]);
   const preview = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<number | undefined>(undefined);
-  const aisleTimer = useRef<number | undefined>(undefined);
+  const groupTimer = useRef<number | undefined>(undefined);
   // A mouse press opens the menu hover may already have opened, rather than
   // closing it again.
   const mousePress = useRef(false);
 
-  // The aisle of the page being viewed shows first.
-  const segment = location.pathname.split("/")[2] ?? "";
-  const food = new URLSearchParams(location.search).get("food") ?? "";
-  const current =
-    aisles.find(
-      (aisle) =>
-        aisle.slug === segment ||
-        aisle.foods.some((f) => f.slug === segment || f.slug === food),
-    ) ?? aisles[0];
-  const shown = aisles.find((aisle) => aisle.slug === active) ?? current;
+  // Open at the current page's group, or the first available group.
+  const currentId = currentNavigationGroup(groups, location);
+  const current = groups.find((group) => group.id === currentId) ?? groups[0];
+  const shown = groups.find((group) => group.id === active) ?? current;
 
   const show = (next: boolean) => {
     window.clearTimeout(hoverTimer.current);
-    window.clearTimeout(aisleTimer.current);
-    if (next && !open) setActive(current?.slug ?? null);
+    window.clearTimeout(groupTimer.current);
+    if (next && !open) setActive(current?.id ?? null);
     setOpen(next);
   };
   useEffect(() => {
     window.clearTimeout(hoverTimer.current);
-    window.clearTimeout(aisleTimer.current);
+    window.clearTimeout(groupTimer.current);
     setOpen(false);
   }, [location.key]);
   useEffect(
     () => () => {
       window.clearTimeout(hoverTimer.current);
-      window.clearTimeout(aisleTimer.current);
+      window.clearTimeout(groupTimer.current);
     },
     [],
   );
@@ -86,7 +82,7 @@ export function FoodsMenu() {
     return () => document.removeEventListener("pointerdown", onPointer);
   }, [open]);
 
-  if (!aisles.length || !current) return null;
+  if (!groups.length || !current) return null;
   const label = (
     <>
       <Icon name="grid" size={18} className="va-tag-icon" />
@@ -110,13 +106,13 @@ export function FoodsMenu() {
       next ? HOVER_OPEN_MS : HOVER_CLOSE_MS,
     );
   };
-  const hoverAisle = (event: ReactPointerEvent, slug: string | null) => {
+  const hoverGroup = (event: ReactPointerEvent, id: string | null) => {
     if (event.pointerType !== "mouse") return;
-    window.clearTimeout(aisleTimer.current);
-    if (slug)
-      aisleTimer.current = window.setTimeout(
-        () => setActive(slug),
-        AISLE_SWITCH_MS,
+    window.clearTimeout(groupTimer.current);
+    if (id)
+      groupTimer.current = window.setTimeout(
+        () => setActive(id),
+        GROUP_SWITCH_MS,
       );
   };
   const close = () => {
@@ -124,17 +120,17 @@ export function FoodsMenu() {
     button.current?.focus();
   };
   const moveFocus = (index: number) => {
-    const count = aisles.length;
+    const count = groups.length;
     const next = (index + count) % count;
-    setActive(aisles[next]!.slug);
+    setActive(groups[next]!.id);
     links.current[next]?.focus();
   };
-  const onAisleKey = (event: ReactKeyboardEvent, index: number) => {
+  const onGroupKey = (event: ReactKeyboardEvent, index: number) => {
     const moves: Record<string, number> = {
       ArrowDown: index + 1,
       ArrowUp: index - 1,
       Home: 0,
-      End: aisles.length - 1,
+      End: groups.length - 1,
     };
     if (event.key in moves) {
       event.preventDefault();
@@ -189,33 +185,31 @@ export function FoodsMenu() {
             <div className="va-foods-menu__categories">
               <h2 className="va-overline">Categories</h2>
               <ul className="va-foods-menu__aisles" aria-label="Categories">
-                {aisles.map((aisle, index) => {
-                  const isShown = aisle.slug === shown?.slug;
+                {groups.map((group, index) => {
+                  const isShown = group.id === shown?.id;
                   return (
-                    <li key={aisle.slug}>
+                    <li key={group.id}>
                       <Link
                         ref={(link) => {
                           links.current[index] = link;
                         }}
-                        to={foodPath(country.code, aisle.slug)}
+                        to={navigationGroupPath(country.code, group.id)}
                         discover="none"
-                        // One aisle is in the Tab order; the arrow keys move
+                        // One group is in the Tab order; the arrow keys move
                         // between them and Tab moves on to its foods.
                         tabIndex={isShown ? 0 : -1}
                         className={`va-foods-menu__aisle${isShown ? " is-shown" : ""}`}
-                        onFocus={() => setActive(aisle.slug)}
-                        onPointerEnter={(event) =>
-                          hoverAisle(event, aisle.slug)
-                        }
-                        onPointerLeave={(event) => hoverAisle(event, null)}
-                        onKeyDown={(event) => onAisleKey(event, index)}
+                        onFocus={() => setActive(group.id)}
+                        onPointerEnter={(event) => hoverGroup(event, group.id)}
+                        onPointerLeave={(event) => hoverGroup(event, null)}
+                        onKeyDown={(event) => onGroupKey(event, index)}
                       >
                         <FoodIcon
-                          slug={aisle.slug}
+                          slug={group.iconSlug}
                           size={20}
                           className="va-tag-icon"
                         />
-                        <span>{aisle.name}</span>
+                        <span>{group.name}</span>
                         <Icon name="chevronRight" size={14} strokeWidth={2.5} />
                       </Link>
                     </li>
@@ -225,9 +219,9 @@ export function FoodsMenu() {
             </div>
             <div ref={preview} className="va-foods-menu__preview">
               <FoodNavigation
-                key={shown!.slug}
+                key={shown!.id}
                 country={country.code}
-                category={shown!}
+                group={shown!}
               />
             </div>
           </div>

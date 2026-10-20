@@ -408,7 +408,7 @@ The taxonomy becomes two levels below the root: **aisle › food**. It replaces 
 - **An aisle holding one food of its own name is silent in breadcrumbs,** so "All foods / Eggs" never reads "All foods / Eggs / Eggs".
 - **Slugs.** An aisle whose name is also a food's takes `-aisle` in its slug (`milk-aisle`, `eggs-aisle`).
 - **Order.** See [Aisle order, browsing and seasons](#aisle-order-browsing-and-seasons).
-- **Desktop Foods menu.** Desktop opens aisles from the Foods menu in the header row; phones keep the sideways-scrolling aisle chips.
+- **Foods navigation.** Desktop, phone navigation and the full directory use the presentation groups described below; the underlying taxonomy stays aisle › food.
 
 | Aisle               | Slug                  | US foods at launch                                                                                                                   |
 | ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -546,7 +546,7 @@ Existing foods keep their current names and other names unless a row says otherw
   - Foods within an aisle follow the same rule.
   - The counts come from the rating aggregates, never raw ratings. They are all-time, so the order changes slowly.
 - **Default order.** Each aisle carries a `position`, used when a country has no ratings yet: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Bakery and desserts. Operators set it for aisles they add. An aisle without one sorts after those with one.
-- **The same order everywhere.** The aisle bar, Browse every food, aisle pages, the footer and the food picker all use it.
+- **Order within navigation groups.** Categories and foods retain their country popularity order within the fixed presentation groups below. Home and footer shortcuts still use the first six categories overall; grouping does not change ranking order or contribution food matching.
 - **Browse every food.**
   - Each aisle is a card holding its three most popular foods with their #1 swap.
   - When an aisle has more, a last line reads "See all 9 cheese foods".
@@ -564,6 +564,26 @@ Existing foods keep their current names and other names unless a row says otherw
   - `categories.position`;
   - `categories.season_start` and `categories.season_end` (months 1–12; a season may wrap past December);
   - `products.seasonal`.
+
+### Six navigation groups (owner, 2026-10-20)
+
+These shared, English-labelled presentation groups add no taxonomy level, database changes or API fields. The fixed order and category-slug mapping are:
+
+| Group | Category slugs |
+| --- | --- |
+| Meat & seafood | `beef`, `chicken`, `pork`, `turkey-aisle`, `lamb-aisle`, `fish-and-seafood` |
+| Dairy & eggs | `milk-aisle`, `cream-aisle`, `butter-aisle`, `yogurt-aisle`, `cheese`, `eggs-aisle` |
+| Bakery & baking | `bakery`, `toaster-pastries-aisle`, legacy `bakery-and-desserts` |
+| Sweets & desserts | `chocolate`, `candy`, `ice-cream-aisle`, `desserts` |
+| Sauces, dips & spreads | `condiments`, `sauces`, `dips-and-spreads` |
+| Meals & prepared foods | `meals`, `pizza-aisle` |
+
+- Unknown categories appear in a final **More foods** group. Public groups without available categories are hidden; contribution selectors retain empty categories.
+- Desktop shows groups down the left and compact category sections on the right. Each section links its three most popular food types and offers View all when more exist. Filtering matches category and food names in the selected group without the three-item limit. Opening, switching and filtering use embedded data only.
+- Phone chips link to group anchors in `/{country}/search`. The phone menu uses expandable groups containing the same category and food shortcuts, opening the current group by default. The full directory shows every category and food beneath group headings. Keyboard, touch, focus restoration and no-JavaScript directory access remain available.
+- Home and footer retain their six popular category shortcuts and Browse all categories.
+- Add a product gains no step. Existing foods determine their group; new-food suggestions use grouped headings in the existing Category selector, also shared by Suggest a food. Country preselection, category IDs, drafts, validation and moderation remain unchanged.
+- New-country activation, translations and contributor suggestions for entirely new categories remain separate work. Operators still create categories; a missing mapping never hides one.
 
 ### Confirmed defaults (2026-10-12)
 

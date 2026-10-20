@@ -255,7 +255,7 @@
   }
 }
 
-/* Desktop Foods menu: every aisle down the left, the shown aisle's foods
+/* Desktop Foods menu: broad groups down the left, compact category sections
    beside them, full width under the header. It takes its full height and
    scrolls with the page (the header isn't sticky), so nothing in it is
    clipped. */
@@ -277,7 +277,7 @@
   margin: 0 auto;
   padding: 0 var(--va-gutter);
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
 }
 
 .va-foods-menu__categories {
@@ -298,8 +298,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 44px;
+  padding: 8px 10px;
   border-radius: var(--va-radius-button);
   color: var(--va-ink);
   font-size: 15px;
@@ -338,39 +338,84 @@
   padding: var(--va-space-6) 0 var(--va-space-6) var(--va-space-6);
 }
 
-.va-foods-menu__foods {
+.va-food-navigation {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: var(--va-space-5);
 }
-.va-foods-menu__food {
+.va-food-navigation__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.va-food-navigation__top h2 {
+  margin: 0;
+}
+.va-food-navigation__top [role="search"] {
+  flex: 1 1 210px;
+  max-width: 320px;
+  min-width: 0;
+}
+.va-food-navigation__sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: var(--va-space-5);
+  align-items: start;
+}
+.va-food-navigation__heading {
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+.va-food-navigation__heading a {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 80px;
-  padding: 14px;
-  border: 1px solid var(--va-line);
-  border-radius: var(--va-radius-card);
-  background: var(--va-surface);
+  gap: 8px;
+  min-height: 36px;
   color: var(--va-ink);
   text-decoration: none;
 }
-.va-foods-menu__food:hover {
+.va-food-navigation__heading a:hover {
+  color: var(--va-good);
+  text-decoration: underline;
+}
+.va-food-navigation__heading svg {
+  color: var(--va-good);
+  flex: none;
+}
+.va-food-navigation__foods {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.va-food-navigation__food {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-radius: var(--va-radius-button);
+  color: var(--va-ink);
+  text-decoration: none;
+}
+.va-food-navigation__food:hover {
   background: var(--va-hover);
 }
-.va-foods-menu__food > svg {
-  flex: none;
-  color: var(--va-good);
-}
-.va-foods-menu__food > span {
-  display: grid;
-  flex: 1;
-  gap: 3px;
-  min-width: 0;
+.va-food-navigation__food > span:first-child {
   overflow-wrap: anywhere;
+}
+.va-food-navigation__food > span:last-child {
+  flex: none;
+  white-space: nowrap;
+}
+.va-food-navigation__all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 8px;
+  font-size: 13px;
 }
 .va-foods-menu__more {
   display: flex;

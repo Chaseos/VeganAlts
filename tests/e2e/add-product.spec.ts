@@ -136,6 +136,50 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
   }
 });
 
+test("grouped category choices preserve suggestion preselection and product drafts", async ({
+  page,
+  context,
+}) => {
+  const session = await createBrowserSession();
+  try {
+    await context.addCookies([session.cookie]);
+    await page.goto("/propose-category?country=gb&aisle=lamb-aisle");
+    const select = page.getByLabel("Category (required)");
+    await expect(select.locator("option:checked")).toHaveText("Lamb");
+    await expect(
+      select.locator('optgroup[label="Meat & seafood"] option:checked'),
+    ).toHaveText("Lamb");
+    // Empty public categories remain available for contributions.
+    await expect(
+      select.locator('optgroup[label="Sweets & desserts"]'),
+    ).toHaveCount(1);
+    const categoryId = await select.inputValue();
+    await page.getByLabel("Food name (required)").fill("Lamb kofta");
+    await page.getByRole("link", { name: "Add it with the product" }).click();
+    await expect(page.getByRole("main")).toContainText(
+      "Adding to United Kingdom",
+    );
+    await expect(page.getByLabel("Category (required)")).toHaveValue(
+      categoryId,
+    );
+    await page.getByLabel("Food name (required)").fill("Kofta for grilling");
+    await page.waitForTimeout(200);
+    await page.reload();
+    // A suggestion link offers the saved draft before replacing its prefill.
+    await page.getByRole("button", { name: "Continue it" }).click();
+    await expect(page.getByLabel("Food name (required)")).toHaveValue(
+      "Kofta for grilling",
+    );
+    await expect(page.getByLabel("Category (required)")).toHaveValue(
+      categoryId,
+    );
+    await accessible(page);
+  } finally {
+    await page.close();
+    await session.dispose();
+  }
+});
+
 test("publishes a front-photo-only product with its ingredients not checked yet", async ({
   page,
   context,
@@ -314,6 +358,11 @@ test("suggests a missing food inline and publishes the product once a moderator 
     await page
       .getByLabel("Category (required)")
       .selectOption({ label: "Pork" });
+    await expect(
+      page
+        .getByLabel("Category (required)")
+        .locator('optgroup[label="Meat & seafood"] option:checked'),
+    ).toHaveText("Pork");
     await chooseBrand(page, `Grill House ${stamp}`);
     await page.getByLabel("Product name (required)").fill(name);
     await page

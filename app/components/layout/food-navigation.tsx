@@ -5,6 +5,11 @@ import { Icon } from "../icons/icon";
 import { plural } from "../../lib/format";
 import { useFoodHref } from "../../lib/ranking-filters";
 import {
+  navigationGroupPath,
+  navigationSections,
+  type NavigationGroup,
+} from "../../lib/navigation-groups";
+import {
   foodPath,
   searchPath,
   type ChromeAisle,
@@ -14,36 +19,20 @@ import {
 /** Navigation uses the country tree already embedded in the public page. */
 export function FoodNavigation({
   country,
-  category,
+  group,
 }: {
   country: string;
-  category: ChromeAisle;
+  group: NavigationGroup<ChromeAisle>;
 }) {
   const [query, setQuery] = useState("");
-  const lower = query.trim().toLowerCase();
-  const shown = category.foods.filter((food) =>
-    food.name.toLowerCase().includes(lower),
-  );
   return (
-    <div className="va-aisle va-aisle--menu">
-      <div className="va-aisle__top">
-        <span className="va-aisle__tile" aria-hidden="true">
-          <FoodIcon slug={category.slug} size={28} />
-        </span>
-        <div className="va-aisle__title">
-          <h2 className="va-aisle__name">{category.name}</h2>
-          <p className="va-small va-muted">
-            {plural(category.foods.length, "food type")}
-          </p>
-        </div>
-        <div
-          className="va-aisle__filter"
-          role="search"
-          aria-label={`Find in ${category.name}`}
-        >
+    <div className="va-food-navigation">
+      <div className="va-food-navigation__top">
+        <h2 className="va-heading-m">{group.name}</h2>
+        <div role="search" aria-label={`Find in ${group.name}`}>
           <label className="va-aisle__filter-field">
             <Icon name="filter" size={18} />
-            <span className="sr-only">Find a food type in {category.name}</span>
+            <span className="sr-only">Find a food type in {group.name}</span>
             <input
               type="search"
               value={query}
@@ -53,39 +42,22 @@ export function FoodNavigation({
             />
           </label>
         </div>
+      </div>
+      <FoodGroupSections country={country} group={group} query={query} />
+      <div className="va-foods-menu__more va-small">
         <Link
-          className="va-link va-aisle__all"
-          to={foodPath(country, category.slug)}
+          className="va-link"
+          to={navigationGroupPath(country, group.id)}
           discover="none"
         >
-          Browse {category.name} <Icon name="arrowRight" size={16} />
+          Browse all {group.name.toLowerCase()}
         </Link>
-      </div>
-      {shown.length ? (
-        <ul
-          className="va-foods-menu__foods"
-          aria-label={`Food types in ${category.name}`}
-        >
-          {shown.map((food) => (
-            <li key={food.slug}>
-              <FoodNavigationLink country={country} food={food} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="va-small va-muted">
-          {lower
-            ? `No food types match “${query.trim()}”.`
-            : "No food types in this category yet."}
-        </p>
-      )}
-      <div className="va-foods-menu__more va-small">
         <Link className="va-link" to={searchPath(country)} discover="none">
           Browse all categories
         </Link>
         <Link
           className="va-link"
-          to={`/propose-category?country=${country}&aisle=${category.slug}`}
+          to={`/propose-category?country=${country}`}
           discover="none"
         >
           Suggest a food
@@ -95,24 +67,94 @@ export function FoodNavigation({
   );
 }
 
+/** The same compact category shortcuts serve pointer and phone navigation. */
+export function FoodGroupSections({
+  country,
+  group,
+  query = "",
+  onNavigate,
+}: {
+  country: string;
+  group: NavigationGroup<ChromeAisle>;
+  query?: string;
+  onNavigate?: () => void;
+}) {
+  const sections = navigationSections(group, query);
+  if (!sections.length)
+    return (
+      <p className="va-small va-muted">No food types match “{query.trim()}”.</p>
+    );
+  return (
+    <div className="va-food-navigation__sections">
+      {sections.map(({ category, foods }) => (
+        <section
+          key={category.slug}
+          className="va-food-navigation__category"
+          aria-label={category.name}
+        >
+          <h3 className="va-food-navigation__heading">
+            <Link
+              to={foodPath(country, category.slug)}
+              discover="none"
+              onClick={onNavigate}
+            >
+              <FoodIcon slug={category.slug} size={20} />
+              {category.name}
+            </Link>
+          </h3>
+          <ul
+            className="va-food-navigation__foods"
+            aria-label={`Food types in ${category.name}`}
+          >
+            {foods.map((food) => (
+              <li key={food.slug}>
+                <FoodNavigationLink
+                  country={country}
+                  food={food}
+                  onNavigate={onNavigate}
+                />
+              </li>
+            ))}
+          </ul>
+          {category.foods.length > foods.length && (
+            <Link
+              className="va-link va-food-navigation__all"
+              to={foodPath(country, category.slug)}
+              discover="none"
+              aria-label={`View all ${category.name} food types`}
+              onClick={onNavigate}
+            >
+              View all ({category.foods.length}){" "}
+              <Icon name="arrowRight" size={14} />
+            </Link>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function FoodNavigationLink({
   country,
   food,
+  onNavigate,
 }: {
   country: string;
   food: ChromeFood;
+  onNavigate?: () => void;
 }) {
   const href = useFoodHref(country, foodPath(country, food.slug));
   return (
-    <Link className="va-foods-menu__food" to={href} discover="none">
-      <FoodIcon slug={food.slug} size={24} />
-      <span>
-        <strong>{food.name}</strong>
-        <span className="va-small va-muted">
-          {plural(food.productCount, "product")}
-        </span>
+    <Link
+      className="va-food-navigation__food"
+      to={href}
+      discover="none"
+      onClick={onNavigate}
+    >
+      <span>{food.name}</span>
+      <span className="va-small va-muted">
+        {plural(food.productCount, "product")}
       </span>
-      <Icon name="chevronRight" size={16} />
     </Link>
   );
 }

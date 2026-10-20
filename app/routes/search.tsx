@@ -16,6 +16,7 @@ import { ButtonLink } from "../components/ui/button";
 import { EmptyState } from "../components/ui/feedback";
 import { publicMetadata } from "../lib/metadata";
 import { joinList, plural, productName } from "../lib/format";
+import { groupCategories } from "../lib/navigation-groups";
 import {
   brandPath,
   foodPath,
@@ -234,34 +235,53 @@ export default function Search({ loaderData: data }: Route.ComponentProps) {
 function AllAisles({ country }: { country: string }) {
   const { aisles } = useSiteChrome();
   return (
-    <ul className="va-search-page__aisles">
-      {aisles.map((aisle) => (
-        <li key={aisle.slug} className="va-card">
-          <Link
-            className="va-browse__summary"
-            to={foodPath(country, aisle.slug)}
-          >
-            <span className="va-browse__tile" aria-hidden="true">
-              <FoodIcon slug={aisle.slug} size={22} />
-            </span>
-            <span className="va-browse__name">{aisle.name}</span>
-          </Link>
-          <ul className="va-divided">
-            {aisle.foods.map((food) => (
-              <li key={food.slug}>
-                <Link className="va-row-link" to={foodPath(country, food.slug)}>
-                  <span className="va-row-link__text">
-                    <span className="va-row-link__title">{food.name}</span>
-                    <span className="va-small va-muted">
-                      {plural(food.productCount, "product")}
-                    </span>
+    <div className="va-category-directory">
+      {groupCategories(aisles).map((group) => (
+        <section
+          key={group.id}
+          id={group.id}
+          className="va-category-directory__group"
+          aria-labelledby={`${group.id}-title`}
+        >
+          <h2 id={`${group.id}-title`} className="va-heading-m">
+            <FoodIcon slug={group.iconSlug} size={24} /> {group.name}
+          </h2>
+          <ul className="va-search-page__aisles">
+            {group.categories.map((aisle) => (
+              <li key={aisle.slug} className="va-card">
+                <Link
+                  className="va-browse__summary"
+                  to={foodPath(country, aisle.slug)}
+                >
+                  <span className="va-browse__tile" aria-hidden="true">
+                    <FoodIcon slug={aisle.slug} size={22} />
                   </span>
+                  <span className="va-browse__name">{aisle.name}</span>
                 </Link>
+                <ul className="va-divided">
+                  {aisle.foods.map((food) => (
+                    <li key={food.slug}>
+                      <Link
+                        className="va-row-link"
+                        to={foodPath(country, food.slug)}
+                      >
+                        <span className="va-row-link__text">
+                          <span className="va-row-link__title">
+                            {food.name}
+                          </span>
+                          <span className="va-small va-muted">
+                            {plural(food.productCount, "product")}
+                          </span>
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>
-        </li>
+        </section>
       ))}
-    </ul>
+    </div>
   );
 }

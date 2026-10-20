@@ -1,12 +1,18 @@
 import { useRef } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { Icon } from "../icons/icon";
 import { FoodIcon } from "../icons/food-icons";
 import { AppearanceControl } from "./appearance-menu";
 import { accountLinks, OPERATOR_LINKS, useSignInHref } from "./account-menu";
 import { CountryList } from "./country-menu";
 import { useOptionalPersonalState } from "../personal-state";
-import { foodPath, useSiteChrome } from "../../lib/site-chrome";
+import { searchPath, useSiteChrome } from "../../lib/site-chrome";
+import {
+  currentNavigationGroup,
+  groupCategories,
+  navigationGroupPath,
+} from "../../lib/navigation-groups";
+import { FoodGroupSections } from "./food-navigation";
 import { useHydrated } from "../../lib/use-hydrated";
 import { ABOUT_LINKS } from "./site-footer";
 
@@ -24,6 +30,9 @@ export function PhoneMenu() {
   const hydrated = useHydrated();
   const dialog = useRef<HTMLDialogElement>(null);
   const { country, countries, aisles } = useSiteChrome();
+  const location = useLocation();
+  const groups = groupCategories(aisles);
+  const current = currentNavigationGroup(groups, location);
   const user = useOptionalPersonalState()?.user;
   const signIn = useSignInHref();
   const close = () => dialog.current?.close();
@@ -109,29 +118,49 @@ export function PhoneMenu() {
                 )}
               </ul>
             </section>
-            {aisles.length > 0 && (
+            {groups.length > 0 && (
               <section aria-labelledby="sheet-aisles">
                 <h2 id="sheet-aisles" className="va-menu-heading">
                   Categories
                 </h2>
-                <ul className="va-sheet__list">
-                  {aisles.map((aisle) => (
-                    <li key={aisle.slug}>
-                      <Link
-                        to={foodPath(country.code, aisle.slug)}
-                        onClick={close}
-                      >
-                        <FoodIcon
-                          slug={aisle.slug}
-                          size={20}
-                          className="va-good-icon"
-                        />
-                        <span>{aisle.name}</span>
-                        <Icon name="chevronRight" size={14} />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                {groups.map((group) => (
+                  <details
+                    key={`${location.key}:${group.id}`}
+                    className="va-sheet__group"
+                    open={group.id === current}
+                  >
+                    <summary>
+                      <FoodIcon
+                        slug={group.iconSlug}
+                        size={20}
+                        className="va-good-icon"
+                      />
+                      <span>{group.name}</span>
+                      <Icon name="chevronDown" size={16} />
+                    </summary>
+                    <FoodGroupSections
+                      country={country.code}
+                      group={group}
+                      onNavigate={close}
+                    />
+                    <Link
+                      className="va-link va-sheet__group-all"
+                      to={navigationGroupPath(country.code, group.id)}
+                      discover="none"
+                      onClick={close}
+                    >
+                      Browse all {group.name.toLowerCase()}
+                    </Link>
+                  </details>
+                ))}
+                <Link
+                  className="va-link va-sheet__group-all"
+                  to={searchPath(country.code)}
+                  discover="none"
+                  onClick={close}
+                >
+                  Browse all categories
+                </Link>
               </section>
             )}
             <section aria-label="Appearance">

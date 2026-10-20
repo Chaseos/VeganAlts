@@ -28,11 +28,14 @@ test("the desktop Foods menu navigates categories and food types without catalog
   await expect(menu).toBeVisible();
   // Tab reaches the aisle shown, and its foods sit beside the list.
   const aisles = menu.getByRole("list", { name: "Categories" });
-  const beef = aisles.getByRole("link", { name: "Beef", exact: true });
+  const beef = aisles.getByRole("link", {
+    name: "Meat & seafood",
+    exact: true,
+  });
   const names = (await aisles.getByRole("link").allInnerTexts()).map((n) =>
     n.trim(),
   );
-  const next = names[(names.indexOf("Beef") + 1) % names.length]!;
+  const next = names[(names.indexOf("Meat & seafood") + 1) % names.length]!;
   await page.keyboard.press("Tab");
   await expect(beef).toBeFocused();
   await expect(menu.getByRole("link", { name: /^Ground Beef/ })).toBeVisible();
@@ -57,11 +60,22 @@ test("the desktop Foods menu navigates categories and food types without catalog
 
   // Foods sit directly in the aisle; the filter narrows them in place.
   await menu
-    .getByRole("searchbox", { name: "Find a food type in Beef" })
+    .getByRole("searchbox", { name: "Find a food type in Meat & seafood" })
     .fill("burg");
   await expect(menu.getByRole("link", { name: /^Beef Burgers/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: /^Ground Beef/ })).toHaveCount(0);
 
+  // A category-name search exposes foods beyond the three shortcuts.
+  await menu
+    .getByRole("searchbox", { name: "Find a food type in Meat & seafood" })
+    .fill("beef");
+  const beefTypes = menu.getByRole("list", {
+    name: "Food types in Beef",
+    exact: true,
+  });
+  await expect
+    .poll(() => beefTypes.getByRole("link").count())
+    .toBeGreaterThan(3);
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
   await expect(foods).toBeFocused();
@@ -83,26 +97,28 @@ test("the desktop Foods menu navigates categories and food types without catalog
       menu.getByRole("heading", { level: 2, name, exact: true }),
     ).toBeVisible();
     await expect(
-      menu.getByRole("list", { name: `Food types in ${name}`, exact: true }),
+      menu.locator(".va-food-navigation__category").first(),
     ).toBeVisible();
   }
-  await aisles.getByRole("link", { name: "Cheese", exact: true }).hover();
+  await aisles.getByRole("link", { name: "Dairy & eggs", exact: true }).hover();
   await expect(menu.getByRole("link", { name: /^Cheddar/ })).toBeVisible();
   await page.mouse.move(2, 2);
   await expect(menu).toBeHidden();
 
   await foods.click();
-  await aisles.getByRole("link", { name: "Cheese", exact: true }).hover();
+  await aisles.getByRole("link", { name: "Dairy & eggs", exact: true }).hover();
   await expect(menu.getByRole("link", { name: /^Cheddar/ })).toBeVisible();
   await accessible(page);
   await page.setViewportSize({ width: 760, height: 900 });
+  // Reflow can put the stationary pointer over another group.
+  await aisles.getByRole("link", { name: "Dairy & eggs", exact: true }).hover();
   await expect(menu.getByRole("link", { name: /^Cheddar/ })).toBeVisible();
   await accessible(page);
   expect(
     catalogRequests,
     "Opening, switching and filtering need no catalog requests",
   ).toEqual([]);
-  await menu.getByRole("link", { name: "Browse Cheese" }).click();
+  await menu.getByRole("link", { name: "Cheese", exact: true }).click();
   await expect(page).toHaveURL(/\/us\/cheese$/);
   await expect(
     page.getByRole("heading", { level: 1, name: "Cheese" }),
@@ -223,10 +239,69 @@ test("without JavaScript and on phones, aisles are links to their pages", async 
   await page.goto("/");
   const chips = page.getByRole("navigation", { name: "Categories" });
   await expect(chips.getByRole("button")).toHaveCount(0);
-  await chips.getByRole("link", { name: "Cheese", exact: true }).click();
-  await expect(page).toHaveURL(/\/us\/cheese$/);
+  await chips.getByRole("link", { name: "Dairy & eggs", exact: true }).click();
+  await expect(page).toHaveURL(/\/us\/search#dairy-eggs$/);
+  await expect(chips.locator("[aria-current]")).toHaveCount(1);
+  await expect(
+    chips.getByRole("link", { name: "Dairy & eggs", exact: true }),
+  ).toHaveAttribute("aria-current", "true");
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Cheese", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Cream Cheese" }),
   ).toBeVisible();
   await accessible(page);
+});
+
+test("directory groups preserve country-specific food names and availability", async ({
+  page,
+}) => {
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (/hydrat/i.test(message.text()) && message.type() === "error")
+      hydrationErrors.push(message.text());
+  });
+  await page.goto("/gb/search#meat-seafood");
+  const main = page.getByRole("main");
+  const meat = main.getByRole("region", {
+    name: "Meat & seafood",
+    exact: true,
+  });
+  await expect(meat.getByRole("link", { name: /^Beef mince/ })).toBeVisible();
+  await expect(main.getByRole("link", { name: /^Eggnog/ })).toHaveCount(0);
+  await expect(
+    main.getByRole("region", { name: "Dairy & eggs", exact: true }),
+  ).toBeVisible();
+  const groupIds = await main
+    .locator(".va-category-directory__group")
+    .evaluateAll((groups) => groups.map((group) => group.id));
+  expect(new Set(groupIds).size).toBe(groupIds.length);
+  await accessible(page);
+  expect(hydrationErrors).toEqual([]);
+});
+
+test("phone menu expands the current group and links directly to foods", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "Phone navigation");
+  await page.goto("/us/cheddar");
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  const menu = page.getByRole("dialog", { name: "Site menu" });
+  const dairy = menu
+    .locator("details")
+    .filter({ has: page.locator("summary", { hasText: "Dairy & eggs" }) });
+  await expect(dairy).toHaveAttribute("open", "");
+  await expect(dairy.getByRole("link", { name: /^Cheddar/ })).toBeVisible();
+  const meat = menu
+    .locator("details")
+    .filter({ has: page.locator("summary", { hasText: "Meat & seafood" }) });
+  await expect(meat).not.toHaveAttribute("open", "");
+  await meat.locator("summary").press("Enter");
+  await expect(meat.getByRole("link", { name: /^Ground Beef/ })).toBeVisible();
+  await accessible(page);
+  await meat.getByRole("link", { name: /^Ground Beef/ }).click();
+  await expect(menu).toBeHidden();
+  await expect(page).toHaveURL(/\/us\/ground-beef$/);
 });
