@@ -12,7 +12,7 @@ The staging catalog contains explicitly labeled fictional development products, 
 
 ## Development
 
-`develop` is the default integration branch. Start feature branches from it and target pull requests at `develop`. Retain `main` for production release history; deployments remain explicit operations.
+`develop` is the default integration branch. Start feature branches from it and target pull requests at `develop`. Cloudflare Workers Builds automatically deploys `develop` to staging. Retain `main` for production release history; production deployments remain explicit operations.
 
 Use Node 24 LTS (`.nvmrc`) and npm. Commit the lockfile when dependencies change.
 

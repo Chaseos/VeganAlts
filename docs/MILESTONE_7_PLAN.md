@@ -180,7 +180,7 @@ Most of what remains is sold as a few base recipes in several flavors:
   - changes to the Bayesian constants;
   - barcode scanning;
   - production deployment.
-- **Completion and approvals.** Completion means local and staging verification with documented evidence. Each verified checkpoint gets one local commit. Pushes, PRs, issue and milestone changes, staging migrations and deployments, merging and production work each need separate authorization.
+- **Completion and approvals.** Completion means local and staging verification with documented evidence. Each verified checkpoint gets one local commit. Pushes, PRs, issue and milestone changes, staging migrations, merging and production work each need separate authorization. On the owner's instruction (2026-10-20), authorized pushes to `develop` automatically deploy to staging through Cloudflare Workers Builds; manual staging deployments still need explicit authorization.
 
 ## Defaults
 

@@ -221,7 +221,7 @@
       "vars": {
         "APP_ENV": "staging",
         "APP_URL": "https://staging.veganalts.com",
-        "ADMIN_USER_IDS": "01a108be-5e63-73fd-b102-43865ee3a4bb,01a108c7-bc76-73cf-b70f-8d3aadd41328",
+        "ADMIN_USER_IDS": "01a14316-0916-73ed-b085-7e2af19668e7",
         "RANKING_PRIOR_MEAN": "3.5",
         "RANKING_PRIOR_STRENGTH": "10",
         "RANKING_TASTIEST_PRIOR_MEAN": "3.5",

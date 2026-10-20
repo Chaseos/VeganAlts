@@ -90,7 +90,13 @@ npm run deploy:staging
 TEST_BASE_URL=https://staging.veganalts.com npm run test:e2e
 ```
 
-The deployment commands build the selected environment before deploying its generated Worker configuration. Review Wrangler's printed Worker name, D1/R2 bindings, and domains. Record the deployed version ID in the verification record. Start feature work from `develop`, the default branch, and target pull requests at `develop`. Keep `main` for production release history. Commit/push/PR are separate approval checkpoints; CI runs on pull requests and pushes to `develop` or `main`. Deployments remain explicit operations.
+The deployment commands build the selected environment before deploying its generated Worker configuration. Review Wrangler's printed Worker name, D1/R2 bindings, and domains. Record the deployed version ID in the verification record. Start feature work from `develop`, the default branch, and target pull requests at `develop`. Keep `main` for production release history. Commit/push/PR are separate approval checkpoints; CI runs on pull requests and pushes to `develop` or `main`.
+
+### Automatic staging deployment
+
+On the owner's instruction (2026-10-20), Cloudflare Workers Builds connects `Chaseos/VeganAlts` to the existing `veganalts-staging` Worker and deploys pushes to `develop`. The connection uses `develop` as its production branch (the live branch of this staging Worker), build command `npm run build:staging`, deploy command `npx wrangler deploy --keep-vars`, and repository root `/`. Preview builds are disabled. Node follows the committed `.nvmrc`.
+
+The staging build selects the staging configuration and its D1/R2 bindings. Deployment retains existing secrets and dashboard variables absent from the configuration; variables specified in `wrangler.jsonc` remain authoritative. Keep the staging administrator allowlist in sync with authorized account changes before deploying. This pipeline deploys Worker code and assets only; it does not migrate, reset, or seed D1, or modify R2 data. Schema operations still require explicit authorization and the recovery steps above. GitHub Application checks run separately from Cloudflare Builds. Production deployment remains an explicit operation.
 
 `/healthz` confirms the Worker can respond; it intentionally does not probe D1 or authentication. For data availability, run a bounded D1 read and the staging integration flows. Logging records generated request IDs, coarse route names, status, and duration, without full URLs, cookies, user emails, or provider responses. Invocation logs are disabled to avoid recording callback query strings.
 
