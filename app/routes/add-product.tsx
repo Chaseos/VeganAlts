@@ -6,6 +6,7 @@ import { communityServices } from "@server/community/infrastructure/composition"
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import type { Candidate } from "@server/community/domain/contracts";
 import { PageShell } from "../components/layout/page-shell";
+import { UnsavedWorkGuard } from "../components/unsaved-work-guard";
 import { Notice } from "../components/ui/feedback";
 import {
   CommunityControls,
@@ -40,6 +41,7 @@ import {
   fromSubmission,
   loadDraft,
   saveDraft,
+  hasDraftEdits,
   toSubmission,
   type DraftErrors,
   type PhotoSlot,
@@ -163,10 +165,38 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
           line: start.line,
         });
   const [draft, setDraft] = useState<ProductDraft>(initial);
+  const initialDraft = useRef(draft);
   const [photos, setPhotos] = useState<Photos>({});
+  const [textSaved, setTextSaved] = useState(true);
+  const [photoRestoreFailed, setPhotoRestoreFailed] = useState(false);
+  const [restored, setRestored] = useState<ProductDraft | null>(null);
+  const [photoSaved, setPhotoSaved] = useState<
+    Partial<
+      Record<
+        PhotoSlot,
+        { file: File | undefined; saved: boolean; pending: boolean }
+      >
+    >
+  >({});
+  const finished = useRef(false);
+  const hasWork = Boolean(
+    hasDraftEdits(draft, initialDraft.current) ||
+    Object.values(photos).some(Boolean),
+  );
+  const atRisk =
+    hasWork &&
+    (!textSaved ||
+      restored !== null ||
+      Object.values(photoSaved).some((value) => value && !value.saved));
+  const persistenceFailed =
+    hasWork &&
+    !restored &&
+    (!textSaved ||
+      Object.values(photoSaved).some(
+        (value) => value && !value.saved && !value.pending,
+      ));
   // Photos come back from IndexedDB asynchronously after hydration.
   const [photosReady, setPhotosReady] = useState(false);
-  const [restored, setRestored] = useState<ProductDraft | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [shownErrors, setShownErrors] = useState<DraftErrors>({});
   const [exact, setExact] = useState<Candidate | null>(null);
@@ -220,7 +250,8 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     if (saved && same) {
       setDraft(saved);
       void loadDraftPhotos(saved.id).then((stored) => {
-        setPhotos((picked) => ({ ...stored, ...picked }));
+        setPhotos((picked) => ({ ...stored.photos, ...picked }));
+        setPhotoRestoreFailed(!stored.available);
         setPhotosReady(true);
       });
       return;
@@ -256,7 +287,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
   }, [market.iso2]);
   useEffect(() => {
     if (hydrated.current && !held && !offering.current)
-      saveDraft(storage(), draft, Date.now(), key);
+      setTextSaved(saveDraft(storage(), draft, Date.now(), key));
   }, [draft, held, restored]);
 
   // Choosing a line also fills the names that follow the flavor.
@@ -272,7 +303,17 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
   );
   const setPhoto = (slot: PhotoSlot, file: File | undefined) => {
     setPhotos((p) => ({ ...p, [slot]: file }));
-    void saveDraftPhoto(draft.id, slot, file);
+    setPhotoSaved((previous) => ({
+      ...previous,
+      [slot]: { file, saved: false, pending: true },
+    }));
+    void saveDraftPhoto(draft.id, slot, file).then((saved) =>
+      setPhotoSaved((previous) =>
+        previous[slot] && previous[slot].file === file
+          ? { ...previous, [slot]: { file, saved, pending: false } }
+          : previous,
+      ),
+    );
   };
   // Forgets the saved draft and its photos; another draft's photos (one set
   // aside, or another tab's) stay.
@@ -352,6 +393,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     );
     if (!outcome) return;
     if (outcome.kind === "published") {
+      finished.current = true;
       forget();
       await navigate(productPath(market.code, outcome.slug), {
         // "Saved" only when the server confirms it, "follows" only when it
@@ -364,6 +406,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
         },
       });
     } else if (outcome.kind === "held") {
+      finished.current = true;
       forget();
       setHeld(outcome.receiptId);
       focusHeading();
@@ -382,6 +425,8 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     forget();
     setDraft(emptyDraft(market.iso2));
     setPhotos({});
+    setPhotoSaved({});
+    finished.current = false;
     setHeld(null);
     offering.current = false;
     setRestored(null);
@@ -394,7 +439,34 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
       : "Add more (optional)";
   return (
     <PageShell width="narrow" countryMenu={false}>
+      <UnsavedWorkGuard atRisk={atRisk && !held} finished={finished} />
       <CommunityControls>
+        {photoRestoreFailed && (
+          <p className="notice" role="status">
+            Saved photos couldn’t be restored from this device. Please choose
+            them again before submitting.
+          </p>
+        )}
+        {persistenceFailed && !held && (
+          <div className="notice" role="status">
+            <strong>This draft isn’t safely saved on this device.</strong>
+            <p>
+              Keep this page open while editing. Reloading or leaving may lose
+              your latest text or photos.
+            </p>
+            <button
+              type="button"
+              className="button secondary small-button"
+              onClick={() => {
+                setTextSaved(saveDraft(storage(), draft, Date.now(), key));
+                for (const [slot, file] of Object.entries(photos))
+                  setPhoto(slot as PhotoSlot, file);
+              }}
+            >
+              Retry saving draft
+            </button>
+          </div>
+        )}
         <header className="page-heading">
           <p className="eyebrow">Grow the community catalog</p>
           <h1>Add a product</h1>
@@ -422,6 +494,12 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
         )}
         {restored && (
           <Notice title="You have an unfinished product">
+            {hasWork && (
+              <p role="status">
+                Your new entries are not saved until you choose “Start a new
+                one”.
+              </p>
+            )}
             <p>
               {restored.brand || restored.name
                 ? `${[restored.brand, restored.name].filter(Boolean).join(" · ")} is saved on this device.`
@@ -439,7 +517,11 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                   setRestored(null);
                   // Only that draft's photos: any picked meanwhile belong
                   // to the draft being set aside.
-                  void loadDraftPhotos(restored.id).then(setPhotos);
+                  setPhotoSaved({});
+                  void loadDraftPhotos(restored.id).then((stored) => {
+                    setPhotos(stored.photos);
+                    setPhotoRestoreFailed(!stored.available);
+                  });
                   if (restored.country !== market.iso2)
                     void navigate(
                       `?country=${restored.country.toLowerCase()}`,

@@ -225,9 +225,11 @@ export const POLICIES: Record<string, Policy> = {
         </p>
         <h2>Tastiest</h2>
         <p>
-          Tastiest is a second ranking from the optional “how tasty is it?”
-          question, scored the same way. A swap can be the tastiest without
-          being the closest. Tastiest never changes Closest to the original.
+          Tastiest is a second ranking from the “how tasty is it?” question,
+          scored the same way. A swap can be the tastiest without being the
+          closest. You can answer either rating question or both; only answers
+          to that question count toward its ranking. Tastiest never changes
+          Closest to the original.
         </p>
         <h2>Trending</h2>
         <p>

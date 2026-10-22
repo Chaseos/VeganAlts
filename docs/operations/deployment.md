@@ -20,7 +20,9 @@ Use Node 24 LTS and the committed npm lockfile. Wrangler authentication is requi
 
 Before the first release, the owner folded the pre-release migrations (`0000`–`0020`) into this baseline (2026-10-10). Every database is created from it, never upgraded from the old history; the legacy upgrade preflights were removed with it. A database still carrying the old history is reset with `npm run db:reset:<env>` (below) and migrated again.
 
-Check exact filenames in the directory before operating. Migrations are append-only from version 1 on. Generate future schema changes with `npm run db:generate`, inspect generated SQL, and add reviewed custom SQL for unsupported constructs. Better Auth schema generation uses `npm run auth:schema`; diff its output before creating any migration. Never run the reference baseline in addition to the migration history.
+Check exact filenames in the directory before operating. Until the first release, fold schema changes into version 1 and reset affected databases as AGENTS.md requires; add no new migrations. After the first release, migrations are append-only: generate changes with `npm run db:generate`, inspect generated SQL, and add reviewed custom SQL for unsupported constructs. Better Auth schema generation uses `npm run auth:schema`; diff its output before creating any migration. Never run the reference baseline in addition to the migration history.
+
+The owner approved one staging exception on 2026-10-20 for independent ratings: recreate only the empty `ratings` and `rating_dimension_values` tables in one atomic batch, with a guard that aborts if either has rows. Take a fresh Time Travel bookmark and table export, verify the live schema against the reviewed plan, restore related triggers/indexes and check foreign keys and unchanged catalog/account counts afterward. This exception was applied successfully; see [verification](../verification/independent-ratings.md). Other pre-release schema changes still use the full-reset rule.
 
 ```sh
 npm run db:migrate:local
@@ -90,7 +92,13 @@ npm run deploy:staging
 TEST_BASE_URL=https://staging.veganalts.com npm run test:e2e
 ```
 
-The deployment commands build the selected environment before deploying its generated Worker configuration. Review Wrangler's printed Worker name, D1/R2 bindings, and domains. Record the deployed version ID in the verification record. Start feature work from `develop`, the default branch, and target pull requests at `develop`. Keep `main` for production release history. Commit/push/PR are separate approval checkpoints; CI runs on pull requests and pushes to `develop` or `main`. Deployments remain explicit operations.
+The deployment commands build the selected environment before deploying its generated Worker configuration. Review Wrangler's printed Worker name, D1/R2 bindings, and domains. Record the deployed version ID in the verification record. Start feature work from `develop`, the default branch, and target pull requests at `develop`. Keep `main` for production release history. Commit/push/PR are separate approval checkpoints; CI runs on pull requests and pushes to `develop` or `main`.
+
+### Automatic staging deployment
+
+On the owner's instruction (2026-10-20), Cloudflare Workers Builds connects `Chaseos/VeganAlts` to the existing `veganalts-staging` Worker and deploys pushes to `develop`. The connection uses `develop` as its production branch (the live branch of this staging Worker), build command `npm run build:staging`, deploy command `npx wrangler deploy --keep-vars`, and repository root `/`. Preview builds are disabled. Node follows the committed `.nvmrc`.
+
+The staging build selects the staging configuration and its D1/R2 bindings. Deployment retains existing secrets and dashboard variables absent from the configuration; variables specified in `wrangler.jsonc` remain authoritative. Keep the staging administrator allowlist in sync with authorized account changes before deploying. This pipeline deploys Worker code and assets only; it does not migrate, reset, or seed D1, or modify R2 data. Schema operations still require explicit authorization and the recovery steps above. GitHub Application checks run separately from Cloudflare Builds. Production deployment remains an explicit operation.
 
 `/healthz` confirms the Worker can respond; it intentionally does not probe D1 or authentication. For data availability, run a bounded D1 read and the staging integration flows. Logging records generated request IDs, coarse route names, status, and duration, without full URLs, cookies, user emails, or provider responses. Invocation logs are disabled to avoid recording callback query strings.
 

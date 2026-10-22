@@ -293,8 +293,7 @@ it("discontinues and reintroduces equivalent or new formulas while preserving ra
         .all()
     ).results.map(({ recomputed_at: _, ...row }) => row);
   const linesBefore = await lines();
-  // The last write stored the line at the ratings' clock. "People this week"
-  // changes with time alone, so the rebuild re-derives it at that instant.
+  // Rebuild at the write's clock so "people this week" describes the same instant.
   await lineRefresh(env).refreshAll(RATED_AT);
   expect(await lines()).toEqual(linesBefore);
   const before = (

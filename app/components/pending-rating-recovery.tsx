@@ -19,9 +19,7 @@ export function PendingRatingRecovery() {
     return null;
   return (
     <aside className="notice pending-recovery" aria-label="Your pending rating">
-      <strong>
-        Your selected {pending.overallSimilarity}/5 hasn’t been saved.
-      </strong>
+      <strong>Your selected rating hasn’t been saved.</strong>
       <p role="status">{state.message}</p>
       {state.status === "conflict" ? (
         <a

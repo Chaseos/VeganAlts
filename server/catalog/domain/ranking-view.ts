@@ -58,7 +58,8 @@ export function detailScores(
 
 interface Orderable {
   id: string;
-  topRank: number;
+  lineId: string;
+  topRank: number | null;
   ratingCount: number;
   tastiestScore: number | null;
   tastiestCount: number;
@@ -67,12 +68,14 @@ interface Orderable {
 
 /**
  * Orders ranked lines for a view. Tastiest lists lines with a Tastiest score
- * by it, then people, then the lead flavor's ID. A detail sort lists lines
+ * by it, then people, then the stable line ID. A detail sort lists lines
  * with enough answers by that mean (ties keep Top order). Either way the rest
  * follow in Top order; `qualified` says where they start.
  */
 export function orderRows<T extends Orderable>(rows: T[], view: CategoryView) {
-  const byTop = (a: T, b: T) => a.topRank - b.topRank;
+  const byTop = (a: T, b: T) =>
+    (a.topRank ?? Infinity) - (b.topRank ?? Infinity) ||
+    a.lineId.localeCompare(b.lineId);
   if (view === "tastiest") {
     const scored = rows
       .filter((row) => row.tastiestScore !== null)
@@ -80,7 +83,7 @@ export function orderRows<T extends Orderable>(rows: T[], view: CategoryView) {
         (a, b) =>
           b.tastiestScore! - a.tastiestScore! ||
           b.tastiestCount - a.tastiestCount ||
-          (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+          (a.lineId < b.lineId ? -1 : a.lineId > b.lineId ? 1 : 0),
       );
     const rest = rows.filter((row) => row.tastiestScore === null).sort(byTop);
     return { rows: [...scored, ...rest], qualified: scored.length };
@@ -121,7 +124,8 @@ export function detailBadges<T extends Orderable>(
       if (
         !best ||
         mean > best.mean ||
-        (mean === best.mean && row.topRank < best.row.topRank)
+        (mean === best.mean &&
+          (row.topRank ?? Infinity) < (best.row.topRank ?? Infinity))
       )
         best = { row, mean };
     }

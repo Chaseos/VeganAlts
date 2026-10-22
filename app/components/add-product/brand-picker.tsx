@@ -68,10 +68,17 @@ export function BrandPicker({
       return;
     }
     let live = true;
+    const controller = new AbortController();
     const timer = setTimeout(() => {
       const query = new URLSearchParams({ country, q: typed });
       setFailed("");
-      void communityRequest<BrandSuggestion[]>(`community/brands?${query}`)
+      void communityRequest<BrandSuggestion[]>(
+        `community/brands?${query}`,
+        undefined,
+        undefined,
+        undefined,
+        { signal: controller.signal },
+      )
         .then((found) => {
           if (!live) return;
           setSuggestions(found);
@@ -81,6 +88,7 @@ export function BrandPicker({
     }, 200);
     return () => {
       live = false;
+      controller.abort();
       clearTimeout(timer);
     };
   }, [country, typed, chosen, attempt]);

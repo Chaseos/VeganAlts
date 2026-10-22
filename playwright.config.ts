@@ -19,6 +19,24 @@ export default defineConfig({
       name: "mobile",
       use: { ...devices["iPhone 13"], defaultBrowserType: "chromium" },
     },
+    {
+      name: "webkit-mobile",
+      testMatch: [
+        "**/append-lists.spec.ts",
+        "**/browsing-recovery.spec.ts",
+        "**/draft-persistence.spec.ts",
+      ],
+      use: { ...devices["iPhone 13"] },
+    },
+    {
+      name: "firefox",
+      testMatch: [
+        "**/append-lists.spec.ts",
+        "**/browsing-recovery.spec.ts",
+        "**/draft-persistence.spec.ts",
+      ],
+      use: { ...devices["Desktop Firefox"] },
+    },
   ],
   webServer: process.env.TEST_BASE_URL
     ? undefined

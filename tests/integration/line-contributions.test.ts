@@ -184,11 +184,19 @@ it("follows the food's season unless told and saves a Tastiest answer with the r
       .bind(nog.productId, w.contributor.id)
       .first(),
   ).toEqual({ closest: 4, tastiest: 5 });
-  // A Tastiest answer needs a rating to ride with.
+  const tasteOnly = await w.publish({ name: "Golden Custard", enjoyment: 4 });
+  expect(
+    await env.DB.prepare(
+      "SELECT r.overall_similarity AS closest,r.enjoyment AS tastiest FROM ratings r JOIN product_versions v ON v.id=r.product_version_id WHERE v.product_id=? AND r.user_id=?",
+    )
+      .bind(tasteOnly.productId, w.contributor.id)
+      .first(),
+  ).toEqual({ closest: null, tastiest: 4 });
+  // Either question can be answered alone when adding a product.
   expect(
     submissionInput.safeParse({ ...w.parse({ name: "Nog" }), enjoyment: 4 })
       .success,
-  ).toBe(false);
+  ).toBe(true);
 });
 
 it("suggests brands loosely, lists a brand's lines with the food's first and matches names loosely", async () => {

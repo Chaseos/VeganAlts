@@ -14,6 +14,7 @@ import type {
   RatingsRepository,
 } from "../domain/repository";
 import type { RatingDetailsInput, SavedRating } from "../domain/contracts";
+import { isSimilarityScore } from "../domain/selection";
 
 export class RatingsService {
   constructor(
@@ -28,14 +29,29 @@ export class RatingsService {
     actor: { id: string; accountState: string },
     versionId: string,
     categoryId: string,
-    score: number,
+    score: number | null,
     details: RatingDetailsInput = {},
   ): Promise<SavedRating> {
     assertActiveAccount(actor);
-    if (!Number.isInteger(score) || score < 1 || score > 5)
+    if (
+      (score !== null && !isSimilarityScore(score)) ||
+      (details.enjoyment != null && !isSimilarityScore(details.enjoyment))
+    )
       throw new ApplicationError(
         "INVALID_SCORE",
         "Choose a whole-number score from 1 to 5.",
+      );
+    if (
+      score === null &&
+      (Object.values(details.dimensions ?? {}).some(
+        (answer) => answer !== null,
+      ) ||
+        details.conventionalRecency != null)
+    )
+      throw new ApplicationError(
+        "SIMILARITY_REQUIRED",
+        "Choose a closeness answer before adding comparison details.",
+        422,
       );
     let detailChanged = false;
     const result = await this.change(versionId, actor.id, (snapshot, now) => {
@@ -55,11 +71,40 @@ export class RatingsService {
         (rating) =>
           rating.userId === actor.id && rating.categoryId === categoryId,
       );
-      const change = detailChange(snapshot, categoryId, details);
+      const stored = snapshot.rater.find(
+        (row) => row.categoryId === categoryId,
+      );
+      const change =
+        score === null
+          ? {
+              details: {
+                answers: Object.keys(stored?.answers ?? {}).map(
+                  (dimensionId) => ({ dimensionId, score: null }),
+                ),
+                recency: { value: null },
+              },
+              changed: Boolean(
+                stored?.conventionalRecency ||
+                Object.keys(stored?.answers ?? {}).length,
+              ),
+            }
+          : detailChange(snapshot, categoryId, details);
       detailChanged =
         change.changed ||
         (details.enjoyment !== undefined &&
           details.enjoyment !== (existing?.enjoyment ?? null));
+      const enjoyment =
+        details.enjoyment === undefined
+          ? (existing?.enjoyment ?? null)
+          : details.enjoyment;
+      // An empty selection is a clear command, never an empty canonical vote.
+      if (score === null && enjoyment === null)
+        return {
+          kind: "delete",
+          userId: actor.id,
+          categoryId,
+          markTried: true,
+        };
       return {
         kind: "upsert",
         rating: {
@@ -68,10 +113,7 @@ export class RatingsService {
           categoryId,
           score,
           // An absent Tastiest answer keeps the stored one; null clears it.
-          enjoyment:
-            details.enjoyment === undefined
-              ? (existing?.enjoyment ?? null)
-              : details.enjoyment,
+          enjoyment,
           isCounted: existing?.isCounted ?? true,
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
@@ -79,6 +121,26 @@ export class RatingsService {
         details: change.details,
       };
     });
+    if (result.mutation.kind === "delete") {
+      const previous = result.snapshot.ratings.find(
+        (rating) =>
+          rating.userId === actor.id && rating.categoryId === categoryId,
+      );
+      return {
+        rating: {
+          id: previous?.id ?? this.newId(),
+          productVersionId: versionId,
+          categoryId,
+          overallSimilarity: null,
+          enjoyment: null,
+          dimensions: {},
+          conventionalRecency: null,
+          updatedAt: this.clock(),
+        },
+        tried: true,
+        outcome: previous ? "removed" : "unchanged",
+      };
+    }
     if (result.mutation.kind !== "upsert")
       throw new Error("Expected a rating write.");
     const rating = result.mutation.rating;
@@ -88,7 +150,9 @@ export class RatingsService {
         productVersionId: versionId,
         categoryId: rating.categoryId,
         overallSimilarity: rating.score,
-        ...savedDetails(result.snapshot, categoryId, details),
+        ...(score === null
+          ? { dimensions: {}, conventionalRecency: null }
+          : savedDetails(result.snapshot, categoryId, details)),
         enjoyment: rating.enjoyment,
         updatedAt: rating.updatedAt,
       },
@@ -192,6 +256,7 @@ export class RatingsService {
           tried.add(mutation.rating.userId);
           break;
         case "delete":
+          if (mutation.markTried) tried.add(mutation.userId);
           ratings = ratings.filter(
             (rating) =>
               !(

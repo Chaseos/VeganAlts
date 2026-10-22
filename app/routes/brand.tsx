@@ -20,7 +20,8 @@ import { ButtonLink } from "../components/ui/button";
 import { ScoreLabel } from "../components/ui/score";
 import { EarlyBadge } from "../components/ui/badges";
 import { FoodIcon } from "../components/icons/food-icons";
-import { plural } from "../lib/format";
+import { ProductThumbnail } from "../components/catalog/product-thumbnail";
+import { plural, productName } from "../lib/format";
 import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/brand";
 
@@ -112,9 +113,30 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
                   <ul className="va-divided">
                     {food.lines.map((line) => (
                       <li key={line.lineId} className="va-brand__line">
+                        <Link
+                          to={productPath(
+                            code,
+                            line.leadProduct.slug,
+                            food.slug,
+                          )}
+                          aria-label={`View ${productName(line.name, data.brand.name)}`}
+                        >
+                          <ProductThumbnail
+                            imageId={line.leadProduct.imageId}
+                            food={food.slug}
+                          />
+                        </Link>
                         <span className="va-row-link__text">
                           <span className="va-row-link__title">
-                            {line.name}
+                            <Link
+                              to={productPath(
+                                code,
+                                line.leadProduct.slug,
+                                food.slug,
+                              )}
+                            >
+                              {productName(line.name, data.brand.name)}
+                            </Link>
                           </span>
                           {line.closestRank !== null && (
                             <span className="va-small va-muted">

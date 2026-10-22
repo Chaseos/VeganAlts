@@ -19,11 +19,13 @@ export function PhotoSlots({
   productName,
   images,
   canPropose,
+  onOpenPhoto,
 }: {
   productId: string;
   productName: string;
   images: { id: string; slot: string; hasEvidence: number }[];
   canPropose: boolean;
+  onOpenPhoto?: (id: string, opener: HTMLAnchorElement) => void;
 }) {
   return (
     <section aria-labelledby="photo-slots">
@@ -36,6 +38,20 @@ export function PhotoSlots({
               {image ? (
                 <a
                   href={`/media/${image.id}/${image.hasEvidence ? "evidence" : "full"}`}
+                  aria-haspopup={onOpenPhoto ? "dialog" : undefined}
+                  onClick={(event) => {
+                    if (
+                      !onOpenPhoto ||
+                      event.button !== 0 ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    )
+                      return;
+                    event.preventDefault();
+                    onOpenPhoto(image.id, event.currentTarget);
+                  }}
                 >
                   <img
                     src={`/media/${image.id}/thumbnail`}
@@ -57,15 +73,6 @@ export function PhotoSlots({
                   aria-label={`${image ? "Suggest a better photo" : "Add photo"}: ${SLOT_LABELS[slot]}`}
                 >
                   {image ? "Suggest a better photo" : "Add photo"}
-                </Link>
-              )}
-              {image && (
-                <Link
-                  className="small"
-                  to={`/contribute/${productId}?action=report&image=${image.id}`}
-                  aria-label={`Report photo: ${SLOT_LABELS[slot]}`}
-                >
-                  Report photo
                 </Link>
               )}
             </li>

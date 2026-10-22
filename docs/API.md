@@ -379,7 +379,7 @@ The approved [milestone 5 specification](MILESTONE_5_PLAN.md) extends the v1 con
 }
 ```
 
-- `overallSimilarity` stays required. An absent field leaves its stored value unchanged.
+- `overallSimilarity` must be present; the milestone 7 revision below permits `null` to leave closeness unanswered. Absent detail fields leave their stored values unchanged.
 - In `dimensions`, a key with `null` clears that answer, and keys left out are unchanged.
 - `conventionalRecency` is `current_or_week`, `within_month`, `within_year`, `over_year`, `prefer_not_to_say` or `null` to clear.
 - Unknown dimension keys return 422 `INVALID_DIMENSION`; retired ones return 409 `STALE_DIMENSIONS`.
@@ -459,7 +459,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) extends the v1 contracts. E
 - **Seasonal products.** Product reads and ranking rows add `seasonal`. `SubmissionInput` adds an optional `seasonal` boolean, which defaults to the food's season. `ProductChange` adds kind `seasonal` (tier 2).
 - **Administration.** `POST /admin/taxonomy/categories/:id` accepts `position` for an aisle and `season` for a food.
 
-**Ratings.** `PUT /ratings` adds an optional `enjoyment`: an integer 1–5, or `null` to clear it. As with the other optional fields, leaving it out leaves the stored value unchanged. `overallSimilarity` stays required. The response's `rating` and `GET /me/rating-state` include `enjoyment`.
+**Ratings (owner revision, 2026-10-20).** `PUT /ratings` accepts `overallSimilarity` as an integer 1–5 or `null`. `enjoyment` is independently an integer 1–5 or `null`; omitting it preserves the stored answer. Either answer may be supplied alone. Clearing closeness also clears its detail and familiarity answers; submitting non-null details without closeness is rejected. Clearing both deletes the canonical rating and retains Tried. The response still carries the cleared answer snapshot (the previous rating ID, or a generated response ID for an already-clear selection), with outcome `removed` or `unchanged`; no empty rating is stored. The response, `GET /me/rating-state`, and My ratings include both nullable answers. Missing answers never enter the other ranking's score or sample.
 
 **Ranking reads.** `GET /categories/:slug?country=&view=…`
 
@@ -470,9 +470,10 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) extends the v1 contracts. E
   - `score`, `people` and `early` describe the ranking being viewed;
   - `allergens` appears only for a single-flavor line.
 - **Each entry in `flavors`:**
-  - `{productId, slug, name, flavor, label, score, ratingCount, isNew, allergens, matchesFilters}`;
+  - `{productId, slug, name, flavor, label, imageId, score, ratingCount, isNew, allergens, matchesFilters}`;
   - `label` is the flavor, "Original" for a line's one unflavored product, or the product name when several have no flavor;
   - `ratingCount` counts answers in the ranking being viewed;
+  - `imageId` is that flavor's current accepted front photo, or `null`; product-page `otherFlavors` also includes its own `imageId`;
   - `score` is shown from 5 answers, otherwise `null`.
 - **Discontinued flavors** are never returned.
 - **Filtered views** return only lines with a matching flavor, with `hiddenFlavorCount` for the flavors that don't match.
@@ -487,6 +488,8 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) extends the v1 contracts. E
 The `related` list keeps only companion and successor links.
 
 **Search and brands.**
+
+Public discovery summaries include the accepted current front photo's `imageId` (or `null`) for thumbnails. Brand lines also include `leadProduct: {slug, imageId}`; an unranked line falls back to its first published visible flavor.
 
 | Method | Path beneath `/api/v1`   | Contract                                                                                                                                                                                                                                                                         |
 | ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -511,7 +514,7 @@ The `related` list keeps only companion and successor links.
 
 **Submissions.** `SubmissionInput` changes as follows.
 
-- **Added:** `flavor` (optional, at most 40 characters); `enjoyment` (optional, 1–5, only with `rating`), saved with the rating once the product is live; `seasonal` (optional), which otherwise follows the primary food's season.
+- **Added:** `flavor` (optional, at most 40 characters); `enjoyment` (optional, 1–5, independent of `rating`), saved once the product is live; `seasonal` (optional), which otherwise follows the primary food's season.
 - **Choosing a line.** Either `lineId`, an existing line of the same brand and country, or optionally `lineName` for a new line, which defaults to the product name. Giving both returns 422.
 - **Removed:** `productFamilyId`, `relatedProductId`, `relationship` and `specialtyFlavor`. A payload that carries them returns 422.
 - **Holds.** Joining a line never holds a submission on its own.
@@ -532,3 +535,61 @@ The `related` list keeps only companion and successor links.
 - **Brand tags.** Cache tags add `brand:<cc>:<slug>`.
 - **What a product change purges.** A product change purges its brand page. A line move or rename purges the products of both lines, their foods' listings and the brand page.
 - **Ratings** still never purge.
+
+## Public continuation reads (October 2026)
+
+Public browsing appends batches with “See more”. Existing requests without
+`section` and `cursor` retain their response contracts, including legacy
+`page` and `unrankedPage` category URLs. Account and admin pagination is unchanged.
+
+- `GET /api/v1/search?country=us&q=beef&section=foods|brands|products&cursor=…`
+  returns only that section: 12 foods, 10 brands, or 20 products.
+- `GET /api/v1/categories/:slug?country=us&section=ranked|unranked&cursor=…`
+  returns 20 recipe lines from that section. `view`, `stores`, and `freeFrom`
+  retain their existing meanings. The API spelling `unranked` names the
+  “Not rated yet” section.
+
+The ordinary `{data: …}` envelope contains a typed batch:
+
+```ts
+{
+  items: Item[];
+  nextCursor: string | null;
+  limitReached: boolean;
+  start: number; // zero-based position in this section
+  boundaryId: string | null; // first line after a qualification boundary
+}
+```
+
+Search items include their stable entity `id`; ranking items retain `lineId`.
+Global Closest and Tastiest ranks remain unchanged by pagination or filters.
+`boundaryId` identifies the single place to show a detail/Tastiest qualification
+message, even when it falls between batches. A first-page featured card appears
+once. A continuation includes no navigation tree, filter options, other result
+sections, previous cards, or their flavors. Full aggregate ordering and badge
+calculations precede hydration of the selected cards; raw ratings are not read.
+
+Each read uses one lookahead record (or the complete thin aggregate ordering)
+to determine `nextCursor`. Search cursors encode stable match/sort keys and
+entity IDs; ranking cursors encode the existing bounded page position. Cursors
+are opaque, validated against country, query/category, section, view, and
+filters, and bounded to 100 batches. `limitReached` means more matches may
+exist: invite refinement, never claim all matches were shown. Changed catalogs
+may move records between requests; clients deduplicate by identity and retain
+the order already presented. A cursor from another context is a 400
+`INVALID_CURSOR`; a cursor requires a section.
+
+Brand matching also bounds candidate work to 200 trigram candidates and 2,000
+initial-letter candidates for typo matching, each with one lookahead row.
+Once the matches from a truncated candidate set are consumed, the brand batch
+returns `nextCursor: null` and `limitReached: true`, even before batch 100.
+This invites a more specific query instead of falsely reporting exhaustion.
+The same warning is shown if the bounded candidate set yields no final matches.
+Legacy search and suggestion responses retain their array contracts.
+
+Initial batches are server rendered. Document URLs accept the same section and
+cursor for crawlable, JavaScript-disabled continuation links. Search documents
+with a query remain `noindex, follow`; production robots allows their crawl so
+that directive can be read. Staging remains disallowed. Anonymous continuation
+requests use shared caching, with every result-affecting input normalized into
+the cache key. No schema or infrastructure change is required.

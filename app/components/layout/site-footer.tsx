@@ -1,6 +1,12 @@
 import { Link } from "react-router";
 import { Wordmark } from "../icons/wordmark";
-import { foodPath, homePath, useSiteChrome } from "../../lib/site-chrome";
+import {
+  foodPath,
+  homePath,
+  searchPath,
+  useSiteChrome,
+} from "../../lib/site-chrome";
+import { POPULAR_AISLE_COUNT } from "../../lib/aisles";
 
 export const ABOUT_LINKS = [
   { to: "/about/rankings", label: "How rankings work" },
@@ -37,15 +43,20 @@ export function SiteFooter({
         <nav className="va-footer__columns" aria-label="Footer">
           {variant === "full" && aisles.length > 0 && (
             <div className="va-footer__group">
-              <h2 className="va-footer__heading">Aisles</h2>
+              <h2 className="va-footer__heading">Popular categories</h2>
               <ul>
-                {aisles.map((aisle) => (
+                {aisles.slice(0, POPULAR_AISLE_COUNT).map((aisle) => (
                   <li key={aisle.slug}>
                     <Link to={foodPath(country.code, aisle.slug)}>
                       {aisle.name}
                     </Link>
                   </li>
                 ))}
+                <li>
+                  <Link to={searchPath(country.code)}>
+                    Browse all categories
+                  </Link>
+                </li>
               </ul>
             </div>
           )}

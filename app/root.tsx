@@ -11,6 +11,7 @@ import { PersonalStateProvider } from "./components/personal-state";
 import { useContext } from "react";
 import { NonceContext } from "./lib/nonce";
 import { NavigationEvents } from "./components/navigation-events";
+import { NavigationFeedback } from "./components/navigation-feedback";
 import type { Route } from "./+types/root";
 import siteStyles from "./styles/site.css?url";
 import archivoFont from "./assets/fonts/archivo-latin-wdth.woff2?url";
@@ -73,6 +74,7 @@ export default function App() {
   return (
     <PersonalStateProvider>
       <NavigationEvents />
+      <NavigationFeedback />
       <Outlet />
     </PersonalStateProvider>
   );
@@ -105,6 +107,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
         <p>{message[1]}</p>
       </div>
       <div className="button-row">
+        {(status === 429 || status >= 500) && (
+          <a className="button" href="">
+            Retry
+          </a>
+        )}
         <ButtonLink to="/">Back to VeganAlts</ButtonLink>
         <ButtonLink to={searchPath(country.code)} variant="secondary">
           Search foods

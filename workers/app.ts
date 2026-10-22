@@ -64,6 +64,7 @@ export class PublicCatalog extends WorkerEntrypoint<Cloudflare.Env> {
       return errorResponse(
         error,
         headers.get("X-Request-ID") ?? crypto.randomUUID(),
+        route.representation === "document",
       );
     }
   }
@@ -182,7 +183,14 @@ export default {
             dependency: failureKind(error),
           }),
         );
-      response = errorResponse(error, requestId);
+      response = errorResponse(
+        error,
+        requestId,
+        route?.representation === "document" ||
+          (!url.pathname.startsWith("/api/") &&
+            !url.pathname.endsWith(".data") &&
+            request.headers.get("Accept")?.includes("text/html") === true),
+      );
     }
     if (route?.kind === "media")
       response = conditionalMediaResponse(response, request);

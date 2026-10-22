@@ -7,7 +7,8 @@ import {
   requireCatalogPreview,
 } from "@server/catalog/http/loader";
 import { PageShell } from "../components/layout/page-shell";
-import { PhotoGallery } from "../components/catalog/photo-gallery";
+import { ProductPhotos } from "../components/catalog/product-photos";
+import { ProductThumbnail } from "../components/catalog/product-thumbnail";
 import { allergenSummary } from "../components/catalog/ranking-list";
 import { FoodIcon } from "../components/icons/food-icons";
 import { RankFlag, ScoreLabel } from "../components/ui/score";
@@ -15,7 +16,7 @@ import {
   AllergenLabel,
   Badge,
   EarlyBadge,
-  SeasonalProductBadge,
+  SeasonalBadge,
   TrendingBadge,
   NewBadge,
   VeganStatusChip,
@@ -23,14 +24,13 @@ import {
 } from "../components/ui/badges";
 import { DetailBars, DistributionBars } from "../components/ui/bars";
 import { Notice } from "../components/ui/feedback";
-import { formatScore, plural } from "../lib/format";
+import { formatScore, plural, productName } from "../lib/format";
 import { FLAVOR_SCORE_MIN_ANSWERS } from "@server/ranking/domain/display";
 import { useHydrated } from "../lib/use-hydrated";
 import { saveFilters, useSavedFilters } from "../lib/ranking-filters";
 import { RatingControl, SCORE_MEANINGS } from "../components/rating-control";
 import { CommentSection } from "../components/comments/comment-section";
 import { ProposalResponses } from "../components/proposal-responses";
-import { PhotoSlots } from "../components/photo-slots";
 import { commentServices } from "@server/comments/infrastructure/composition";
 import { breadcrumbs, publicMetadata } from "../lib/metadata";
 import {
@@ -95,9 +95,9 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
   return [
     ...publicMetadata(
       p
-        ? `${p.name}${p.formula.isCurrent ? "" : " · Formula history"}`
+        ? `${productName(p.name, p.brand)}${p.formula.isCurrent ? "" : " · Formula history"}`
         : "Product",
-      `Explore ${p?.name ?? "this vegan alternative"}, its scores for each food, formula history and community experience.`,
+      `Explore ${p ? productName(p.name, p.brand) : "this vegan alternative"}, its scores for each food, formula history and community experience.`,
       `${productPath(data?.market.code ?? "us", p?.slug ?? "")}${p && !p.formula.isCurrent ? `?version=${p.versionId}` : ""}`,
       origin,
       data?.staging ?? true,
@@ -114,7 +114,10 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
                   },
                 ]
               : []),
-            { name: p.name, path: productPath(data!.market.code, p.slug) },
+            {
+              name: productName(p.name, p.brand),
+              path: productPath(data!.market.code, p.slug),
+            },
           ]),
         ]
       : []),
@@ -128,6 +131,7 @@ export default function Product({
   loaderData: { product: p, comments, market },
 }: Route.ComponentProps) {
   const code = market.code;
+  const title = productName(p.name, p.brand);
   // Navigation state from Add a product, never part of the cached page. It
   // shows after hydration and is cleared, so a reload doesn't repeat it.
   const location = useLocation(),
@@ -182,10 +186,10 @@ export default function Product({
             ...(p.place?.aisle
               ? [
                   {
-                    // "Eggs aisle / Eggs" rather than "Eggs / Eggs".
+                    // Distinguish the broad category from its namesake food.
                     label:
                       p.place.aisle.name === food?.name
-                        ? `${p.place.aisle.name} aisle`
+                        ? `${p.place.aisle.name} category`
                         : p.place.aisle.name,
                     to: aislePath,
                   },
@@ -194,7 +198,7 @@ export default function Product({
             ...(food
               ? [{ label: food.name, to: foodPath(code, food.slug) }]
               : []),
-            { label: p.name },
+            { label: title },
           ]}
         />
         {!p.formula.isCurrent && (
@@ -204,244 +208,281 @@ export default function Product({
           </Notice>
         )}
         <div className="va-product__top">
-          <div className="va-product__identity">
-            <p className="va-chip-row va-product__labels">
-              {p.brand && <span className="va-product__brand">{p.brand}</span>}
-              <VeganStatusChip status={p.veganStatus} />
-              <AllergenLabel allergens={allergens} />
-              {p.isNew && <NewBadge />}
-              {food?.line?.trending && <TrendingBadge />}
-              {p.seasonal === 1 && <SeasonalProductBadge />}
-              {!!p.developmentOnly && <Badge>Demo product</Badge>}
-            </p>
-            <h1 className="va-product__name">{p.name}</h1>
-            {p.flavor && (
-              <p className="va-product__flavor va-muted">Flavor: {p.flavor}</p>
+          <div className="va-product__primary">
+            <div className="va-product__identity">
+              <p className="va-chip-row va-product__labels">
+                {p.veganStatus !== "unchecked" && (
+                  <VeganStatusChip status={p.veganStatus} />
+                )}
+                <AllergenLabel allergens={allergens} />
+                {p.isNew && <NewBadge />}
+                {food?.line?.trending && <TrendingBadge />}
+                {p.seasonal === 1 && <SeasonalBadge />}
+                {!!p.developmentOnly && <Badge>Demo product</Badge>}
+              </p>
+              <h1 className="va-product__name">{title}</h1>
+              {p.flavor && (
+                <p className="va-product__flavor va-muted">
+                  Flavor: {p.flavor}
+                </p>
+              )}
+            </div>
+            {food && (
+              <section
+                className="va-product__rating-area"
+                aria-labelledby="ratings-title"
+              >
+                <h2 id="ratings-title" className="va-heading-s">
+                  Ratings
+                </h2>
+                <ScoreCard country={code} food={food} brand={p.brand} />
+                <div className="va-product__editor">
+                  <h3 className="va-heading-s">Your rating</h3>
+                  {food.canRate ? (
+                    <div id="scores-title" className="va-product__rate">
+                      <div id={`rate-${food.id}`}>
+                        <RatingControl
+                          key={`${p.versionId}-${food.id}`}
+                          versionId={p.versionId}
+                          categoryId={food.id}
+                          categoryName={food.name}
+                          productSlug={p.slug}
+                          productName={title}
+                          flavor={p.flavor}
+                          foodSlug={food.slug}
+                          dimensions={food.dimensions}
+                          flavored={p.flavor !== null}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <p id="scores-title" className="va-muted">
+                      {p.formula.isCurrent
+                        ? "Ratings aren’t available for this food right now."
+                        : "Historical scores are preserved. Choose the current formula to add your experience."}
+                    </p>
+                  )}
+                </div>
+                {food.ratingCount > 0 && (
+                  <details className="va-product__rating-details">
+                    <summary>How people rated it</summary>
+                    <RatingBreakdown food={food} />
+                  </details>
+                )}
+                {food.rankedCount > 1 && (
+                  <Link
+                    className="va-link va-small"
+                    to={foodPath(code, food.slug)}
+                  >
+                    Compare all {food.rankedCount} {food.name.toLowerCase()}{" "}
+                    swaps
+                  </Link>
+                )}
+              </section>
             )}
+            <div className="va-product__summary">
+              {p.lifecycleStatus !== "active" && (
+                <Notice>
+                  This product is {p.lifecycleStatus.replaceAll("_", " ")}. New
+                  ratings are unavailable.
+                </Notice>
+              )}
+              {added && (
+                <Notice
+                  tone="success"
+                  title="Your product is live"
+                  role="status"
+                >
+                  Thanks for adding it.{" "}
+                  {added.rated ? (
+                    <>
+                      Your {added.rated}/5 rating is saved.{" "}
+                      <a href="#scores-title">Add detail scores</a> if you like.
+                    </>
+                  ) : added.ratingPending ? (
+                    <>Your rating will be saved in a moment.</>
+                  ) : (
+                    food?.canRate && (
+                      <>
+                        Tried it? <a href="#scores-title">Rate it</a> so it
+                        joins the ranking.
+                      </>
+                    )
+                  )}
+                </Notice>
+              )}
+              {p.veganStatus === "under_review" && (
+                <Notice tone="warn">
+                  An operator is assessing an ingredient concern. This formula
+                  is excluded from active rankings and new ratings until the
+                  concern is resolved.
+                </Notice>
+              )}
+              <StoreToggles
+                country={code}
+                productId={p.id}
+                retailers={p.retailers}
+              />
+
+              {others.length > 0 && (
+                <section
+                  className="va-product__variants"
+                  aria-labelledby="also-title"
+                >
+                  <h2 id="also-title" className="va-heading-s">
+                    Also ranked for
+                  </h2>
+                  <ul className="va-product__also">
+                    {others.map((other) => (
+                      <li key={other.id}>
+                        <Link
+                          className="va-row-link"
+                          to={`${productPath(code, p.slug)}?food=${other.slug}`}
+                        >
+                          <FoodIcon slug={other.slug} size={24} />
+                          <span className="va-row-link__text">
+                            <span className="va-row-link__title">
+                              {other.name}
+                            </span>
+                            <span className="va-small va-muted">
+                              {other.line?.closest
+                                ? `#${other.line.closest.rank} of ${other.line.closest.of} · ${plural(other.line.closest.people, "person", "people")}`
+                                : "Not ranked yet"}
+                            </span>
+                          </span>
+                          {other.line?.closest && (
+                            <ScoreLabel
+                              value={other.line.closest.score!}
+                              size="compact"
+                            />
+                          )}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="va-small">
+                    Each food has its own ranking, so the same product can score
+                    differently when you use it another way.
+                  </p>
+                </section>
+              )}
+              {p.lifecycleStatus === "active" && (
+                <section
+                  className="va-product__variants"
+                  aria-labelledby="flavors-title"
+                >
+                  <h2 id="flavors-title" className="va-heading-s">
+                    Other flavors
+                  </h2>
+                  {p.otherFlavors.length > 0 ? (
+                    <ul className="va-divided va-product__flavors">
+                      {p.otherFlavors.map((other) => (
+                        <li key={other.id}>
+                          <Link
+                            className="va-product__flavor-link"
+                            to={productPath(code, other.slug, other.food)}
+                          >
+                            <ProductThumbnail
+                              imageId={other.imageId}
+                              food={other.food ?? food?.slug ?? "food"}
+                              size="small"
+                            />
+                            <span>
+                              <strong>
+                                {other.flavor ??
+                                  productName(other.name, p.brand)}
+                              </strong>
+                              {other.flavor && (
+                                <span className="va-small va-muted">
+                                  {productName(other.name, p.brand)}
+                                </span>
+                              )}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="va-small va-muted">
+                      No other flavors of this recipe are listed yet.
+                    </p>
+                  )}
+                  <p className="va-small">
+                    <Link
+                      className="va-link"
+                      to={`/add-product?country=${code}${food ? `&food=${food.slug}` : ""}&line=${p.lineId}`}
+                    >
+                      Add another flavor
+                    </Link>
+                  </p>
+                </section>
+              )}
+            </div>
           </div>
-          {food && <ScoreCard country={code} food={food} />}
-          <div className="va-product__photos">
-            <PhotoGallery
+          <div className="va-product__visuals">
+            <ProductPhotos
               key={p.versionId}
               productId={p.id}
-              productName={p.name}
+              productName={title}
               food={food?.slug ?? "food"}
+              images={p.images}
               canPropose={
                 Boolean(p.formula.isCurrent) && p.lifecycleStatus !== "hidden"
               }
-              images={p.images}
             />
-            <details className="va-gallery__manage">
-              <summary>Add or improve photos</summary>
-              <PhotoSlots
-                productId={p.id}
-                productName={p.name}
-                images={p.images}
-                canPropose={
-                  Boolean(p.formula.isCurrent) && p.lifecycleStatus !== "hidden"
-                }
-              />
-            </details>
-          </div>
-          <div className="va-product__summary">
-            {p.lifecycleStatus !== "active" && (
-              <Notice>
-                This product is {p.lifecycleStatus.replaceAll("_", " ")}. New
-                ratings are unavailable.
-              </Notice>
-            )}
-            {added && (
-              <Notice tone="success" title="Your product is live" role="status">
-                Thanks for adding it.{" "}
-                {added.rated ? (
-                  <>
-                    Your {added.rated}/5 rating is saved.{" "}
-                    <a href="#scores-title">Add detail scores</a> if you like.
-                  </>
-                ) : added.ratingPending ? (
-                  <>Your rating will be saved in a moment.</>
-                ) : (
-                  food?.canRate && (
-                    <>
-                      Tried it? <a href="#scores-title">Rate it</a> so it joins
-                      the ranking.
-                    </>
-                  )
-                )}
-              </Notice>
-            )}
-            {p.veganStatus === "unchecked" &&
-              p.formula.isCurrent &&
-              // A label photo already on file only needs checking; without one,
-              // someone adds it first.
-              (p.images.some(
-                (i) => i.slot === "ingredients" || i.slot === "nutrition",
-              ) ? (
-                <Notice title="Ingredients not checked yet">
-                  No one has checked this product’s ingredients against its
-                  label photo yet.{" "}
-                  <Link
-                    to={`/contribute/${p.id}?action=change&kind=classification`}
-                  >
-                    Check the ingredients
-                  </Link>{" "}
-                  and another member can confirm it.
-                </Notice>
-              ) : (
-                <Notice title="Ingredients not checked yet">
-                  Whoever added this product didn’t include its ingredients.
-                  Have the package?{" "}
-                  <Link
-                    to={`/contribute/${p.id}?action=photo&slot=ingredients`}
-                  >
-                    Add an ingredients photo
-                  </Link>{" "}
-                  and another member can confirm it.
-                </Notice>
-              ))}
-            {p.veganStatus === "under_review" && (
-              <Notice tone="warn">
-                An operator is assessing an ingredient concern. This formula is
-                excluded from active rankings and new ratings until the concern
-                is resolved.
-              </Notice>
-            )}
-            <StoreToggles
-              country={code}
-              productId={p.id}
-              retailers={p.retailers}
-            />
-
-            {others.length > 0 && (
+            {food && p.others.length > 0 && (
               <section
-                className="va-product__variants"
-                aria-labelledby="also-title"
+                className="va-product__alternatives"
+                aria-labelledby="others-title"
               >
-                <h2 id="also-title" className="va-heading-s">
-                  Also ranked for
-                </h2>
-                <ul className="va-product__also">
-                  {others.map((other) => (
-                    <li key={other.id}>
+                <div className="va-product__section-head">
+                  <h2 id="others-title" className="va-heading-s">
+                    Other {food.name.toLowerCase()} swaps
+                  </h2>
+                  <Link className="va-link" to={foodPath(code, food.slug)}>
+                    See all {food.rankedCount}
+                  </Link>
+                </div>
+                <ul className="va-product__others">
+                  {p.others.map((other) => (
+                    <li key={other.slug}>
                       <Link
-                        className="va-row-link"
-                        to={`${productPath(code, p.slug)}?food=${other.slug}`}
+                        className="va-rank-row"
+                        to={`${productPath(code, other.slug)}?food=${food.slug}`}
                       >
-                        <FoodIcon slug={other.slug} size={24} />
-                        <span className="va-row-link__text">
-                          <span className="va-row-link__title">
-                            {other.name}
+                        <span className="va-rank-row__rank">
+                          <span className="sr-only">Rank </span>#{other.rank}
+                        </span>
+                        <ProductThumbnail
+                          imageId={other.imageId}
+                          food={food.slug}
+                          size="small"
+                        />
+                        <span className="va-rank-row__main">
+                          <span className="va-rank-row__name">
+                            {productName(other.name, other.brand)}
                           </span>
                           <span className="va-small va-muted">
-                            {other.line
-                              ? `#${other.line.closest.rank} of ${other.line.closest.of} · ${plural(other.line.closest.people, "person", "people")}`
-                              : "Not ranked yet"}
+                            {plural(other.ratingCount, "person", "people")}
                           </span>
+                          {other.trending && (
+                            <span className="va-rank-row__meta">
+                              <TrendingBadge />
+                            </span>
+                          )}
                         </span>
-                        {other.line && (
-                          <ScoreLabel
-                            value={other.line.closest.score}
-                            size="compact"
-                          />
-                        )}
+                        <ScoreLabel
+                          value={other.score}
+                          size="compact"
+                          className="va-rank-row__score"
+                          tone={other.rank === 1 ? "tag" : "neutral"}
+                        />
                       </Link>
                     </li>
                   ))}
                 </ul>
-                <p className="va-small">
-                  Each food has its own ranking, so the same product can score
-                  differently when you use it another way.
-                </p>
               </section>
             )}
-            {p.lifecycleStatus === "active" && (
-              <section
-                className="va-product__variants"
-                aria-labelledby="flavors-title"
-              >
-                <h2 id="flavors-title" className="va-heading-s">
-                  Other flavors
-                </h2>
-                {p.otherFlavors.length > 0 ? (
-                  <ul className="va-divided">
-                    {p.otherFlavors.map((other) => (
-                      <li key={other.id}>
-                        <Link to={productPath(code, other.slug, other.food)}>
-                          {other.flavor ?? other.name}
-                        </Link>
-                        {other.flavor && (
-                          <span className="va-small va-muted">
-                            {" "}
-                            · {other.name}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="va-small va-muted">
-                    No other flavors of this recipe are listed yet.
-                  </p>
-                )}
-                <p className="va-small">
-                  <Link
-                    className="va-link"
-                    to={`/add-product?country=${code}${food ? `&food=${food.slug}` : ""}&line=${p.lineId}`}
-                  >
-                    Add another flavor
-                  </Link>
-                </p>
-              </section>
-            )}
-          </div>
-        </div>
-
-        <nav className="va-product__nav" aria-label="Product sections">
-          {food && <a href="#scores-title">Rate it</a>}
-          <a href="#comments-title">Community notes</a>
-          <a href="#facts-title">Product facts</a>
-          <a href="#retailers">Where to find it</a>
-          <a href="#formula-history">Formula history</a>
-        </nav>
-
-        <div className="va-product__ratings">
-          <div className="va-product__editor">
-            {food &&
-              (food.canRate ? (
-                <div id="scores-title" className="va-product__rate">
-                  <div id={`rate-${food.id}`}>
-                    <RatingControl
-                      key={`${p.versionId}-${food.id}`}
-                      versionId={p.versionId}
-                      categoryId={food.id}
-                      categoryName={food.name}
-                      productSlug={p.slug}
-                      productName={p.name}
-                      flavor={p.flavor}
-                      foodSlug={food.slug}
-                      dimensions={food.dimensions}
-                      flavored={p.flavor !== null}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <p id="scores-title" className="va-muted">
-                  {p.formula.isCurrent
-                    ? "Ratings aren’t available for this food right now."
-                    : "Historical scores are preserved. Choose the current formula to add your experience."}
-                </p>
-              ))}
-          </div>
-          {food && food.ratingCount > 0 && <RatingBreakdown food={food} />}
-          <div className="va-product__notes">
-            <CommentSection
-              key={p.id}
-              productSlug={p.slug}
-              categories={p.categories
-                .filter((c) => c.isActive)
-                .map((c) => ({ id: c.id, name: c.name }))}
-              initial={comments}
-            />
           </div>
         </div>
 
@@ -460,16 +501,6 @@ export default function Product({
               <Link to={`/contribute/${p.id}?action=report`}>
                 Report product
               </Link>
-              {p.imageId && (
-                <>
-                  {" · "}
-                  <Link
-                    to={`/contribute/${p.id}?action=report&image=${p.imageId}`}
-                  >
-                    Report front photo
-                  </Link>
-                </>
-              )}
             </p>
           </div>
           <dl className="va-facts">
@@ -536,6 +567,34 @@ export default function Product({
             <dd>{p.country}</dd>
           </dl>
         </section>
+
+        {p.veganStatus === "unchecked" &&
+          p.formula.isCurrent &&
+          // A label photo already on file only needs checking; without one,
+          // someone adds it first.
+          (p.images.some(
+            (i) => i.slot === "ingredients" || i.slot === "nutrition",
+          ) ? (
+            <Notice title="Ingredients not checked yet">
+              No one has checked this product’s ingredients against its label
+              photo yet.{" "}
+              <Link
+                to={`/contribute/${p.id}?action=change&kind=classification`}
+              >
+                Check the ingredients
+              </Link>{" "}
+              and another member can confirm it.
+            </Notice>
+          ) : (
+            <Notice title="Ingredients not checked yet">
+              Whoever added this product didn’t include its ingredients. Have
+              the package?{" "}
+              <Link to={`/contribute/${p.id}?action=photo&slot=ingredients`}>
+                Add an ingredients photo
+              </Link>{" "}
+              and another member can confirm it.
+            </Notice>
+          ))}
 
         <div className="va-product__more">
           {p.classification && (
@@ -675,66 +734,37 @@ export default function Product({
             </p>
           )}
         </div>
-        {food && p.others.length > 0 && (
-          <section aria-labelledby="others-title">
-            <div className="va-product__section-head">
-              <h2 id="others-title" className="va-heading-m">
-                Other {food.name.toLowerCase()} swaps
-              </h2>
-              <Link className="va-link" to={foodPath(code, food.slug)}>
-                See all {food.rankedCount}
-              </Link>
-            </div>
-            <ul className="va-product__others">
-              {p.others.map((other) => (
-                <li key={other.slug}>
-                  <Link
-                    className="va-rank-row"
-                    to={`${productPath(code, other.slug)}?food=${food.slug}`}
-                  >
-                    <span className="va-rank-row__rank">
-                      <span className="sr-only">Rank </span>#{other.rank}
-                    </span>
-                    <span className="va-rank-row__main">
-                      <span className="va-rank-row__name">{other.name}</span>
-                      <span className="va-small va-muted">
-                        {[
-                          other.brand,
-                          plural(other.ratingCount, "person", "people"),
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                      {other.trending && (
-                        <span className="va-rank-row__meta">
-                          <TrendingBadge />
-                        </span>
-                      )}
-                    </span>
-                    <ScoreLabel
-                      value={other.score}
-                      size="compact"
-                      tone={other.rank === 1 ? "tag" : "neutral"}
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        <div className="va-product__notes">
+          <CommentSection
+            key={p.id}
+            productSlug={p.slug}
+            categories={p.categories
+              .filter((c) => c.isActive)
+              .map((c) => ({ id: c.id, name: c.name }))}
+            initial={comments}
+          />
+        </div>
       </div>
     </PageShell>
   );
 }
 
 // Line scores share one visual treatment; flavor scores retain their own counts.
-function ScoreCard({ country, food }: { country: string; food: FoodView }) {
+function ScoreCard({
+  country,
+  food,
+  brand,
+}: {
+  country: string;
+  food: FoodView;
+  brand: string | null;
+}) {
   const lower = food.name.toLowerCase();
   const line = food.line;
   return (
-    <section className="va-score-card" aria-label="Score">
+    <div className="va-score-card" role="group" aria-label="Community ratings">
       <div className="va-score-card__standing">
-        {line && (
+        {line?.closest && (
           <Link
             className="va-score-card__flag"
             to={foodPath(country, food.slug)}
@@ -748,7 +778,7 @@ function ScoreCard({ country, food }: { country: string; food: FoodView }) {
         )}
         {line && line.flavorCount > 1 && (
           <p className="va-score-card__context">
-            Across {line.flavorCount} flavors of {line.name}
+            Across {line.flavorCount} flavors of {productName(line.name, brand)}
           </p>
         )}
       </div>
@@ -781,21 +811,19 @@ function ScoreCard({ country, food }: { country: string; food: FoodView }) {
                   tone={metric.tone}
                 />
               ) : (
-                <span className="va-score-card__unrated">Not rated yet</span>
+                <UnratedScore />
               )}
-              <div className="va-score-card__text">
-                {metric.value && (
+              {metric.value && metric.value.people > 0 && (
+                <div className="va-score-card__text">
                   <strong>
                     #{metric.value.rank} of {metric.value.of}
                   </strong>
-                )}
-                <span>
-                  {plural(metric.value?.people ?? 0, "person", "people")}
-                </span>
-                {metric.value?.early && (
-                  <EarlyBadge count={metric.value.people} />
-                )}
-              </div>
+                  <span>{plural(metric.value.people, "person", "people")}</span>
+                  {metric.value.early && (
+                    <EarlyBadge count={metric.value.people} />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -816,33 +844,33 @@ function ScoreCard({ country, food }: { country: string; food: FoodView }) {
                       size="mini"
                       tone={metric === "tastiest" ? "tasty" : "neutral"}
                     />
+                  ) : own.count === 0 ? (
+                    <UnratedScore />
                   ) : (
                     <span className="va-small va-muted">
                       Too few ratings yet
                     </span>
                   )}
-                  <span className="va-small va-muted">
-                    {plural(own.count, "person", "people")}
-                  </span>
+                  {own.count > 0 && (
+                    <span className="va-small va-muted">
+                      {plural(own.count, "person", "people")}
+                    </span>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
       )}
-      <div className="va-score-card__actions">
-        {!!food.canRate && (
-          <a className="button small-button" href="#scores-title">
-            Rate this product
-          </a>
-        )}
-        {food.rankedCount > 1 && (
-          <Link className="va-link va-small" to={foodPath(country, food.slug)}>
-            Compare all {food.rankedCount} {lower} swaps
-          </Link>
-        )}
-      </div>
-    </section>
+    </div>
+  );
+}
+
+function UnratedScore() {
+  return (
+    <span className="va-score-card__unrated">
+      <span aria-hidden="true">—</span> Unrated
+    </span>
   );
 }
 
@@ -853,9 +881,9 @@ function RatingBreakdown({ food }: { food: FoodView }) {
       className="va-product__breakdown"
       aria-labelledby="distribution-title"
     >
-      <h2 id="distribution-title" className="va-heading-s">
-        How people rated it
-      </h2>
+      <h3 id="distribution-title" className="sr-only">
+        Rating breakdown
+      </h3>
       <p className="va-small va-muted">
         This flavor · Closeness to {food.name.toLowerCase()} ·{" "}
         {plural(food.ratingCount, "person", "people")}
@@ -912,7 +940,10 @@ function StoreToggles({
   );
   if (!retailers.length)
     return (
-      <p className="va-small">Nobody has reported where it’s sold yet. {add}</p>
+      <div className="va-store-toggles">
+        <p className="va-small">Nobody has reported where it’s sold yet.</p>
+        <p>{add}</p>
+      </div>
     );
   return (
     <div className="va-store-toggles">
@@ -951,8 +982,8 @@ function StoreToggles({
             );
           })}
         </ul>
-        {add}
       </div>
+      <p>{add}</p>
       <p className="va-small va-muted">
         Tap every store you shop at to save them on this device. Rankings will
         show what you can find at any of them.

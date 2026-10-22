@@ -19,6 +19,7 @@ const row = (
   tastiest: [number | null, number] = [null, 0],
 ) => ({
   id,
+  lineId: id,
   topRank,
   ratingCount,
   tastiestScore: tastiest[0],
@@ -33,6 +34,18 @@ it("parses views by syntax", () => {
   expect(parseCategoryView("detail-in_coffee")).toBe("detail-in_coffee");
   expect(parseCategoryView("detail-Taste")).toBeNull();
   expect(parseCategoryView("cheapest")).toBeNull();
+});
+
+it("keeps tied line ordering stable when the representative flavor changes", () => {
+  const first = { ...row("z-flavor", 1, 3, {}, [4, 3]), lineId: "a-line" };
+  const second = { ...row("a-flavor", 2, 3, {}, [4, 3]), lineId: "b-line" };
+  for (const representative of ["z-flavor", "0-flavor"])
+    expect(
+      orderRows(
+        [{ ...first, id: representative }, second],
+        "tastiest",
+      ).rows.map((row) => row.lineId),
+    ).toEqual(["a-line", "b-line"]);
 });
 
 it("shows a detail mean only with five answers", () => {

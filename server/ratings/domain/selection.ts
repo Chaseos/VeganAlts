@@ -9,10 +9,13 @@ export function isRatingSelection(value: {
   productVersionId?: unknown;
   categoryId?: unknown;
   overallSimilarity?: unknown;
+  enjoyment?: unknown;
 }) {
   return (
     isRecordId(value.productVersionId) &&
     isRecordId(value.categoryId) &&
-    isSimilarityScore(value.overallSimilarity)
+    (value.overallSimilarity === null ||
+      isSimilarityScore(value.overallSimilarity)) &&
+    (value.enjoyment == null || isSimilarityScore(value.enjoyment))
   );
 }

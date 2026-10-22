@@ -39,6 +39,8 @@ export function filteredHref(
   const params = applyFilters(new URLSearchParams(search), filters);
   params.delete("page");
   params.delete("unrankedPage");
+  params.delete("section");
+  params.delete("cursor");
   return `${pathname}${params.size ? `?${params}` : ""}`;
 }
 

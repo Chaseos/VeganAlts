@@ -18,6 +18,7 @@ const leader = (
         slug: `${id}-1`,
         name: `${id} #1`,
         brand: null,
+        imageId: null,
         bayesianScore: best.score,
         ratingCount: best.ratings,
         trendingRank: null,

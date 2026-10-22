@@ -21,6 +21,7 @@
 @import "./components/gallery.css" layer(components);
 @import "./components/comments.css" layer(components);
 @import "./components/community.css" layer(components);
+@import "./components/browsing.css" layer(components);
 @import "./pages/utility.css" layer(pages);
 @import "./pages/home.css" layer(pages);
 @import "./pages/category.css" layer(pages);

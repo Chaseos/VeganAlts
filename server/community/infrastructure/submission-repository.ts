@@ -594,7 +594,7 @@ export class SubmissionRepository {
       );
     // The contributor's rating and allergen declaration go through their own
     // write paths right after publication; this marker keeps them until done.
-    if (input.rating || input.allergens)
+    if (input.rating || input.enjoyment || input.allergens)
       statements.push(
         this.db
           .prepare(

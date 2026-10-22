@@ -95,12 +95,7 @@ export interface RatingQuestion {
   label: string;
 }
 
-/**
- * The rating form for one food (canvas: Rating4). Every tap saves: the overall
- * score first, then Tastiest beside it and the optional detail questions and
- * "last ate" that appear once it is chosen. Tapping a chosen Tastiest answer
- * or detail again clears it.
- */
+/** Either answer saves independently; comparison details follow closeness. */
 export function RatingControl({
   versionId,
   categoryId,
@@ -135,19 +130,20 @@ export function RatingControl({
   const answers = state?.dimensions ?? {};
   const recency = state?.recency ?? null;
   const enjoyment = state?.enjoyment ?? null;
+  const disabled = user === undefined || state?.status === "conflict";
   const hasDetails =
     recency !== null || dimensions.some((d) => answers[d.key] !== undefined);
   // Each write carries the whole draft so the newest one wins outright.
   function save(
     change: {
-      score?: number;
+      score?: number | null;
       dimensions?: Record<string, number | null>;
       recency?: ConventionalRecency | null;
       enjoyment?: number | null;
     } = {},
   ) {
-    const score = change.score ?? state?.selected;
-    if (!score) return;
+    const score =
+      change.score !== undefined ? change.score : (state?.selected ?? null);
     const draft: RatingInput = {
       productVersionId: versionId,
       categoryId,
@@ -155,13 +151,19 @@ export function RatingControl({
       dimensions: Object.fromEntries(
         dimensions.map((d) => [
           d.key,
-          change.dimensions && d.key in change.dimensions
-            ? change.dimensions[d.key]!
-            : (answers[d.key] ?? null),
+          score === null
+            ? null
+            : change.dimensions && d.key in change.dimensions
+              ? change.dimensions[d.key]!
+              : (answers[d.key] ?? null),
         ]),
       ),
       conventionalRecency:
-        change.recency !== undefined ? change.recency : recency,
+        score === null
+          ? null
+          : change.recency !== undefined
+            ? change.recency
+            : recency,
       enjoyment: change.enjoyment !== undefined ? change.enjoyment : enjoyment,
       ...(token ? { challengeToken: token } : {}),
     };
@@ -171,6 +173,12 @@ export function RatingControl({
   const helpId = `rating-help-${categoryId}`;
   return (
     <section className="va-rate" aria-label={`Rate it as ${food}`}>
+      <noscript>
+        <p className="notice">
+          JavaScript is required to save a rating. Enable it, then reload to
+          rate this product.
+        </p>
+      </noscript>
       <p className="va-rate__product">
         {productName}
         {flavor ? ` · ${flavor}` : ""}
@@ -178,7 +186,7 @@ export function RatingControl({
       <div className="va-rate__scores">
         <fieldset
           className="va-rate__group"
-          disabled={user === undefined || state?.status === "conflict"}
+          disabled={disabled}
           aria-describedby={helpId}
         >
           <legend className="va-rate__title">
@@ -187,29 +195,24 @@ export function RatingControl({
           </legend>
           <OverallScale
             selected={state?.selected}
-            onChoose={(score) => save({ score })}
+            onChoose={(score) =>
+              save({ score: score === state?.selected ? null : score })
+            }
           />
           <p id={helpId} className="va-rate__help">
             {user === null
               ? "Choose a score; you’ll sign in to save it."
-              : "Each choice saves right away. Your rating also marks this formula as tried."}
+              : "Rate either question or both. Each choice saves right away; tap it again to clear. Your rating marks this formula as tried."}
           </p>
         </fieldset>
-        <fieldset
-          className="va-rate__group va-rate__tasty"
-          disabled={!state?.selected || state.status === "conflict"}
-        >
+        <fieldset className="va-rate__group va-rate__tasty" disabled={disabled}>
           <legend className="va-rate__subtitle">
-            How tasty is it, whether or not it’s like the original?{" "}
-            <span>optional</span>
+            How tasty is it, whether or not it’s like the original?
           </legend>
           <TasteScale
             selected={enjoyment}
             onChoose={(value) => save({ enjoyment: value })}
           />
-          {!state?.selected && (
-            <p className="va-rate__note">Say how close it is first.</p>
-          )}
         </fieldset>
       </div>
       {state?.selected ? (
@@ -305,8 +308,10 @@ export function RatingControl({
             : user === undefined
               ? "Loading your rating…"
               : state?.selected
-                ? `Your rating: ${state.selected}/5`
-                : "")}
+                ? `Your rating: ${state.selected}/5${enjoyment ? ` · Taste: ${enjoyment}/5` : ""}`
+                : enjoyment
+                  ? `Your taste rating: ${enjoyment}/5`
+                  : "")}
       </p>
       {error && (
         <p role="alert">
@@ -324,17 +329,21 @@ export function RatingControl({
           onToken={setToken}
         />
       )}
-      {(state?.status === "error" || state?.status === "challenge") &&
-        state.selected !== null && (
-          <button
-            className="button secondary"
-            type="button"
-            disabled={state.status === "challenge" && !token}
-            onClick={() => save()}
-          >
-            Retry saving {state.selected}/5
-          </button>
-        )}
+      {(state?.status === "error" || state?.status === "challenge") && (
+        <button
+          className="button secondary"
+          type="button"
+          disabled={state.status === "challenge" && !token}
+          onClick={() => save()}
+        >
+          Retry saving{" "}
+          {state.selected
+            ? `${state.selected}/5`
+            : enjoyment
+              ? `taste ${enjoyment}/5`
+              : "rating removal"}
+        </button>
+      )}
       {state?.status === "conflict" && (
         <p>
           This formula or its questions changed.{" "}

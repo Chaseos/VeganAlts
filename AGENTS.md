@@ -66,6 +66,7 @@ Future-ready schema abstractions are allowed only when they materially avoid a k
 - Prefer explicit foreign keys, unique constraints, and indexes over application-only assumptions.
 - Migrations are append-only once applied to a shared environment. Never silently rewrite an applied migration.
 - Version 1 is `db/migrations/0001_initial.sql`: the pre-release history was folded into it on the owner's instruction (2026-10-10). Until the first release, schema changes are folded into version 1 too, never added as new migrations (owner, 2026-10-13); databases are reset (`npm run db:reset:<env>`), never upgraded. Add new migrations only after the first release.
+- Owner exception (2026-10-20): the first independent-rating rollout may recreate only the empty staging `ratings` and `rating_dimension_values` tables in one guarded D1 batch, after a fresh recovery bookmark/export. Preserve all other data and restore related triggers/indexes; abort if either table has rows. This one-time staging exception does not change the reset rule for other pre-release schema changes.
 - Never commit screenshots or visual captures. `CAPTURE=1` writes them to the ignored `test-results/captures`.
 - Better Auth owns its auth tables; application migrations should not manually duplicate them unless the auth strategy is intentionally revised.
 - Formula/version history and revision/audit history are durable product requirements.

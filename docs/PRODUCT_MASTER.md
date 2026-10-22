@@ -1197,9 +1197,10 @@ This replaces the §04 table's flavor rows and its working rule:
 
 **Ratings (§05).**
 
-- **The closeness question.** People rate the flavor they ate. Similarity stays the one required answer.
+- **Independent answers (owner revision, 2026-10-20).** People can rate closeness, tastiness, or both for the flavor they ate. Neither answer requires the other; a lifelong vegan can answer tastiness alone. Each ranking counts only its own answers. Tapping a selected answer again clears just that answer; clearing both removes the rating while keeping Tried.
+- **The closeness question.** People rate the flavor they ate.
   - A flavored product asks "How close is it to [food] in the same flavor?"
-- **The tastiness question.** "How tasty is it, whether or not it's like the original?" is optional and appears beside the closeness question.
+- **The tastiness question.** "How tasty is it, whether or not it's like the original?" appears beside the closeness question. Both controls are available immediately, without optional labels. Closeness details and familiarity still follow a closeness answer and clear when it is removed.
 - **One vote per person per line.** The leaderboard scores each line from all its eligible flavors in that food, for each ranking.
   - Each person counts once, as the average of their ratings of that line's flavors.
   - The sample-size-adjusted score is applied over people, never to the best flavor alone.
@@ -1241,6 +1242,8 @@ Every product belongs to the one country it is added in.
 **Two levels: aisle › food (§04).** This replaces the milestone 5 taxonomy shape (aisle › shelf › food, with foods at depth three) and the milestone 6 starter shelves.
 
 - **Shape.** The taxonomy is two levels below the root, and shelves are removed.
+- **Public wording (owner, 2026-10-20).** Navigation calls the broad aisles "Categories" and their foods "food types". The desktop Foods menu shows these from the embedded country tree without requests on hover, focus or filtering. Branded products and rankings stay on the food pages. Existing internal identifiers and routes remain stable.
+- **Navigation groups (owner, 2026-10-20).** Desktop, phone navigation and the full directory organize categories under six shared headings, in this order: Meat & seafood; Dairy & eggs; Bakery & baking; Sweets & desserts; Sauces, dips & spreads; Meals & prepared foods. These are presentation groups, not another database level. Categories and foods keep their country-specific names, availability and popularity order within each group. The home and footer keep their six popular category shortcuts. Unknown categories remain visible under More foods; empty public groups are hidden. Add a product gains no step: an existing food determines its group, and suggesting a food uses the same Category selector with grouped headings. See MILESTONE_7_PLAN for the mapping and navigation behavior.
 - **The 23 aisles are universal,** the same in every country: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Desserts, Bakery, Toaster Pastries, Pizza, Meals, and Sauces. Pizza was added and Bakery and desserts split into Desserts and Bakery on 2026-10-15; Toaster Pastries, Meals and Sauces were added on 2026-10-16.
 - **Each food has one aisle, and an aisle names a kind of product, never an occasion** such as Breakfast. Thin foods are broadened rather than held back, and foods without products stay listed.
 - **An aisle follows how a food is used, not what the original is made from.** Mayonnaise is a condiment and Tzatziki a dip, as stores shelve them. Search finds a food from either side.
@@ -1258,7 +1261,7 @@ Every product belongs to the one country it is added in.
 
 **Seasons.**
 
-- **Seasonal foods.** A food can carry season months, for example Eggnog in November–January and Turkey Roast in October–December. It shows "Seasonal" with its months and stays listed and ranked all year.
+- **Seasonal foods.** A food can carry season months, for example Eggnog in November–January and Turkey Roast in October–December. Its public tag says only "Seasonal", with no months or dates (owner, 2026-10-20), and it stays listed and ranked all year.
 - **Seasonal products.** Any product can carry a Seasonal tag. A product in a seasonal food has it by default. A seasonal product off the shelf is not treated as discontinued.
 
 **Trending (§05).** Trending looks back a quarter, so a shopper who checks every month or two still sees what rose recently (RANKING, milestone 7).
@@ -1305,3 +1308,52 @@ People see the top level as aisles.
 **Countries.** The main countries for vegan shoppers are planned next (milestone 8). The site stays in English until a separate language setting and translations arrive.
 
 **Wording.** People see flavors, line names, Closest to the original and Tastiest. "Line" and "family" are internal terms.
+
+### Public browsing and recovery — October 20, 2026
+
+Search foods, brands, and products, ranked recipe lines, and unrated products
+use independent **See more** controls. Each appends a small batch, keeping
+existing cards, open flavor disclosures, global ranks, and the reader's
+position. Foods load 12 at a time, brands 10, and product/ranking sections 20.
+Loading prevents duplicate requests; failures retain the list and offer Retry.
+The first new result receives focus without scrolling, and a polite message
+announces the number added. Exhausted sections remove their control. At the
+100-batch bound, visitors are invited to refine their query or filters.
+Broad brand queries can reach the matching-work limit earlier; they receive
+the same refinement notice rather than implying that every matching brand was
+shown.
+
+Changing country, query, view, or filters starts fresh and cancels earlier
+continuations. Back navigation restores recent loaded batches from a per-tab
+memory cache of at most three contexts, ten minutes, and 5 MiB. Full reloads and
+evicted contexts start at the server-rendered batch; they never redownload a
+history of batches automatically. The query-free grouped directory stays
+complete; the Foods menu keeps its three-food shortcuts and unrestricted local
+filtering without requests. Account and admin lists keep their current behavior.
+Restored rankings keep their featured card, summary and result counts with the
+cached rows, so a later ranking update cannot mix new labels with old standings.
+
+Unchanged batches retain their component and data identities. Supported engines
+skip offscreen row rendering with `content-visibility: auto` and remembered
+intrinsic sizes; expanded disclosures keep their full geometry and closed
+flavors stay out of the accessibility tree. The first 20 rows use normal layout
+to avoid shifts on the initial paint. WebKit uses normal layout because
+estimated row heights can move controls during touch interaction. The bounded
+batch requests, lazy images, and memoized batches apply in every browser.
+
+Keyboard navigation keeps selected suggestions visible and announces loading,
+errors, and local filter results. Ordinary navigation focuses the page heading;
+directory/rating anchors, filter focus, and Back/Forward restoration take
+precedence. Delayed route feedback avoids flashing on quick transitions.
+Motion is brief (120–180 ms), respects reduced motion, keeps the header stable,
+and never animates list heights or replays earlier result rows.
+
+Gateway document failures offer readable HTML and retry paths while retaining
+status, security, cache, and rate-limit policy. Contribution connection and
+parser failures offer understandable retry guidance; expired sessions can be
+renewed in a separate tab without losing the current retry state. Failed
+submissions retain draft values, idempotency keys, and upload receipts.
+Text/photo persistence failures are visible, and leaving is warned about only
+when work cannot safely survive navigation or reload. Contribution controls
+explain their JavaScript requirement. Full-size photos show loading, failure,
+and retry states; failed list thumbnails show the food icon.

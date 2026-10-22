@@ -113,3 +113,35 @@ it("sends the whole draft each time so the newest details win", async () => {
     "Saved 4/5 with 2 details. You’ve tried this formula.",
   );
 });
+
+it("serializes taste-only selections and a last-answer removal without restoring closeness", async () => {
+  const resolvers: ((saved: SavedRating) => void)[] = [];
+  const write = vi.fn(
+    () => new Promise<SavedRating>((resolve) => resolvers.push(resolve)),
+  );
+  const queue = new RatingQueue(write, vi.fn(), vi.fn());
+  queue.select({ ...input(3), overallSimilarity: null, enjoyment: 5 });
+  queue.select({ ...input(3), overallSimilarity: null, enjoyment: null });
+  resolvers.shift()!({
+    ...result(3),
+    rating: { ...result(3).rating, overallSimilarity: null, enjoyment: 5 },
+  });
+  await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+  expect(queue.state).toMatchObject({
+    selected: null,
+    enjoyment: null,
+    status: "saving",
+  });
+  resolvers.shift()!({
+    ...result(3),
+    rating: { ...result(3).rating, overallSimilarity: null },
+    outcome: "removed",
+  });
+  await vi.waitFor(() => expect(queue.state.status).toBe("saved"));
+  expect(queue.state).toMatchObject({
+    selected: null,
+    enjoyment: null,
+    tried: true,
+    message: "Rating removed. You’ve tried this formula.",
+  });
+});

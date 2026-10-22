@@ -372,3 +372,35 @@ it("keeps the food a product page is about in its cache identity", () => {
   expect(key.searchParams.get("food")).toBe("beef-burgers");
   expect(key.searchParams.get("x")).toBeNull();
 });
+
+it("keeps each continuation context separate in the shared cache", () => {
+  const key = (path: string) =>
+    normalizedPublicRequest(new Request(origin + path), origin, "v1").url;
+  const search =
+    "/api/v1/search?country=us&q=beef&section=products&cursor=next";
+  const expected = key(search);
+  for (const different of [
+    search.replace("us", "ca"),
+    search.replace("q=beef", "q=milk"),
+    search.replace("products", "foods"),
+    search.replace("next", "later"),
+  ])
+    expect(key(different)).not.toBe(expected);
+  expect(key(search + "&utm_source=ignored")).toBe(expected);
+  const category =
+    "/api/v1/categories/beef?country=us&section=ranked&cursor=next&view=tastiest&stores=sample&freeFrom=soy";
+  for (const input of [
+    "country",
+    "section",
+    "cursor",
+    "view",
+    "stores",
+    "freeFrom",
+  ]) {
+    const url = new URL(origin + category);
+    url.searchParams.delete(input);
+    // Omitting country intentionally aliases the documented US default.
+    if (input !== "country")
+      expect(key(url.pathname + url.search)).not.toBe(key(category));
+  }
+});

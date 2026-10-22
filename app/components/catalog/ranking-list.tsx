@@ -1,26 +1,28 @@
 import { Link } from "react-router";
-import { useId } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useHydrated } from "../../lib/use-hydrated";
 import type { AllergenDeclaration } from "@server/community/domain/allergens";
 import type { StoreOption } from "@server/catalog/domain/contracts";
 import type { DetailScore } from "@server/catalog/domain/ranking-view";
-import { FoodIcon } from "../icons/food-icons";
+import { ProductThumbnail } from "./product-thumbnail";
 import { RankFlag, ScoreLabel } from "../ui/score";
 import {
   AllergenLabel,
   Badge,
   EarlyBadge,
   NewBadge,
-  SeasonalProductBadge,
+  SeasonalBadge,
   TrendingBadge,
 } from "../ui/badges";
 import { DetailBars, DetailCells } from "../ui/bars";
 import { ButtonLink } from "../ui/button";
 import { StoreLine } from "./ranking-filters";
-import { formatScore, plural, shortDate } from "../../lib/format";
+import { formatScore, plural, shortDate, productName } from "../../lib/format";
 import { productPath } from "../../lib/site-chrome";
 
 // One flavor of a recipe line, with its own score in the ranking shown.
 export interface ListedFlavor {
+  imageId: string | null;
   productId: string;
   slug: string;
   name: string;
@@ -85,46 +87,15 @@ export function allergenSummary(
       };
 }
 
-function Thumb({
-  line,
-  food,
-  size,
-}: {
-  line: Pick<ListedLine, "leadProduct">;
-  food: string;
-  size: number;
-}) {
-  return line.leadProduct.imageId ? (
-    <img
-      className="va-thumb"
-      src={`/media/${line.leadProduct.imageId}/thumbnail`}
-      alt=""
-      width={size}
-      height={size}
-      loading="lazy"
-    />
-  ) : (
-    <span className="va-thumb va-thumb--empty" aria-hidden="true">
-      <FoodIcon slug={food} size={Math.round(size / 2.4)} />
-    </span>
-  );
-}
-
 const people = (count: number) => plural(count, "person", "people");
 export const flavorLabel = (flavor: string | null) => flavor ?? "Original";
 
 /**
  * A line's flavors behind a native disclosure, so it works without
  * JavaScript. Each flavor links to its own page with its score in the
- * ranking shown, or "Too few ratings yet".
+ * ranking shown, or its rating count before the score is available.
  */
-export function FlavorList({
-  country,
-  food,
-  line,
-  labels,
-  id,
-}: {
+interface FlavorListProps {
   country: string;
   food: string;
   line: Pick<
@@ -133,11 +104,28 @@ export function FlavorList({
   >;
   labels: Labels;
   id?: string;
-}) {
-  if (line.flavorCount < 2) return null;
+}
+export function FlavorList(props: FlavorListProps) {
+  return props.line.flavorCount < 2 ? null : <ExpandableFlavors {...props} />;
+}
+function ExpandableFlavors({
+  country,
+  food,
+  line,
+  labels,
+  id,
+}: FlavorListProps) {
+  const hydrated = useHydrated();
+  const disclosure = useRef<HTMLDetailsElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  useLayoutEffect(() => {
+    setExpanded(disclosure.current?.open ?? false);
+  }, []);
   return (
     <details
+      ref={disclosure}
       className="va-flavors"
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
       onKeyDown={(event) => {
         if (event.key === "Escape" && event.currentTarget.open) {
           event.stopPropagation();
@@ -151,44 +139,63 @@ export function FlavorList({
         <span className="sr-only"> of {line.name}</span>
       </summary>
       {/* A fragment inside the disclosure reveals it even before hydration. */}
-      <ul className="va-flavors__list" id={id}>
+      <ul
+        className="va-flavors__list"
+        id={id}
+        aria-hidden={hydrated && !expanded ? true : undefined}
+      >
         {line.flavors.map((flavor) => {
           const allergens = allergenSummary(flavor.allergens, labels);
           return (
             <li key={flavor.productId} className="va-flavors__item">
               <Link
-                className="va-flavors__name"
+                className="va-flavors__photo"
                 to={productPath(country, flavor.slug, food)}
+                aria-label={`View ${flavor.label}: ${flavor.name}`}
               >
-                {flavor.label}
-                <span className="sr-only">: {flavor.name}</span>
+                <ProductThumbnail imageId={flavor.imageId} food={food} />
               </Link>
-              <span className="va-flavors__meta va-small va-muted">
-                {flavor.isNew && <NewBadge />}
-                {flavor.seasonal && line.flavorCount > 1 && (
-                  <SeasonalProductBadge />
-                )}
+              <div className="va-flavors__body">
+                <div className="va-flavors__heading">
+                  {flavor.isNew && <NewBadge />}
+                  {flavor.seasonal && <SeasonalBadge />}
+                  <Link
+                    className="va-flavors__name"
+                    to={productPath(country, flavor.slug, food)}
+                  >
+                    {flavor.label}
+                    <span className="sr-only">: {flavor.name}</span>
+                  </Link>
+                </div>
                 {allergens && (
-                  <AllergenLabel allergens={allergens} variant="line" />
+                  <div className="va-flavors__meta va-small va-muted">
+                    <AllergenLabel allergens={allergens} variant="line" />
+                  </div>
                 )}
-              </span>
-              <span className="va-flavors__score">
-                {flavor.score !== null ? (
-                  <>
-                    <span className="sr-only">Score </span>
-                    {formatScore(flavor.score)}
-                  </>
-                ) : (
-                  <span className="va-small va-muted">Too few ratings yet</span>
-                )}
-              </span>
-              <Link
-                className="va-link va-flavors__rate"
-                to={`${productPath(country, flavor.slug, food)}#scores-title`}
-                aria-label={`Rate it: ${flavor.name}${flavor.flavor ? ` · ${flavor.flavor}` : ""}`}
-              >
-                Rate it
-              </Link>
+              </div>
+              <div className="va-flavors__actions">
+                <span className="va-flavors__score">
+                  {flavor.score !== null ? (
+                    <>
+                      <span className="sr-only">Score </span>
+                      {formatScore(flavor.score)}
+                    </>
+                  ) : (
+                    <span className="va-small va-muted">
+                      {flavor.ratingCount === 0
+                        ? "No ratings"
+                        : plural(flavor.ratingCount, "rating")}
+                    </span>
+                  )}
+                </span>
+                <Link
+                  className="va-link va-flavors__rate"
+                  to={`${productPath(country, flavor.slug, food)}#scores-title`}
+                  aria-label={`Rate it: ${flavor.name}${flavor.flavor ? ` · ${flavor.flavor}` : ""}`}
+                >
+                  Rate it
+                </Link>
+              </div>
             </li>
           );
         })}
@@ -229,7 +236,7 @@ function LineChips({
       {line.early && <EarlyBadge count={line.people} />}
       {line.isNew && <NewBadge />}
       {line.trending && <TrendingBadge />}
-      {line.seasonal && <SeasonalProductBadge />}
+      {line.seasonal && <SeasonalBadge />}
       {line.badges.map((badge) => (
         <Badge key={badge} tone="good">
           {badge}
@@ -268,16 +275,19 @@ export function FeaturedSwap({
       <span className="va-featured__flag">
         <RankFlag>{flag}</RankFlag>
       </span>
-      <Thumb line={line} food={food} size={160} />
+      <ProductThumbnail
+        imageId={line.leadProduct.imageId}
+        food={food}
+        size="featured"
+      />
       <div className="va-featured__body">
         <div className="va-featured__head">
           <div className="va-featured__title">
             <h2 id={titleId} className="va-featured__name">
-              <Link to={href}>{line.name}</Link>
+              <Link to={href}>{productName(line.name, line.brand)}</Link>
             </h2>
             <p className="va-muted">
               {[
-                line.brand,
                 people(line.people),
                 rank && rank !== 1 ? `#${rank} overall` : null,
               ]
@@ -293,13 +303,6 @@ export function FeaturedSwap({
           )}
         </div>
         <DetailBars details={line.details} />
-        <FlavorList
-          id={flavorsId}
-          country={country}
-          food={food}
-          line={line}
-          labels={labels}
-        />
         <div className="button-row">
           <ButtonLink to={href}>View product</ButtonLink>
           {line.flavorCount > 1 ? (
@@ -317,6 +320,13 @@ export function FeaturedSwap({
           )}
         </div>
       </div>
+      <FlavorList
+        id={flavorsId}
+        country={country}
+        food={food}
+        line={line}
+        labels={labels}
+      />
     </article>
   );
 }
@@ -358,12 +368,13 @@ export function RankedRow({
           </span>
         )}
       </span>
-      <Thumb line={line} food={food} size={60} />
+      <ProductThumbnail imageId={line.leadProduct.imageId} food={food} />
       <span className="va-rank-row__main">
-        <span className="va-rank-row__name">{line.name}</span>
+        <span className="va-rank-row__name">
+          {productName(line.name, line.brand)}
+        </span>
         <span className="va-small va-muted">
           {[
-            line.brand,
             // Rated lines with no answers yet only appear in Tastiest.
             line.people
               ? people(line.people)
@@ -434,20 +445,25 @@ export function UnratedRow({
 }) {
   const allergens = allergenSummary(line.allergens, labels);
   const href = productPath(country, line.leadProduct.slug, food);
-  const flavorsId = useId();
   return (
-    <li className="va-unrated">
+    <li
+      className="va-unrated va-result"
+      data-result={line.lineId}
+      tabIndex={-1}
+    >
+      <Link
+        className="va-unrated__photo"
+        to={href}
+        aria-label={`View ${productName(line.name, line.brand)}`}
+      >
+        <ProductThumbnail imageId={line.leadProduct.imageId} food={food} />
+      </Link>
       <span className="va-unrated__main">
         <Link className="va-unrated__name" to={href}>
-          {line.name}
+          {productName(line.name, line.brand)}
         </Link>
         <span className="va-small va-muted">
-          {[
-            line.brand,
-            line.publishedAt ? `added ${shortDate(line.publishedAt)}` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+          {line.publishedAt && `added ${shortDate(line.publishedAt)}`}
           {allergens && (
             <>
               {" · "}
@@ -455,25 +471,19 @@ export function UnratedRow({
             </>
           )}
         </span>
-        <FlavorList
-          id={flavorsId}
-          country={country}
-          food={food}
-          line={line}
-          labels={labels}
-        />
       </span>
-      <a
-        className="button secondary small-button"
-        href={line.flavorCount > 1 ? `#${flavorsId}` : `${href}#scores-title`}
-        onClick={
-          line.flavorCount > 1
-            ? (event) => openFlavors(event, flavorsId)
-            : undefined
-        }
-      >
-        Be the first to rate<span className="sr-only">: {line.name}</span>
-      </a>
+      {line.flavorCount < 2 && (
+        <a
+          className="button secondary small-button"
+          href={`${href}#scores-title`}
+        >
+          Be the first to rate
+          <span className="sr-only">
+            : {productName(line.name, line.brand)}
+          </span>
+        </a>
+      )}
+      <FlavorList country={country} food={food} line={line} labels={labels} />
     </li>
   );
 }

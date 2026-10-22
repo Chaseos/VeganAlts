@@ -67,7 +67,7 @@ const draftSchema = z.object({
   // Null follows the food's season.
   seasonal: z.boolean().nullable(),
   rating: z.number().int().min(1).max(5).nullable(),
-  // The optional Tastiest answer, given with a rating.
+  // The independent Tastiest answer.
   enjoyment: z.number().int().min(1).max(5).nullable(),
   ingredients: z.object({
     url: z.string(),
@@ -91,6 +91,17 @@ const draftSchema = z.object({
   savedAt: z.number(),
 });
 export type ProductDraft = z.infer<typeof draftSchema>;
+/** Ignore URL context and bookkeeping when identifying work to protect. */
+export function hasDraftEdits(draft: ProductDraft, initial: ProductDraft) {
+  return (Object.keys(draft) as (keyof ProductDraft)[]).some(
+    (key) =>
+      key !== "id" &&
+      key !== "savedAt" &&
+      key !== "country" &&
+      key !== "startedFrom" &&
+      JSON.stringify(draft[key]) !== JSON.stringify(initial[key]),
+  );
+}
 export type FoodPick = z.infer<typeof foodPick>;
 export type LinePick = z.infer<typeof linePick>;
 // Where a link started the draft: a food page, a product's "Add another
@@ -206,7 +217,7 @@ export function basicsErrors(
   else if (draft.food.kind === "new") {
     if (!enough(draft.food.name)) errors.food = "Name the food it replaces.";
     if (!draft.food.aisleId)
-      errors.aisle = "Choose the aisle where you’d find it in a store.";
+      errors.aisle = "Choose the category this food belongs in.";
   }
   if (!enough(draft.brand)) errors.brand = "Enter the brand.";
   else if (!draft.brandChosen)
@@ -312,7 +323,7 @@ export function toSubmission(
       ? { manufacturerLabel: draft.ingredients.label }
       : {}),
     ...(draft.rating ? { rating: draft.rating } : {}),
-    ...(draft.rating && draft.enjoyment ? { enjoyment: draft.enjoyment } : {}),
+    ...(draft.enjoyment ? { enjoyment: draft.enjoyment } : {}),
     ...(draft.retailerIds.length ? { retailerIds: draft.retailerIds } : {}),
     ...(status === "none_declared"
       ? { allergens: { status } }
@@ -436,9 +447,20 @@ export function saveDraft(
   key = DRAFT_KEY,
 ) {
   try {
-    storage?.setItem(key, JSON.stringify({ ...draft, savedAt: now }));
+    if (!storage) return false;
+    storage.setItem(key, JSON.stringify({ ...draft, savedAt: now }));
+    return true;
   } catch {
-    // Quota or privacy settings: the form still works without a draft.
+    // An unchanged restored draft is still safe even if a redundant write
+    // is denied. Only newer work needs a leave-page warning.
+    const stored = loadDraft(storage, now, key);
+    const current = draftSchema.safeParse(draft);
+    return (
+      stored !== null &&
+      current.success &&
+      JSON.stringify({ ...stored, savedAt: 0 }) ===
+        JSON.stringify({ ...current.data, savedAt: 0 })
+    );
   }
 }
 export function clearDraft(storage: DraftStorage | null, key = DRAFT_KEY) {

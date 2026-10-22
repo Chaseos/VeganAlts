@@ -14,6 +14,7 @@ export async function communityRequest<T>(
   body?: unknown,
   key?: string,
   token?: string,
+  options?: { signal?: AbortSignal },
 ): Promise<T> {
   const form = body instanceof FormData,
     headers = new Headers();
@@ -22,26 +23,44 @@ export async function communityRequest<T>(
     headers.set("Idempotency-Key", key ?? crypto.randomUUID());
   }
   if (token) headers.set("X-Turnstile-Token", token);
-  const response = await fetch(`/api/v1/${path}`, {
-    method: body === undefined ? "GET" : "POST",
-    headers,
-    body: body === undefined ? undefined : form ? body : JSON.stringify(body),
-  });
-  const value = (await response.json()) as {
+  let response: Response;
+  try {
+    response = await fetch(`/api/v1/${path}`, {
+      method: body === undefined ? "GET" : "POST",
+      headers,
+      body: body === undefined ? undefined : form ? body : JSON.stringify(body),
+      signal: options?.signal,
+    });
+  } catch (error) {
+    if (options?.signal?.aborted) throw error;
+    throw new CommunityError(
+      "Check your connection and retry. Your entries are still here.",
+      "NETWORK_ERROR",
+      0,
+    );
+  }
+  const value = (await response.json().catch(() => null)) as {
     data: T;
     title?: string;
     code?: string;
-  };
-  if (!response.ok)
+  } | null;
+  if (!response.ok || !value || typeof value !== "object" || !("data" in value))
     throw new CommunityError(
-      value.title ?? "The request could not be saved.",
-      value.code ?? "REQUEST_FAILED",
+      response.status === 401
+        ? "Your session has expired. Sign in again, then retry. Your entries are still here."
+        : response.status === 429
+          ? "Too many requests. Wait a minute, then retry. Your entries are still here."
+          : response.status >= 500 || !value || typeof value !== "object"
+            ? "The server couldn’t complete this request. Please retry. Your entries are still here."
+            : (value.title ?? "The request could not be saved. Please retry."),
+      value?.code ?? "REQUEST_FAILED",
       response.status,
     );
   return value.data;
 }
 export function useCommunityAction() {
   const [busy, setBusy] = useState(false),
+    [sessionExpired, setSessionExpired] = useState(false),
     [error, setError] = useState(""),
     [challenge, setChallenge] = useState(false),
     [challengeAttempt, setChallengeAttempt] = useState(0),
@@ -74,11 +93,15 @@ export function useCommunityAction() {
   async function run<T>(work: () => Promise<T>): Promise<T | undefined> {
     setBusy(true);
     setError("");
+    setSessionExpired(false);
     try {
       const result = await work();
       setChallenge(false);
       return result;
     } catch (error) {
+      setSessionExpired(
+        error instanceof CommunityError && error.status === 401,
+      );
       if (
         error instanceof CommunityError &&
         error.code === "CHALLENGE_REQUIRED"
@@ -96,6 +119,7 @@ export function useCommunityAction() {
   }
   return {
     busy,
+    sessionExpired,
     error,
     challenge,
     challengeAttempt,

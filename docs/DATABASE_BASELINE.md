@@ -284,7 +284,7 @@ This supports detail-page “Other variants” sections while preserving separat
 
 ## 13. Ratings
 
-`ratings` is the canonical primary similarity contribution.
+`ratings` is the canonical contribution for independently answered closeness and tastiness questions (owner revision, 2026-10-20).
 
 Unique key:
 
@@ -294,7 +294,7 @@ Unique key:
 
 Fields:
 
-- 1–5 `overall_similarity`;
+- nullable 1–5 `overall_similarity` and nullable 1–5 `enjoyment`, with at least one answer per stored row;
 - optional conventional-product recency bucket;
 - counted/excluded state;
 - timestamps.

@@ -16,7 +16,7 @@ export interface PendingRating {
   id: string;
   productVersionId: string;
   categoryId: string;
-  overallSimilarity: number;
+  overallSimilarity: number | null;
   dimensions?: Record<string, number | null>;
   conventionalRecency?: ConventionalRecency | null;
   enjoyment?: number | null;
@@ -81,4 +81,23 @@ export function storePendingRating(
 export function clearPendingRating(storage: Pick<Storage, "removeItem">) {
   storage.removeItem(KEY);
   storage.removeItem(LEGACY_KEY);
+}
+
+// A response to an older queued choice must not discard a newer draft.
+export function matchesPendingRating(
+  pending: PendingRating,
+  saved: import("@server/ratings/domain/contracts").PersonalRating,
+) {
+  return (
+    pending.productVersionId === saved.productVersionId &&
+    pending.categoryId === saved.categoryId &&
+    pending.overallSimilarity === saved.overallSimilarity &&
+    (pending.enjoyment === undefined ||
+      pending.enjoyment === saved.enjoyment) &&
+    (pending.conventionalRecency === undefined ||
+      pending.conventionalRecency === saved.conventionalRecency) &&
+    Object.entries(pending.dimensions ?? {}).every(
+      ([key, value]) => value === (saved.dimensions[key] ?? null),
+    )
+  );
 }

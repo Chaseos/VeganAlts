@@ -3,7 +3,7 @@ import { accessible } from "./a11y";
 import { openAccountLink } from "./site";
 import { createBrowserSession } from "./session-fixture";
 
-test("anonymous selection resumes once after sign-in, then appears in My Ratings and can be edited", async ({
+test("anonymous selection resumes once after sign-in and My Ratings edits the same nondefault food", async ({
   page,
   context,
 }, testInfo) => {
@@ -13,7 +13,7 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
   );
   const session = await createBrowserSession();
   try {
-    await page.goto("/us/beef-burgers");
+    await page.goto("/us/ground-beef");
     await page
       .getByRole("main")
       .getByRole("link", { name: "Beyond Beef", exact: true })
@@ -53,8 +53,16 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
     await expect(
       page.getByRole("heading", { level: 1, name: "My ratings" }),
     ).toBeVisible();
-    await expect(page.getByText("As beef burgers ·")).toBeVisible();
+    await expect(page.getByText("As ground beef ·")).toBeVisible();
     await page.getByRole("link", { name: "Edit rating", exact: true }).click();
+    await expect(page).toHaveURL(
+      /\/products\/beyond-beef\?food=ground-beef#rate-/,
+    );
+    await expect(
+      page
+        .getByRole("button", { name: "4 Very close (4 of 5)", exact: true })
+        .first(),
+    ).toHaveAttribute("aria-pressed", "true");
     await page
       .getByRole("button", { name: "5 Extremely close (5 of 5)", exact: true })
       .first()
@@ -67,6 +75,10 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
       fullPage: true,
     });
     expect(saves).toEqual([4, 5]);
+    const response = await page.request.get("/api/v1/me/ratings");
+    expect((await response.json()).data).toMatchObject([
+      { categorySlug: "ground-beef", overallSimilarity: 5 },
+    ]);
   } finally {
     await page.close();
     await session.dispose();
@@ -229,6 +241,69 @@ test("detail answers and last ate save on tap, clear on a second tap and survive
     await expect(
       again.getByRole("button", { name: "This month" }),
     ).toHaveAttribute("aria-pressed", "false");
+  } finally {
+    await page.close();
+    await session.dispose();
+  }
+});
+
+test("taste can be rated first, survives sign-in, and clears independently of closeness", async ({
+  page,
+  context,
+}) => {
+  test.skip(!!process.env.TEST_BASE_URL, "Provider simulation is local only.");
+  const session = await createBrowserSession();
+  try {
+    await page.goto("/us/products/beyond-burger?food=beef-burgers");
+    const editor = page.getByRole("region", {
+      name: "Rate it as beef burgers",
+    });
+    const taste = editor.getByRole("button", {
+      name: "5 Delicious (5 of 5)",
+      exact: true,
+    });
+    await expect(taste).toBeEnabled();
+    await expect(editor).not.toContainText("Say how close it is first");
+    await expect(editor.locator(".va-rate__tasty legend")).not.toContainText(
+      "optional",
+    );
+    await taste.click();
+    await expect(page).toHaveURL(/\/sign-in\?returnTo=/);
+    const returnTo = new URL(page.url()).searchParams.get("returnTo")!;
+    await context.addCookies([session.cookie]);
+    await page.goto(`/auth/return?returnTo=${encodeURIComponent(returnTo)}`);
+    await expect(editor.getByRole("status")).toContainText("Saved taste 5/5");
+    await page.reload();
+    await expect(taste).toHaveAttribute("aria-pressed", "true");
+    const saved = await (await page.request.get("/api/v1/me/ratings")).json();
+    expect(saved.data).toMatchObject([
+      { overallSimilarity: null, enjoyment: 5 },
+    ]);
+    await openAccountLink(page, "My ratings");
+    await expect(page.getByText("Taste: 5, Delicious")).toBeVisible();
+    await expect(page.getByText("Closeness:")).toHaveCount(0);
+    await page.getByRole("link", { name: "Edit rating", exact: true }).click();
+    const close = editor.getByRole("button", {
+      name: "3 Fairly close (3 of 5)",
+      exact: true,
+    });
+    await close.click();
+    await expect(editor.getByRole("status")).toContainText(
+      "Saved 3/5; taste 5/5",
+    );
+    await close.click();
+    await expect(editor.getByRole("status")).toContainText("Saved taste 5/5");
+    await taste.click();
+    await expect(editor.getByRole("status")).toHaveText(
+      "Rating removed. You’ve tried this formula.",
+    );
+    expect(
+      (await (await page.request.get("/api/v1/me/ratings")).json()).data,
+    ).toEqual([]);
+    await page.reload();
+    await expect(taste).toHaveAttribute("aria-pressed", "false");
+    await expect(close).toHaveAttribute("aria-pressed", "false");
+    await accessible(page);
   } finally {
     await page.close();
     await session.dispose();

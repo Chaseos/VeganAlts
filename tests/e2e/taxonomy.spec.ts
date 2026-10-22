@@ -25,7 +25,9 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
     await expect(page.getByLabel("Food name (required)")).toHaveValue(name);
     await expect(page.getByLabel("Food name (required)")).toBeEnabled();
     // A suggestion chooses the aisle the food belongs in; the note is optional.
-    await page.getByLabel("Aisle (required)").selectOption({ label: "Pork" });
+    await page
+      .getByLabel("Category (required)")
+      .selectOption({ label: "Pork" });
     await expect(
       page.getByRole("link", { name: "Add it with the product" }),
     ).toHaveAttribute("href", /newFood=Bratwurst/);

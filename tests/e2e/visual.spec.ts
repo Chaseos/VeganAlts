@@ -30,6 +30,39 @@ const WIDTHS = [
   ["desktop", 1440, 900],
 ] as const;
 
+test("capture grouped food navigation", async ({ page }, testInfo) => {
+  test.skip(
+    !process.env.CAPTURE || testInfo.project.name !== "desktop",
+    "Opt-in captures only.",
+  );
+  const directory = process.env.CAPTURE_DIR ?? join("test-results", "captures");
+  mkdirSync(directory, { recursive: true });
+  for (const width of [1280, 760, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+      await page.goto("/us/cheddar");
+      await page
+        .getByRole("button", {
+          name: width >= 760 ? "Foods" : "Menu",
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole(width >= 760 ? "region" : "dialog", {
+          name: width >= 760 ? "Foods" : "Site menu",
+          exact: true,
+        })
+        .waitFor();
+      await page.screenshot({
+        path: join(directory, `food-groups-${width}-${colorScheme}.jpg`),
+        type: "jpeg",
+        quality: 80,
+      });
+    }
+  }
+});
+
 test.skip(!process.env.CAPTURE, "Visual captures run with CAPTURE=1.");
 test.describe.configure({ mode: "serial" });
 

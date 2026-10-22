@@ -2,6 +2,7 @@ import type { CommunityProductDetails } from "../../community/domain/public";
 import type { TaxonomyNode } from "../../taxonomy/domain/shape";
 import type { RankingFilters } from "./filters";
 import type { AllergenDeclaration } from "../../community/domain/allergens";
+import type { SearchPosition, BrandPosition } from "./batches";
 
 export interface CategorySummary {
   id: string;
@@ -50,11 +51,11 @@ export interface DiscoveryRow extends LineSummary {
 // A ranked line of one food, before views and filters are applied. Counts
 // are people: each person counts once per line.
 export interface RankedRow extends LineSummary {
-  bayesianScore: number;
+  bayesianScore: number | null;
   ratingCount: number;
   // Position in the unfiltered Closest order, so a filtered view still shows
   // where a line actually ranks.
-  topRank: number;
+  topRank: number | null;
   tastiestScore: number | null;
   tastiestCount: number;
   recentRatingCount: number;
@@ -72,8 +73,25 @@ export interface RankedRow extends LineSummary {
   // Detail answers per question id: [people, sum of their means].
   details: Record<string, [number, number]>;
 }
+export type RankingOrderRow = Pick<
+  RankedRow,
+  | "id"
+  | "lineId"
+  | "bayesianScore"
+  | "ratingCount"
+  | "topRank"
+  | "tastiestScore"
+  | "tastiestCount"
+  | "recentRatingCount"
+  | "trendingRank"
+  | "storeMatch"
+  | "allergenMatch"
+  | "confirmed"
+  | "details"
+>;
 // One eligible flavor of a listed line, with its own scores in the food.
 export interface FlavorRow {
+  imageId: string | null;
   lineId: string;
   id: string;
   slug: string;
@@ -116,6 +134,7 @@ export interface TopProduct {
   slug: string;
   name: string;
   brand: string | null;
+  imageId: string | null;
   bayesianScore: number;
   ratingCount: number;
   trendingRank: number | null;
@@ -199,9 +218,9 @@ export interface ProductDetails
 // A recipe line's place in one food, in both rankings.
 export interface LineStanding {
   categoryId: string;
-  rank: number;
+  rank: number | null;
   rankedCount: number;
-  score: number;
+  score: number | null;
   people: number;
   tastiestRank: number | null;
   tastiestCount: number;
@@ -213,6 +232,7 @@ export interface LineStanding {
 }
 // Another product of the same line.
 export interface SiblingFlavor {
+  imageId: string | null;
   id: string;
   slug: string;
   name: string;
@@ -228,11 +248,17 @@ export interface BrandRow {
   aliases: string[];
   productCount: number;
 }
+export interface BrandMatches {
+  items: BrandRow[];
+  // Candidate work was bounded; exhausting these items is not exhaustive search.
+  truncated: boolean;
+}
 // One of a brand's lines in a food, with its ranks there.
 export interface BrandLineRow {
   categoryId: string;
   lineId: string;
   name: string;
+  leadProduct: { slug: string; imageId: string | null };
   closestRank: number | null;
   closestScore: number | null;
   people: number;
@@ -293,6 +319,7 @@ export interface CatalogRepository {
     limit: number,
     // Only lines that first appeared before this time (or never), when set.
     publishedBefore?: number,
+    ranking?: "closest" | "tastiest",
   ): Promise<(LineSummary & { allergens: AllergenDeclaration | null })[]>;
   // The eligible flavors of listed lines, in one query.
   flavors(
@@ -305,7 +332,18 @@ export interface CatalogRepository {
     countryId: string,
     categoryId: string,
     filters: RankingFilters,
-  ): Promise<RankedRow[]>;
+  ): Promise<RankingOrderRow[]>;
+  rankedCards(
+    countryId: string,
+    categoryId: string,
+    lineIds: string[],
+    filters: RankingFilters,
+  ): Promise<
+    (LineSummary & {
+      allergens: AllergenDeclaration | null;
+      matchedStores: string[];
+    })[]
+  >;
   questions(
     categoryId: string,
   ): Promise<{ id: string; key: string; label: string }[]>;
@@ -329,6 +367,7 @@ export interface CatalogRepository {
     countryId: string,
     categoryId: string,
     freeFrom: string[],
+    ranking?: "closest" | "tastiest",
   ): Promise<StoreOption[]>;
   filterOptions(
     countryId: string,
@@ -366,8 +405,27 @@ export interface CatalogRepository {
     iso2: string,
     expression: string,
   ): Promise<{ categories: CategorySummary[]; products: ProductSummary[] }>;
+  searchPage(
+    countryId: string,
+    iso2: string,
+    expression: string,
+    section: "foods" | "products",
+    after: SearchPosition | null,
+    limit: number,
+  ): Promise<{
+    categories: (CategorySummary & {
+      searchRank: number;
+      searchName: string;
+    })[];
+    products: (ProductSummary & { searchRank: number; searchName: string })[];
+  }>;
   // Brands with products in the country matching typed text, best first.
-  brands(countryId: string, query: string, limit: number): Promise<BrandRow[]>;
+  brands(
+    countryId: string,
+    query: string,
+    limit: number,
+    after?: BrandPosition | null,
+  ): Promise<BrandMatches>;
   // A brand by slug, with its product count in the country (maybe 0).
   brand(
     countryId: string,

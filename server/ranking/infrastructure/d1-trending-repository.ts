@@ -41,7 +41,7 @@ export class D1TrendingRepository {
           `INSERT INTO ${DAILY}
           SELECT ?,p.product_family_id,r.category_id,r.user_id,COUNT(*),SUM(r.overall_similarity),0,0
           FROM ratings r ${eligibleFlavor("r.product_version_id")} AND pc.category_id=r.category_id
-          WHERE r.is_counted=1 AND r.created_at>=? AND r.created_at<?
+          WHERE r.is_counted=1 AND r.overall_similarity IS NOT NULL AND r.created_at>=? AND r.created_at<?
           GROUP BY p.product_family_id,r.category_id,r.user_id`,
         )
         .bind(date, dayStart, end),

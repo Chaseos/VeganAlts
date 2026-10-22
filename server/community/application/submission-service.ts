@@ -561,7 +561,7 @@ export class SubmissionService {
       });
       // Only a submission with a rating says what became of it; a replayed
       // publication leaves it out.
-      return input.rating
+      return input.rating || input.enjoyment
         ? { ...published, rating: extras?.rating ?? ("pending" as const) }
         : published;
     } catch (error) {

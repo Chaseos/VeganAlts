@@ -21,6 +21,7 @@ import {
 import {
   clearPendingRating,
   readPendingRating,
+  matchesPendingRating,
   storePendingRating,
   type PendingRating,
 } from "../lib/pending-rating";
@@ -190,11 +191,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
                 sessionStorage,
                 window.location.origin,
               );
-              if (
-                pending?.productVersionId === saved.rating.productVersionId &&
-                pending.categoryId === saved.rating.categoryId &&
-                pending.overallSimilarity === saved.rating.overallSimilarity
-              ) {
+              if (pending && matchesPendingRating(pending, saved.rating)) {
                 clearPendingRating(sessionStorage);
                 if (active.current) setPending(null);
               }

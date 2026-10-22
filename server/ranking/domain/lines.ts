@@ -14,7 +14,7 @@ export interface LineFlavor {
 export interface LineRating {
   productId: string;
   userId: string;
-  similarity: number;
+  similarity: number | null;
   enjoyment: number | null;
   counted: boolean;
   createdAt: number;
@@ -86,13 +86,20 @@ export function aggregateLine(
     const enjoyed = own.flatMap((rating) =>
       rating.enjoyment === null ? [] : [rating.enjoyment],
     );
+    const compared = own.filter((rating) => rating.similarity !== null);
     return {
-      similarity: mean(own.map((rating) => rating.similarity)),
+      similarity: compared.length
+        ? mean(compared.map((rating) => rating.similarity!))
+        : null,
       enjoyment: enjoyed.length ? mean(enjoyed) : null,
-      latest: Math.max(...own.map((rating) => rating.createdAt)),
+      latest: Math.max(...compared.map((rating) => rating.createdAt)),
     };
   });
-  const meanSum = people.reduce((sum, person) => sum + person.similarity, 0);
+  const comparing = people.filter((person) => person.similarity !== null);
+  const meanSum = comparing.reduce(
+    (sum, person) => sum + person.similarity!,
+    0,
+  );
   const enjoying = people.flatMap((person) =>
     person.enjoyment === null ? [] : [person.enjoyment],
   );
@@ -100,7 +107,7 @@ export function aggregateLine(
 
   // A person's detail answer is their mean across the flavors they answered.
   const answers = new Map<string, Map<string, number[]>>();
-  for (const rating of counted)
+  for (const rating of counted.filter((rating) => rating.similarity !== null))
     for (const [dimensionId, score] of Object.entries(rating.answers ?? {})) {
       const byUser = answers.get(dimensionId) ?? new Map<string, number[]>();
       byUser.set(rating.userId, [...(byUser.get(rating.userId) ?? []), score]);
@@ -118,10 +125,10 @@ export function aggregateLine(
     .sort((a, b) => (a.dimensionId < b.dimensionId ? -1 : 1));
 
   return {
-    peopleCount: people.length,
+    peopleCount: comparing.length,
     meanSum,
-    rawAverage: people.length ? meanSum / people.length : null,
-    bayesianScore: scorePeople(meanSum, people.length, scoring.closest),
+    rawAverage: comparing.length ? meanSum / comparing.length : null,
+    bayesianScore: scorePeople(meanSum, comparing.length, scoring.closest),
     enjoymentPeople: enjoying.length,
     enjoymentMeanSum,
     enjoymentAverage: enjoying.length
@@ -137,7 +144,7 @@ export function aggregateLine(
         .filter((trial) => ids.has(trial.productId))
         .map((trial) => trial.userId),
     ).size,
-    recentCount: people.filter(
+    recentCount: comparing.filter(
       (person) => person.latest >= now - RECENT_WINDOW_MS,
     ).length,
     leadProductId: leadFlavor(eligible, counted, scoring).productId,
@@ -147,8 +154,8 @@ export function aggregateLine(
 
 /**
  * The flavor that represents the line (its card photo and link): the most
- * counted ratings, then its own Closest score, then the earliest published,
- * then the product ID.
+ * counted ratings answering either question, then its own Closest score,
+ * then the earliest published and product ID.
  */
 export function leadFlavor(
   eligible: readonly LineFlavor[],
@@ -159,11 +166,16 @@ export function leadFlavor(
     const own = counted.filter(
       (rating) => rating.productId === flavor.productId,
     );
-    const sum = own.reduce((total, rating) => total + rating.similarity, 0);
+    const compared = own.filter((rating) => rating.similarity !== null);
+    const sum = compared.reduce(
+      (total, rating) => total + rating.similarity!,
+      0,
+    );
     return {
       flavor,
       count: own.length,
-      score: scoreAggregate(sum, own.length, scoring.closest).bayesianScore,
+      score: scoreAggregate(sum, compared.length, scoring.closest)
+        .bayesianScore,
     };
   });
   ranked.sort(

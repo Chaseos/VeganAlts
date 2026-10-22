@@ -143,10 +143,10 @@ Most of what remains is sold as a few base recipes in several flavors:
 
 - **Popularity orders the aisles and foods in each country.** Most ratings come first. A country without ratings falls back to a default store order.
 - **Browse every food shows aisle cards.** Each card holds an aisle's three most popular foods and "See all" when there are more. A card is only as tall as its foods; a one-food aisle isn't padded out to match its row.
-- **One Foods menu on desktop.** A "Foods" button in the header row opens every aisle, with the aisle under the pointer or focus showing its foods beside them, so the header stays one row with a wider search however many aisles a country has (owner decision, 2026-10-12). A mouse opens it by resting on it. Touch and the keyboard open it on press.
+- **One Foods menu on desktop (owner revision, 2026-10-20).** A "Foods" button opens every category (the public name for the existing aisles), with the category under the pointer or focus showing its food types and product counts from the embedded country navigation data. Opening, switching or filtering the menu sends no route-data requests or prefetches. Branded products and rankings stay on the food pages. A mouse opens it by resting on it; touch and the keyboard open it on press.
 - **A Trending tag marks rising swaps everywhere.** A line that is trending in its food carries a Trending tag in every other list and on its product page, the way New already does.
 - **Trending looks back a quarter.** People shop every week or two and may check the site every month or two, so what rose over the last 90 days is still news to them.
-- **Seasonal foods and products are tagged.** Eggnog and Turkey Roast are seasonal foods with their months, and any product can carry a Seasonal tag.
+- **Seasonal foods and products are tagged.** Eggnog and Turkey Roast are seasonal foods, and any product can carry a Seasonal tag. Public tags show only "Seasonal", without months or dates (owner revision, 2026-10-20).
 - **Eggs for Baking is its own food.** Baking powders are not for scrambling. Fried and hard-boiled eggs join the watch list.
 - **Deli meats sit in their animal's aisle,** named "[Animal] Deli Slices". Turkey Deli Slices starts now.
 
@@ -194,7 +194,7 @@ The owner's reviewed store photos reach the catalog through an importer, planned
   - changes to the Bayesian constants;
   - barcode scanning;
   - production deployment.
-- **Completion and approvals.** Completion means local and staging verification with documented evidence. Each verified checkpoint gets one local commit. Pushes, PRs, issue and milestone changes, staging migrations and deployments, merging and production work each need separate authorization.
+- **Completion and approvals.** Completion means local and staging verification with documented evidence. Each verified checkpoint gets one local commit. Pushes, PRs, issue and milestone changes, staging migrations, merging and production work each need separate authorization. On the owner's instruction (2026-10-20), authorized pushes to `develop` automatically deploy to staging through Cloudflare Workers Builds; manual staging deployments still need explicit authorization.
 
 ## Defaults
 
@@ -246,17 +246,17 @@ The owner's reviewed store photos reach the catalog through an importer, planned
 - **Other line figures:**
   - **Tried** is the number of distinct people with a trial on an eligible flavor.
   - **Recent** is the number of distinct people who rated one in the last 7 days.
-- **Order.** Each ranking sorts by full-precision score descending, then people descending, then the lead flavor's product ID. With one flavor per line, Closest is exactly today's order.
+- **Order.** Each ranking sorts by full-precision score descending, then people descending, then the stable recipe line ID, so changing its representative cannot reorder tied rankings (owner revision, 2026-10-20).
 - **Labels and sorts:**
   - Early applies at 1–9 people, counted separately for each ranking.
   - Most rated sorts by people.
   - "Start with these" and "Still waiting" use Closest.
 - **Lead flavor.** It supplies the card photo and title link.
-  - It is the eligible flavor with the most counted ratings in that food.
+  - It is the eligible flavor with the most counted ratings in that food answering either primary question; answering both counts once (owner revision, 2026-10-20).
   - Ties go to the flavor's own Closest score, then the earliest published.
   - It is stored on the stats row.
 - **Flavor scores** come from `product_category_stats`.
-  - Inside a card, each flavor shows its score in the current ranking once it has 5 answers, otherwise "Too few ratings yet".
+  - Inside a card, each flavor shows its score in the current ranking once it has 5 answers, otherwise "No ratings" at zero or the actual rating count at one to four (owner revision, 2026-10-20).
   - Flavors with a score are listed first, by score; the rest follow by ratings, then flavor name.
 - **Detail questions.**
   - New foods ask Taste and Texture, the existing default.
@@ -296,13 +296,14 @@ The owner's reviewed store photos reach the catalog through an importer, planned
 
 ### Rating
 
-- **Closest question.** Similarity stays the one required answer, saved on tap.
+- **Independent answers (owner revision, 2026-10-20).** Closeness and tastiness can each be answered alone, and save on tap. Each ranking counts only people with its own answer. Neither control is locked or labeled optional. Tapping a chosen answer clears it without changing the other; clearing both removes the rating and keeps Tried.
+- **Closest question.** Similarity saves on tap.
   - A flavored product asks "Tried it? How close is it to [food] in the same flavor?"
   - Unflavored products keep the current question.
 - **Tastiest question.** "How tasty is it, whether or not it's like the original?" appears beside the similarity question.
   - It is optional and saves on tap; tapping the chosen answer again clears it.
   - Its scale runs: 1 Not for me, 2 It's OK, 3 Good, 4 Really good, 5 Delicious.
-- **Detail and familiarity questions** follow, as today.
+- **Detail and familiarity questions** follow a closeness answer and clear when closeness is removed.
 - **The same order applies** to the rating row in Add a product.
 - **The ranking methodology page** explains lines, one vote per person and the two rankings.
 
@@ -318,7 +319,7 @@ The owner's reviewed store photos reach the catalog through an importer, planned
   - score, people, Early and New;
   - detail badges and stores.
 - **Allergens** stay on the row for a single-flavor line. Otherwise they appear per flavor.
-- **"3 flavors" disclosure.** A multi-flavor line has a disclosure button (`aria-expanded`) that lists each flavor's label, score or "Too few ratings yet", allergens and New tag.
+- **"3 flavors" disclosure.** A multi-flavor line has a native disclosure spanning the full card width. Its divided rows show each flavor's large photo, label, allergens and New tag beside or above the label. Scores appear from five answers; otherwise show "No ratings" at zero or the actual count. Rate it sits on the right below that status. Expanded rows replace the lead-photo preview (owner revision, 2026-10-20).
   - Each flavor links to its product page.
   - Discontinued flavors are not listed. Their pages stay and say they are discontinued.
 - **A single-flavor line has no disclosure,** and its row links to the product, as today.
@@ -421,7 +422,7 @@ The taxonomy becomes two levels below the root: **aisle › food**. It replaces 
 - **An aisle holding one food of its own name is silent in breadcrumbs,** so "All foods / Eggs" never reads "All foods / Eggs / Eggs".
 - **Slugs.** An aisle whose name is also a food's takes `-aisle` in its slug (`milk-aisle`, `eggs-aisle`).
 - **Order.** See [Aisle order, browsing and seasons](#aisle-order-browsing-and-seasons).
-- **Desktop Foods menu.** Desktop opens aisles from the Foods menu in the header row; phones keep the sideways-scrolling aisle chips.
+- **Foods navigation.** Desktop, phone navigation and the full directory use the presentation groups described below; the underlying taxonomy stays aisle › food.
 
 | Aisle            | Slug                     | US foods at launch                                                                                                              |
 | ---------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -600,19 +601,20 @@ Existing foods keep their current names and other names unless a row says otherw
 
 ### Aisle order, browsing and seasons
 
+- **Home and footer selection (owner, 2026-10-20).** Show the first six aisles in the country's popularity order, then link to the complete aisle directory. This replaces showing every aisle on the home page and in the footer, including in empty countries; ordering and the full navigation stay shared.
 - **Popularity order.**
   - In each country, aisles are ordered by the number of counted ratings across their foods there, most first. Ties go to product count, then the default order, then name.
   - Foods within an aisle follow the same rule.
   - The counts come from the rating aggregates, never raw ratings. They are all-time, so the order changes slowly.
 - **Default order.** Each aisle carries a `position`, used when a country has no ratings yet: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Desserts, Bakery, Toaster Pastries, Pizza, Meals, Sauces. Operators set it for aisles they add. An aisle without one sorts after those with one.
-- **The same order everywhere.** The aisle bar, Browse every food, aisle pages, the footer and the food picker all use it.
+- **Order within navigation groups.** Categories and foods retain their country popularity order within the fixed presentation groups below. Home and footer shortcuts still use the first six categories overall; grouping does not change ranking order or contribution food matching.
 - **Browse every food.**
   - Each aisle is a card holding its three most popular foods with their #1 swap.
   - When an aisle has more, a last line reads "See all 9 cheese foods".
   - Each card is as tall as its content. Cards in a row align at the top, not by stretching the shorter ones.
 - **Seasonal foods.**
   - A food can carry season months, for example Eggnog in November–January and Turkey Roast in October–December.
-  - Its ranking page, cards and search results show "Seasonal · Nov–Jan". It stays listed and ranked all year.
+  - Its ranking page, cards and search results show only "Seasonal", without months or dates (owner revision, 2026-10-20). It stays listed and ranked all year.
   - Operators set the months in the taxonomy tools, and the seed sets the two above.
 - **Seasonal products.**
   - A product can carry a Seasonal tag, for example a pumpkin-spice creamer.
@@ -623,6 +625,26 @@ Existing foods keep their current names and other names unless a row says otherw
   - `categories.position`;
   - `categories.season_start` and `categories.season_end` (months 1–12; a season may wrap past December);
   - `products.seasonal`.
+
+### Six navigation groups (owner, 2026-10-20)
+
+These shared, English-labelled presentation groups add no taxonomy level, database changes or API fields. The fixed order and category-slug mapping are:
+
+| Group                  | Category slugs                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| Meat & seafood         | `beef`, `chicken`, `pork`, `turkey-aisle`, `lamb-aisle`, `fish-and-seafood`         |
+| Dairy & eggs           | `milk-aisle`, `cream-aisle`, `butter-aisle`, `yogurt-aisle`, `cheese`, `eggs-aisle` |
+| Bakery & baking        | `bakery`, `toaster-pastries-aisle`, legacy `bakery-and-desserts`                    |
+| Sweets & desserts      | `chocolate`, `candy`, `ice-cream-aisle`, `desserts`                                 |
+| Sauces, dips & spreads | `condiments`, `sauces`, `dips-and-spreads`                                          |
+| Meals & prepared foods | `meals`, `pizza-aisle`                                                              |
+
+- Unknown categories appear in a final **More foods** group. Public groups without available categories are hidden; contribution selectors retain empty categories.
+- Desktop shows groups down the left and compact category sections on the right. Each section links its three most popular food types and offers View all when more exist. Filtering matches category and food names in the selected group without the three-item limit. Opening, switching and filtering use embedded data only.
+- Phone chips link to group anchors in `/{country}/search`. The phone menu uses expandable groups containing the same category and food shortcuts, opening the current group by default. The full directory shows every category and food beneath group headings. Keyboard, touch, focus restoration and no-JavaScript directory access remain available.
+- Home and footer retain their six popular category shortcuts and Browse all categories.
+- Add a product gains no step. Existing foods determine their group; new-food suggestions use grouped headings in the existing Category selector, also shared by Suggest a food. Country preselection, category IDs, drafts, validation and moderation remain unchanged.
+- New-country activation, translations and contributor suggestions for entirely new categories remain separate work. Operators still create categories; a missing mapping never hides one.
 
 ### Confirmed defaults (2026-10-12)
 

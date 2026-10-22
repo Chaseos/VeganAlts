@@ -7,6 +7,8 @@ import { ProductImage } from "../components/catalog";
 import { PageShell } from "../components/layout/page-shell";
 import { EmptyState } from "../components/ui/feedback";
 import { ButtonLink } from "../components/ui/button";
+import { TASTE_MEANINGS } from "../components/rating-control";
+import { productName } from "../lib/format";
 import type { MyRating } from "@server/ratings/domain/contracts";
 import type { Route } from "./+types/my-ratings";
 
@@ -37,13 +39,16 @@ const SCORE_WORDS = [
 function ratingHref(rating: MyRating, anchor: boolean) {
   if (rating.archivedDuplicate)
     return `/${rating.country}/products/${rating.canonicalSlug}`;
-  const version = rating.isCurrent ? "" : `?version=${rating.productVersionId}`;
+  const params = new URLSearchParams();
+  if (!rating.isCurrent) params.set("version", rating.productVersionId);
+  if (rating.canRate) params.set("food", rating.categorySlug);
+  const query = params.size ? `?${params}` : "";
   const hash = !anchor
     ? ""
     : rating.canRate
       ? `#rate-${rating.categoryId}`
       : "#formula-history";
-  return `/${rating.country}/products/${rating.productSlug}${version}${hash}`;
+  return `/${rating.country}/products/${rating.productSlug}${query}${hash}`;
 }
 
 export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
@@ -65,22 +70,38 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
         <ul className="va-divided va-my-ratings">
           {data.items.map((rating) => (
             <li key={rating.id}>
-              <ProductImage id={rating.imageId} name={rating.productName} />
+              <ProductImage
+                id={rating.imageId}
+                name={productName(rating.productName, rating.brand)}
+              />
               <div className="va-my-ratings__body">
-                {rating.brand && (
-                  <span className="small muted">{rating.brand}</span>
-                )}
                 <h2 className="va-heading-s">
                   <Link to={ratingHref(rating, true)}>
-                    {rating.productName}
+                    {productName(rating.productName, rating.brand)}
                   </Link>
                 </h2>
                 <p className="small">
-                  As {rating.categoryName.toLowerCase()} · You said{" "}
-                  <strong>
-                    {rating.overallSimilarity},{" "}
-                    {SCORE_WORDS[rating.overallSimilarity]}
-                  </strong>
+                  As {rating.categoryName.toLowerCase()}
+                  {rating.overallSimilarity !== null && (
+                    <>
+                      {" "}
+                      · Closeness:{" "}
+                      <strong>
+                        {rating.overallSimilarity},{" "}
+                        {SCORE_WORDS[rating.overallSimilarity]}
+                      </strong>
+                    </>
+                  )}
+                  {rating.enjoyment !== null && (
+                    <>
+                      {" "}
+                      · Taste:{" "}
+                      <strong>
+                        {rating.enjoyment},{" "}
+                        {TASTE_MEANINGS[rating.enjoyment - 1]}
+                      </strong>
+                    </>
+                  )}
                 </p>
                 <p className="small muted">
                   {rating.versionLabel} ·{" "}

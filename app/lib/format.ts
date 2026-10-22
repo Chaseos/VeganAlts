@@ -1,6 +1,24 @@
 // Presentation formatting shared by every surface. Rendering never reads the
 // clock; anything time-relative is decided by the loader.
 
+/** Keep public titles identifiable without repeating a brand already in the name. */
+export function productName(name: string, brand: string | null) {
+  const title = name.trim();
+  const prefix = brand?.trim();
+  if (!prefix) return title;
+  const words = (value: string) =>
+    value
+      .normalize("NFKC")
+      .toLowerCase()
+      .match(/[\p{L}\p{N}]+/gu)
+      ?.join(" ") ?? "";
+  const named = words(title);
+  const branded = words(prefix);
+  return branded && (named === branded || named.startsWith(`${branded} `))
+    ? title
+    : `${prefix} ${title}`;
+}
+
 export function formatScore(value: number) {
   return value.toFixed(1);
 }

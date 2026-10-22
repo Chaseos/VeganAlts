@@ -7,22 +7,29 @@ import { catalogIsPublic } from "@server/shared/domain/launch";
 import { ComingSoon } from "../components/coming-soon";
 import { PageShell } from "../components/layout/page-shell";
 import { InstantSearch } from "../components/catalog/instant-search";
+import { ProductThumbnail } from "../components/catalog/product-thumbnail";
 import { FoodIcon } from "../components/icons/food-icons";
 import { Icon } from "../components/icons/icon";
 import { ScoreLabel, RankFlag } from "../components/ui/score";
 import {
   Badge,
   EarlyBadge,
-  SeasonBadge,
+  SeasonalBadge,
   TrendingBadge,
 } from "../components/ui/badges";
 import { BROWSE_AISLE_FOODS } from "@server/ranking/domain/display";
 import type { Season } from "@server/taxonomy/domain/season";
 import { ButtonLink } from "../components/ui/button";
 import { publicMetadata } from "../lib/metadata";
-import { formatCount, plural, shortDate } from "../lib/format";
+import { formatCount, plural, shortDate, productName } from "../lib/format";
+import { POPULAR_AISLE_COUNT } from "../lib/aisles";
 import type { SuggestedFood } from "../lib/instant-search";
-import { foodPath, homePath, productPath } from "../lib/site-chrome";
+import {
+  foodPath,
+  homePath,
+  productPath,
+  searchPath,
+} from "../lib/site-chrome";
 import { useFoodHref } from "../lib/ranking-filters";
 import { useRememberedCountry } from "../lib/country-memory";
 import type { Route } from "./+types/home";
@@ -151,10 +158,14 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                       className="va-row-link"
                       to={productPath(code, product.slug, product.foodSlug)}
                     >
-                      <Icon name="trend" size={20} className="va-good-icon" />
+                      <ProductThumbnail
+                        imageId={product.imageId}
+                        food={product.foodSlug}
+                        size="small"
+                      />
                       <span className="va-row-link__text">
                         <span className="va-row-link__title">
-                          {product.name}
+                          {productName(product.name, product.brand)}
                         </span>
                         <span className="va-small va-muted">
                           For {product.foodName.toLowerCase()} ·{" "}
@@ -192,12 +203,22 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
               <ul className="va-divided">
                 {home.newest.map((product) => (
                   <li key={product.id} className="va-new-row">
+                    <Link
+                      to={productPath(code, product.slug, product.foodSlug)}
+                      aria-label={`View ${productName(product.name, product.brand)}`}
+                    >
+                      <ProductThumbnail
+                        imageId={product.imageId}
+                        food={product.foodSlug}
+                        size="small"
+                      />
+                    </Link>
                     <span className="va-row-link__text">
                       <Link
                         className="va-row-link__title"
                         to={productPath(code, product.slug, product.foodSlug)}
                       >
-                        {product.name}
+                        {productName(product.name, product.brand)}
                       </Link>
                       <span className="va-chip-row va-small va-muted">
                         {product.ratingCount > 0 ? (
@@ -216,7 +237,10 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                       small
                       to={`${productPath(code, product.slug, product.foodSlug)}#scores-title`}
                     >
-                      Rate it<span className="sr-only">: {product.name}</span>
+                      Rate it
+                      <span className="sr-only">
+                        : {productName(product.name, product.brand)}
+                      </span>
                     </ButtonLink>
                   </li>
                 ))}
@@ -264,8 +288,8 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
 
 type Aisle = Home["aisles"][number];
 /**
- * Every aisle and its foods. An empty country lists the same shared aisles so
- * people there can add the first product for a food.
+ * The leading aisles in the country's popularity order, with the full
+ * directory one click away, including in countries awaiting products.
  */
 function BrowseAisles({
   country,
@@ -285,7 +309,7 @@ function BrowseAisles({
     >
       <div className="va-home__heading">
         <h2 id="browse-title" className="va-home__title">
-          Browse every food
+          Popular categories
         </h2>
         <p className="va-muted">
           {empty
@@ -293,9 +317,12 @@ function BrowseAisles({
             : "Each food shows its closest swap."}
         </p>
       </div>
-      {/* Phones: an accordion of aisles. Desktop: every aisle in columns. */}
+      <Link className="va-link va-browse__all" to={searchPath(country)}>
+        Browse all categories <Icon name="arrowRight" size={16} />
+      </Link>
+      {/* Phones: an accordion of aisles. Desktop: popular aisles in columns. */}
       <ul className="va-browse va-browse--phone">
-        {aisles.map((aisle) => (
+        {aisles.slice(0, POPULAR_AISLE_COUNT).map((aisle) => (
           <li key={aisle.slug} className="va-browse__aisle">
             <details className="va-browse__details">
               <summary className="va-browse__summary">
@@ -313,7 +340,7 @@ function BrowseAisles({
         ))}
       </ul>
       <ul className="va-browse va-browse--desktop">
-        {aisles.map((aisle) => (
+        {aisles.slice(0, POPULAR_AISLE_COUNT).map((aisle) => (
           <li key={aisle.slug} className="va-browse__aisle">
             <Link
               className="va-browse__summary"
@@ -426,12 +453,19 @@ function StartRow({ country, leader }: { country: string; leader: Leader }) {
   const href = useFoodHref(country, foodPath(country, leader.food.slug));
   return (
     <Link className="va-row-link va-row-link--tall" to={href}>
+      {leader.best && (
+        <ProductThumbnail
+          imageId={leader.best.imageId}
+          food={leader.food.slug}
+          size="small"
+        />
+      )}
       <span className="va-row-link__text">
         <span className="va-small va-muted">
           Instead of {leader.food.name.toLowerCase()}
         </span>
         <span className="va-row-link__title va-row-link__title--large">
-          {leader.best?.name}
+          {leader.best && productName(leader.best.name, leader.best.brand)}
         </span>
       </span>
       {leader.best && (
@@ -465,18 +499,25 @@ function FoodRow({
   const href = useFoodHref(country, foodPath(country, food.slug));
   return (
     <Link className="va-row-link" to={href}>
+      {best && (
+        <ProductThumbnail
+          imageId={best.imageId}
+          food={food.slug}
+          size="small"
+        />
+      )}
       <span className="va-row-link__text">
         <span className="va-row-link__title">
           {food.name}
           {food.season && (
             <>
               {" "}
-              <SeasonBadge season={food.season} />
+              <SeasonalBadge />
             </>
           )}
         </span>
-        <span className="va-small va-muted va-truncate">
-          {best ? `${prefix}${best.name}` : missing}
+        <span className="va-small va-muted">
+          {best ? `${prefix}${productName(best.name, best.brand)}` : missing}
         </span>
         {best?.trending && (
           <span className="va-chip-row">
@@ -526,7 +567,14 @@ function FoodPreview({
               >
                 {product.rank}
               </span>
-              <span className="va-truncate">{product.name}</span>
+              <ProductThumbnail
+                imageId={product.imageId}
+                food={food.slug}
+                size="small"
+              />
+              <span className="va-truncate">
+                {productName(product.name, product.brand)}
+              </span>
               {product.early && <Badge tone="early">Early</Badge>}
               <ScoreLabel
                 value={product.score}
