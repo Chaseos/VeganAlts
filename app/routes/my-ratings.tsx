@@ -39,13 +39,16 @@ const SCORE_WORDS = [
 function ratingHref(rating: MyRating, anchor: boolean) {
   if (rating.archivedDuplicate)
     return `/${rating.country}/products/${rating.canonicalSlug}`;
-  const version = rating.isCurrent ? "" : `?version=${rating.productVersionId}`;
+  const params = new URLSearchParams();
+  if (!rating.isCurrent) params.set("version", rating.productVersionId);
+  if (rating.canRate) params.set("food", rating.categorySlug);
+  const query = params.size ? `?${params}` : "";
   const hash = !anchor
     ? ""
     : rating.canRate
       ? `#rate-${rating.categoryId}`
       : "#formula-history";
-  return `/${rating.country}/products/${rating.productSlug}${version}${hash}`;
+  return `/${rating.country}/products/${rating.productSlug}${query}${hash}`;
 }
 
 export default function MyRatings({ loaderData: data }: Route.ComponentProps) {

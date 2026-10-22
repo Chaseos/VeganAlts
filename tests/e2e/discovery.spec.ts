@@ -121,7 +121,20 @@ test("alternate search URLs pass through the normalized public boundary", async 
     expect(response.headers()["cache-control"]).toBe("public, max-age=0");
     const invalid = await request.get(`${path}?q=beef&q=milk`);
     expect(invalid.status()).toBe(400);
-    expect((await invalid.json()).code).toBe("INVALID_QUERY");
+    if (path.endsWith(".data") || path.toLowerCase().startsWith("/api/")) {
+      expect(invalid.headers()["content-type"]).toContain(
+        "application/problem+json",
+      );
+      expect(await invalid.json()).toMatchObject({
+        code: "INVALID_QUERY",
+        status: 400,
+      });
+    } else {
+      expect(invalid.headers()["content-type"]).toContain("text/html");
+      const html = await invalid.text();
+      expect(html).toContain("<h1>This page couldn’t load</h1>");
+      expect(html).toContain("Use each query parameter only once.");
+    }
     expect(invalid.headers()["cache-control"]).toContain("no-store");
   }
   const path = "/US/search/?q=beef&utm_source=browser-check#products";
