@@ -3,7 +3,7 @@ import { accessible } from "./a11y";
 import { openAccountLink } from "./site";
 import { createBrowserSession } from "./session-fixture";
 
-test("anonymous selection resumes once after sign-in, then appears in My Ratings and can be edited", async ({
+test("anonymous selection resumes once after sign-in and My Ratings edits the same nondefault food", async ({
   page,
   context,
 }, testInfo) => {
@@ -13,7 +13,7 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
   );
   const session = await createBrowserSession();
   try {
-    await page.goto("/us/beef-burgers");
+    await page.goto("/us/ground-beef");
     await page
       .getByRole("main")
       .getByRole("link", { name: "Beyond Beef", exact: true })
@@ -53,8 +53,16 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
     await expect(
       page.getByRole("heading", { level: 1, name: "My ratings" }),
     ).toBeVisible();
-    await expect(page.getByText("As beef burgers ·")).toBeVisible();
+    await expect(page.getByText("As ground beef ·")).toBeVisible();
     await page.getByRole("link", { name: "Edit rating", exact: true }).click();
+    await expect(page).toHaveURL(
+      /\/products\/beyond-beef\?food=ground-beef#rate-/,
+    );
+    await expect(
+      page
+        .getByRole("button", { name: "4 Very close (4 of 5)", exact: true })
+        .first(),
+    ).toHaveAttribute("aria-pressed", "true");
     await page
       .getByRole("button", { name: "5 Extremely close (5 of 5)", exact: true })
       .first()
@@ -67,6 +75,10 @@ test("anonymous selection resumes once after sign-in, then appears in My Ratings
       fullPage: true,
     });
     expect(saves).toEqual([4, 5]);
+    const response = await page.request.get("/api/v1/me/ratings");
+    expect((await response.json()).data).toMatchObject([
+      { categorySlug: "ground-beef", overallSimilarity: 5 },
+    ]);
   } finally {
     await page.close();
     await session.dispose();

@@ -14,13 +14,14 @@ test("submission, private receipt, operator publication, reporting, formula hist
   test.setTimeout(120000);
   const contributor = await createBrowserSession(),
     operator = await createBrowserSession({ administrator: true }),
-    name = `Community ${testInfo.project.name} ${Date.now()}`;
+    name = `Community ${testInfo.project.name} ${Date.now()}`,
+    brand = `Garden ${Date.now()}`;
   try {
     await context.addCookies([contributor.cookie]);
     await page.goto("/add-product");
     await fillBasics(page, {
       food: "Beef Burgers",
-      brand: `Garden ${Date.now()}`,
+      brand,
       name,
     });
     await accessible(page);
@@ -300,7 +301,7 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await expect(
       page
         .getByRole("group", { name: "Package photos" })
-        .getByRole("img", { name: `${name}: Front`, exact: true }),
+        .getByRole("img", { name: `${brand} ${name}: Front`, exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Updated test formula", exact: true }),

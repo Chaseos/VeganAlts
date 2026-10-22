@@ -24,21 +24,45 @@ interface OpenProposal {
  */
 export function ProposalResponses({ productId }: { productId: string }) {
   const { user, siteKey } = usePersonalState();
+  return user ? (
+    <ProposalResponsesPanel
+      key={`${productId}:${user.handle}`}
+      productId={productId}
+      siteKey={siteKey ?? ""}
+    />
+  ) : null;
+}
+
+function ProposalResponsesPanel({
+  productId,
+  siteKey,
+}: {
+  productId: string;
+  siteKey: string;
+}) {
   const action = useCommunityAction();
   const [proposals, setProposals] = useState<OpenProposal[] | null>(null),
     [adding, setAdding] = useState<string | null>(null),
-    [status, setStatus] = useState("");
-  const load = () =>
-    communityRequest<OpenProposal[]>(
-      `community/products/${productId}/proposals`,
-    )
-      .then(setProposals)
-      .catch(() => setProposals([]));
+    [status, setStatus] = useState(""),
+    [revision, setRevision] = useState(0);
   useEffect(() => {
-    if (user) void load();
-    else setProposals(null);
-  }, [user?.handle, productId]);
-  if (!user || !proposals?.length) return null;
+    const controller = new AbortController();
+    void communityRequest<OpenProposal[]>(
+      `community/products/${productId}/proposals`,
+      undefined,
+      undefined,
+      undefined,
+      { signal: controller.signal },
+    )
+      .then((items) => {
+        if (!controller.signal.aborted) setProposals(items);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setProposals([]);
+      });
+    return () => controller.abort();
+  }, [productId, revision]);
+  if (!proposals?.length) return null;
   async function respond(
     proposal: OpenProposal,
     stance: "confirm" | "disagree" | "evidence",
@@ -64,7 +88,7 @@ export function ProposalResponses({ productId }: { productId: string }) {
           ? "Thanks. A moderator will review the disagreement."
           : "Thanks. Your evidence is attached.",
     );
-    await load();
+    setRevision((value) => value + 1);
   }
   return (
     <section className="community-panel" aria-labelledby="suggested-changes">
@@ -197,7 +221,7 @@ export function ProposalResponses({ productId }: { productId: string }) {
             </li>
           ))}
         </ul>
-        <CommunityFeedback action={action} siteKey={siteKey ?? ""} />
+        <CommunityFeedback action={action} siteKey={siteKey} />
       </CommunityControls>
     </section>
   );

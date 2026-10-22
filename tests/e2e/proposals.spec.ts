@@ -1,6 +1,137 @@
-import { expect, test } from "./fixtures";
+import { expect, test, type Route } from "./fixtures";
 import { accessible } from "./a11y";
 import { createBrowserSession } from "./session-fixture";
+
+for (const delayed of ["next", "previous"] as const) {
+  test(`suggested changes stay with their product when the ${delayed} product's response is delayed`, async ({
+    page,
+  }) => {
+    test.skip(Boolean(process.env.TEST_BASE_URL), "Local request simulation.");
+    await page.route("**/api/v1/me/rating-state?**", (route) =>
+      route.fulfill({
+        json: {
+          data: {
+            user: {
+              handle: "proposal_navigation",
+              displayName: null,
+              administrator: false,
+            },
+            ratings: [],
+            triedVersionIds: [],
+            turnstileSiteKey: null,
+          },
+        },
+      }),
+    );
+    let originalProductId = "",
+      nextProductId = "",
+      releaseResponses = false,
+      receiveRequest!: (route: Route) => void;
+    const pending = new Promise<Route>((resolve) => {
+      receiveRequest = resolve;
+    });
+    const writes: string[] = [];
+    const heldRoutes: Route[] = [];
+    const proposal = (productId: string) => ({
+      id: `navigation-${productId}`,
+      summary:
+        productId === originalProductId ? "Original change" : "Full Fat change",
+      tier: 2,
+      note: "Check the package name.",
+      own: false,
+      stance: writes.includes(`navigation-${productId}`) ? "confirm" : null,
+      confirms: 0,
+      disagrees: 0,
+      evidence: 0,
+      evidenceUrls: [],
+      evidenceReceiptId: null,
+      imageIds: [],
+    });
+    await page.route(
+      "**/api/v1/community/products/*/proposals",
+      async (route) => {
+        const productId = new URL(route.request().url()).pathname
+          .split("/")
+          .at(-2)!;
+        originalProductId ||= productId;
+        if (productId !== originalProductId) nextProductId = productId;
+        if (
+          !releaseResponses &&
+          (delayed === "previous") === (productId === originalProductId)
+        ) {
+          heldRoutes.push(route);
+          receiveRequest(route);
+          return;
+        }
+        await route.fulfill({ json: { data: [proposal(productId)] } });
+      },
+    );
+    await page.route("**/api/v1/proposals/*/responses", async (route) => {
+      writes.push(new URL(route.request().url()).pathname.split("/").at(-2)!);
+      await route.fulfill({ json: { data: { saved: true } } });
+    });
+    await page.goto("/us/products/oatly-original");
+    const panel = page.getByRole("region", { name: "Suggested changes" });
+    if (delayed === "next") {
+      await expect(
+        panel.getByText("Original change", { exact: true }),
+      ).toBeVisible();
+      await panel
+        .getByRole("button", { name: "Disagree", exact: true })
+        .click();
+      await panel
+        .getByLabel("What is wrong with this change?")
+        .fill("Original product note");
+    } else {
+      await pending;
+    }
+    await page
+      .locator(".va-product__flavor-link")
+      .filter({ hasText: "Full Fat" })
+      .click();
+    await expect(page).toHaveURL(/\/products\/oatly-full-fat/);
+    const held = await pending;
+    if (delayed === "next") {
+      await expect(panel).toHaveCount(0);
+      expect(writes).toEqual([]);
+    } else {
+      await expect(
+        panel.getByText("Full Fat change", { exact: true }),
+      ).toBeVisible();
+    }
+    releaseResponses = true;
+    await Promise.all(
+      heldRoutes.map((route) =>
+        route.fulfill({
+          json: {
+            data: [
+              proposal(delayed === "next" ? nextProductId : originalProductId),
+            ],
+          },
+        }),
+      ),
+    );
+    if (delayed === "previous") {
+      await expect.poll(() => held.request().failure()).not.toBeNull();
+    }
+    await expect(
+      panel.getByText("Full Fat change", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      panel.getByText("Original change", { exact: true }),
+    ).toHaveCount(0);
+    await expect(panel.getByRole("textbox")).toHaveCount(0);
+    await expect(panel.getByRole("status")).toBeEmpty();
+    await panel.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(panel.getByRole("status")).toContainText(
+      "confirmation is recorded",
+    );
+    expect(writes).toEqual([`navigation-${nextProductId}`]);
+    await expect(
+      panel.getByRole("button", { name: "Confirm", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+}
 
 test("a fact proposal is confirmed once by an independent contributor and appears in the operator queue", async ({
   page,
