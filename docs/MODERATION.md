@@ -587,3 +587,13 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) groups products into recipe
 | Move an existing product to another or a new line, rename a line | 3             |
 | Flavor label on an existing product (with rename)                | 2             |
 | Eligibility exclusion of a flavor                                | 3 (unchanged) |
+
+## Owner imports
+
+The owner's reviewed store-photo batches reach the catalog through the [store photo importer](IMPORTER_PLAN.md) (owner, 2026-10-16).
+
+- **No review queue.** Imported products are the owner's own contributions, attributed to the owner's account, and publish without the review queue, the near-duplicate hold or the automated photo check. The owner reviewed every product and photo on the photo-batch review sheet first.
+- **Deterministic checks still run.** Each product passes the submission contract, the same identity-key uniqueness that refuses exact duplicates, and the same classification rule as a submission.
+- **Classification.** It is the milestone 6 provisional classification for a contributor who attaches an ingredients photo without ticking "nothing animal-derived": nobody read the ingredient lists. Risk levels and ingredient checks from the photo review stay internal and never decide a status.
+- **Audit.** Each product records a `product_import` moderation action by the owner, with its audit entry and a `product_published` audit entry like a submission's. Each run records its start and end. Stores the import needs are proposed and accepted through the retailer proposal path.
+- **Reversal.** Reversing a product's `product_import` action from its moderation view hides the product, its photos and its place in rankings and search. Its rows stay.

@@ -41,7 +41,7 @@ export const NAVIGATION_GROUPS = [
   {
     id: "bakery-baking",
     name: "Bakery & baking",
-    iconSlug: "brioche-and-rolls",
+    iconSlug: "bakery",
     categorySlugs: ["bakery", "toaster-pastries-aisle", "bakery-and-desserts"],
   },
   {

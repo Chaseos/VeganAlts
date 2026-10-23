@@ -1,9 +1,4 @@
 import { ApplicationError } from "../../shared/domain/errors";
-import {
-  categorySearchStatements,
-  productSearchStatements,
-} from "../../catalog/infrastructure/search-index";
-import { retailerConfirmationStatements } from "./contribution-repository";
 import type { AllergenDeclaration } from "../domain/allergens";
 import type {
   Actor,
@@ -11,15 +6,10 @@ import type {
   SubmissionReceipt,
   VeganStatus,
 } from "../domain/contracts";
-import {
-  DAY,
-  LEASE,
-  normalizeName,
-  slug,
-  type CommunityLimits,
-} from "../domain/policy";
+import { DAY, LEASE, type CommunityLimits } from "../domain/policy";
 import type { SubmissionContext } from "./lookup-repository";
 import type { StagedAttachment } from "./staged-media-repository";
+import { catalogEntryStatements } from "./catalog-entry";
 import { receiptStatement, type ReceiptWrite } from "./receipts";
 import type { LineRefresh } from "../../ranking/infrastructure/line-refresh";
 
@@ -562,145 +552,24 @@ export class SubmissionRepository {
     ];
     const productId = receipt.planned_product_id,
       versionId = receipt.planned_version_id;
-    const productSlug = `${slug(`${context.brandName} ${input.name}`)}-${productId.slice(-8)}`;
-    // A product outside a chosen line starts its own, named by the
-    // contributor ("Name without the flavor") or after the product.
-    const familyId = input.lineId ?? `line-${productId}`;
-    const status = classification.veganStatus;
-    const statements: D1PreparedStatement[] = [];
-    if (!context.brandId)
-      statements.push(
-        this.db
-          .prepare(
-            `INSERT INTO brands(id,name,normalized_name,slug,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${guard} ON CONFLICT(normalized_name) DO NOTHING`,
-          )
-          .bind(
-            newBrandId,
-            context.brandName,
-            normalizeName(context.brandName),
-            `${slug(context.brandName)}-${newBrandId.slice(-8)}`,
-            now,
-            now,
-            ...fence,
-          ),
-      );
-    if (!input.lineId)
-      statements.push(
-        this.db
-          .prepare(
-            `INSERT INTO product_families(id,brand_id,country_id,canonical_name,slug,created_at,updated_at)
-          SELECT ?,COALESCE(?,(SELECT id FROM brands WHERE normalized_name=?)),?,?,(SELECT lower(iso2) FROM countries WHERE id=?)||'-'||?,?,? WHERE ${guard}`,
-          )
-          .bind(
-            familyId,
-            context.brandId,
-            normalizeName(context.brandName),
-            context.countryId,
-            input.lineName ?? input.name,
-            context.countryId,
-            productSlug,
-            now,
-            now,
-            ...fence,
-          ),
-      );
-    statements.push(
-      this.db
-        .prepare(
-          `INSERT INTO products(id,country_id,brand_id,product_family_id,name,flavor,seasonal,slug,vegan_status,manufacturer_label,manufacturer_url,created_by,published_at,created_at,updated_at)
-        SELECT ?,?,COALESCE(?,(SELECT id FROM brands WHERE normalized_name=?)),?,?,?,COALESCE(?,(SELECT season_start IS NOT NULL FROM categories WHERE id=?),0),?,?,?,?,?,?,?,? WHERE ${guard}`,
-        )
-        .bind(
-          productId,
-          context.countryId,
-          // A brand matched by name or alias keeps its identity; only a new
-          // brand is resolved by the normalized key inserted above.
-          context.brandId,
-          normalizeName(context.brandName),
-          familyId,
-          input.name,
-          input.flavor ?? null,
-          // Unsaid, a product follows its food's season.
-          input.seasonal === undefined ? null : Number(input.seasonal),
-          input.categoryIds[0] ?? null,
-          productSlug,
-          status,
-          input.manufacturerLabel ?? "unknown",
-          input.ingredientUrl ?? null,
-          receipt.user_id,
-          now,
-          now,
-          now,
-          ...fence,
-        ),
-      this.db
-        .prepare(
-          `INSERT INTO product_identity_keys(identity_key,product_id) SELECT ?,? WHERE ${guard}`,
-        )
-        .bind(context.identity, productId, ...fence),
-      this.db
-        .prepare(
-          `INSERT INTO product_versions(id,product_id,version_label,is_current,change_summary,created_by,created_at,updated_at) SELECT ?,?,'Original formula',1,?,?,?,? WHERE ${guard}`,
-        )
-        .bind(
-          versionId,
-          productId,
-          "Community submission. Ingredient evidence has not yet been independently verified.",
-          receipt.user_id,
-          now,
-          now,
-          ...fence,
-        ),
-      ...input.categoryIds.map((categoryId) =>
-        this.db
-          .prepare(
-            `INSERT INTO product_categories(product_id,category_id,ranking_eligible,created_by,created_at,updated_at) SELECT ?,?,?,?,?,? WHERE ${guard}`,
-          )
-          .bind(
-            productId,
-            categoryId,
-            // Every flavor counts (milestone 7); operators can exclude one.
-            1,
-            receipt.user_id,
-            now,
-            now,
-            ...fence,
-          ),
-      ),
-      this.db
-        .prepare(
-          `INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,reviewed_by,ingredients_checked,updated_at) SELECT ?,?,?,?,?,?,? WHERE ${guard}`,
-        )
-        .bind(
-          versionId,
-          status,
-          input.manufacturerLabel ?? "unknown",
-          JSON.stringify({
-            urls: input.ingredientUrl ? [input.ingredientUrl] : [],
-            imageIds: images
-              .filter((i) => i.slot === "ingredients")
-              .map((i) => i.imageId),
-            // Evidence notes are at least 8 characters; the contributor's
-            // note is optional.
-            note:
-              input.statusBasis && input.statusBasis.length >= 8
-                ? input.statusBasis
-                : "Added with the product; the contributor left no ingredient note.",
-          }),
-          classification.reviewedBy,
-          classification.ingredientsChecked ? 1 : 0,
-          now,
-          ...fence,
-        ),
-      ...imageInsertStatements(
-        this.db,
+    const { statements, slug: productSlug } = catalogEntryStatements(
+      this.db,
+      this.lines,
+      {
+        productId,
         versionId,
-        receipt.user_id,
+        userId: receipt.user_id,
+        input,
+        context,
+        classification,
         images,
-        now,
-        guard,
-        fence,
-      ),
+        newBrandId,
+        changeSummary:
+          "Community submission. Ingredient evidence has not yet been independently verified.",
+      },
+      guard,
+      fence,
+      now,
     );
     if (operation)
       statements.push(
@@ -722,22 +591,6 @@ export class SubmissionRepository {
             now,
             ...fence,
           ),
-      );
-    // Stores chosen with the product: its contributor's "commonly found at".
-    for (const retailerId of input.retailerIds ?? [])
-      statements.push(
-        ...retailerConfirmationStatements(
-          this.db,
-          {
-            userId: receipt.user_id,
-            productId,
-            retailerId,
-            stance: "confirm",
-            now,
-          },
-          guard,
-          fence,
-        ),
       );
     // The contributor's rating and allergen declaration go through their own
     // write paths right after publication; this marker keeps them until done.
@@ -766,11 +619,6 @@ export class SubmissionRepository {
           ),
       );
     statements.push(
-      ...productSearchStatements(this.db, productId, guard, fence),
-      // A food this product switched on in its country becomes searchable.
-      ...categorySearchStatements(this.db, productId, guard, fence),
-      // The line the product starts or joins.
-      ...this.lines.statements({ productIds: [productId] }, now),
       this.db
         .prepare(
           `INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,after_data,created_at) SELECT ?,?,'product_published','product',?,?,? WHERE ${guard}`,
@@ -818,59 +666,4 @@ export class SubmissionRepository {
       decision: "READY",
     };
   }
-}
-
-export function imageInsertStatements(
-  db: D1Database,
-  versionId: string,
-  userId: string,
-  images: StagedAttachment[],
-  now: number,
-  guard: string,
-  fence: (string | number)[],
-  replace = false,
-) {
-  return images.flatMap((image) => {
-    const full = image.derivatives.find((d) => d.kind === "full"),
-      thumbnail = image.derivatives.find((d) => d.kind === "thumbnail"),
-      evidence = image.derivatives.find((d) => d.kind === "evidence");
-    if (!full || !thumbnail) throw new Error("Missing derivative.");
-    return [
-      ...(replace
-        ? [
-            db
-              .prepare(
-                `UPDATE product_images SET state='archived',updated_at=? WHERE product_version_id=? AND slot=? AND state='accepted' AND ${guard}`,
-              )
-              .bind(now, versionId, image.slot, ...fence),
-          ]
-        : []),
-      db
-        .prepare(
-          `INSERT INTO product_images(id,product_version_id,slot,state,full_r2_key,thumbnail_r2_key,evidence_r2_key,full_width,full_height,evidence_width,evidence_height,submitted_by,created_at,updated_at)
-        SELECT ?,?,?,'accepted',?,?,?,?,?,?,?,?,?,? WHERE ${guard}`,
-        )
-        .bind(
-          image.imageId,
-          versionId,
-          image.slot,
-          full.key,
-          thumbnail.key,
-          evidence?.key ?? null,
-          full.width,
-          full.height,
-          evidence?.width ?? null,
-          evidence?.height ?? null,
-          userId,
-          now,
-          now,
-          ...fence,
-        ),
-      db
-        .prepare(
-          `UPDATE staged_blobs SET derivatives=?,state='complete',updated_at=? WHERE id=? AND ${guard}`,
-        )
-        .bind(JSON.stringify(image.derivatives), now, image.blobId, ...fence),
-    ];
-  });
 }

@@ -23,15 +23,9 @@ describe("shared food navigation groups", () => {
   it("places every seed and live category exactly once, with a visible fallback", () => {
     const categories = [
       ...TAXONOMY_GROUPS.filter((item) => item.parent === "food"),
-      ...[
-        "bakery",
-        "desserts",
-        "sauces",
-        "meals",
-        "pizza-aisle",
-        "toaster-pastries-aisle",
-        "future-category",
-      ].map((slug) => ({ slug })),
+      // The seed has every current category; live environments may still
+      // hold the earlier Bakery and desserts aisle, and add new ones.
+      ...["bakery-and-desserts", "future-category"].map((slug) => ({ slug })),
     ];
     const groups = groupCategories(categories);
     expect(groups.map((group) => group.id)).toEqual([
