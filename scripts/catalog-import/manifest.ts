@@ -5,7 +5,7 @@ import sharp from "sharp";
 import { openBatch, runFile } from "../photo-review/batch";
 import { brandsMayMatch, tokenOverlap } from "../photo-review/identity";
 import { movedPhotos } from "../photo-review/move-log";
-import { loadRun, type ProductView } from "../photo-review/view";
+import { loadRun, reviewLineIds, type ProductView } from "../photo-review/view";
 import {
   IMPORT_SLOTS,
   importFacts,
@@ -159,7 +159,7 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
     internal: ImportProduct["internal"];
     lineName: string;
     lineKey: string;
-    exactLine: string;
+    reviewedLine: string;
   }[] = [];
   const batches: ImportManifest["batches"] = [];
   const folders = new Set<string>();
@@ -179,6 +179,7 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
       );
     const moved = await movedPhotos(batch);
     const inScope = run.views.filter((view) => !view.skip && !view.outOfScope);
+    const lineIds = reviewLineIds(inScope);
     batches.push({ folder, products: inScope.length });
 
     // The review sheet the owner approved must still describe these products.
@@ -270,7 +271,7 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
         // Lines of different batches join on brand, line name and food.
         lineKey: `${normalizeName(view.brand)}|${normalizeName(lineName)}|${view.food}`,
         // The line as the review sheet groups it within its batch.
-        exactLine: `${index}\u0000${view.brand}\u0000${lineName}\u0000${view.food}`,
+        reviewedLine: lineIds.get(view.id)!,
         facts: {
           sourceKey,
           country: view.record.country,
@@ -306,22 +307,34 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
 
   // Lines: the first product is the original, else the earliest in batch and
   // id order. Each line has one original and each flavor once.
-  const lines = new Map<string, typeof drafts>();
+  const byName = new Map<string, typeof drafts>();
   for (const draft of drafts)
-    lines.set(draft.lineKey, [...(lines.get(draft.lineKey) ?? []), draft]);
+    byName.set(draft.lineKey, [...(byName.get(draft.lineKey) ?? []), draft]);
+  const lines = new Map<string, typeof drafts>();
+  for (const [key, members] of byName) {
+    const reviewed = new Map<number, Set<string>>();
+    for (const member of members)
+      reviewed.set(
+        member.batch,
+        (reviewed.get(member.batch) ?? new Set()).add(member.reviewedLine),
+      );
+    if ([...reviewed.values()].some((ids) => ids.size > 1)) {
+      warnings.push(
+        `Line ${key}: one batch has distinct reviewed lines with the same normalized brand, line name and food; they stay separate, including across batches.`,
+      );
+      // A name alone cannot decide which reviewed line a later batch joins.
+      for (const member of members) {
+        member.lineKey = `${key}|${batches[member.batch]!.folder}/${member.reviewedLine}`;
+        lines.set(member.lineKey, [
+          ...(lines.get(member.lineKey) ?? []),
+          member,
+        ]);
+      }
+    } else lines.set(key, members);
+  }
   const products: ImportProduct[] = [];
   const firstOf = new Map<string, (typeof drafts)[number]>();
   for (const [key, members] of lines) {
-    const exact = new Map<number, Set<string>>();
-    for (const member of members)
-      exact.set(
-        member.batch,
-        (exact.get(member.batch) ?? new Set()).add(member.exactLine),
-      );
-    if ([...exact.values()].some((names) => names.size > 1))
-      warnings.push(
-        `Line ${key}: one batch spells its brand or line name two ways; they join as one line.`,
-      );
     const flavors = members.map((member) =>
       (member.facts.flavor ?? "").toLowerCase(),
     );

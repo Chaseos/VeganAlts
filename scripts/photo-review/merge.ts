@@ -150,7 +150,7 @@ export async function merge(batch: Batch, options: { force: boolean }) {
     }
     target.photos.other.push(...group.photos.other);
     // A claim seen only on the continued label shots still counts.
-    if (group.label && LABEL_RANK[group.label] > LABEL_RANK[target.label]) {
+    if (group.label && LABEL_RANK[group.label] < LABEL_RANK[target.label]) {
       target.label = group.label;
       target.labelEvidence = group.labelEvidence;
     }

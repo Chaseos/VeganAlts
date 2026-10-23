@@ -1,10 +1,9 @@
-import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { type Batch, result, runFile } from "./batch";
 import { folderName, movedPhotos } from "./move-log";
 import { AISLES, SLOTS } from "./schema";
-import { foodName, loadRun, type ProductView } from "./view";
+import { foodName, loadRun, reviewLineIds, type ProductView } from "./view";
 
 // `render`: the review sheet the owner checks (review.html), grouped by
 // recipe line, plus import-shaped spreadsheet copies (products.csv for the
@@ -45,6 +44,8 @@ export async function render(batch: Batch) {
   const active = views.filter((view) => !view.skip);
   const inScope = active.filter((view) => !view.outOfScope);
   const outOfScope = active.filter((view) => view.outOfScope);
+  const lineIds = reviewLineIds(active);
+  const lineIdOf = (view: ProductView) => lineIds.get(view.id)!;
   // Links go only to products the page shows as cards.
   const productOf = new Map<string, ProductView>();
   for (const view of inScope)
@@ -54,27 +55,6 @@ export async function render(batch: Batch) {
       ...Object.values(view.record.alternates).flat(),
     ])
       productOf.set(photo, view);
-  // A product a correction moved to another line no longer shares that
-  // line's id; it gets one for the line it is in now.
-  const placement = (view: ProductView) =>
-    view.food ?? view.newFood?.name ?? view.outOfScope ?? "";
-  const lineIdOf = (view: ProductView) => {
-    const line = view.line;
-    if (
-      line &&
-      line.brand === view.brand &&
-      line.lineName === view.lineName &&
-      (line.food ?? line.newFood?.name ?? line.outOfScope?.suggestedFood) ===
-        placement(view)
-    )
-      return line.id;
-    return `line-${createHash("sha1")
-      .update(
-        `${view.brand}\u0000${view.lineName ?? view.name}\u0000${placement(view)}`,
-      )
-      .digest("hex")
-      .slice(0, 8)}`;
-  };
   // Where an out-of-scope product's photos are now, or will go.
   const outFolder = (view: ProductView) =>
     moved.get(view.photos.front ?? Object.values(view.photos)[0] ?? "") ??
@@ -83,7 +63,7 @@ export async function render(batch: Batch) {
   // Lines as they stand after corrections: one original, distinct flavors.
   const lineKey = (view: ProductView) =>
     view.food || view.newFood
-      ? `${view.brand}\u0000${view.lineName ?? view.name}\u0000${view.food ?? `new:${view.newFood!.name}`}`
+      ? `${view.brand}\u0000${view.lineName ?? view.name}\u0000${view.food ?? `new:${view.newFood!.name}`}\u0000${lineIdOf(view)}`
       : "\u0001unplaced";
   const newFoodAisle = (food: NonNullable<ProductView["newFood"]>) =>
     food.aisle

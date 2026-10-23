@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { basename } from "node:path";
 import {
   type Batch,
@@ -64,6 +65,41 @@ export interface ProductView {
   stores: string[];
   catalog: string;
   flags: string[];
+}
+
+/** Reviewed line IDs, with owner corrections resolved against this batch. */
+export function reviewLineIds(views: readonly ProductView[]) {
+  const drafts = views.map((view) => {
+    const placement = view.food ?? view.newFood?.name ?? view.outOfScope ?? "";
+    const line = view.line;
+    return {
+      id: view.id,
+      key: `${view.brand}\u0000${view.lineName ?? view.name}\u0000${placement}`,
+      original:
+        line &&
+        line.brand === view.brand &&
+        line.lineName === view.lineName &&
+        (line.food ?? line.newFood?.name ?? line.outOfScope?.suggestedFood) ===
+          placement
+          ? line.id
+          : undefined,
+    };
+  });
+  const originals = new Map<string, Set<string>>();
+  for (const { key, original } of drafts)
+    if (original)
+      originals.set(key, (originals.get(key) ?? new Set()).add(original));
+  return new Map(
+    drafts.map(({ id, key, original }) => {
+      const matching = originals.get(key);
+      // A corrected product joins an existing line only when its name is unambiguous.
+      const lineId =
+        original ??
+        (matching?.size === 1 ? [...matching][0] : undefined) ??
+        `line-${createHash("sha1").update(key).digest("hex").slice(0, 8)}`;
+      return [id, lineId];
+    }),
+  );
 }
 
 type MatchEntry = {
@@ -259,7 +295,7 @@ export async function loadRun(batch: Batch) {
       target.sizes = [...new Set([...target.sizes, ...view.sizes])];
     if (
       !target.correction?.label &&
-      LABEL_RANK[view.label] > LABEL_RANK[target.label]
+      LABEL_RANK[view.label] < LABEL_RANK[target.label]
     ) {
       target.label = view.label;
       target.labelEvidence = view.labelEvidence;

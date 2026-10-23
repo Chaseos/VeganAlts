@@ -80,6 +80,7 @@ Owner decision 1 already removes the review, so the importer writes the publicat
 - **Lines across batches.**
   - Within a batch, the line id decides the line.
   - Across batches, lines join when brand, line name and food all match after `normalizeName`.
+  - If a batch has distinct reviewed line ids with that same normalized identity, those lines stay separate. Name matching is ambiguous, so matching lines in other batches stay separate too, with a warning for the owner.
   - Three lines join this way: Oatly Oatmilk, Elmhurst Milked Cashews and SmartSweets Gummy Candy.
 - **Brands across batches** join by `normalizeName`, the key of the `ux_brands_normalized` index.
 - **Each product has a source key,** `<batch folder name>/<product id>`, for example `VeganAlts Product Photos - Web/PXL_20261011_181202708.MP`. Every id the importer writes derives from it.

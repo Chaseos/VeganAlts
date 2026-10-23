@@ -1,5 +1,7 @@
 import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
+import { IMPORT_STORES } from "../../scripts/catalog-import/retailers";
+import { verifyImport } from "../../scripts/catalog-import/verify";
 import { catalogFixture, testMarket } from "./fixtures";
 import { catalogService } from "../../server/catalog/infrastructure/composition";
 import {
@@ -12,6 +14,7 @@ import {
   importImageId,
   importLineId,
   type ImportFacts,
+  type ImportManifest,
   type ImportPhoto,
 } from "../../server/community/domain/catalog-import";
 import { submissionInput } from "../../server/community/domain/contracts";
@@ -23,6 +26,9 @@ import { ModerationRepository } from "../../server/community/infrastructure/mode
 import { readMedia } from "../../server/media/infrastructure/media-reader";
 import { R2MediaStorage } from "../../server/media/infrastructure/r2-storage";
 import { lineRefresh } from "../../server/ranking/infrastructure/line-refresh";
+import { INITIAL_RANKING_PARAMETERS } from "../../server/ranking/domain/policy";
+import { RatingsService } from "../../server/ratings/application/service";
+import { D1RatingsRepository } from "../../server/ratings/infrastructure/d1-repository";
 
 // The store-photo import (docs/IMPORTER_PLAN.md): one product, one
 // transaction with the rows a published submission has, audited as a
@@ -167,6 +173,72 @@ async function shape(productId: string) {
     ),
   };
 }
+
+it("keeps the verification digest stable when detail ratings are rebuilt at a later clock", async () => {
+  const s = await setup();
+  await s.service.ensureStores(s.admin, IMPORT_STORES, "US");
+  const facts = s.facts("A1");
+  expect(
+    await s.service.importProduct(s.admin, s.run, facts, s.target, s.read),
+  ).toMatchObject({ status: "written" });
+  const { version } = importIds(facts.sourceKey);
+  const category = s.f.categories[0]!;
+  const dimension = id();
+  await env.DB.prepare(
+    "INSERT INTO category_rating_dimensions(id,category_id,key,label,sort_order,is_active,created_at,updated_at) VALUES(?,?,'taste','Taste',0,1,1,1)",
+  )
+    .bind(dimension, category)
+    .run();
+  const now = Date.now();
+  const ratings = new RatingsService(
+    new D1RatingsRepository(env.DB),
+    INITIAL_RANKING_PARAMETERS,
+    id,
+    () => now,
+  );
+  await ratings.rate(s.admin, version, category, 4, {
+    dimensions: { taste: 5 },
+  });
+  const manifest: ImportManifest = {
+    version: 1,
+    hash: s.run.manifestHash,
+    batches: [{ folder: `Photos ${s.tag} - Web`, products: 1 }],
+    products: [
+      { facts, internal: { sizes: [], confidence: "high", notes: [] } },
+    ],
+  };
+  const before = await verifyImport(env, manifest, { sample: 1 });
+  expect(before.problems).toEqual([]);
+  const detail = () =>
+    env.DB.prepare(
+      "SELECT people_count,mean_sum,recomputed_at FROM family_category_dimension_stats WHERE product_family_id=? AND category_id=? AND dimension_id=?",
+    )
+      .bind(importLineId(facts.sourceKey), category, dimension)
+      .first();
+  expect(await detail()).toEqual({
+    people_count: 1,
+    mean_sum: 5,
+    recomputed_at: now,
+  });
+
+  await lineRefresh(env).refreshAll(now + 1000);
+  expect(await detail()).toEqual({
+    people_count: 1,
+    mean_sum: 5,
+    recomputed_at: now + 1000,
+  });
+  const rebuilt = await verifyImport(env, manifest, { sample: 1 });
+  expect(rebuilt.problems).toEqual([]);
+  expect(rebuilt.digest).toBe(before.digest);
+
+  // A real change to a detail answer must still change the digest.
+  await ratings.rate(s.admin, version, category, 4, {
+    dimensions: { taste: 3 },
+  });
+  expect((await verifyImport(env, manifest, { sample: 0 })).digest).not.toBe(
+    before.digest,
+  );
+});
 
 it("imports a recipe line and a lone product with the rows a published submission writes", async () => {
   const s = await setup();

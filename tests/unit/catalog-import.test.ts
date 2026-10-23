@@ -1,11 +1,14 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildManifest } from "../../scripts/catalog-import/manifest";
 import { openBatch } from "../../scripts/photo-review/batch";
+import { merge } from "../../scripts/photo-review/merge";
 import { render } from "../../scripts/photo-review/render";
+import { loadRun } from "../../scripts/photo-review/view";
+import { mergePlan } from "../../scripts/photo-review/schema";
 import {
   importClassification,
   importEvidenceNote,
@@ -26,10 +29,12 @@ interface Product {
   id: string;
   brand: string;
   lineName: string;
+  lineId?: string;
   flavor?: string;
   name: string;
   food: string;
   label: "vegan" | "plant_based" | "appears_plant_based";
+  labelEvidence?: string;
   visits?: number[];
   slots?: Slot[];
   risk?: "low" | "medium" | "high";
@@ -135,7 +140,7 @@ async function writeBatch(batch: Batch) {
       label: product.label,
       ...(product.label === "appears_plant_based"
         ? {}
-        : { labelEvidence: "VEGAN on the front" }),
+        : { labelEvidence: product.labelEvidence ?? "VEGAN on the front" }),
       photos: Object.fromEntries(
         (product.slots ?? ["front", "ingredients"]).map((slot) => [
           slot,
@@ -156,12 +161,13 @@ async function writeBatch(batch: Batch) {
     });
   const lines = new Map<string, Product[]>();
   for (const product of batch.products) {
-    const key = `${product.brand}|${product.lineName}|${product.food}`;
+    const key =
+      product.lineId ?? `${product.brand}|${product.lineName}|${product.food}`;
     lines.set(key, [...(lines.get(key) ?? []), product]);
   }
   await json(join(run, "lines.json"), {
     lines: [...lines.values()].map((members, index) => ({
-      id: `line-${String(index + 1).padStart(3, "0")}`,
+      id: members[0]!.lineId ?? `line-${String(index + 1).padStart(3, "0")}`,
       brand: members[0]!.brand,
       lineName: members[0]!.lineName,
       food: members[0]!.food,
@@ -198,6 +204,94 @@ const oatMilk = (overrides: Partial<Product> = {}): Product => ({
 });
 
 describe("manifest", () => {
+  it.each(["Oatside", "Oat-Side"])(
+    "keeps distinct reviewed lines separate when their normalized names match (%s)",
+    async (brand) => {
+      const first = await writeBatch({
+        name: "Photos 1 - Web",
+        stores: { "1": "Sprouts" },
+        products: [
+          oatMilk({ lineId: "line-001" }),
+          oatMilk({
+            id: "A2",
+            lineId: "line-001",
+            flavor: "Vanilla",
+            name: "Oat Milk Vanilla",
+          }),
+          oatMilk({
+            id: "A3",
+            lineId: "line-002",
+            brand,
+            name: "Barista Oat Milk",
+          }),
+        ],
+      });
+      const second = await writeBatch({
+        name: "Photos 2 - Web",
+        stores: { "1": "Sprouts" },
+        products: [
+          oatMilk({
+            id: "B1",
+            flavor: "Chocolate",
+            name: "Oat Milk Chocolate",
+          }),
+        ],
+      });
+      await renderBatch(first);
+      await renderBatch(second);
+      const review = await readFile(
+        join(first, "review", "review.html"),
+        "utf8",
+      );
+      expect(review.match(/<section class="line"/g)).toHaveLength(2);
+      expect(review).not.toContain("two products are this line's original");
+
+      const built = await buildManifest([first, second]);
+      expect(built.blocking).toEqual([]);
+      const [a1, a2, a3, b1] = built.manifest.products.map(
+        ({ facts }) => facts,
+      );
+      expect(a1!.line).toEqual(a2!.line);
+      expect(a1!.line.first).toBe("Photos 1 - Web/A1");
+      expect(a3!.line.first).toBe("Photos 1 - Web/A3");
+      expect(b1!.line.first).toBe("Photos 2 - Web/B1");
+      expect(new Set([a1!.line.key, a3!.line.key, b1!.line.key]).size).toBe(3);
+      expect(built.counts.lines).toBe(3);
+      expect(built.warnings).toContainEqual(
+        expect.stringContaining("distinct reviewed lines"),
+      );
+      expect((await buildManifest([first, second])).manifest.hash).toBe(
+        built.manifest.hash,
+      );
+    },
+  );
+
+  it("keeps an owner-corrected product in the unique matching reviewed line", async () => {
+    const web = await writeBatch({
+      name: "Photos - Web",
+      stores: { "1": "Sprouts" },
+      products: [
+        oatMilk({ lineId: "line-001" }),
+        oatMilk({
+          id: "A2",
+          lineId: "line-002",
+          lineName: "Barista Oat Milk",
+          name: "Barista Oat Milk",
+        }),
+      ],
+      corrections: { A1: { lineName: "Barista Oat Milk", flavor: "Vanilla" } },
+    });
+    await renderBatch(web);
+    const review = await readFile(join(web, "review", "review.html"), "utf8");
+    expect(review.match(/<section class="line"/g)).toHaveLength(1);
+    const built = await buildManifest([web]);
+    expect(built.blocking).toEqual([]);
+    expect(built.counts.lines).toBe(1);
+    const [a1, a2] = built.manifest.products.map(({ facts }) => facts);
+    expect(a1!.line).toEqual(a2!.line);
+    expect(a1!.line.first).toBe("Photos - Web/A2");
+  });
+
   it("joins lines across batches, applies the review's corrections, duplicates, repeats and carried stores, and keeps review data internal", async () => {
     const first = await writeBatch({
       name: "Photos 1 - Web",
@@ -254,8 +348,14 @@ describe("manifest", () => {
       name: "Photos 2 - Web",
       stores: { "1": "Publix" },
       products: [
-        oatMilk({ id: "B1", flavor: "Chocolate", name: "Oat Milk Chocolate" }),
-        oatMilk({ id: "B2" }),
+        oatMilk({
+          id: "B1",
+          brand: "Oat-Side",
+          lineName: "Oat-Milk",
+          flavor: "Chocolate",
+          name: "Oat Milk Chocolate",
+        }),
+        oatMilk({ id: "B2", brand: "Oat-Side", lineName: "Oat-Milk" }),
       ],
     });
     // B2 is A1 again: a decided repeat whose store was carried to A1.
@@ -487,6 +587,161 @@ describe("manifest", () => {
     expect(renamed.manifest.hash).not.toBe(first.manifest.hash);
     expect(basename(web)).toBe("Photos 1 - Web");
   });
+});
+
+describe("package labels", () => {
+  const cases = [
+    { kept: "appears_plant_based", incoming: "vegan", expected: "vegan" },
+    { kept: "vegan", incoming: "appears_plant_based", expected: "vegan" },
+    { kept: "plant_based", incoming: "vegan", expected: "vegan" },
+    { kept: "vegan", incoming: "plant_based", expected: "vegan" },
+    {
+      kept: "appears_plant_based",
+      incoming: "plant_based",
+      expected: "plant_based",
+    },
+    {
+      kept: "plant_based",
+      incoming: "appears_plant_based",
+      expected: "plant_based",
+    },
+    { kept: "vegan", incoming: "vegan", expected: "vegan" },
+  ] satisfies {
+    kept: Product["label"];
+    incoming: Product["label"];
+    expected: Product["label"];
+  }[];
+
+  it.each(cases)(
+    "folds a $incoming duplicate into $kept as $expected",
+    async ({ kept, incoming, expected }) => {
+      const web = await writeBatch({
+        name: "Photos - Web",
+        stores: { "1": "Sprouts" },
+        products: [
+          oatMilk({
+            label: kept,
+            labelEvidence: "Claim on the kept package",
+            risk: "high",
+          }),
+          oatMilk({
+            id: "A2",
+            label: incoming,
+            labelEvidence: "Claim on the duplicate package",
+            duplicateOf: "A1",
+          }),
+        ],
+      });
+      const { views } = await loadRun(openBatch(web));
+      expect(views).toHaveLength(1);
+      expect(views[0]).toMatchObject({
+        label: expected,
+        manufacturerLabel: expected,
+        labelEvidence:
+          expected === kept
+            ? "Claim on the kept package"
+            : "Claim on the duplicate package",
+        flags: [],
+      });
+      expect(views[0]!.risk).toBeUndefined();
+    },
+  );
+
+  it("keeps the owner's label correction when a duplicate has stronger evidence", async () => {
+    const web = await writeBatch({
+      name: "Photos - Web",
+      stores: { "1": "Sprouts" },
+      products: [oatMilk(), oatMilk({ id: "A2", duplicateOf: "A1" })],
+      corrections: {
+        A1: { label: "plant_based", labelEvidence: "Corrected by the owner" },
+      },
+    });
+    expect((await loadRun(openBatch(web))).views[0]).toMatchObject({
+      label: "plant_based",
+      manufacturerLabel: "plant_based",
+      labelEvidence: "Corrected by the owner",
+    });
+  });
+
+  it.each(cases)(
+    "merges a continued $incoming claim into $kept as $expected",
+    async ({ kept, incoming, expected }) => {
+      const web = await writeBatch({
+        name: "Photos - Web",
+        stores: { "1": "Sprouts" },
+        products: [oatMilk()],
+      });
+      const run = join(web, "review");
+      await writeFile(
+        join(run, "chunks.json"),
+        JSON.stringify({
+          ranges: [
+            {
+              id: "range-01",
+              photos: ["A1-front.webp"],
+              context: [],
+              sheets: [],
+            },
+            {
+              id: "range-02",
+              photos: ["A1-ingredients.webp"],
+              context: ["A1-front.webp"],
+              sheets: [],
+            },
+          ],
+        }),
+      );
+      await mkdir(join(run, "sort"), { recursive: true });
+      await writeFile(
+        join(run, "sort", "range-01.json"),
+        JSON.stringify({
+          range: "range-01",
+          groups: [
+            {
+              brand: "Oatside",
+              name: "Oat Milk",
+              label: kept,
+              labelEvidence: "Claim on the front",
+              confidence: "high",
+              photos: { front: "A1-front.webp" },
+            },
+          ],
+          setAside: [],
+          storeHints: [],
+        }),
+      );
+      await writeFile(
+        join(run, "sort", "range-02.json"),
+        JSON.stringify({
+          range: "range-02",
+          groups: [
+            {
+              continues: "A1-front.webp",
+              label: incoming,
+              labelEvidence: "Claim on the ingredients panel",
+              confidence: "high",
+              photos: { ingredients: "A1-ingredients.webp" },
+            },
+          ],
+          setAside: [],
+          storeHints: [],
+        }),
+      );
+      await merge(openBatch(web), { force: false });
+      const plan = mergePlan.parse(
+        JSON.parse(await readFile(join(run, "merge.json"), "utf8")),
+      );
+      expect(plan.groups).toHaveLength(1);
+      expect(plan.groups[0]).toMatchObject({
+        label: expected,
+        labelEvidence:
+          expected === kept
+            ? "Claim on the front"
+            : "Claim on the ingredients panel",
+        photos: { front: "A1-front.webp", ingredients: "A1-ingredients.webp" },
+      });
+    },
+  );
 });
 
 describe("site facts", () => {

@@ -291,7 +291,7 @@ export async function verifyImport(
       .bind(ids),
     db
       .prepare(
-        "SELECT * FROM family_category_dimension_stats WHERE product_family_id IN (SELECT DISTINCT product_family_id FROM products WHERE id IN (SELECT value FROM json_each(?))) ORDER BY 1,2,3",
+        "SELECT product_family_id,category_id,dimension_id,people_count,mean_sum FROM family_category_dimension_stats WHERE product_family_id IN (SELECT DISTINCT product_family_id FROM products WHERE id IN (SELECT value FROM json_each(?))) ORDER BY 1,2,3",
       )
       .bind(ids),
     db
