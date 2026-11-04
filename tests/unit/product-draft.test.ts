@@ -62,10 +62,11 @@ const basics = () => ({
 describe("product draft", () => {
   it("asks only for the basics on step 1, in field order", () => {
     // The product's own fields wait until it's clear what it is.
-    expect(Object.keys(basicsErrors(emptyDraft("US"), {}))).toEqual([
-      "food",
-      "brand",
-    ]);
+    // The food field opens once the brand is chosen.
+    expect(Object.keys(basicsErrors(emptyDraft("US"), {}))).toEqual(["brand"]);
+    expect(
+      Object.keys(basicsErrors({ ...basics(), food: null }, { front: true })),
+    ).toEqual(["food"]);
     expect(
       basicsErrors({ ...basics(), brandChosen: false }, { front: true }),
     ).toEqual({ brand: expect.stringMatching(/Choose the brand/) });

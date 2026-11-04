@@ -93,8 +93,8 @@ export async function fillBasics(
     photo = "tests/fixtures/small.jpg",
   }: { food: string; brand: string; name: string; photo?: string },
 ) {
-  await chooseFood(page, food);
   await chooseBrand(page, brand);
+  await chooseFood(page, food);
   // A listed brand shows its lines first; this adds something else.
   const somethingElse = page.getByRole("button", {
     name: `Something else from ${brand}`,

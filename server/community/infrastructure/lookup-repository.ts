@@ -1,4 +1,5 @@
 import { ApplicationError } from "../../shared/domain/errors";
+import { originalFlavorSql } from "../../catalog/domain/flavor-label";
 import type {
   BrandLine,
   BrandSuggestion,
@@ -263,10 +264,11 @@ export class CommunityLookupRepository {
     const rows = await this.db
       .prepare(
         `SELECT f.id AS lineId,f.canonical_name AS lineName,p.id AS productId,p.slug,p.name,p.flavor,
+          (SELECT i.id FROM product_versions v JOIN product_images i ON i.product_version_id=v.id WHERE v.product_id=p.id AND v.is_current=1 AND i.slot='front' AND i.state='accepted' LIMIT 1) AS imageId,
           COALESCE((SELECT json_group_array(json_object('id',c.id,'slug',c.slug,'name',c.name)) FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 WHERE pc.product_id=p.id),'[]') AS foods
         FROM product_families f JOIN countries co ON co.id=f.country_id AND co.iso2=? AND co.is_active=1
         JOIN products p ON p.product_family_id=f.id AND p.lifecycle_status IN ('active','under_review')
-        WHERE f.brand_id=? ORDER BY f.canonical_name,f.id,p.flavor IS NOT NULL,p.flavor,p.name LIMIT 500`,
+        WHERE f.brand_id=? ORDER BY f.canonical_name,f.id,NOT ${originalFlavorSql("p")},p.flavor,p.name LIMIT 500`,
       )
       .bind(country, brandId)
       .all<{
@@ -276,6 +278,7 @@ export class CommunityLookupRepository {
         slug: string;
         name: string;
         flavor: string | null;
+        imageId: string | null;
         foods: string;
       }>();
     const lines = new Map<string, BrandLine>();
@@ -294,6 +297,7 @@ export class CommunityLookupRepository {
         slug: row.slug,
         name: row.name,
         flavor: row.flavor,
+        imageId: row.imageId,
         foods: foods.map((food) => food.slug),
       });
       lines.set(row.lineId, line);

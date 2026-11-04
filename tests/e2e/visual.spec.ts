@@ -209,15 +209,7 @@ test("capture add-product", async ({ page, context }, testInfo) => {
         await page.locator("main").waitFor();
         await page.waitForTimeout(300);
         await shot("basics");
-        await page
-          .getByRole("combobox", {
-            name: "What food does it replace? (required)",
-          })
-          .fill("ground");
-        await page.waitForTimeout(200);
-        await shot("picker");
-        await page.getByRole("option").first().click();
-        // Milestone 7: the brand, then what's already listed from it.
+        // The brand first, then what's already listed from it, then the food.
         await page
           .getByRole("combobox", { name: "Brand (required)" })
           .fill("Beyon");
@@ -232,6 +224,14 @@ test("capture add-product", async ({ page, context }, testInfo) => {
           .getByRole("region", { name: "Already listed from Beyond" })
           .waitFor();
         await shot("listed");
+        await page
+          .getByRole("combobox", {
+            name: "What food does it replace? (required)",
+          })
+          .fill("ground");
+        await page.waitForTimeout(200);
+        await shot("picker");
+        await page.getByRole("option").first().click();
         await page
           .getByRole("button", { name: "Add a new flavor of Beyond Beef" })
           .click();

@@ -7,7 +7,7 @@ import { Icon } from "../icons/icon";
 import type { AisleOption } from "../aisle-select";
 import { FoodPicker } from "./food-picker";
 import { BrandPicker } from "./brand-picker";
-import { BrandLines } from "./brand-lines";
+import { BrandLines, useBrandLines } from "./brand-lines";
 import { IdentityMatches } from "./identity-matches";
 import { PhotosSection } from "./photos-section";
 import type { FoodChoice } from "../../lib/food-choices";
@@ -32,10 +32,11 @@ export const BASICS_FIELDS = {
 type TextField = "name" | "flavor" | "lineName";
 
 /**
- * Step 1 (milestone 7): the food, then the brand, then what's already listed
- * from it, then the product: a new flavor of a listed line or something else
- * from the brand. A new brand, or one with nothing listed here, goes straight
- * to the product.
+ * Step 1 (milestone 7): the brand, then the food, which opens once the brand
+ * is chosen and lists that brand's foods first, then what's already listed
+ * from the brand, then the product: a new flavor of a listed line or
+ * something else from the brand. A new brand, or one with nothing listed here,
+ * goes straight to the product.
  */
 export function BasicsStep({
   draft,
@@ -89,6 +90,14 @@ export function BasicsStep({
       : null;
   const line = draft.line;
   const listed = draft.brandChosen && draft.brandId !== null;
+  const lines = useBrandLines(
+    draft.country,
+    listed ? draft.brandId : null,
+    () => update({ line: { kind: "new" } }),
+  );
+  const brandFoods = [
+    ...new Set(lines.lines?.flatMap((l) => l.foods.map((f) => f.id)) ?? []),
+  ];
   // A product follows its food's season unless the contributor says.
   const seasonal = draft.seasonal ?? chosenFood?.seasonal ?? false;
   return (
@@ -145,18 +154,6 @@ export function BasicsStep({
           </Popover>
         )}
       </div>
-      <FoodPicker
-        id="food"
-        label="What food does it replace? (required)"
-        foods={foods}
-        countryName={countryName}
-        value={draft.food}
-        onChange={(food) => update({ food })}
-        aisles={aisles}
-        allowSuggest={allowSuggest}
-        error={errors.food}
-        aisleError={errors.aisle}
-      />
       <BrandPicker
         id="brand"
         country={draft.country}
@@ -179,11 +176,32 @@ export function BasicsStep({
         }
         error={errors.brand}
       />
+      <FoodPicker
+        id="food"
+        label="What food does it replace? (required)"
+        foods={foods}
+        countryName={countryName}
+        value={draft.food}
+        onChange={(food) => update({ food })}
+        aisles={aisles}
+        allowSuggest={allowSuggest}
+        preferred={
+          brandFoods.length
+            ? { ids: brandFoods, tag: `From ${draft.brand.trim()}` }
+            : undefined
+        }
+        disabledHint={draft.brandChosen ? undefined : "Choose the brand first."}
+        error={errors.food}
+        aisleError={errors.aisle}
+      />
       {listed && !line && (
         <BrandLines
           country={draft.country}
           brand={{ id: draft.brandId!, name: draft.brand }}
           food={chosenFood}
+          lines={lines.lines}
+          failed={lines.failed}
+          onRetry={lines.retry}
           onFlavor={(chosen) =>
             update({
               line: {
@@ -197,7 +215,6 @@ export function BasicsStep({
             })
           }
           onSomethingElse={() => update({ line: { kind: "new" } })}
-          onNothing={() => update({ line: { kind: "new" } })}
           error={errors.line}
         />
       )}

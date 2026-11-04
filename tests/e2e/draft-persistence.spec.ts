@@ -29,13 +29,13 @@ test("warns about failed draft storage, keeps entries, and guards only work at r
         exact: true,
       }),
     ).toHaveCount(0);
-    await chooseFood(page, "Ground Beef");
+    await chooseBrand(page, "Beyond Meat");
     await expect(
       page.getByText("This draft isn’t safely saved on this device.", {
         exact: true,
       }),
     ).toBeVisible();
-    await chooseBrand(page, "Beyond Meat");
+    await chooseFood(page, "Ground Beef");
     const other = page.getByRole("button", {
       name: "Something else from Beyond Meat",
     });

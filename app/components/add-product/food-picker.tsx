@@ -39,6 +39,8 @@ export function FoodPicker({
   aisles = [],
   allowSuggest = false,
   exclude = [],
+  preferred,
+  disabledHint,
   error,
   aisleError,
 }: {
@@ -51,12 +53,22 @@ export function FoodPicker({
   aisles?: AisleOption[];
   allowSuggest?: boolean;
   exclude?: readonly string[];
+  // The chosen brand's foods, listed first; every other food stays available.
+  preferred?: { ids: readonly string[]; tag: string };
+  // Set while the field waits for something else, and says what.
+  disabledHint?: string;
   error?: string;
   aisleError?: string;
 }) {
   const [query, setQuery] = useState("");
   const typed = query.trim();
-  const matches = matchFoods(foods, query, exclude);
+  const isPreferred = (food: FoodChoice) =>
+    Boolean(preferred?.ids.includes(food.id));
+  const found = matchFoods(foods, query, exclude);
+  const matches = [
+    ...found.filter((match) => isPreferred(match.food)),
+    ...found.filter((match) => !isPreferred(match.food)),
+  ];
   const options: Option[] = [
     ...matches
       .slice(0, typed ? SHOWN.typed : SHOWN.browsing)
@@ -191,13 +203,17 @@ export function FoodPicker({
       </label>
       <input
         {...combo.inputProps}
-        placeholder="Chicken nuggets, cheddar, milk…"
+        placeholder={
+          disabledHint ? undefined : "Chicken nuggets, cheddar, milk…"
+        }
+        disabled={Boolean(disabledHint)}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
           combo.setOpen(true);
         }}
       />
+      {disabledHint && <p className="small muted">{disabledHint}</p>}
       {error && (
         <p id={errorId} className="field-error">
           {error}
@@ -240,10 +256,14 @@ export function FoodPicker({
                         </span>
                       )}
                     </span>
-                    {!option.food.inCountry && (
-                      <span className="va-combo__tag">
-                        Not in {countryName} yet
-                      </span>
+                    {isPreferred(option.food) ? (
+                      <span className="va-combo__tag">{preferred!.tag}</span>
+                    ) : (
+                      !option.food.inCountry && (
+                        <span className="va-combo__tag">
+                          Not in {countryName} yet
+                        </span>
+                      )
                     )}
                   </>
                 ) : (

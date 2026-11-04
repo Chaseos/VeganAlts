@@ -168,6 +168,8 @@ export interface BrandLine {
     slug: string;
     name: string;
     flavor: string | null;
+    // The accepted front photo of its current formula.
+    imageId: string | null;
     // Slugs of the line's foods this flavor is listed in.
     foods: string[];
   }[];

@@ -10,6 +10,8 @@ export interface LineFlavor {
   // food. Food and country state are applied when the line is read.
   eligible: boolean;
   publishedAt: number | null;
+  // The line's original: no flavor of its own, or labeled Original.
+  original?: boolean;
 }
 export interface LineRating {
   productId: string;
@@ -153,9 +155,10 @@ export function aggregateLine(
 }
 
 /**
- * The flavor that represents the line (its card photo and link): the most
- * counted ratings answering either question, then its own Closest score,
- * then the earliest published and product ID.
+ * The flavor that represents the line (its card photo and link): its
+ * original when it has one (owner, 2026-11-04). Otherwise the most counted
+ * ratings answering either question, then its own Closest score, then the
+ * earliest published and product ID.
  */
 export function leadFlavor(
   eligible: readonly LineFlavor[],
@@ -180,6 +183,7 @@ export function leadFlavor(
   });
   ranked.sort(
     (a, b) =>
+      Number(b.flavor.original ?? false) - Number(a.flavor.original ?? false) ||
       b.count - a.count ||
       (b.score ?? -Infinity) - (a.score ?? -Infinity) ||
       (a.flavor.publishedAt ?? Infinity) - (b.flavor.publishedAt ?? Infinity) ||

@@ -3,6 +3,7 @@ import {
   validateRankingParameters,
   type Scoring,
 } from "../domain/policy";
+import { originalFlavorSql } from "../../catalog/domain/flavor-label";
 import { RECENT_WINDOW_MS } from "../domain/lines";
 
 // Recomputes recipe lines' standing (`family_category_stats` and
@@ -27,7 +28,7 @@ const TARGETS = `targets(id) AS (
 // The line's eligible flavors in each food: the current formula of an
 // active product that isn't under review, ranking-eligible in the food.
 const ELIGIBLE = `eligible AS (
-  SELECT p.product_family_id AS family_id,pc.category_id,p.id AS product_id,v.id AS version_id,p.published_at
+  SELECT p.product_family_id AS family_id,pc.category_id,p.id AS product_id,v.id AS version_id,p.published_at,${originalFlavorSql("p")} AS original
   FROM targets t
   JOIN products p ON p.product_family_id=t.id
   JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
@@ -58,7 +59,7 @@ tried AS (
   GROUP BY e.family_id,e.category_id
 ),
 flavor AS (
-  SELECT e.family_id,e.category_id,e.product_id,e.published_at,COUNT(r.rating_id) AS reviews,COUNT(r.similarity) AS n,TOTAL(r.similarity) AS total
+  SELECT e.family_id,e.category_id,e.product_id,e.published_at,e.original,COUNT(r.rating_id) AS reviews,COUNT(r.similarity) AS n,TOTAL(r.similarity) AS total
   FROM eligible e LEFT JOIN rated r ON r.product_id=e.product_id AND r.category_id=e.category_id
   GROUP BY e.family_id,e.category_id,e.product_id
 )
@@ -73,7 +74,7 @@ SELECT g.family_id,g.category_id,
   CASE WHEN l.enjoying>0 THEN (l.enjoyment_sum+?7)/(l.enjoying+?8) END,
   COALESCE(tr.tried,0),COALESCE(l.recent,0),
   (SELECT f.product_id FROM flavor f WHERE f.family_id=g.family_id AND f.category_id=g.category_id
-    ORDER BY f.reviews DESC,CASE WHEN f.n>0 THEN (f.total+?5)/(f.n+?6) END DESC,f.published_at IS NULL,f.published_at,f.product_id
+    ORDER BY f.original DESC,f.reviews DESC,CASE WHEN f.n>0 THEN (f.total+?5)/(f.n+?6) END DESC,f.published_at IS NULL,f.published_at,f.product_id
     LIMIT 1),
   ?4
 FROM (SELECT DISTINCT family_id,category_id FROM eligible) g
