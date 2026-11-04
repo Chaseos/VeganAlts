@@ -307,6 +307,16 @@ export default function Contribute({
         };
       if (kind === "allergens") details = allergenDetails(form);
       if (isFactKind(kind)) details = factChangeDetails(kind, form);
+      if (administrator) {
+        // Applied at once, so a retry starts fresh against the new revision.
+        await action.request(
+          "proposals/apply",
+          { ...base, ...details },
+          crypto.randomUUID(),
+        );
+        await navigate(`/admin/moderation/products/${product.id}`);
+        return;
+      }
       const saved = await action.request<{ id: string }>("proposals", {
         ...base,
         ...details,
@@ -330,14 +340,15 @@ export default function Contribute({
           <p className="eyebrow">Keep the catalog useful</p>
           <h1>{product.name}</h1>
           <p>
-            Your evidence helps an operator make an informed decision. Existing
-            ratings remain with their original formula.
+            {administrator
+              ? "Your edits apply right away. Existing ratings remain with their original formula."
+              : "Your evidence helps an operator make an informed decision. Existing ratings remain with their original formula."}
           </p>
           <GuidelinesNote />
         </header>
         <nav className="contribution-tabs" aria-label="Contribution type">
           {[
-            ["change", "Suggest a change"],
+            ["change", administrator ? "Edit product" : "Suggest a change"],
             ["photo", "Photos"],
             ["report", "Report a concern"],
             ["retailer", "Retailer availability"],
@@ -560,8 +571,18 @@ export default function Contribute({
           )}
           {tab === "change" && (
             <form className="community-form" onSubmit={saveChange}>
-              <h2>Suggest a change</h2>
-              <label htmlFor="change-kind">What changed?</label>
+              <h2>{administrator ? "Edit product" : "Suggest a change"}</h2>
+              {administrator && (
+                <p className="notice">
+                  Saved changes apply immediately, with no review. Each one is
+                  recorded in Decision history and can be reversed.
+                </p>
+              )}
+              <label htmlFor="change-kind">
+                {administrator
+                  ? "What do you want to change?"
+                  : "What changed?"}
+              </label>
               <select
                 id="change-kind"
                 value={kind}
@@ -786,7 +807,9 @@ export default function Contribute({
                   currentFlavor={product.flavor}
                   seasonal={product.seasonal}
                   categories={options.categories}
-                  existing={product.categories.map((c) => c.categoryId)}
+                  existing={product.categories
+                    .filter((c) => kind !== "foods" || c.eligible)
+                    .map((c) => c.categoryId)}
                 />
               )}
               {kind === "allergens" && <AllergenFields product={product} />}
@@ -811,7 +834,10 @@ export default function Contribute({
                   </select>
                 </>
               )}
-              <EvidenceFields />
+              <EvidenceFields
+                noteLabel={administrator ? "Reason for this change" : undefined}
+                reviewed={!administrator}
+              />
               {[
                 "classification",
                 "reformulation",
@@ -840,8 +866,10 @@ export default function Contribute({
               )}
               <button className="button" disabled={action.busy}>
                 {action.busy
-                  ? "Saving evidence…"
-                  : "Submit proposal for review"}
+                  ? "Saving…"
+                  : administrator
+                    ? "Save change"
+                    : "Submit proposal for review"}
               </button>
               {receiptId && action.error && (
                 <button

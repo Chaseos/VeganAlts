@@ -355,6 +355,14 @@ export const changeInput = z.discriminatedUnion("kind", [
   z
     .object({ ...changeBase, kind: z.literal("category_add"), categoryId: id })
     .strict(),
+  // Every food the product is listed under, so it can move between foods.
+  z
+    .object({
+      ...changeBase,
+      kind: z.literal("foods"),
+      categoryIds: z.array(id).min(1).max(5),
+    })
+    .strict(),
   // What the package says about allergens, optionally citing the formula's
   // accepted ingredients or nutrition photo (which lowers the risk tier).
   z

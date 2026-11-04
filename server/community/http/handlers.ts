@@ -359,6 +359,12 @@ export async function communityApi(
         requestKey,
         parse(changeInput, body),
       );
+    else if (path === "proposals/apply")
+      result = await services.contributions.apply(
+        actor,
+        requestKey,
+        parse(changeInput, body),
+      );
     else if (
       root === "proposals" &&
       second &&

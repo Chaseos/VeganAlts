@@ -296,6 +296,7 @@ The approved [milestone 3 specification](MILESTONE_3_PLAN.md) adds authenticated
 | GET    | `/me/contributions/:kind/:id`                            | Owned status, proposed details, evidence and resolution; operators may inspect the same record.                                    |
 | POST   | `/reports`                                               | Target-specific `ReportInput`; active reports deduplicate by reporter/target/reason and accumulate evidence.                       |
 | POST   | `/proposals`                                             | Discriminated `ProductChange`, expected catalog revision and evidence.                                                             |
+| POST   | `/proposals/apply`                                       | Administrators only: the same `ProductChange`, accepted at once through the audited decision path. |
 | POST   | `/retailers/proposals`                                   | Canonical identity proposal, US market, official HTTPS URL, aliases and reason.                                                    |
 | POST   | `/retailer-confirmations`                                | Product, canonical retailer and `confirm`/`not_current` stance. Negative stances queue operator review.                            |
 | GET    | `/admin/moderation/inbox?cursor=…`                       | Allowlisted inbox, ingredient priority, 30 per page.                                                                               |

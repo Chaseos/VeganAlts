@@ -23,6 +23,8 @@ export function describeChange(
       return `Manufacturer page: ${change.url}`;
     case "category_add":
       return `Also replaces ${names[change.categoryId] ?? "another category"}`;
+    case "foods":
+      return `Listed under ${change.categoryIds.map((id) => names[id] ?? "another food").join(", ")}`;
     case "packaging":
       return "Updated packaging photos";
     case "photo":

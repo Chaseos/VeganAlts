@@ -51,13 +51,18 @@ export function CommunityFeedback({
 export function EvidenceFields({
   prefix = "evidence",
   required = true,
+  noteLabel = "What does the evidence show?",
+  reviewed = true,
 }: {
   prefix?: string;
   required?: boolean;
+  noteLabel?: string;
+  // False where a change applies without an operator's review.
+  reviewed?: boolean;
 }) {
   return (
     <>
-      <label htmlFor={`${prefix}-note`}>What does the evidence show?</label>
+      <label htmlFor={`${prefix}-note`}>{noteLabel}</label>
       <textarea
         id={`${prefix}-note`}
         name="note"
@@ -75,8 +80,9 @@ export function EvidenceFields({
         maxLength={1000}
       />
       <p className="small muted">
-        Link directly to relevant manufacturer or certification information. An
-        operator reviews the evidence before changing the catalog.
+        Link directly to relevant manufacturer or certification information.
+        {reviewed &&
+          " An operator reviews the evidence before changing the catalog."}
       </p>
     </>
   );

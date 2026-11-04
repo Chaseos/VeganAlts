@@ -204,3 +204,52 @@ test("admins can hide a comment directly and restore it from history; contributo
     await operator.dispose();
   }
 });
+
+test("an administrator edits a product from the same form, applied at once", async ({
+  page,
+  context,
+}) => {
+  test.skip(
+    !!process.env.TEST_BASE_URL,
+    "Catalog mutations are confined to the local test database.",
+  );
+  const operator = await createBrowserSession({ administrator: true });
+  try {
+    await context.addCookies([operator.cookie]);
+    await page.goto("/us/products/oatly-full-fat");
+    await page
+      .getByRole("link", { name: "Manage product", exact: true })
+      .click();
+    await page.getByRole("link", { name: "Edit product", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Edit product" }),
+    ).toBeVisible();
+    await expect(page.getByText("apply immediately")).toBeVisible();
+    await accessible(page);
+    await page
+      .getByLabel("What do you want to change?")
+      .selectOption({ label: "Move it to a different food" });
+    const current = page
+      .getByRole("group", { name: "Listed under" })
+      .getByRole("checkbox")
+      .first();
+    await expect(current).toBeChecked();
+    await page
+      .getByLabel("Move it to", { exact: true })
+      .selectOption({ index: 1 });
+    // Moving takes it out of where it was, unless ticked again.
+    await expect(current).not.toBeChecked();
+    await page
+      .getByLabel("Reason for this change")
+      .fill("Listed under the wrong food during import.");
+    await page
+      .getByRole("button", { name: "Save change", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/admin\/moderation\/products\//);
+    await expect(page.getByRole("main")).toContainText(
+      "Listed under the wrong food during import.",
+    );
+  } finally {
+    await operator.dispose();
+  }
+});

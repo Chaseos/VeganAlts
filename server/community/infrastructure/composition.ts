@@ -126,6 +126,8 @@ export function communityServices(
     media,
     autoApply,
     (proposalId) => moderation.autoAccept(proposalId),
+    (actor, key, proposalId, note) =>
+      moderation.acceptOwn(actor, key, proposalId, note),
     newId,
     clock,
     work,

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ProductChange } from "@server/community/domain/contracts";
 import type { CommunityOptions } from "../lib/community";
 
@@ -6,6 +7,7 @@ export const factKinds = [
   "alias",
   "source_url",
   "category_add",
+  "foods",
   "seasonal",
 ] as const;
 export type FactKind = (typeof factKinds)[number];
@@ -14,6 +16,7 @@ export const factLabels: Record<FactKind, string> = {
   alias: "Another name people search for",
   source_url: "Manufacturer product page",
   category_add: "Another food it replaces",
+  foods: "Move it to a different food",
   seasonal: "Sold only part of the year",
 };
 export const isFactKind = (kind: ProductChange["kind"]): kind is FactKind =>
@@ -136,7 +139,67 @@ export function FactChangeFields({
           </p>
         </>
       );
+    case "foods":
+      return <FoodsField categories={categories} existing={existing} />;
   }
+}
+/** The foods a product is listed under: moving unticks where it was. */
+function FoodsField({
+  categories,
+  existing,
+}: {
+  categories: CommunityOptions["categories"];
+  existing: string[];
+}) {
+  const [kept, setKept] = useState(existing);
+  return (
+    <>
+      <fieldset className="va-choice-list">
+        <legend>Listed under</legend>
+        {categories
+          .filter((c) => existing.includes(c.id))
+          .map((c) => (
+            <label className="checkbox-label" key={c.id}>
+              <input
+                type="checkbox"
+                name="categoryIds"
+                value={c.id}
+                checked={kept.includes(c.id)}
+                onChange={(e) =>
+                  setKept((foods) =>
+                    e.target.checked
+                      ? [...foods, c.id]
+                      : foods.filter((id) => id !== c.id),
+                  )
+                }
+              />
+              {c.name}
+            </label>
+          ))}
+      </fieldset>
+      <label htmlFor="fact-new-food">Move it to</label>
+      <select
+        id="fact-new-food"
+        name="categoryIds"
+        defaultValue=""
+        onChange={(e) => setKept(e.target.value ? [] : existing)}
+      >
+        <option value="">Keep only the foods ticked above</option>
+        {categories
+          .filter((c) => !existing.includes(c.id))
+          .map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+      </select>
+      <p className="small muted">
+        Moving unticks its current foods; tick one again to list it in both.
+        Ratings are never lost: a rated food keeps them, off its ranking, and
+        the product starts unrated in a new food.
+      </p>
+    </>
+  );
 }
 export function factChangeDetails(kind: FactKind, form: FormData) {
   switch (kind) {
@@ -152,5 +215,7 @@ export function factChangeDetails(kind: FactKind, form: FormData) {
       return { url: form.get("url") };
     case "category_add":
       return { categoryId: form.get("categoryId") };
+    case "foods":
+      return { categoryIds: form.getAll("categoryIds").filter(Boolean) };
   }
 }

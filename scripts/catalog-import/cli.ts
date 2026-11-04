@@ -217,6 +217,7 @@ await withCatalogPlatform(environment, async ({ DB, MEDIA_BUCKET }) => {
     {} as Pick<StagedMediaService, "decisionImages" | "referenceImage">,
     autoApplyPolicy(config.vars.PROPOSAL_AUTO_APPLY),
     async () => undefined,
+    async () => undefined,
     uuid,
   );
   // Owner-reviewed batches use this direct, audited catalog path. They do not

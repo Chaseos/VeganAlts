@@ -79,6 +79,7 @@ export function riskTier(
     case "classification":
       return checksIngredients(change, snapshot) ? 2 : 3;
     case "reformulation":
+    case "foods":
       return 3;
     case "relationships":
       // Moving a product to another line changes which scores its ratings

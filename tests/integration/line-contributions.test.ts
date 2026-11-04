@@ -460,3 +460,111 @@ it("accepts a flavor rename and a seasonal mark as proposals and takes the new r
       }).success,
     ).toBe(true);
 });
+
+const reason = {
+  urls: [],
+  imageIds: [],
+  note: "Checked the package against the catalog.",
+};
+it("applies an administrator's edit at once, audited and reversible, never a contributor's", async () => {
+  const w = await world();
+  const { productId } = await w.publish({ name: `Orchard Move ${tag()}` });
+  const other = w.f.categories[1]!;
+  const foods = async () =>
+    (
+      await env.DB.prepare(
+        "SELECT category_id AS id,ranking_eligible AS eligible FROM product_categories WHERE product_id=?",
+      )
+        .bind(productId)
+        .all<{ id: string; eligible: number }>()
+    ).results;
+  const change = changeInput.parse({
+    kind: "foods",
+    productId,
+    expectedRevision: await w.revision(productId),
+    categoryIds: [other],
+    evidence: reason,
+  });
+  await expect(
+    w.services.contributions.apply(w.contributor, id(), change),
+  ).rejects.toMatchObject({ status: 403 });
+  expect(await foods()).toEqual([{ id: w.food, eligible: 1 }]);
+
+  const applied = (await w.services.contributions.apply(
+    w.operator,
+    id(),
+    change,
+  )) as { actionId: string; productId: string };
+  expect(applied.productId).toBe(productId);
+  // An unrated food leaves entirely.
+  expect(await foods()).toEqual([{ id: other, eligible: 1 }]);
+  expect(
+    (await w.services.moderation.product(w.operator, productId)).actions.some(
+      (action) => action.id === applied.actionId,
+    ),
+  ).toBe(true);
+
+  await w.services.moderation.reverse(w.operator, id(), applied.actionId, {
+    expectedRevision: await w.revision(productId),
+    note: "The original food was right after all.",
+  });
+  expect(await foods()).toEqual([{ id: w.food, eligible: 1 }]);
+});
+it("keeps a rated food's ratings when an administrator moves the product", async () => {
+  const w = await world();
+  const { productId } = await w.publish({ name: `Orchard Rated ${tag()}` });
+  const other = w.f.categories[1]!;
+  const before = await w.services.repository.snapshot(productId);
+  await ratingsService(env).rate(w.contributor, before.versionId, w.food, 4);
+  await w.services.contributions.apply(
+    w.operator,
+    id(),
+    changeInput.parse({
+      kind: "foods",
+      productId,
+      expectedRevision: await w.revision(productId),
+      categoryIds: [other],
+      evidence: reason,
+    }),
+  );
+  expect(
+    await env.DB.prepare(
+      "SELECT ranking_eligible AS eligible FROM product_categories WHERE product_id=? AND category_id=?",
+    )
+      .bind(productId, w.food)
+      .first(),
+  ).toEqual({ eligible: 0 });
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM ratings WHERE product_version_id=? AND category_id=?",
+    )
+      .bind(before.versionId, w.food)
+      .first(),
+  ).toEqual({ n: 1 });
+});
+it("leaves no proposal waiting when an administrator's edit can't apply", async () => {
+  const w = await world();
+  const taken = `Orchard Taken ${tag()}`;
+  await w.publish({ name: taken });
+  const { productId } = await w.publish({ name: `Orchard Other ${tag()}` });
+  await expect(
+    w.services.contributions.apply(
+      w.operator,
+      id(),
+      changeInput.parse({
+        kind: "rename",
+        productId,
+        expectedRevision: await w.revision(productId),
+        name: taken,
+        evidence: reason,
+      }),
+    ),
+  ).rejects.toMatchObject({ code: "DUPLICATE_PRODUCT" });
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM edit_proposals WHERE target_id=? AND status='pending'",
+    )
+      .bind(productId)
+      .first(),
+  ).toEqual({ n: 0 });
+});

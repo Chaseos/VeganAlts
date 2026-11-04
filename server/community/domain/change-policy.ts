@@ -113,6 +113,7 @@ export function proposalBaseline(
     case "source_url":
       return { manufacturerUrl: snapshot.manufacturerUrl };
     case "category_add":
+    case "foods":
       return { categories: snapshot.categories.map((c) => c.categoryId) };
     case "allergens":
       return { versionId: snapshot.versionId, allergens: snapshot.allergens };
@@ -352,6 +353,24 @@ export function planProductChange(
       before.removedCategories = [input.categoryId];
       after.addedCategories = [input.categoryId];
       break;
+    case "foods": {
+      const listed = snapshot.categories
+        .filter((c) => c.eligible)
+        .map((c) => c.categoryId);
+      const added = input.categoryIds.filter((id) => !listed.includes(id));
+      const removed = listed.filter((id) => !input.categoryIds.includes(id));
+      if (!added.length && !removed.length)
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "The product is already listed under these foods.",
+        );
+      // Removing a rated food keeps it unranked, so ratings stay intact.
+      before.removedCategories = added;
+      before.addedCategories = removed;
+      after.addedCategories = added;
+      after.removedCategories = removed;
+      break;
+    }
     case "allergens": {
       const allowed = new Set(snapshot.allergenList.map((a) => a.key));
       const declaration = normalizeDeclaration(input.declaration);

@@ -616,6 +616,29 @@ export class ModerationService {
       receipt,
     );
   }
+  /**
+   * Accepts an administrator's own change. If it can't apply, the proposal is
+   * rejected so a failed edit never waits in the review inbox.
+   */
+  async acceptOwn(actor: Actor, key: string, id: string, note: string) {
+    administrator(actor);
+    const proposal = await this.repository.proposal(id);
+    if (!proposal)
+      throw new ApplicationError("NOT_FOUND", "Proposal not found.", 404);
+    const decide = (decisionKey: string, decision: "accept" | "reject") =>
+      this.decide(actor, decisionKey, "proposal", id, {
+        decision,
+        expectedRevision: proposal.updated_at,
+        note,
+        effect: "none",
+      });
+    try {
+      return await decide(key, "accept");
+    } catch (error) {
+      await decide(this.newId(), "reject").catch(() => undefined);
+      throw error;
+    }
+  }
   /** Accepts a pending proposal through the fenced, audited decision path. */
   private async acceptChange(
     action: ActionWrite,

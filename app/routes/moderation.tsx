@@ -608,7 +608,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                 Public entry ↗
               </Link>
               <Link to={`/contribute/${data.product.id}`}>
-                Propose a catalog change
+                Edit product
               </Link>
               <Link
                 to={`/admin/moderation/consolidate?donor=${data.product.id}`}

@@ -37,19 +37,26 @@ export class CatalogDecisionRepository {
   }
   /** A category retired after a proposal was made can no longer gain members. */
   async validateCategories(input: ProductChange) {
-    if (input.kind !== "category_add") return;
-    const eligible = await this.db
-      .prepare(
-        "SELECT 1 FROM categories WHERE id=? AND is_active=1 AND is_rankable=1",
-      )
-      .bind(input.categoryId)
-      .first();
-    if (!eligible)
-      throw new ApplicationError(
-        "CATEGORY_UNAVAILABLE",
-        "That category is retired or no longer ranked. Reject this proposal instead.",
-        409,
-      );
+    const ids =
+      input.kind === "category_add"
+        ? [input.categoryId]
+        : input.kind === "foods"
+          ? input.categoryIds
+          : [];
+    for (const id of ids) {
+      const eligible = await this.db
+        .prepare(
+          "SELECT 1 FROM categories WHERE id=? AND is_active=1 AND is_rankable=1",
+        )
+        .bind(id)
+        .first();
+      if (!eligible)
+        throw new ApplicationError(
+          "CATEGORY_UNAVAILABLE",
+          "That category is retired or no longer ranked. Reject this proposal instead.",
+          409,
+        );
+    }
   }
   /** A line a product may join: its own brand's, in its own country. */
   async assertLine(snapshot: ProductSnapshot, lineId: string) {

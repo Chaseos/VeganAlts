@@ -49,6 +49,13 @@ export class ContributionService {
     private readonly autoApply: AutoApplyPolicy,
     // Applies a tier 1 proposal through the audited system-actor path.
     private readonly accept: (proposalId: string) => Promise<unknown>,
+    // Accepts an administrator's own change through the audited decision path.
+    private readonly acceptOwn: (
+      actor: Actor,
+      key: string,
+      proposalId: string,
+      note: string,
+    ) => Promise<unknown>,
     private readonly newId: () => string,
     private readonly clock = Date.now,
     private readonly work?: ModerationWorkService,
@@ -93,7 +100,22 @@ export class ContributionService {
         )
       : this.proposeNow(actor, key, input);
   }
-  private async proposeNow(actor: Actor, key: string, input: ProductChange) {
+  /**
+   * An administrator's edit: the same change a contributor suggests, applied
+   * at once. It skips the automated checks and the community steps, and stays
+   * audited and reversible like any accepted proposal.
+   */
+  async apply(actor: Actor, key: string, input: ProductChange) {
+    administrator(actor);
+    const saved = await this.proposeNow(actor, key, input, true);
+    return this.acceptOwn(actor, key, saved.id, input.evidence.note);
+  }
+  private async proposeNow(
+    actor: Actor,
+    key: string,
+    input: ProductChange,
+    trusted = false,
+  ) {
     active(actor);
     const receipt = await receiptWrite(
       actor.id,
@@ -120,14 +142,16 @@ export class ContributionService {
       input,
       this.clock(),
     );
-    if (
-      input.kind === "category_add" &&
-      !(await this.repository.rankableCategory(input.categoryId))
-    )
-      throw new ApplicationError(
-        "INVALID_CATEGORY",
-        "Choose an active replacement category.",
-      );
+    for (const categoryId of input.kind === "category_add"
+      ? [input.categoryId]
+      : input.kind === "foods"
+        ? input.categoryIds
+        : [])
+      if (!(await this.repository.rankableCategory(categoryId)))
+        throw new ApplicationError(
+          "INVALID_CATEGORY",
+          "Choose an active replacement category.",
+        );
     // Deterministic validity (no-op or invalid changes) before any model call.
     planProductChange(snapshot, input, actor.id, this.newId());
     const staged = input.evidenceReceiptId
@@ -162,55 +186,59 @@ export class ContributionService {
       input.kind === "photo"
         ? await this.media.referenceImage(input.productId)
         : null;
-    const automated = await this.decisions.evaluate({
-      safety: { text: contributedText(input), images: staged },
-      // Checking unchecked ingredients cites an already accepted label photo,
-      // so its evidence is assessed like an allergen declaration's.
-      kind:
-        input.kind === "photo"
-          ? "image"
-          : checksIngredients(input, snapshot)
-            ? "edit_proposal"
-            : ["classification", "reformulation"].includes(input.kind)
-              ? "formula_evidence"
-              : "edit_proposal",
-      subject: { type: "edit_proposal", id },
-      userId: actor.id,
-      state: {
-        product: {
-          brand: await this.catalog.brandName(snapshot.brandId),
-          name: snapshot.name,
-          aliases: snapshot.aliases,
-          manufacturerUrl: snapshot.manufacturerUrl,
-        },
-        change: this.describe(input),
-        evidence: { note: input.evidence.note, urls: input.evidence.urls },
-        ...(input.kind === "photo"
-          ? {
-              images: [
-                { position: 1, claimedSlot: input.slot },
-                ...(reference
-                  ? [{ position: 2, role: "current front photo" }]
-                  : []),
-              ],
-            }
-          : {}),
-      },
-      images:
-        input.kind === "photo"
-          ? [staged[0]!, ...(reference ? [reference] : [])]
-          : staged.slice(0, 3),
-      context:
-        input.kind === "photo"
-          ? { slots: [input.slot] }
-          : { lowRisk: tier === 1 },
-    });
-    requireAutomatedCheck(automated);
-    await this.work?.assertCurrent();
+    const automated = trusted
+      ? null
+      : await this.decisions.evaluate({
+          safety: { text: contributedText(input), images: staged },
+          // Checking unchecked ingredients cites an already accepted label photo,
+          // so its evidence is assessed like an allergen declaration's.
+          kind:
+            input.kind === "photo"
+              ? "image"
+              : checksIngredients(input, snapshot)
+                ? "edit_proposal"
+                : ["classification", "reformulation"].includes(input.kind)
+                  ? "formula_evidence"
+                  : "edit_proposal",
+          subject: { type: "edit_proposal", id },
+          userId: actor.id,
+          state: {
+            product: {
+              brand: await this.catalog.brandName(snapshot.brandId),
+              name: snapshot.name,
+              aliases: snapshot.aliases,
+              manufacturerUrl: snapshot.manufacturerUrl,
+            },
+            change: this.describe(input),
+            evidence: { note: input.evidence.note, urls: input.evidence.urls },
+            ...(input.kind === "photo"
+              ? {
+                  images: [
+                    { position: 1, claimedSlot: input.slot },
+                    ...(reference
+                      ? [{ position: 2, role: "current front photo" }]
+                      : []),
+                  ],
+                }
+              : {}),
+          },
+          images:
+            input.kind === "photo"
+              ? [staged[0]!, ...(reference ? [reference] : [])]
+              : staged.slice(0, 3),
+          context:
+            input.kind === "photo"
+              ? { slots: [input.slot] }
+              : { lowRisk: tier === 1 },
+        });
+    if (automated) {
+      requireAutomatedCheck(automated);
+      await this.work?.assertCurrent();
+    }
     // Actionable problems return before any proposal or evidence is reserved.
     if (
-      automated.outcome === "NEEDS_CHANGES" ||
-      automated.outcome === "BLOCKED"
+      automated?.outcome === "NEEDS_CHANGES" ||
+      automated?.outcome === "BLOCKED"
     )
       throw new ApplicationError(
         automated.outcome === "BLOCKED"
@@ -227,7 +255,7 @@ export class ContributionService {
       proposalBaseline(snapshot, input, slots),
       tier,
     );
-    if (tier === 1 && automated.outcome === "READY")
+    if (tier === 1 && automated?.outcome === "READY")
       await this.accept(saved.id).catch(() => undefined);
     return saved;
   }
@@ -302,7 +330,11 @@ export class ContributionService {
       (p) => JSON.parse(p.proposedData) as ProductChange,
     );
     const categoryIds = changes.flatMap((c) =>
-      c.kind === "category_add" ? [c.categoryId] : [],
+      c.kind === "category_add"
+        ? [c.categoryId]
+        : c.kind === "foods"
+          ? c.categoryIds
+          : [],
     );
     const labels = await this.lookup.categoryNames(categoryIds);
     const categoryNames = Object.fromEntries(
