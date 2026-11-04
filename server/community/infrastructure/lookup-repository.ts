@@ -5,7 +5,14 @@ import type {
   Candidate,
   SubmissionIdentity,
 } from "../domain/contracts";
-import { identityKey, normalizeName, productName } from "../domain/policy";
+import {
+  comparableName,
+  distinctiveNameWords,
+  identityKey,
+  nameWords,
+  normalizeName,
+  productName,
+} from "../domain/policy";
 import {
   BRAND_LOOKUP_MIN,
   matchingBrands,
@@ -302,9 +309,9 @@ export class CommunityLookupRepository {
    * Products a new one may duplicate. An exact identity always comes first and
    * blocks publication. Otherwise, by default, the milestone 6 rule decides
    * the near-duplicate hold: the same brand or the whole name, sharing two
-   * words (one for a one-word name). `loose` widens what is shown while
-   * typing (milestone 7): any brand, one shared word of three or more
-   * letters, brands that match the typed brand loosely first. The chosen
+   * distinctive words (one when the name has only one). `loose` widens what
+   * is shown while typing (milestone 7): any brand, one shared word of three
+   * or more letters, brands that match the typed brand loosely first. The chosen
    * line's flavors are siblings, never near-duplicates.
    */
   async candidates(
@@ -321,8 +328,7 @@ export class CommunityLookupRepository {
       .bind(context.identity)
       .first<Omit<Candidate, "exact">>();
     if (exact) return [{ ...exact, exact: true }];
-    const tokens = input.name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-    const significant = [...new Set(tokens.filter((t) => t.length > 2))];
+    const significant = (loose ? nameWords : distinctiveNameWords)(input.name);
     const like = (value: string) => `%${value.replace(/[\\%_]/g, "\\$&")}%`;
     const nameLike = like(input.name.slice(0, 40));
     // The database ranks the brand's catalog by shared name tokens, so a large
@@ -346,7 +352,7 @@ export class CommunityLookupRepository {
       p.brand_id IN (SELECT value FROM json_each(?)) AS brandMatch,
       COALESCE(p.product_family_id=?,0) AS inLine,
       COALESCE((SELECT json_group_array(alias) FROM product_aliases WHERE product_id=p.id),'[]') AS aliases,
-      p.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM product_aliases WHERE product_id=p.id),'') AS names
+      replace(replace(p.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM product_aliases WHERE product_id=p.id),''),'''',''),'’','') AS names
       FROM products p LEFT JOIN brands b ON b.id=p.brand_id WHERE p.country_id=? AND p.lifecycle_status<>'hidden'
       AND (${loose ? "1" : "p.brand_id=? OR p.name LIKE ? ESCAPE '\\'"})
     ), scored AS (SELECT *,${hits} AS hits FROM scoped)
@@ -368,14 +374,14 @@ export class CommunityLookupRepository {
         normalizeName(row.brand ?? "") === normalizeName(context.brandName) &&
         names.some((name) => productName(name) === productName(input.name));
       const shared = (name: string) =>
-        significant.filter((token) => name.toLowerCase().includes(token))
+        significant.filter((token) => comparableName(name).includes(token))
           .length;
       const similar =
         !row.inLine &&
         names.some(
           (name) =>
             shared(name) >=
-            (loose ? 1 : Math.min(2, Math.max(1, tokens.length))),
+            (loose ? 1 : Math.min(2, Math.max(1, significant.length))),
         );
       return same || similar
         ? [

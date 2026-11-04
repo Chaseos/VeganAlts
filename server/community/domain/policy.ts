@@ -86,6 +86,32 @@ export function productName(value: string) {
       .replace(/\b\d+\s*(?:pack|count|ct)\b/gi, ""),
   );
 }
+/** A name's words of three or more letters; an apostrophe never splits one. */
+export function nameWords(value: string) {
+  const words = comparableName(value).match(/[\p{L}\p{N}]+/gu) ?? [];
+  return [...new Set(words.filter((word) => word.length > 2))];
+}
+export function comparableName(value: string) {
+  return value.normalize("NFKC").toLowerCase().replace(/['’]/g, "");
+}
+// Words most vegan products share, which say nothing about which product it is.
+const GENERIC_NAME_WORDS = new Set([
+  "and",
+  "based",
+  "dairy",
+  "for",
+  "free",
+  "original",
+  "plant",
+  "style",
+  "the",
+  "vegan",
+  "with",
+]);
+/** The words that can make two products near-duplicates. */
+export function distinctiveNameWords(value: string) {
+  return nameWords(value).filter((word) => !GENERIC_NAME_WORDS.has(word));
+}
 export function identityKey(countryId: string, brand: string, name: string) {
   return `${countryId}:${normalizeName(brand)}:${productName(name)}`;
 }

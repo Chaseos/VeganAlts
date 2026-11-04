@@ -92,6 +92,27 @@ async function world() {
   };
 }
 
+it("holds a near-duplicate on distinctive words, not on words most vegan products share", async () => {
+  const w = await world();
+  // The candidates a submission would be held on, without using up submissions.
+  const held = async (name: string) =>
+    (
+      await w.services.submissions.checkIdentity(
+        w.contributor,
+        submissionIdentity.parse({ country: "US", brand: w.brand, name }),
+      )
+    ).length > 0;
+  await w.publish({ name: "Plant-Based Orchard Roast" });
+  await w.publish({ name: "Chopped Fajita Chic'ken" });
+  // Shared generic words, or one distinctive word of several, never hold.
+  expect(await held("Plant-Based Harvest Gravy")).toBe(false);
+  expect(await held("Classic Chic'ken")).toBe(false);
+  // Two distinctive words still do, and so does a name's only one.
+  expect(await held("Orchard Roast Deluxe")).toBe(true);
+  expect(await held("Plant-Based Roast")).toBe(true);
+  // An apostrophe is part of the word on both sides.
+  expect(await held("Fajita Chicken Bites")).toBe(true);
+});
 it("adds a new flavor to its line without a hold and names a flavored product's own line", async () => {
   const w = await world();
   const original = await w.publish({ name: "Orchard Patties" });

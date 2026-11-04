@@ -1,8 +1,10 @@
 import { expect, it } from "vitest";
 import {
   decideSubmission,
+  distinctiveNameWords,
   effectiveDate,
   identityKey,
+  nameWords,
   normalizeName,
   productName,
   communityLimits,
@@ -344,7 +346,10 @@ it("refuses to restore a photo into a slot a newer photo holds", () => {
   ).not.toThrow();
 });
 it("classifies by the evidence given, and more evidence never does worse", () => {
-  const unchecked = { veganStatus: "appears_plant_based", ingredientsChecked: false };
+  const unchecked = {
+    veganStatus: "appears_plant_based",
+    ingredientsChecked: false,
+  };
   const labels = ["vegan", "plant_based", "neither", "unknown"] as const;
   const shapes = [
     { imageSlots: ["front"] as const, ingredientUrl: undefined },
@@ -424,4 +429,16 @@ it("decides the New label once, from the publication time", () => {
   expect(isNewProduct(1_000 * day, 1_030 * day)).toBe(false);
   expect(isNewProduct(1_001 * day, 1_000 * day)).toBe(false);
   expect(isNewProduct(null, 1_000 * day)).toBe(false);
+});
+it("reads a name's words whole and leaves out the generic ones", () => {
+  expect(nameWords("Classic Chic'ken & Rice")).toEqual([
+    "classic",
+    "chicken",
+    "rice",
+  ]);
+  expect(distinctiveNameWords("Plant-Based Roast & Gravy")).toEqual([
+    "roast",
+    "gravy",
+  ]);
+  expect(distinctiveNameWords("Vegan Original")).toEqual([]);
 });
