@@ -9,6 +9,11 @@ import {
   type SubmissionInput,
 } from "./contracts";
 import { fingerprint, provisionalClassification } from "./policy";
+import {
+  ingredientTranscription,
+  type IngredientTranscription,
+} from "./ingredient-transcription";
+import type { AllergenDeclaration } from "./allergens";
 
 // The owner's store-photo import (docs/IMPORTER_PLAN.md): the reviewed photo
 // batches become catalog products without the review queue (owner,
@@ -44,6 +49,54 @@ export const MANUFACTURER_LABEL: Record<PackageLabel, ManufacturerLabel> = {
   plant_based: "plant_based",
   appears_plant_based: "unknown",
 };
+
+const importedAllergenAliases: Record<string, string> = {
+  almond: "tree_nuts",
+  cashew: "tree_nuts",
+  cashews: "tree_nuts",
+  hazelnut: "tree_nuts",
+  hazelnuts: "tree_nuts",
+  macadamia: "tree_nuts",
+  pecan: "tree_nuts",
+  pine_nut: "tree_nuts",
+  pistachio: "tree_nuts",
+  tree_nut: "tree_nuts",
+  walnut: "tree_nuts",
+  peanuts: "peanut",
+  sulfites: "sulphites",
+};
+
+/**
+ * Maps reviewed package allergen keys to this country's supported vocabulary.
+ * Unmapped structured keys are omitted rather than guessed into another
+ * category. Source photos remain available as evidence; verbatim label text
+ * stays in the transcription when it was provided.
+ */
+export function importAllergenDeclaration(
+  declaration: AllergenDeclaration | undefined,
+  supported: ReadonlySet<string>,
+): AllergenDeclaration | undefined {
+  if (!declaration || declaration.status === "none_declared")
+    return declaration;
+  const key = (value: string) => {
+    const normalized = importedAllergenAliases[value] ?? value;
+    return supported.has(normalized) ? normalized : null;
+  };
+  const contains = new Set(
+    declaration.contains.map(key).filter((value): value is string => !!value),
+  );
+  const mayContain = new Set(
+    declaration.mayContain
+      .map(key)
+      .filter((value): value is string => !!value && !contains.has(value)),
+  );
+  if (!contains.size && !mayContain.size) return undefined;
+  return {
+    status: "declared",
+    contains: [...contains],
+    mayContain: [...mayContain],
+  };
+}
 
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
 const copy = z
@@ -89,6 +142,9 @@ export const importFacts = z
     packageLabel,
     // Where the vegan or plant-based claim sits on the package.
     labelEvidence: z.string().trim().min(1).max(500).optional(),
+    // Every source product has an explicit transcription record, including
+    // no_source when no usable ingredient panel exists.
+    transcription: ingredientTranscription,
     stores: z.array(shortText).max(10),
     photos: z
       .array(importPhoto)
@@ -103,6 +159,8 @@ export const importFacts = z
   })
   .strict();
 export type ImportFacts = z.infer<typeof importFacts>;
+
+export type ImportTranscription = IngredientTranscription;
 
 /** The review's own data, kept for the owner and never written to the site. */
 export const importInternal = z
@@ -125,6 +183,17 @@ export const importProduct = z
   .strict();
 export type ImportProduct = z.infer<typeof importProduct>;
 
+/** A later label for a product already listed from an earlier photo batch. */
+export const importFormulaUpdate = z
+  .object({
+    productSourceKey: z.string().min(3).max(300),
+    facts: importFacts,
+    label: shortText,
+    summary: z.string().trim().min(8).max(2000),
+  })
+  .strict();
+export type ImportFormulaUpdate = z.infer<typeof importFormulaUpdate>;
+
 export const importManifest = z
   .object({
     version: z.literal(1),
@@ -133,6 +202,7 @@ export const importManifest = z
       z.object({ folder: z.string(), products: z.number().int() }).strict(),
     ),
     products: z.array(importProduct),
+    formulaUpdates: z.array(importFormulaUpdate).default([]),
   })
   .strict();
 export type ImportManifest = z.infer<typeof importManifest>;
@@ -177,25 +247,42 @@ const sentence = (value: string) =>
  * a risk level or a check result.
  */
 export function importEvidenceNote(facts: ImportFacts) {
-  const base = facts.photos.some((photo) => photo.slot === "ingredients")
-    ? "Added from VeganAlts store photos. The ingredient list is in the photo and has not been typed out."
-    : "Added from VeganAlts store photos. No ingredients photo was taken.";
+  const base =
+    facts.transcription.verification === "no_source"
+      ? "Added from VeganAlts store photos. No readable ingredient source was available."
+      : facts.transcription.verification === "online_only"
+        ? "Added from VeganAlts store photos. No matching readable package ingredient list was available; an exact-product online source is shown below."
+        : "Added from VeganAlts store photos. Ingredients were transcribed from the package label. Ingredient text is available below.";
   return facts.labelEvidence && facts.packageLabel !== "appears_plant_based"
     ? `${base} Package: ${sentence(facts.labelEvidence)}`
     : base;
 }
 
 /**
- * The milestone 6 provisional classification (MODERATION) for a contributor
- * who attaches an ingredients photo without ticking "nothing animal-derived":
- * nobody read these ingredient lists, and the review's checks never decide a
- * status.
+ * Classification for the owner's reviewed historical photo batches.
+ * A vegan package claim controls unless transcription confirms an animal
+ * ingredient. Otherwise, clean assessments are Plant-based and flagged or
+ * incomplete assessments are Appears plant-based.
  */
-export const importClassification = (facts: ImportFacts) =>
-  provisionalClassification({
-    imageSlots: facts.photos.map((photo) => photo.slot),
-    manufacturerLabel: MANUFACTURER_LABEL[facts.packageLabel],
-  });
+export const importClassification = (facts: ImportFacts) => {
+  const t = facts.transcription;
+  const veganStatus =
+    t.assessment.result === "animal_ingredients"
+      ? "under_review"
+      : facts.packageLabel === "vegan"
+        ? "vegan"
+        : t.assessment.result === "none_found"
+          ? "plant_based"
+          : "appears_plant_based";
+  return {
+    veganStatus,
+    // The owner has reviewed this historical batch's ingredient evidence and
+    // explicitly accepts Appears plant-based when a source or ingredient
+    // origin remains uncertain. Keep that public tag visible; animal findings
+    // remain under review and are blocked from import separately.
+    ingredientsChecked: true,
+  } as const;
+};
 
 export const isLineFirst = (facts: ImportFacts) =>
   facts.line.first === facts.sourceKey;
@@ -206,7 +293,11 @@ export const isLineFirst = (facts: ImportFacts) =>
  */
 export function importSubmission(
   facts: ImportFacts,
-  target: { categoryId: string; retailerIds: string[] },
+  target: {
+    categoryId: string;
+    retailerIds: string[];
+    allergens?: AllergenDeclaration;
+  },
 ): SubmissionInput {
   return submissionInput.parse({
     name: facts.name,
@@ -217,6 +308,7 @@ export function importSubmission(
     statusBasis: importEvidenceNote(facts),
     manufacturerLabel: MANUFACTURER_LABEL[facts.packageLabel],
     ...(target.retailerIds.length ? { retailerIds: target.retailerIds } : {}),
+    ...(target.allergens ? { allergens: target.allergens } : {}),
     ...(facts.flavor ? { flavor: facts.flavor } : {}),
     ...(isLineFirst(facts)
       ? { lineName: facts.line.name }
@@ -243,12 +335,15 @@ export const importFactsHash = (facts: ImportFacts) =>
 // The manifest hash covers every product's facts in order, never the review's
 // internal data, so the same hash applies to every environment.
 export const importManifestHash = (
-  manifest: Pick<ImportManifest, "batches" | "products">,
+  manifest: Pick<ImportManifest, "batches" | "products"> & {
+    formulaUpdates?: ImportFormulaUpdate[];
+  },
 ) =>
   fingerprint(
     canonical({
       version: 1,
       batches: manifest.batches,
       products: manifest.products.map((product) => product.facts),
+      formulaUpdates: manifest.formulaUpdates ?? [],
     }),
   );

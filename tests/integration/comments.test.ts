@@ -305,7 +305,7 @@ it("refuses comments over the daily allowance before any automated check", async
   expect(await decisions()).toBe(before);
 });
 
-it("holds uncertain or unevaluated comments, blocks near-certain spam and releases held comments when the provider recovers", async () => {
+it("holds uncertain comments, blocks near-certain spam and keeps provider failures non-public", async () => {
   const { f, actors } = await setup(3);
   const fake = new FakeDecisionProvider();
   let failing = true;
@@ -344,30 +344,30 @@ it("holds uncertain or unevaluated comments, blocks near-certain spam and releas
   });
   expect(held).toMatchObject({ state: "pending" });
   expect(held.reasons[0]).toContain("moderator");
-  const unevaluated = await service(flaky).create(actors[1]!, id(), {
-    productId: f.productId,
-    body: "Creamy and close to the original.",
+  await expect(
+    service(flaky).create(actors[1]!, id(), {
+      productId: f.productId,
+      body: "Creamy and close to the original.",
+    }),
+  ).rejects.toMatchObject({
+    name: "Error",
+    message: "Automated check unavailable",
   });
-  expect(unevaluated.state).toBe("pending");
   expect(
     (await comments.page(f.countryId, f.productId, "newest", "current", null))
       .comments,
   ).toHaveLength(0);
-  // Operators see both in the inbox; only provider failures are retried.
   const inbox = await communityServices(env).moderation.inbox(
     { ...actors[2]!, administrator: true },
     null,
   );
   expect(
     inbox.items.filter((i) => i.kind === "comment").map((i) => i.id),
-  ).toEqual(expect.arrayContaining([held.id, unevaluated.id]));
-  expect(await service(flaky).reevaluateHeld()).toBe(0);
+  ).toEqual([held.id]);
+  // A content hold stays for operator review; unavailable submissions use the
+  // private automatic-job path covered in content-safety.test.ts.
   failing = false;
-  expect(await service(flaky).reevaluateHeld()).toBe(1);
-  const visible = (
-    await comments.page(f.countryId, f.productId, "newest", "current", null)
-  ).comments.map((c) => c.id);
-  expect(visible).toEqual([unevaluated.id]);
+  expect(await service(flaky).reevaluateHeld()).toBe(0);
 });
 
 it("lets authors edit and delete with fences, and operators publish, hide and reverse comments through audited actions", async () => {

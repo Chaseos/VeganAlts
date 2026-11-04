@@ -38,7 +38,7 @@ export const loadRepeatPlan = (batch: Batch) =>
   readJsonIfPresent(runFile(batch, "repeats.json"), repeatPlan);
 
 export const earlierBatch = (plan: RepeatPlan) =>
-  openBatch(plan.earlier.web, basename(plan.earlier.run));
+  plan.earlier.map((entry) => openBatch(entry.web, basename(entry.run)));
 
 const earlierViews = async (earlier: Batch) => {
   const { loadRun } = await import("./view");
@@ -56,11 +56,13 @@ async function undecided(batch: Batch, plan: RepeatPlan) {
 
 export async function findRepeats(
   batch: Batch,
-  earlier: Batch,
+  earlierBatches: Batch[],
   options: { force: boolean },
 ) {
-  if (earlier.run === batch.run)
-    throw new Error("Compare with a different batch's run.");
+  if (!earlierBatches.length)
+    throw new Error("Choose at least one earlier batch.");
+  if (earlierBatches.some((earlier) => earlier.run === batch.run))
+    throw new Error("Compare with different batches' runs.");
   // A rerun keeps the plan and any decisions, so the workflow can resume;
   // --force starts over. A rebuild sets both aside itself (build.ts).
   const existing = await loadRepeatPlan(batch);
@@ -71,39 +73,50 @@ export async function findRepeats(
     );
     return result({ ok: true, pairs: existing.pairs.length, bins: open });
   }
-  const [mine, theirs, movedHere, movedThere] = await Promise.all([
+  const [mine, earlierData, movedHere] = await Promise.all([
     Promise.all(
       (await savedIds(batch, "products")).map((id) => loadProduct(batch, id)),
     ),
-    earlierViews(earlier),
+    Promise.all(
+      earlierBatches.map(async (batch) => ({
+        batch,
+        views: await earlierViews(batch),
+        moved: await movedPhotos(batch),
+      })),
+    ),
     movedPhotos(batch),
-    movedPhotos(earlier),
   ]);
-  if (!theirs.length)
-    throw new Error(
-      `No products in ${earlier.run}; check --earlier and --earlier-run.`,
-    );
+  for (const entry of earlierData)
+    if (!entry.views.length)
+      throw new Error(
+        `No products in ${entry.batch.run}; check --earlier and --earlier-run.`,
+      );
   const thumbnail = (web: string, moved: Map<string, string>, photo: string) =>
     join(web, moved.get(photo) ?? "", "thumbnail", photo);
 
   const pairs: RepeatPlan["pairs"] = [];
   for (const product of mine) {
     const key = productKey(product.brand, product.name, product.flavor);
-    const matches = theirs
-      .filter((other) => brandsMayMatch(product.brand, other.brand))
-      .map((other) => ({
-        other,
-        same: productKey(other.brand, other.name, other.flavor) === key,
-        overlap: tokenOverlap(product.name, other.name),
-      }))
+    const matches = earlierData
+      .flatMap(({ views }, earlierIndex) =>
+        views
+          .filter((other) => brandsMayMatch(product.brand, other.brand))
+          .map((other) => ({
+            other,
+            earlierIndex,
+            same: productKey(other.brand, other.name, other.flavor) === key,
+            overlap: tokenOverlap(product.name, other.name),
+          })),
+      )
       .filter((match) => match.same || match.overlap >= MIN_OVERLAP)
       .sort((a, b) => Number(b.same) - Number(a.same) || b.overlap - a.overlap)
       .slice(0, CANDIDATES_PER_PRODUCT);
-    for (const { other, same, overlap } of matches) {
+    for (const { other, earlierIndex, same, overlap } of matches) {
       const id = `repeat-${String(pairs.length + 1).padStart(3, "0")}`;
       pairs.push({
         id,
         product: product.id,
+        earlierIndex,
         earlier: other.id,
         earlierBrand: other.brand,
         earlierName: other.name,
@@ -122,7 +135,9 @@ export async function findRepeats(
   await moveAside(batch, "repeats.json");
   await moveAside(batch, "repeats");
   const byId = new Map(mine.map((product) => [product.id, product]));
-  const earlierById = new Map(theirs.map((view) => [view.id, view]));
+  const earlierById = earlierData.map(
+    ({ views }) => new Map(views.map((view) => [view.id, view])),
+  );
   const short = (text: string) =>
     text.length > 44 ? `${text.slice(0, 43)}…` : text;
   // A few sheets at a time keeps the command inside a timeout.
@@ -130,7 +145,9 @@ export async function findRepeats(
     await Promise.all(
       pairs.slice(start, start + 6).map((pair) => {
         const a = byId.get(pair.product)!;
-        const b = earlierById.get(pair.earlier)!;
+        const earlier = earlierData[pair.earlierIndex]!;
+        const movedThere = earlier.moved;
+        const b = earlierById[pair.earlierIndex]!.get(pair.earlier)!;
         const aFront = a.photos.front ?? labelPhoto(a.photos, a.other);
         const aLabel = labelPhoto(a.photos, a.other);
         const bFront = b.photos.front ?? labelPhoto(b.photos, b.record.other);
@@ -138,7 +155,7 @@ export async function findRepeats(
         const here = (photo?: string) =>
           photo ? thumbnail(batch.web, movedHere, photo) : undefined;
         const there = (photo?: string) =>
-          photo ? thumbnail(earlier.web, movedThere, photo) : undefined;
+          photo ? thumbnail(earlier.batch.web, movedThere, photo) : undefined;
         return sheet(
           batch,
           [
@@ -160,20 +177,22 @@ export async function findRepeats(
   await writeJson(
     runFile(batch, "repeats.json"),
     repeatPlan.parse({
-      earlier: { web: earlier.web, run: earlier.run },
+      earlier: earlierBatches.map((entry) => ({ web: entry.web, run: entry.run })),
       pairs,
       bins,
     }),
   );
   const covered = new Set(pairs.map((pair) => pair.product)).size;
+  const compared = earlierData.reduce((sum, entry) => sum + entry.views.length, 0);
   console.log(
-    `${pairs.length} possible repeats for ${covered} of ${mine.length} products, against ${theirs.length} products in ${earlier.run}; ${Object.keys(bins).length} bins.`,
+    `${pairs.length} possible repeats for ${covered} of ${mine.length} products, against ${compared} products across ${earlierBatches.length} earlier batches; ${Object.keys(bins).length} bins.`,
   );
   result({ ok: true, pairs: pairs.length, bins: Object.keys(bins) });
 }
 
 export interface Repeat {
   earlier: string;
+  earlierIndex: number;
   earlierBrand: string;
   earlierName: string;
   earlierWeb: string;
@@ -199,9 +218,10 @@ export async function decidedRepeats(batch: Batch) {
       if (!decision.same || !pair || repeats.has(pair.product)) continue;
       repeats.set(pair.product, {
         earlier: pair.earlier,
+        earlierIndex: pair.earlierIndex,
         earlierBrand: pair.earlierBrand,
         earlierName: pair.earlierName,
-        earlierWeb: plan.earlier.web,
+        earlierWeb: plan.earlier[pair.earlierIndex]!.web,
       });
     }
   }
@@ -229,25 +249,27 @@ export async function earlierLines(batch: Batch, brands: readonly string[]) {
     string,
     { brand: string; lineName: string; food: string; flavors: string[] }
   >();
-  for (const view of await earlierViews(earlierBatch(plan))) {
-    if (view.skip || !brands.some((brand) => brandsMayMatch(brand, view.brand)))
-      continue;
-    const food = view.food
-      ? `food ${view.food}`
-      : view.newFood
-        ? `new food ${view.newFood.name}`
-        : `out of scope (${view.outOfScope})`;
-    const lineName = view.lineName ?? view.name;
-    const key = `${view.brand}|${lineName}|${food}`;
-    const line = lines.get(key) ?? {
-      brand: view.brand,
-      lineName,
-      food,
-      flavors: [],
-    };
-    line.flavors.push(view.flavor ?? "Original");
-    lines.set(key, line);
-  }
+  for (const earlier of earlierBatch(plan))
+    for (const view of await earlierViews(earlier)) {
+      if (view.skip || !brands.some((brand) => brandsMayMatch(brand, view.brand)))
+        continue;
+      const food = view.food
+        ? `food ${view.food}`
+        : view.newFood
+          ? `new food ${view.newFood.name}`
+          : `out of scope (${view.outOfScope})`;
+      const lineName = view.lineName ?? view.name;
+      const key = `${view.brand}|${lineName}|${food}`;
+      const line = lines.get(key) ?? {
+        brand: view.brand,
+        lineName,
+        food,
+        flavors: [],
+      };
+      const flavor = view.flavor ?? "Original";
+      if (!line.flavors.includes(flavor)) line.flavors.push(flavor);
+      lines.set(key, line);
+    }
   return [...lines.values()];
 }
 
@@ -280,27 +302,34 @@ export async function loadCarried(batch: Batch) {
 export async function carryStores(batch: Batch) {
   const plan = await loadRepeatPlan(batch);
   if (!plan) throw new Error("Run repeats first.");
-  const earlier = earlierBatch(plan);
   const { loadRun } = await import("./view");
   const run = await loadRun(batch);
   if (!Object.keys(run.stores).length)
     throw new Error("Choose this batch's stores first (stores).");
-  const carried: Record<string, string[]> = {};
-  for (const { view, repeat } of run.repeats)
-    if (view.stores.length)
-      carried[repeat.earlier] = [
-        ...new Set([...(carried[repeat.earlier] ?? []), ...view.stores]),
-      ].sort();
-  await writeJson(
-    runFile(earlier, "carried", `${basename(batch.web)}.json`),
-    carried,
-  );
+  const carriedByBatch = new Map<number, Record<string, string[]>>();
+  for (const { view, repeat } of run.repeats) {
+    if (!view.stores.length) continue;
+    const carried = carriedByBatch.get(repeat.earlierIndex) ?? {};
+    carriedByBatch.set(repeat.earlierIndex, carried);
+    carried[repeat.earlier] = [
+      ...new Set([...(carried[repeat.earlier] ?? []), ...view.stores]),
+    ].sort();
+  }
+  const earlierRuns = earlierBatch(plan);
+  for (const [index, carried] of carriedByBatch)
+    await writeJson(
+      runFile(earlierRuns[index]!, "carried", `${basename(batch.web)}.json`),
+      carried,
+    );
   console.log(
-    `${run.repeats.length} repeats; stores recorded for ${Object.keys(carried).length} products of ${earlier.web}. Render it again to show them.`,
+    `${run.repeats.length} repeats; stores recorded across ${carriedByBatch.size} earlier batches. Render them again to show the carried stores.`,
   );
   result({
     ok: true,
     repeats: run.repeats.length,
-    updated: Object.keys(carried).length,
+    updated: [...carriedByBatch.values()].reduce(
+      (sum, stores) => sum + Object.keys(stores).length,
+      0,
+    ),
   });
 }

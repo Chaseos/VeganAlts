@@ -103,11 +103,11 @@ export function slug(value: string) {
 export interface ProvisionalClassification {
   veganStatus: VeganStatus;
   // False: "Ingredients not checked yet". The status is then only the
-  // appears_vegan placeholder the database requires.
+  // appears_plant_based placeholder the database requires.
   ingredientsChecked: boolean;
 }
 const UNCHECKED: ProvisionalClassification = {
-  veganStatus: "appears_vegan",
+  veganStatus: "appears_plant_based",
   ingredientsChecked: false,
 };
 interface ClassificationFacts {
@@ -154,7 +154,7 @@ export function provisionalClassification(
   if (input.allergens && needsClassificationReview(input.allergens))
     return UNCHECKED;
   if (input.noKnownAnimalIngredients)
-    return { veganStatus: "appears_vegan", ingredientsChecked: true };
+    return { veganStatus: "appears_plant_based", ingredientsChecked: true };
   if (input.manufacturerLabel === "plant_based")
     return { veganStatus: "plant_based", ingredientsChecked: true };
   return UNCHECKED;

@@ -2,7 +2,7 @@ import type { Classification, PublicVeganStatus } from "../domain/contracts";
 
 // "Ingredients not checked yet" is a flag beside a placeholder status, never a
 // stored status (milestone 6). Every public read derives it with these, so an
-// unchecked formula never reads as Appears vegan.
+// unchecked formula never reads as Appears plant-based.
 export function publicVeganStatus(
   status: string,
   ingredientsChecked: unknown,
@@ -52,10 +52,15 @@ export function communityProductStatements(
     db
       .prepare("SELECT revision FROM catalog_revisions WHERE product_id=?")
       .bind(productId),
+    db
+      .prepare(
+        "SELECT package_ingredients AS ingredients,package_contains AS contains,package_may_contain AS mayContain,source_image_ids AS sourceImageIds,verification,online_ingredients AS onlineIngredients,online_contains AS onlineContains,online_may_contain AS onlineMayContain,online_url AS onlineUrl,online_accessed_at AS onlineAccessedAt,online_product_match AS onlineProductMatch FROM product_version_ingredient_transcriptions WHERE product_version_id=?",
+      )
+      .bind(versionId),
   ];
 }
 export function communityProductDetails(
-  [classifications, retailers, related, revisions]: D1Result<
+  [classifications, retailers, related, revisions, transcriptions]: D1Result<
     Record<string, unknown>
   >[],
   now = Date.now(),
@@ -81,6 +86,25 @@ export function communityProductDetails(
     : null;
   return {
     classification,
+    ingredientTranscription: transcriptions!.results[0]
+      ? {
+          ingredients: transcriptions!.results[0].ingredients as string | null,
+          contains: transcriptions!.results[0].contains as string | null,
+          mayContain: transcriptions!.results[0].mayContain as string | null,
+          onlineIngredients: transcriptions!.results[0].onlineIngredients as string | null,
+          onlineContains: transcriptions!.results[0].onlineContains as string | null,
+          onlineMayContain: transcriptions!.results[0].onlineMayContain as string | null,
+          sourceImageIds: JSON.parse(String(transcriptions!.results[0].sourceImageIds)) as string[],
+          verification: String(transcriptions!.results[0].verification),
+          onlineSource: transcriptions!.results[0].onlineUrl
+            ? {
+                url: String(transcriptions!.results[0].onlineUrl),
+                accessedAt: String(transcriptions!.results[0].onlineAccessedAt),
+                productMatch: String(transcriptions!.results[0].onlineProductMatch),
+              }
+            : null,
+        }
+      : null,
     retailers: retailers!.results.map((r) => ({
       ...r,
       stale: !r.lastConfirmedAt || Number(r.lastConfirmedAt) < cutoff,

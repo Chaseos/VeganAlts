@@ -16,7 +16,7 @@ Before substantial implementation work, read:
 
 `docs/MILESTONE_1_PLAN.md` through `docs/MILESTONE_6_PLAN.md`, `docs/DESIGN_DIRECTION.md`, and their verification records preserve earlier scope and evidence.
 
-Milestone 4 adds Cloudflare Workers AI Clef behind the provider-neutral `ModerationDecisionService`. Automation is advisory: deterministic checks run first, and provider failure routes to review, never approval. Product duplicate consolidation still archives the donor without transferring ratings; category merges are the documented exception and transfer ratings reversibly. Protected changes remain auditable and reversible.
+Milestone 4 adds Cloudflare Workers AI Clef behind the provider-neutral `ModerationDecisionService`. Deterministic checks run first. The owner-approved OpenAI safety layer (2026-10-23) rejects built-in safety flags before Clef; transient provider failures retry privately through bounded automatic work, never approval or a new manual review task. Clef evidence uncertainty and protected factual changes retain their review rules. Product duplicate consolidation still archives the donor without transferring ratings; category merges are the documented exception and transfer ratings reversibly. Protected changes remain auditable and reversible.
 
 Milestone 6 makes ingredient evidence optional for new products (they show "Ingredients not checked yet" and still rank), lets a missing food be suggested inside Add a product, and switches foods on per country while aisles and shelves stay shared.
 

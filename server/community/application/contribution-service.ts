@@ -1,3 +1,8 @@
+import { contributedText } from "../../moderation/domain/safety";
+import {
+  ModerationWorkService,
+  requireAutomatedCheck,
+} from "../../moderation/application/work-service";
 import { ApplicationError } from "../../shared/domain/errors";
 import {
   responseInput,
@@ -6,7 +11,12 @@ import {
   type ReportInput,
   type RetailerInput,
 } from "../domain/contracts";
-import { active, effectiveDate, identityKey } from "../domain/policy";
+import {
+  active,
+  administrator,
+  effectiveDate,
+  identityKey,
+} from "../domain/policy";
 import { planProductChange, proposalBaseline } from "../domain/change-policy";
 import { describeChange } from "../domain/change-summary";
 import { contributorProduct } from "../domain/moderation";
@@ -41,6 +51,7 @@ export class ContributionService {
     private readonly accept: (proposalId: string) => Promise<unknown>,
     private readonly newId: () => string,
     private readonly clock = Date.now,
+    private readonly work?: ModerationWorkService,
   ) {}
   options(actor: Actor, query = "", country = "US") {
     active(actor);
@@ -50,7 +61,15 @@ export class ContributionService {
   async product(actor: Actor, productId: string) {
     active(actor);
     await this.lookup.contributableProduct(productId);
-    return contributorProduct(await this.catalog.snapshot(productId));
+    const product = contributorProduct(await this.catalog.snapshot(productId));
+    const ids = product.categories.map((category) => category.categoryId);
+    const names = await this.lookup.categoryNames(ids);
+    return {
+      ...product,
+      categoryNames: Object.fromEntries(
+        ids.map((id, index) => [id, names[index]!]),
+      ),
+    };
   }
   async report(actor: Actor, key: string, input: ReportInput) {
     active(actor);
@@ -67,6 +86,14 @@ export class ContributionService {
     return this.repository.report(actor, input, this.newId(), receipt);
   }
   async propose(actor: Actor, key: string, input: ProductChange) {
+    active(actor);
+    return this.work
+      ? this.work.execute(actor.id, "proposal_create", key, input, () =>
+          this.proposeNow(actor, key, input),
+        )
+      : this.proposeNow(actor, key, input);
+  }
+  private async proposeNow(actor: Actor, key: string, input: ProductChange) {
     active(actor);
     const receipt = await receiptWrite(
       actor.id,
@@ -136,6 +163,7 @@ export class ContributionService {
         ? await this.media.referenceImage(input.productId)
         : null;
     const automated = await this.decisions.evaluate({
+      safety: { text: contributedText(input), images: staged },
       // Checking unchecked ingredients cites an already accepted label photo,
       // so its evidence is assessed like an allergen declaration's.
       kind:
@@ -177,6 +205,8 @@ export class ContributionService {
           ? { slots: [input.slot] }
           : { lowRisk: tier === 1 },
     });
+    requireAutomatedCheck(automated);
+    await this.work?.assertCurrent();
     // Actionable problems return before any proposal or evidence is reserved.
     if (
       automated.outcome === "NEEDS_CHANGES" ||
@@ -208,6 +238,21 @@ export class ContributionService {
   }
   async respond(actor: Actor, key: string, proposalId: string, raw: unknown) {
     active(actor);
+    const input = responseInput.parse(raw),
+      data = { proposalId, input };
+    return this.work
+      ? this.work.execute(actor.id, "proposal_response", key, data, () =>
+          this.respondNow(actor, key, proposalId, input),
+        )
+      : this.respondNow(actor, key, proposalId, input);
+  }
+  private async respondNow(
+    actor: Actor,
+    key: string,
+    proposalId: string,
+    raw: unknown,
+  ) {
+    active(actor);
     const input = responseInput.parse(raw);
     const receipt = await receiptWrite(
       actor.id,
@@ -221,6 +266,24 @@ export class ContributionService {
       stance: string;
     }>(receipt);
     if (prior) return prior;
+    await this.repository.assertResponseAllowed(proposalId, actor);
+    if (input.note || input.urls.length) {
+      const decision = await this.decisions.evaluate({
+        kind: "content_safety",
+        subject: { type: "proposal_response", id: `${proposalId}:${actor.id}` },
+        userId: actor.id,
+        state: {},
+        safety: { text: contributedText(input) },
+      });
+      requireAutomatedCheck(decision);
+      if (decision.outcome === "BLOCKED")
+        throw new ApplicationError(
+          "RESPONSE_BLOCKED",
+          decision.reasons.join(" "),
+          422,
+        );
+    }
+    await this.work?.assertCurrent();
     return this.repository.respond(
       proposalId,
       actor,
@@ -228,6 +291,7 @@ export class ContributionService {
       input.note,
       input.urls,
       receipt,
+      this.work?.context,
     );
   }
   async openProposals(actor: Actor, productId: string) {
@@ -268,6 +332,28 @@ export class ContributionService {
   }
   async proposeRetailer(actor: Actor, key: string, input: RetailerInput) {
     active(actor);
+    return this.work
+      ? this.work.execute(actor.id, "retailer_proposal", key, input, () =>
+          this.proposeRetailerNow(actor, key, input),
+        )
+      : this.proposeRetailerNow(actor, key, input);
+  }
+  /** Trusted store data in an administrator-reviewed catalog import. */
+  async proposeImportedRetailer(
+    actor: Actor,
+    key: string,
+    input: RetailerInput,
+  ) {
+    administrator(actor);
+    return this.proposeRetailerNow(actor, key, input, true);
+  }
+  private async proposeRetailerNow(
+    actor: Actor,
+    key: string,
+    input: RetailerInput,
+    trustedImport = false,
+  ) {
+    active(actor);
     const receipt = await receiptWrite(
       actor.id,
       "retailer-proposal",
@@ -277,6 +363,7 @@ export class ContributionService {
     );
     const prior = await this.repository.replay<{ id: string }>(receipt);
     if (prior) return prior;
+    const proposalId = this.newId();
     if (!(await this.repository.countryActive(input.country)))
       throw new ApplicationError(
         "INVALID_COUNTRY",
@@ -293,14 +380,37 @@ export class ContributionService {
           409,
         );
       // Otherwise this proposes that retailer's market in this country.
+      if (!trustedImport) await this.checkRetailer(actor, input, proposalId);
       return this.repository.propose(
         actor,
         { ...input, marketFor: existing.id },
-        this.newId(),
+        proposalId,
         receipt,
       );
     }
-    return this.repository.propose(actor, input, this.newId(), receipt);
+    if (!trustedImport) await this.checkRetailer(actor, input, proposalId);
+    return this.repository.propose(actor, input, proposalId, receipt);
+  }
+  private async checkRetailer(
+    actor: Actor,
+    input: RetailerInput,
+    proposalId: string,
+  ) {
+    const decision = await this.decisions.evaluate({
+      kind: "content_safety",
+      subject: { type: "edit_proposal", id: proposalId },
+      userId: actor.id,
+      state: {},
+      safety: { text: contributedText(input) },
+    });
+    requireAutomatedCheck(decision);
+    if (decision.outcome === "BLOCKED")
+      throw new ApplicationError(
+        "RETAILER_BLOCKED",
+        decision.reasons.join(" "),
+        422,
+      );
+    await this.work?.assertCurrent();
   }
   async confirm(
     actor: Actor,

@@ -28,4 +28,5 @@ export const IMPORT_STORES: ImportStore[] = [
     aliases: ["Whole Foods Market"],
     websiteUrl: "https://www.wholefoodsmarket.com",
   },
+  { name: "Costco", aliases: [], websiteUrl: "https://www.costco.com" },
 ];

@@ -1,3 +1,4 @@
+import { retryModeration } from "../moderation/infrastructure/retry";
 import { moderationDecisions } from "../moderation/infrastructure/composition";
 import { trendingService } from "../ranking/infrastructure/trending-composition";
 import { commentServices } from "../comments/infrastructure/composition";
@@ -29,6 +30,7 @@ export async function runAutomation(env: Cloudflare.Env) {
   await step("agedLines", () => lineRefresh(env).refreshAged());
   const decisions = moderationDecisions(env);
   await step("expiredDecisionLeases", () => decisions.expireLeases());
+  await step("retriedModeration", () => retryModeration(env));
   await step("releasedComments", () => commentServices(env).reevaluateHeld());
   await step("acceptedProposals", async () => {
     const applied = await communityServices(env).moderation.sweepProposals();

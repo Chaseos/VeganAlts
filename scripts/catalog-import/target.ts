@@ -13,7 +13,7 @@ import { normalizeName } from "../../server/community/domain/policy";
 
 /** The environment's administrator allowlist: `.dev.vars` locally. */
 export async function adminIds(
-  environment: "local" | "staging",
+  environment: "local" | "staging" | "production",
   vars: Record<string, unknown>,
 ) {
   let value = String(vars.ADMIN_USER_IDS ?? "");
@@ -69,6 +69,16 @@ export async function checkTarget(
     .prepare("SELECT id FROM countries WHERE iso2='US' AND is_active=1")
     .first<string>("id");
   if (!countryId) blocking.push("The United States is not an active country.");
+  const allergenRows = countryId
+    ? (
+        await db
+          .prepare(
+            "SELECT allergen_key AS key FROM country_allergens WHERE country_id=?",
+          )
+          .bind(countryId)
+          .all<{ key: string }>()
+      ).results
+    : [];
   const rows = (
     await db
       .prepare(
@@ -107,6 +117,10 @@ export async function checkTarget(
     accountState: "active",
     administrator: true,
   };
-  const target: ImportTarget = { foods, stores: storeIds };
+  const target: ImportTarget = {
+    foods,
+    stores: storeIds,
+    allergens: new Set(allergenRows.map(({ key }) => key)),
+  };
   return { blocking, actor, target, pendingStores, countryId };
 }

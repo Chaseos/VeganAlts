@@ -264,35 +264,34 @@ it("requires an automated READY before canonical insertion and keeps every other
   expect(mismatch.product).toBeNull();
   expect(mismatch.state).toBe("staging");
 
-  const unavailable = await attempt("[fake:error]");
-  expect(unavailable.receipt).toMatchObject({ decision: "NEEDS_REVIEW" });
-  expect(unavailable.product).toBeNull();
-  expect(unavailable.state).toBe("review");
+  await expect(attempt("[fake:error]")).rejects.toMatchObject({
+    code: "CHECKING_AUTOMATICALLY",
+    status: 503,
+  });
+  const automatic = await env.DB.prepare(
+    "SELECT payload_data,status FROM moderation_jobs WHERE user_id=?",
+  )
+    .bind(actor.id)
+    .first<{ payload_data: string; status: string }>();
+  expect(automatic?.status).toBe("checking");
+  const unavailableId = JSON.parse(automatic!.payload_data).receiptId as string;
   expect(
     await env.DB.prepare(
-      "SELECT reasons FROM pending_submissions WHERE submission_id=?",
+      "SELECT state,product_id FROM submission_receipts WHERE id=?",
     )
-      .bind(unavailable.receiptId)
-      .first("reasons"),
-  ).toContain("automated check was unavailable");
-  // Operators see the advisory record; the contributor does not.
-  const operator = { ...actor, administrator: true };
+      .bind(unavailableId)
+      .first(),
+  ).toMatchObject({ state: "staging", product_id: null });
   expect(
-    await services.moderation.detail(
-      operator,
-      "submission",
-      unavailable.receiptId,
-    ),
-  ).toMatchObject({
-    automated: { status: "failed", errorCode: "provider_error" },
-  });
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM pending_submissions WHERE submission_id=?",
+    )
+      .bind(unavailableId)
+      .first("n"),
+  ).toBe(0);
   expect(
-    await services.moderation.detail(
-      actor,
-      "submission",
-      unavailable.receiptId,
-    ),
-  ).toMatchObject({ automated: null });
+    await services.decisions.latest("submission", unavailableId),
+  ).toMatchObject({ status: "failed", error_code: "provider_error" });
 
   const blocked = await attempt("[fake:safety=UNSAFE]");
   expect(blocked.receipt).toMatchObject({ decision: "BLOCKED" });

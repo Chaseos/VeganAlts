@@ -210,12 +210,27 @@ A trusted moderator's 5/5 similarity rating still counts as one person's rating.
 
 VeganAlts uses an ingredient-based operational classification while separately recording manufacturer labeling/certification.
 
-Suggested states:
+Suggested states for the four existing store-photo batches (owner revision,
+2026-10-22):
 
-- `vegan` — available evidence supports no animal-derived ingredients;
-- `appears_vegan` — no known animal-derived ingredients, but evidence is incomplete or weaker;
-- `plant_based` — useful market label when VeganAlts cannot establish the stronger ingredient status;
+- `vegan` — the package has a vegan word or mark. That claim controls when an ingredient origin is unclear; a confirmed animal-derived ingredient still needs an owner decision;
+- `appears_plant_based` — there is no vegan package claim and the ingredient list has an unresolved origin, unreadable text, or no usable source;
+- `plant_based` — there is no vegan package claim and the ingredient list is clean with no flags, whether or not the package says plant-based;
 - `under_review` — a credible concern is being investigated.
+
+The package claim and ingredient assessment are separate evidence. For the
+existing photo batches, a clear label is transcribed once after the double-read
+pilot; unreadable sections may be supplemented from an exact-product online
+source, recorded with its URL and lookup date. Online text remains
+distinguishable from the package transcription. An explicit vegan package
+word or mark controls even if an ingredient origin remains unclear. Without a
+vegan package claim, a clean list with no flags supports Plant-based; an
+unclear origin, unreadable text, or missing usable source supports Appears
+plant-based. A confirmed animal-derived ingredient is held for the owner's
+decision. Image identity, relevance, quality and safety are checked once for
+the photos currently available in batches 1–4; concerns go to the operator.
+This one-time batch review does not change the image moderation flow for
+future uploads.
 
 Do not let simple popularity voting decide ingredient status.
 
@@ -317,6 +332,7 @@ Never blindly sum/migrate ratings across products that may represent different f
 - Duplicate product
 - Discontinued
 - Wrong category
+- Doesn’t belong on VeganAlts (`out_of_scope`): not intended to imitate an animal-based original, or a mix without manufacturer-supported vegan preparation
 - Misleading content
 - Other
 
@@ -384,7 +400,7 @@ Community-supplied images/evidence may be staged in temporary R2 storage before 
 
 Repeated identical uploads should not repeatedly trigger expensive image/model processing.
 
-Provider failures, quota exhaustion, and timeouts must degrade to a retryable or **NEEDS_REVIEW** state, never automatic approval.
+Transient provider failures and timeouts retain private automatic-check work with bounded retries. Quota exhaustion returns retry guidance before provider work. Neither creates a manual review task or permits automatic approval; ambiguous factual evidence still follows the existing review policy.
 
 ### 18.3 Clef is the initial automated decision provider
 
@@ -478,9 +494,9 @@ For a submission follow-up, its contributor can reopen the guided form from My c
 
 The [approved scope](MILESTONE_4_PLAN.md) enables automated decisions, community confirmation and comment voting on top of the milestone 3 workflows.
 
-**Provider modes.** `MODERATION_PROVIDER` is `clef`, `fake` or `disabled`. The fake provider is accepted only in local development and tests. `disabled` is a deliberate operator setting that restores the milestone 3 deterministic behavior: comments publish as ordinary opinions, submissions follow the deterministic decision and nothing is automatically accepted from confirmations. An enabled provider that errors, times out, is rate limited or exceeds its configured budget produces `NEEDS_REVIEW` (a held comment or review item), never approval. Held comments are re-evaluated by the hourly schedule within budget.
+**Provider modes.** `MODERATION_PROVIDER` is `clef`, `fake` or `disabled`, independently of `CONTENT_SAFETY_PROVIDER`. Fake providers are accepted only in local development and tests. Disabling Clef retains deterministic evidence rules and disables community-confidence auto-acceptance; an enabled safety provider still checks contributed content. The safety and automatic-retry policy below supersedes the original milestone 4 outage behavior: transient failures remain private for bounded retries, and exhausted budgets return retry guidance without creating a review item. Existing held comments remain eligible for the legacy hourly re-evaluation path.
 
-**Decisions.** The policy engine combines the deterministic result with the automated answers and keeps the more restrictive outcome; automation can hold or correct but never upgrade a deterministic hold. `NEEDS_CHANGES` returns an actionable reason without creating canonical rows. `BLOCKED` applies only to explicit high-confidence abuse rules (for example near-certain spam or commercial promotion) and stores no catalog data. Each evaluation records the provider, model, schema/policy versions, input hash, finite answers with probabilities, outcome, status, tokens and latency. Raw prompts and model prose are not stored. Identical recent payloads reuse an earlier decision instead of calling the provider again.
+**Decisions.** The policy engine combines the deterministic result with the automated answers and keeps the more restrictive outcome; automation can hold or correct but never upgrade a deterministic hold. `NEEDS_CHANGES` returns an actionable reason without creating canonical rows. `BLOCKED` applies to any built-in OpenAI safety flag or an existing high-confidence Clef abuse rule (for example near-certain spam or commercial promotion) and stores no catalog data. Each evaluation records provider/model identities, schema/policy versions, input hashes, structured flags and scores, finite evidence answers, outcome, status, tokens and latency. Raw prompts and model prose are not stored. Identical recent payloads reuse an earlier decision only while content, image hashes, provider/model identities and effective policy still match.
 
 **Comments.** Comments are opinions about a specific formula. Votes measure whether a comment helps someone understand the product, not agreement, and have no effect on similarity rankings. One account has at most one active up or down vote per comment and cannot vote on its own comment. Strongly downvoted comments collapse behind an explicit **Show** action; they are not deleted. Automation may hold likely spam, commercial promotion, duplicated text or off-topic content; it never rejects ordinary short opinions. Authors may edit or delete their own comments; operators may hide comments and reverse that action.
 
@@ -528,13 +544,13 @@ The [approved scope](MILESTONE_6_PLAN.md) lowers the submission minimum, adds a 
 | Ingredient evidence | "Nothing animal-derived" ticked | Manufacturer label        | Classification          |
 | ------------------- | ------------------------------- | ------------------------- | ----------------------- |
 | none                | any                             | any                       | ingredients not checked |
-| given               | yes                             | any                       | appears vegan           |
+| given               | yes                             | any                       | appears plant-based           |
 | given               | no                              | plant-based               | plant-based             |
 | given               | no                              | vegan, neither or unknown | ingredients not checked |
 
 Giving more evidence never produces a worse outcome than giving less. When the only ingredient evidence is a photo and the automated check flags it as unreadable or not an ingredient list, the classification is downgraded to "ingredients not checked" instead of holding the submission; automation still never upgrades a result. Near-duplicates, variant relationships, specialty flavors, follow-ups and suggested foods still hold for review. A declaration that the product contains milk, egg, fish, crustacean or mollusc holds the submission for review before publication. An operator accepting a held submission without choosing a classification publishes it as "ingredients not checked".
 
-**Ingredients not checked.** The state is shown as "Ingredients not checked yet". The product ranks and can be rated. It is not a vegan status: it records that no one has confirmed the ingredients. On such a formula, a classification change that chooses Appears vegan or Plant-based and cites the formula's accepted ingredients or nutrition photo is **tier 2**: community-confirmable and automatically acceptable under the milestone 4 rule, and any disagreement goes to an operator. Every other classification change, including Vegan, Under Review and any change without a cited photo, stays tier 3. Accepting any reviewed classification marks the ingredients checked, and reversal restores the earlier state exactly.
+**Ingredients not checked.** The state is shown as "Ingredients not checked yet". The product ranks and can be rated. It is not a vegan status: it records that no one has confirmed the ingredients. On such a formula, a classification change that chooses Appears plant-based or Plant-based and cites the formula's accepted ingredients or nutrition photo is **tier 2**: community-confirmable and automatically acceptable under the milestone 4 rule, and any disagreement goes to an operator. Every other classification change, including Vegan, Under Review and any change without a cited photo, stays tier 3. Accepting any reviewed classification marks the ingredients checked, and reversal restores the earlier state exactly.
 
 **Suggested foods inside a submission.** A submission may suggest one new food (name, shelf, optional other names) in place of, or beside, existing foods. Preflight applies the standalone suggestion rules: an open country, a valid shelf, a name and other names unused across the taxonomy, reserved words, and the shared daily limit of three suggestions. Finalization evaluates the product and the suggestion and holds both together; the submission waits while its food is undecided. An operator decides the food first:
 
@@ -592,8 +608,34 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) groups products into recipe
 
 The owner's reviewed store-photo batches reach the catalog through the [store photo importer](IMPORTER_PLAN.md) (owner, 2026-10-16).
 
-- **No review queue.** Imported products are the owner's own contributions, attributed to the owner's account, and publish without the review queue, the near-duplicate hold or the automated photo check. The owner reviewed every product and photo on the photo-batch review sheet first.
+- **No review queue.** Imported products are the owner's own contributions, attributed to the owner's account, and publish without the review queue or the near-duplicate hold. The existing photos in batches 1–4 receive a one-time identity, relevance, quality and safety check before import. Future uploads retain their separate moderation flow.
 - **Deterministic checks still run.** Each product passes the submission contract, the same identity-key uniqueness that refuses exact duplicates, and the same classification rule as a submission.
-- **Classification.** It is the milestone 6 provisional classification for a contributor who attaches an ingredients photo without ticking "nothing animal-derived": nobody read the ingredient lists. Risk levels and ingredient checks from the photo review stay internal and never decide a status.
+- **Classification.** A vegan package word or mark controls Vegan even when an ingredient origin remains unclear. Without a vegan package claim, a clean list with no flags is Plant-based; an unclear origin, unreadable text or missing usable source is Appears plant-based. Confirmed animal-derived ingredients are held for the owner's decision. Risk levels stay internal and never determine a public status.
 - **Audit.** Each product records a `product_import` moderation action by the owner, with its audit entry and a `product_published` audit entry like a submission's. Each run records its start and end. Stores the import needs are proposed and accepted through the retailer proposal path.
 - **Reversal.** Reversing a product's `product_import` action from its moderation view hides the product, its photos and its place in rankings and search. Its rows stay.
+
+## Automated safety and bounded retries (owner decision, 2026-10-23)
+
+The owner approved OpenAI safety checks before the existing Clef evidence checks. For new community content, any OpenAI safety flag rejects the contribution with a request to revise; no extra score threshold applies. Private reports and owner-only tools/imports are exempt. Protected factual review requirements are unchanged. Profile changes require a successful safety check and have no queue.
+
+Transient provider failures retain a private automatic-check job instead of a manual review item. The existing hourly schedule retries failed stages at most three more times (due after 1, 3 and 6 hours), respecting Retry-After and a 24-hour expiry. Exhaustion asks the contributor to resubmit. Rate/capacity denials do not create jobs. Every actual provider attempt, including scheduled retries, is bounded by atomic account/environment quotas and leases; successful unchanged stages may be reused. Checking content is never community-visible and cannot count toward confirmation.
+
+## Production-readiness review (owner, 2026-10-23)
+
+Catalog eligibility requires intent to imitate an animal-based original. A vegetable-focused substitute without that intent is outside scope. Mixes need package/manufacturer directions for a vegan preparation; contributor-invented substitutions are insufficient. Add-product guidance, policy wording and category-fit evidence checks share this rule. The moderation policy version changes so cached earlier-scope decisions are not reused. Missing intent/preparation evidence requires review, not an unsupported rejection claim.
+
+A release review can exclude or hold a product using a reversible `catalog_review` action, hiding it from public discovery and contribution choices while retaining its formulas, photos, ratings and audit history. A hold means evidence is outstanding. Reclassifications retain old memberships as ineligible and use the existing reversal rules to preserve subsequent ratings. The release overlay and cleanup commands are documented in [catalog operations](operations/catalog-import.md).
+
+**Owner exception, 2026-10-23:** before launch, the owner explicitly authorized deleting the rejected catalog entries and brownie mixes instead of retaining evidence holds, plus removal of verified duplicate entries. This is a bounded staging data cleanup, with a recovery bookmark and record backup, and must stop if a selected product has ratings, comments, trials or pending community work. Retain audit records and import receipts; source-review skip decisions prevent future imports from restoring deleted entries. This exception does not change normal moderation's reversible archival behavior or authorize production writes. Amy's Light in Sodium Medium Chili is retained alongside Daring in the shared Chili food, with separate recipe lines. The Cocojune variety pack is represented by individual Vanilla Cinnamon and Raspberry products.
+
+Reversal review displays the stored post-decision values and values to restore, with explicit food, line, product, formula and photo labels. These are recorded values, not a promise that the current state is unchanged. The existing conflict check and mandatory reason still gate compensation. Created recipe lines remain after a reversed move; later contribution history is preserved.
+
+## Direct operator controls (owner, 2026-10-23)
+
+Product reports offer **Doesn’t belong on VeganAlts**, separately from **wrong category**. The report alone leaves public visibility unchanged. An operator can resolve an assessed scope report with **Remove product from catalog**, with a required reason and current product/report revisions.
+
+Signed-in operators see **Manage product** in Product facts. Its workspace offers **Remove from catalog**, a preview of the visibility change, and a required reason before confirmation. This uses the existing reversible `catalog_review` exclusion: the product leaves public pages, search, ranking and contribution choices; its photos, formulas, ratings and comments remain. The removal appears in **Decision history**, where **Review reversal** can restore it subject to the existing conflict checks. This control does not permanently delete database records.
+
+Visible comments have a direct **Hide comment** button for operators. The confirmation requires a reason and the revision of the comment displayed; an intervening edit or moderation action requires a reload. Hiding records a `comment_hide` action and keeps text and votes. No report is needed. The confirmation links to the product’s decision history for reversal. Author deletion remains a separate action.
+
+Operator controls appear only through private session hydration; public page loaders remain anonymous and cacheable. Every write independently requires an active allowlisted operator, same-origin validation and an idempotency key. Product removal invalidates affected public pages, listings and photos; comment hiding invalidates public comment/product views through the existing moderation invalidation path.

@@ -4,6 +4,7 @@ import type {
   SubmissionDecision,
   SubmissionInput,
 } from "@server/community/domain/contracts";
+import { CommunityError } from "../../lib/community";
 import type { CommunityAction } from "../../lib/community";
 import { PHOTO_SLOTS, type PhotoSlot } from "../../lib/product-draft";
 
@@ -92,13 +93,24 @@ export function useSubmission(action: CommunityAction) {
             uploaded.current.add(slot);
           }
         setProgress("Finishing up…");
-        const saved = await action.request<{
-          decision: string;
-          slug?: string;
-          reasons?: string[];
-          receiptId?: string;
-          rating?: "saved" | "pending" | "dropped";
-        }>(`submissions/${receipt.current}/finalize`, input, key.current);
+        const saved = await action
+          .request<{
+            decision: string;
+            slug?: string;
+            reasons?: string[];
+            receiptId?: string;
+            rating?: "saved" | "pending" | "dropped";
+          }>(`submissions/${receipt.current}/finalize`, input, key.current)
+          .catch((error: unknown) => {
+            if (
+              error instanceof CommunityError &&
+              ["CHECK_RESUBMIT_REQUIRED", "CONTRIBUTION_BLOCKED"].includes(
+                error.code,
+              )
+            )
+              reset();
+            throw error;
+          });
         if (saved.decision === "READY" && saved.slug) {
           reset();
           return {

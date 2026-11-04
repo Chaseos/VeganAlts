@@ -579,7 +579,7 @@ it("checks an unchecked formula's ingredients by community confirmation, reversi
   const { f, services, confirmer, admin, propose } = await fixture();
   const panel = await labelled(f);
   await env.DB.prepare(
-    "INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,ingredients_checked,updated_at) VALUES(?,'appears_vegan','unknown',?,0,1)",
+    "INSERT INTO formula_classifications(product_version_id,vegan_status,manufacturer_label,evidence_data,ingredients_checked,updated_at) VALUES(?,'appears_plant_based','unknown',?,0,1)",
   )
     .bind(
       f.versionId,
@@ -617,7 +617,7 @@ it("checks an unchecked formula's ingredients by community confirmation, reversi
   await expect(
     propose({
       kind: "classification",
-      veganStatus: "appears_vegan",
+      veganStatus: "appears_plant_based",
       manufacturerLabel: "unknown",
       citedImageId: "not-a-label-photo",
     }),
@@ -625,7 +625,7 @@ it("checks an unchecked formula's ingredients by community confirmation, reversi
   const proposal = await propose(
     {
       kind: "classification",
-      veganStatus: "appears_vegan",
+      veganStatus: "appears_plant_based",
       manufacturerLabel: "unknown",
       citedImageId: panel,
     },
@@ -640,7 +640,7 @@ it("checks an unchecked formula's ingredients by community confirmation, reversi
   expect(await services.moderation.autoAccept(proposal.id)).toMatchObject({
     applied: true,
   });
-  expect(await checked()).toEqual({ status: "appears_vegan", checked: 1 });
+  expect(await checked()).toEqual({ status: "appears_plant_based", checked: 1 });
   const action = await env.DB.prepare(
     "SELECT id FROM moderation_actions WHERE target_id=? AND kind='proposal_accept'",
   )
@@ -651,7 +651,7 @@ it("checks an unchecked formula's ingredients by community confirmation, reversi
       .revision,
     note: "Reversed: the photo shows a different formula.",
   });
-  expect(await checked()).toEqual({ status: "appears_vegan", checked: 0 });
+  expect(await checked()).toEqual({ status: "appears_plant_based", checked: 0 });
 });
 
 it("keeps a declaration that contradicts the classification with operators and opens a review", async () => {

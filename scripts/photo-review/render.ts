@@ -102,7 +102,7 @@ export async function render(batch: Batch) {
 <h4>${escape(view.flavor ?? "Original")} <span class="badge ${view.label}">${LABEL_TEXT[view.label]}</span>${view.risk ? ` <span class="badge risk-${view.risk.level}">${view.risk.level} risk</span>` : ""} <span class="small">${escape(view.name)}</span></h4>
 ${view.flags.length ? `<ul class="flags">${view.flags.map((flag) => `<li>${escape(flag)}</li>`).join("")}</ul>` : ""}
 <div class="shots">${SLOTS.map((slot) => image(view.photos[slot], slot)).join("")}${view.record.other.map((photo) => image(photo, "other")).join("")}</div>
-<dl>${field("Package says", view.labelEvidence ? `${LABEL_TEXT[view.label]} — ${view.labelEvidence}` : LABEL_TEXT[view.label])}${field("Risk", view.risk ? `${view.risk.level}: ${view.risk.reason}` : undefined)}${field("Ingredient check", view.check ? `${view.check.result.replace(/_/g, " ")}${view.check.animalIngredients.length ? `: ${view.check.animalIngredients.join(", ")}` : ""}${view.check.notes ? ` — ${view.check.notes}` : ""}` : undefined)}${field("Sizes", view.sizes.join(", "))}${field("Stores", view.stores.join(", "))}${field("Catalog", view.catalog)}${field("Notes", [...view.record.notes, ...(view.correction?.note ? [view.correction.note] : [])].join(" "))}</dl>
+<dl>${field("Package says", view.labelEvidence ? `${LABEL_TEXT[view.label]} — ${view.labelEvidence}` : LABEL_TEXT[view.label])}${field("Ingredient transcription", view.transcription?.ingredients)}${field("Contains", view.transcription?.contains)}${field("May contain", view.transcription?.mayContain)}${field("Mapped allergens", view.transcription?.allergens ? JSON.stringify(view.transcription.allergens) : undefined)}${field("Ingredient assessment", view.transcription ? `${view.transcription.assessment.result.replace(/_/g, " ")}${view.transcription.assessment.animalIngredients.length ? `: ${view.transcription.assessment.animalIngredients.join(", ")}` : ""}${view.transcription.assessment.unclearIngredients.length ? `; unclear: ${view.transcription.assessment.unclearIngredients.join(", ")}` : ""}` : undefined)}${field("Transcription verification", view.transcription?.verification.replace(/_/g, " "))}${field("Online supplement", view.transcription?.onlineSupplement ? `${view.transcription.onlineSupplement.productMatch} — ${view.transcription.onlineSupplement.url} (checked ${view.transcription.onlineSupplement.accessedAt.slice(0, 10)})` : undefined)}${field("Risk", view.risk ? `${view.risk.level}: ${view.risk.reason}` : undefined)}${field("Sizes", view.sizes.join(", "))}${field("Stores", view.stores.join(", "))}${field("Catalog", view.catalog)}${field("Notes", [...view.record.notes, ...(view.correction?.note ? [view.correction.note] : [])].join(" "))}</dl>
 </article>`;
 
   const lineSections = [...lineGroups]
@@ -131,17 +131,10 @@ ${view.flags.length ? `<ul class="flags">${view.flags.map((flag) => `<li>${escap
     .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
     .map(
       ([food, members]) =>
-        `<h3>${escape(food)} (${members.length}) <span class="small">→ ${escape(outFolder(members[0]!))}/</span></h3><div class="shots">${members
+        `<h3>${escape(food)} (${members.length}) <span class="small">→ ${escape(outFolder(members[0]!))}/</span></h3>${members
           .sort((a, b) => title(a).localeCompare(title(b)))
-          .map((view) =>
-            image(
-              view.photos.front ?? Object.values(view.photos)[0],
-              title(view),
-            ),
-          )
-          .join(
-            "",
-          )}</div>${[...new Set(members.map((view) => view.outOfScopeReason).filter(Boolean))].map((reason) => `<p class="small">${escape(reason!)}</p>`).join("")}`,
+          .map(card)
+          .join("\n")}${[...new Set(members.map((view) => view.outOfScopeReason).filter(Boolean))].map((reason) => `<p class="small">${escape(reason!)}</p>`).join("")}`,
     )
     .join("");
 
@@ -165,8 +158,8 @@ ${view.flags.length ? `<ul class="flags">${view.flags.map((flag) => `<li>${escap
     note: (view: ProductView) => string,
   ) =>
     `<ul>${members.map((view) => `<li><a href="#${escape(view.id)}">${escape(title(view))}</a> — ${escape(note(view))}</li>`).join("")}</ul>`;
-  // Risk levels are information, not to-dos: only high-risk products were
-  // checked, and only a check that found something is a flag.
+  // Risk levels remain internal context; transcription assessment applies to
+  // every product.
   const riskCounts = ["high", "medium", "low"]
     .map(
       (level) =>
@@ -176,10 +169,6 @@ ${view.flags.length ? `<ul class="flags">${view.flags.map((flag) => `<li>${escap
         ] as const,
     )
     .filter(([, count]) => count);
-  const highRisk = inScope.filter((view) => view.risk?.level === "high");
-  const checkedClean = highRisk.filter(
-    (view) => view.check?.result === "none_found",
-  ).length;
   const inCatalog = inScope.filter(
     (view) =>
       view.catalog.startsWith("existing") ||
@@ -257,7 +246,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px
 <h1>Photo batch review</h1>
 <p class="summary">${escape(basename(batch.web))} · ${plural(inScope.length, "product")} in ${plural(lineCount, "line")} (${["vegan", "plant_based", "appears_plant_based"].map((label) => `${labels.get(label) ?? 0} ${LABEL_TEXT[label as keyof typeof LABEL_TEXT].toLowerCase()}`).join(", ")}) · ${plural(outOfScope.length, "product")} out of scope · ${plural(setAside.length, "photo")} set aside · ${plural(unaccounted.length, "photo")} not accounted for · ${attention.length} need a look${repeats.length ? ` · ${repeats.length} already in an earlier batch` : ""}</p>
 ${problems.length ? `<section class="flags"><h2>Problems (${problems.length})</h2><ul>${problems.map((problem) => `<li>${escape(problem)}</li>`).join("")}</ul></section>` : ""}
-${riskCounts.length ? `<p class="summary">Appears plant-based, by risk: ${riskCounts.map(([level, count]) => `${count} ${level}`).join(", ")}. Only high-risk products were checked: ${checkedClean} of ${highRisk.length} showed no animal ingredients. Medium and low risk are shown on each product and not checked.</p>` : ""}
+${riskCounts.length ? `<p class="summary">Internal risk notes: ${riskCounts.map(([level, count]) => `${count} ${level}`).join(", ")}. They do not replace the transcription assessment.</p>` : ""}
 ${
   attention.length
     ? `<section><h2>Needs a look (${attention.length})</h2>${listed(attention, (view) => view.flags.join(" · "))}</section>`
@@ -266,7 +255,7 @@ ${
 ${suggestedFoods.size ? `<section><h2>Suggested new foods (${suggestedFoods.size})</h2><p class="small">Plant-based alternatives no site food fits yet. Add the food (and its aisle) to the site, or move the line to an existing food with a correction.</p>${suggestedSection}</section>` : ""}
 ${inCatalog.length ? `<section><h2>Possibly already on the site (${inCatalog.length})</h2><p class="small">Checked against the catalog with the Add a product form's duplicate rules. Decide whether each is the listed product or a new one.</p>${listed(inCatalog, (view) => view.catalog)}</section>` : ""}
 <section><h2>Visits and stores</h2><div class="table"><table><tr><th>Visit</th><th>Photos</th><th>Start</th><th>Store</th><th>Evidence</th></tr>${visitRows}</table></div></section>
-<section><h2>Lines (${lineCount})</h2><p class="small">One brand's base recipe in one food (or a suggested new food), with its flavors. Vegan and plant-based packages are trusted; "appears plant-based" ones carry a risk level, and high-risk ones had their ingredient photo checked.</p></section>
+<section><h2>Lines (${lineCount})</h2><p class="small">One brand's base recipe in one food (or a suggested new food), with its flavors. Package claims are recorded separately from the ingredient transcription and assessment.</p></section>
 ${lineSections.join("\n")}
 ${outOfScope.length ? `<section><h2>Out of scope (${outOfScope.length})</h2><p class="small">These replace no animal product, so they aren't swaps. Their photos go to the out-of-scope folder for your review.</p>${outSection}</section>` : ""}
 ${repeats.length ? `<section><h2>Already in an earlier batch (${repeats.length})</h2><p class="small">Photographed again; the earlier batch keeps the product, and these photos are set aside as duplicates.</p><ul>${repeats.map(({ view, repeat }) => `<li>${escape(title(view))} → ${escape(basename(repeat.earlierWeb))}: ${escape(`${repeat.earlierBrand} · ${repeat.earlierName}`)}</li>`).join("")}</ul></section>` : ""}
@@ -312,6 +301,15 @@ ${
         "animal_ingredients",
         "front_photo",
         "ingredients_photo",
+        "ingredients_transcribed",
+        "contains_statement",
+        "may_contain_statement",
+        "transcription_verification",
+        "ingredient_assessment",
+        "animal_ingredients",
+        "unclear_ingredients",
+        "online_source",
+        "allergens",
         "nutrition_photo",
         "back_photo",
         "other_photos",
@@ -343,6 +341,15 @@ ${
         view.check?.animalIngredients.join("; "),
         view.photos.front,
         view.photos.ingredients,
+        view.transcription?.ingredients,
+        view.transcription?.contains,
+        view.transcription?.mayContain,
+        view.transcription?.verification,
+        view.transcription?.assessment.result,
+        view.transcription?.assessment.animalIngredients.join("; "),
+        view.transcription?.assessment.unclearIngredients.join("; "),
+        view.transcription?.onlineSupplement?.url,
+        view.transcription?.allergens ? JSON.stringify(view.transcription.allergens) : undefined,
         view.photos.nutrition,
         view.photos.back,
         view.record.other.join("; "),

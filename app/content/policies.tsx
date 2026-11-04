@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { CATALOG_ELIGIBILITY_GUIDANCE } from "@server/community/domain/eligibility";
 
 /**
  * Plain-language policy drafts describing the product's actual behavior.
@@ -53,12 +54,14 @@ export const POLICIES: Record<string, Policy> = {
         </ul>
         <h2>Automated moderation</h2>
         <p>
-          To keep the catalog accurate and free of spam, the text and photos you
-          contribute are evaluated by Cloudflare Workers AI decision models
-          (Clef). We keep only the structured answers, probabilities and usage
-          figures, not the prompts or any generated prose. Automated results are
-          advisory: they can hold something for a person to review, but they
-          never decide that a product is vegan.
+          When automated checks are enabled, newly contributed text and photos
+          are sent to OpenAI for safety moderation before applicable Cloudflare
+          Workers AI (Clef) checks for product matching, evidence and spam.
+          Safety flags can reject a contribution and ask you to revise it. We
+          keep structured flags, scores, model details and usage figures, not
+          raw prompts or generated prose in the decision records. Private
+          reports are exempt so you can quote abuse. Automated checks never
+          decide that a product is vegan.
         </p>
         <h2>How long we keep it</h2>
         <ul>
@@ -83,7 +86,8 @@ export const POLICIES: Record<string, Policy> = {
         <h2>Where it is stored</h2>
         <p>
           VeganAlts runs on Cloudflare (Workers, D1, R2, Images, Workers AI and
-          Turnstile). Sign-in uses Google and Apple.
+          Turnstile). OpenAI processes contributed content for safety checks
+          when enabled. Sign-in uses Google and Apple.
         </p>
         <h2>Your choices</h2>
         <p>
@@ -146,7 +150,7 @@ export const POLICIES: Record<string, Policy> = {
     title: "How moderation and reporting work",
     description:
       "Opinions publish quickly; facts need evidence; protected facts need a person.",
-    body: () => (
+    body: (contact) => (
       <>
         <p>
           VeganAlts follows a simple rule: opinions publish quickly, facts
@@ -178,11 +182,14 @@ export const POLICIES: Record<string, Policy> = {
         </ul>
         <h2>Automated checks</h2>
         <p>
-          Automated checks (Cloudflare Workers AI Clef) look for obvious
-          problems: a photo that shows a different product, spam, or unrelated
-          content. They can hold something for review or ask you to fix it. If
-          the check is unavailable, a person reviews instead; it never approves
-          something on its own.
+          OpenAI safety checks reject flagged contributions with a request to
+          revise them. Cloudflare Workers AI Clef checks product matching,
+          evidence, spam and relevance. Uncertain evidence still follows the
+          normal review rules. Temporary check failures stay private and retry
+          automatically up to three more times within a day; if they cannot
+          finish, we ask you to resubmit. Profile settings instead ask you to
+          retry and leave your current name unchanged. To appeal a rejection,
+          contact <Contact contact={contact} />.
         </p>
         <h2>Reports</h2>
         <p>
@@ -259,6 +266,7 @@ export const POLICIES: Record<string, Policy> = {
       "How VeganAlts classifies products and why it is not a certification.",
     body: () => (
       <>
+        <p>{CATALOG_ELIGIBILITY_GUIDANCE}</p>
         <p>
           VeganAlts classifies each formula from the ingredient evidence
           available. It records manufacturer wording and third-party
@@ -270,8 +278,8 @@ export const POLICIES: Record<string, Policy> = {
             animal-derived ingredients.
           </li>
           <li>
-            <strong>Appears vegan:</strong> no known animal-derived ingredients,
-            but the evidence is incomplete or not yet reviewed.
+            <strong>Appears plant-based:</strong> no known animal-derived
+            ingredients, but the evidence is incomplete or not yet reviewed.
           </li>
           <li>
             <strong>Plant-based:</strong> labeled plant-based where VeganAlts

@@ -17,7 +17,11 @@ import {
   checkLines,
 } from "../../scripts/photo-review/lines";
 import { folderName } from "../../scripts/photo-review/move-log";
-import { checkResult, lineDecision } from "../../scripts/photo-review/schema";
+import {
+  checkResult,
+  lineDecision,
+  repeatPlan,
+} from "../../scripts/photo-review/schema";
 import {
   captureTime,
   cutRanges,
@@ -25,6 +29,7 @@ import {
   timeline,
 } from "../../scripts/photo-review/timeline";
 import { exifCaptureTime } from "../../scripts/photo-review/capture-times";
+import { hasClearSingleReading } from "../../scripts/photo-review/stages";
 
 /** A little-endian EXIF block with DateTimeOriginal and its sub-seconds and offset. */
 function exifBlock(stamp: string, offset?: string, subSeconds?: string) {
@@ -199,6 +204,90 @@ describe("identity", () => {
       ["a", "b", "c"],
       ["d"],
     ]);
+  });
+});
+
+describe("repeat plans", () => {
+  const pair = {
+    id: "repeat-001",
+    product: "new-product",
+    earlier: "old-product",
+    earlierBrand: "Oatly",
+    earlierName: "Oat Milk",
+    reason: "Same product.",
+    sheet: "/tmp/repeat-001.jpg",
+  };
+
+  it("keeps old single-batch plans readable and defaults their pair index", () => {
+    const plan = repeatPlan.parse({
+      earlier: { web: "/batch-1", run: "review" },
+      pairs: [pair],
+      bins: { "repeats-01": [pair.id] },
+    });
+    expect(plan.earlier).toEqual([{ web: "/batch-1", run: "review" }]);
+    expect(plan.pairs[0]?.earlierIndex).toBe(0);
+  });
+
+  it("records which of several earlier batches owns each repeat", () => {
+    const plan = repeatPlan.parse({
+      earlier: [
+        { web: "/batch-1", run: "review" },
+        { web: "/batch-2", run: "review" },
+        { web: "/batch-3", run: "review" },
+      ],
+      pairs: [{ ...pair, earlierIndex: 2 }],
+      bins: { "repeats-01": [pair.id] },
+    });
+    expect(plan.earlier).toHaveLength(3);
+    expect(plan.pairs[0]?.earlierIndex).toBe(2);
+  });
+});
+
+describe("single-read transcription validation", () => {
+  const transcript = {
+    id: "product-1",
+    ingredients: "Water, oats, natural flavors.",
+    readings: [
+      {
+        reader: "first" as const,
+        ingredients: "Water, oats, natural flavors.",
+        photosUsed: ["ingredients.webp"],
+        confidence: "high" as const,
+      },
+    ],
+    verification: "single_read" as const,
+    assessment: {
+      result: "unclear" as const,
+      animalIngredients: [],
+      unclearIngredients: ["natural flavors"],
+    },
+    notes: [],
+  };
+
+  it("allows one clear package reading when ingredient origin is unclear", () => {
+    expect(hasClearSingleReading(transcript)).toBe(true);
+  });
+
+  it("requires another source when text is low-confidence or unreadable", () => {
+    expect(
+      hasClearSingleReading({
+        ...transcript,
+        readings: [
+          {
+            reader: "first",
+            ingredients: "Water, oats, natural flavors.",
+            photosUsed: ["ingredients.webp"],
+            confidence: "low",
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      hasClearSingleReading({
+        ...transcript,
+        ingredients: "Water, [unreadable]",
+      }),
+    ).toBe(false);
   });
 });
 

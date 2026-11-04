@@ -95,8 +95,8 @@ CREATE TABLE products (
     CHECK (product_type IN ('packaged_food', 'restaurant_item', 'recipe', 'material')),
   lifecycle_status TEXT NOT NULL DEFAULT 'active'
     CHECK (lifecycle_status IN ('active', 'under_review', 'discontinued', 'hidden')),
-  vegan_status TEXT NOT NULL DEFAULT 'appears_vegan'
-    CHECK (vegan_status IN ('vegan', 'appears_vegan', 'plant_based', 'under_review')),
+  vegan_status TEXT NOT NULL DEFAULT 'appears_plant_based'
+    CHECK (vegan_status IN ('vegan', 'appears_plant_based', 'plant_based', 'under_review')),
   manufacturer_label TEXT NOT NULL DEFAULT 'unknown'
     CHECK (manufacturer_label IN ('vegan', 'plant_based', 'neither', 'unknown')),
   manufacturer_url TEXT,
@@ -431,3 +431,25 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 );
 
 PRAGMA defer_foreign_keys = off;
+--> statement-breakpoint
+CREATE TABLE `product_version_ingredient_transcriptions` (
+	`product_version_id` text PRIMARY KEY NOT NULL,
+	`package_ingredients` text,
+	`package_contains` text,
+	`package_may_contain` text,
+	`source_image_ids` text NOT NULL,
+	`readings` text NOT NULL,
+	`verification` text NOT NULL,
+	`assessment` text NOT NULL,
+	`online_ingredients` text,
+	`online_contains` text,
+	`online_may_contain` text,
+	`online_url` text,
+	`online_accessed_at` text,
+	`online_product_match` text,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`product_version_id`) REFERENCES `product_versions`(`id`) ON UPDATE no action ON DELETE restrict,
+	CONSTRAINT "ck_ingredient_transcription_json" CHECK(json_valid("product_version_ingredient_transcriptions"."source_image_ids") AND json_valid("product_version_ingredient_transcriptions"."readings") AND json_valid("product_version_ingredient_transcriptions"."assessment")),
+	CONSTRAINT "ck_ingredient_transcription_verification" CHECK("product_version_ingredient_transcriptions"."verification" IN ('online_only','single_read','agreed','corrected','unresolved','no_source'))
+);
+--> statement-breakpoint

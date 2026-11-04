@@ -64,6 +64,56 @@ export const TAXONOMY_GROUPS = [
 // switches on elsewhere when a product for it is published there.
 const US = ["US"] as const;
 export const TAXONOMY_LEAVES = [
+  // Distinct baked foods and meal recipes keep their own comparisons.
+  {
+    slug: "cheesecake",
+    name: "Cheesecake",
+    parent: "desserts",
+    aliases: ["cheese cake", "cheesecake bites"],
+    countries: US,
+  },
+  {
+    slug: "brownies",
+    name: "Brownies",
+    parent: "desserts",
+    aliases: ["brownie"],
+    countries: US,
+  },
+  {
+    slug: "blondies",
+    name: "Blondies",
+    parent: "desserts",
+    aliases: ["blondie"],
+    countries: US,
+  },
+  {
+    slug: "banana-bread",
+    name: "Banana Bread",
+    parent: "bakery",
+    aliases: ["banana loaf"],
+    countries: US,
+  },
+  {
+    slug: "chili",
+    name: "Chili",
+    parent: "meals",
+    aliases: ["chilli", "meat chili", "chicken chili", "chicken chilli"],
+    countries: US,
+  },
+  {
+    slug: "chicken-pasta",
+    name: "Chicken Pasta",
+    parent: "meals",
+    aliases: ["chicken penne", "chicken rotini"],
+    countries: US,
+  },
+  {
+    slug: "chicken-and-chickpeas",
+    name: "Chicken and Chickpeas",
+    parent: "meals",
+    aliases: ["mediterranean chicken and chickpeas"],
+    countries: US,
+  },
   {
     slug: "ground-beef",
     name: "Ground Beef",
@@ -126,6 +176,13 @@ export const TAXONOMY_LEAVES = [
     name: "Canned Roast Beef",
     parent: "beef",
     aliases: ["canned beef"],
+    countries: US,
+  },
+  {
+    slug: "beef-jerky",
+    name: "Beef Jerky",
+    parent: "beef",
+    aliases: ["jerky", "plant-based jerky", "vegan jerky"],
     countries: US,
   },
   {
@@ -221,6 +278,13 @@ export const TAXONOMY_LEAVES = [
     aliases: ["bratwurst", "brats", "kielbasa", "smoked sausage"],
     countries: US,
   },
+  {
+    slug: "pepperoni",
+    name: "Pepperoni",
+    parent: "pork",
+    aliases: ["pepperoni slices", "plant-based pepperoni", "vegan pepperoni"],
+    countries: US,
+  },
   // Added from the full photo batch (owner decision, 2026-10-16).
   {
     slug: "pulled-pork",
@@ -262,6 +326,13 @@ export const TAXONOMY_LEAVES = [
     name: "Luncheon Meat",
     parent: "pork",
     aliases: ["luncheon loaf", "canned meat"],
+    countries: US,
+  },
+  {
+    slug: "lard",
+    name: "Lard",
+    parent: "pork",
+    aliases: ["pork lard", "animal shortening"],
     countries: US,
   },
   {
@@ -382,6 +453,13 @@ export const TAXONOMY_LEAVES = [
     name: "Cheddar",
     parent: "cheese",
     aliases: ["cheddar cheese"],
+  },
+  {
+    slug: "cheese-slices",
+    name: "Cheese Slices",
+    parent: "cheese",
+    aliases: ["sliced cheese", "cheese slices"],
+    countries: US,
   },
   {
     slug: "mozzarella",
@@ -509,6 +587,20 @@ export const TAXONOMY_LEAVES = [
     countries: US,
   },
   {
+    slug: "blue-cheese-dressing",
+    name: "Blue Cheese Dressing",
+    parent: "condiments",
+    aliases: ["bleu cheese dressing", "blue cheese", "bleu cheese"],
+    countries: US,
+  },
+  {
+    slug: "honey-mustard-dressing",
+    name: "Honey Mustard Dressing",
+    parent: "condiments",
+    aliases: ["honey mustard", "honey mustard salad dressing"],
+    countries: US,
+  },
+  {
     slug: "caesar-dressing",
     name: "Caesar Dressing",
     parent: "condiments",
@@ -562,6 +654,25 @@ export const TAXONOMY_LEAVES = [
     countries: US,
   },
   {
+    slug: "dairy-based-dips",
+    name: "Creamy Dips",
+    parent: "dips-and-spreads",
+    aliases: [
+      "dairy-based dips",
+      "almond-based dip",
+      "almond-based dips",
+      "creamy dairy-free dips",
+    ],
+    countries: US,
+  },
+  {
+    slug: "spinach-artichoke-dip",
+    name: "Spinach Artichoke Dip",
+    parent: "dips-and-spreads",
+    aliases: ["spinach dip", "artichoke dip", "spinach artichoke"],
+    countries: US,
+  },
+  {
     slug: "milk-chocolate",
     name: "Milk Chocolate",
     parent: "chocolate",
@@ -577,9 +688,15 @@ export const TAXONOMY_LEAVES = [
   },
   {
     slug: "peanut-butter-cups",
-    name: "Peanut Butter Cups",
+    name: "Nut Butter Cups",
     parent: "chocolate",
-    aliases: ["peanut butter cup", "pb cups"],
+    aliases: [
+      "peanut butter cup",
+      "peanut butter cups",
+      "pb cups",
+      "sunflower butter cups",
+      "seed butter cups",
+    ],
     countries: US,
   },
   {
@@ -599,9 +716,17 @@ export const TAXONOMY_LEAVES = [
   // Added from the full photo batch (owner decision, 2026-10-16).
   {
     slug: "chocolate-peanut-spread",
-    name: "Chocolate Peanut Spread",
+    name: "Chocolate Spread",
     parent: "chocolate",
-    aliases: ["peanut chocolate spread", "chocolate peanut butter spread"],
+    aliases: [
+      "peanut chocolate spread",
+      "chocolate peanut butter spread",
+      "chocolate hazelnut spread",
+      "hazelnut chocolate spread",
+      "chocolate nut butter spread",
+      "chocolate nut spread",
+      "nutella-style spread",
+    ],
     countries: US,
   },
   {
@@ -674,7 +799,6 @@ export const TAXONOMY_LEAVES = [
       "layer cake",
       "pound cake",
       "loaf cake",
-      "banana bread",
     ],
     countries: US,
   },
@@ -683,6 +807,20 @@ export const TAXONOMY_LEAVES = [
     name: "Muffins",
     parent: "bakery",
     aliases: ["muffin"],
+    countries: US,
+  },
+  {
+    slug: "pumpkin-bread",
+    name: "Pumpkin Bread",
+    parent: "bakery",
+    aliases: ["pumpkin loaf", "pumpkin quick bread"],
+    countries: US,
+  },
+  {
+    slug: "scones",
+    name: "Scones",
+    parent: "bakery",
+    aliases: ["scone"],
     countries: US,
   },
   {
@@ -696,16 +834,10 @@ export const TAXONOMY_LEAVES = [
   // same food; a brand's frozen pie and a store's bakery pie are separate
   // lines anyway.
   {
-    slug: "pies-and-cheesecake",
-    name: "Pies and Cheesecake",
+    slug: "fruit-pies",
+    name: "Fruit Pies",
     parent: "desserts",
-    aliases: [
-      "pie",
-      "pumpkin pie",
-      "cheesecake",
-      "cheese cake",
-      "cheesecake bites",
-    ],
+    aliases: ["pie", "pumpkin pie"],
     countries: US,
   },
   {
@@ -760,10 +892,10 @@ export const TAXONOMY_LEAVES = [
     countries: US,
   },
   {
-    slug: "skillet-meals",
-    name: "Skillet Meals",
+    slug: "chicken-stir-fry",
+    name: "Chicken Stir-Fry",
     parent: "meals",
-    aliases: ["frozen skillet meal", "stir fry kit"],
+    aliases: ["chicken stir fry", "teriyaki chicken stir fry"],
     countries: US,
   },
   {
@@ -771,6 +903,13 @@ export const TAXONOMY_LEAVES = [
     name: "Jamaican Beef Patties",
     parent: "meals",
     aliases: ["beef patties", "Jamaican patties"],
+    countries: US,
+  },
+  {
+    slug: "jambalaya",
+    name: "Jambalaya",
+    parent: "meals",
+    aliases: ["cajun jambalaya"],
     countries: US,
   },
   {
@@ -789,9 +928,72 @@ export const TAXONOMY_LEAVES = [
   },
   {
     slug: "cheese-ravioli",
-    name: "Cheese Ravioli",
+    name: "Cheese-Filled Pasta",
     parent: "meals",
-    aliases: ["ravioli", "stuffed pasta"],
+    aliases: [
+      "ravioli",
+      "cheese ravioli",
+      "tortellini",
+      "cheese tortellini",
+      "stuffed pasta",
+      "filled pasta",
+    ],
+    countries: US,
+  },
+  {
+    slug: "breakfast-sandwich",
+    name: "Breakfast Sandwich",
+    parent: "meals",
+    aliases: ["sausage egg and cheese sandwich", "vegan breakfast sandwich"],
+    countries: US,
+  },
+  {
+    slug: "chicken-rice-meal",
+    name: "Chicken and Rice Meal",
+    parent: "meals",
+    aliases: ["chicken and rice", "chicken rice bowl"],
+    countries: US,
+  },
+  {
+    slug: "chicken-noodle-soup",
+    name: "Chicken Noodle Soup",
+    parent: "meals",
+    aliases: ["chicken soup", "chicken noodle"],
+    countries: US,
+  },
+  {
+    slug: "thai-curry-roti",
+    name: "Thai Curry Roti",
+    parent: "meals",
+    aliases: ["curry roti", "thai curry wrap"],
+    countries: US,
+  },
+  {
+    slug: "korean-rice-rolls",
+    name: "Korean Rice Rolls",
+    parent: "meals",
+    aliases: ["kimbap", "gimbap", "kim bap"],
+    countries: US,
+  },
+  {
+    slug: "korean-stir-fried-rice-cakes",
+    name: "Korean Stir-Fried Rice Cakes",
+    parent: "meals",
+    aliases: ["tteokbokki", "tteok-bokki", "topokki"],
+    countries: US,
+  },
+  {
+    slug: "korean-rice-balls",
+    name: "Korean Rice Balls",
+    parent: "meals",
+    aliases: ["jumeokbap", "korean rice ball"],
+    countries: US,
+  },
+  {
+    slug: "milkshake",
+    name: "Milkshake",
+    parent: "ice-cream-aisle",
+    aliases: ["milk shakes", "milk shake", "dairy milkshake"],
     countries: US,
   },
   {
@@ -844,6 +1046,16 @@ export const TAXONOMY_LEAVES = [
     countries: US,
   },
 ] as const;
+
+// Owner-approved consolidation of names that already exist in earlier
+// catalogs. These use the audited taxonomy update path so the change can be
+// reversed without replacing operator-edited names elsewhere.
+export const TAXONOMY_RENAMES = [
+  { slug: "cheese-ravioli", name: "Cheese-Filled Pasta" },
+  { slug: "chocolate-peanut-spread", name: "Chocolate Spread" },
+  { slug: "peanut-butter-cups", name: "Nut Butter Cups" },
+] as const;
+
 // The main foods' detail questions (owner decisions, 2026-10-09; Milk and
 // Eggs revised on 2026-10-12). Every other food asks Taste and Texture.
 export const TAXONOMY_DIMENSIONS: Record<
@@ -1039,7 +1251,25 @@ const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
  * Idempotent SQL keyed by slug: existing categories, aliases and configured
  * features are left untouched, so it is safe on any environment's data.
  */
-export function taxonomySeedStatements(newId: () => string, now: number) {
+export function taxonomySeedStatements(
+  newId: () => string,
+  now: number,
+  options: { onlyFoods?: readonly string[] } = {},
+) {
+  const onlyFoods = options.onlyFoods;
+  const selectedFoods = onlyFoods
+    ? TAXONOMY_LEAVES.filter((leaf) => onlyFoods.includes(leaf.slug))
+    : TAXONOMY_LEAVES;
+  if (
+    onlyFoods &&
+    (onlyFoods.length === 0 ||
+      selectedFoods.length !== onlyFoods.length ||
+      new Set(onlyFoods).size !== onlyFoods.length)
+  )
+    throw new Error("The targeted taxonomy seed must name known food slugs once.");
+  const selectedSlugs = new Set<string>(
+    selectedFoods.map((leaf) => leaf.slug),
+  );
   const statements: string[] = [];
   for (const country of TAXONOMY_COUNTRIES) {
     statements.push(
@@ -1056,7 +1286,10 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
       ON CONFLICT DO NOTHING;`,
     );
   }
-  for (const category of [...TAXONOMY_GROUPS, ...TAXONOMY_LEAVES]) {
+  const categoriesToSeed = onlyFoods
+    ? selectedFoods
+    : [...TAXONOMY_GROUPS, ...selectedFoods];
+  for (const category of categoriesToSeed) {
     const rankable = "aliases" in category ? 1 : 0;
     const position = "position" in category ? category.position : null;
     const season = "season" in category ? category.season : null;
@@ -1085,7 +1318,7 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
           ON CONFLICT DO NOTHING;`,
         );
   }
-  for (const leaf of TAXONOMY_LEAVES)
+  for (const leaf of selectedFoods)
     if ("displayNames" in leaf)
       for (const [iso2, name] of Object.entries(leaf.displayNames))
         statements.push(
@@ -1107,17 +1340,21 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
     WHERE ${where} AND NOT EXISTS(SELECT 1 FROM category_rating_dimensions d WHERE d.category_id=c.id)
     ON CONFLICT DO NOTHING;`;
   for (const [slug, list] of Object.entries(TAXONOMY_DIMENSIONS))
-    statements.push(questions(`c.slug=${quote(slug)}`, list));
+    if (!onlyFoods || selectedSlugs.has(slug))
+      statements.push(questions(`c.slug=${quote(slug)}`, list));
+  const defaultQuestionFilter = onlyFoods
+    ? `c.slug IN (${[...selectedSlugs].map(quote).join(",")})`
+    : "c.is_rankable=1";
   statements.push(
     questions(
-      "c.is_rankable=1",
+      defaultQuestionFilter,
       DEFAULT_DIMENSIONS.map(({ key, label }) => [key, label] as const),
     ),
   );
   // Each launch food is on in its launch countries: every launch country
   // unless it names its own. A food whose countries an operator has ever
   // changed is skipped, so their choices are never undone.
-  const launch = TAXONOMY_LEAVES.flatMap((leaf) =>
+  const launch = selectedFoods.flatMap((leaf) =>
     ("countries" in leaf
       ? leaf.countries
       : TAXONOMY_COUNTRIES.map((c) => c.iso2)
@@ -1132,19 +1369,24 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
     ON CONFLICT DO NOTHING;`,
   );
   // Features are seeded per country, only where none are configured yet.
-  statements.push(
-    `INSERT INTO category_features(country_id,category_id,position,updated_at)
-    SELECT co.id,c.id,j.key+1,${now} FROM json_each(${quote(JSON.stringify(TAXONOMY_FEATURES))}) j
-    JOIN categories c ON c.slug=j.value AND c.is_active=1 CROSS JOIN countries co WHERE co.iso2 IN (${TAXONOMY_COUNTRIES.map((c) => quote(c.iso2)).join(",")})
-    AND NOT EXISTS(SELECT 1 FROM category_features f WHERE f.country_id=co.id)
-    ON CONFLICT DO NOTHING;`,
-  );
+  if (!onlyFoods)
+    statements.push(
+      `INSERT INTO category_features(country_id,category_id,position,updated_at)
+      SELECT co.id,c.id,j.key+1,${now} FROM json_each(${quote(JSON.stringify(TAXONOMY_FEATURES))}) j
+      JOIN categories c ON c.slug=j.value AND c.is_active=1 CROSS JOIN countries co WHERE co.iso2 IN (${TAXONOMY_COUNTRIES.map((c) => quote(c.iso2)).join(",")})
+      AND NOT EXISTS(SELECT 1 FROM category_features f WHERE f.country_id=co.id)
+      ON CONFLICT DO NOTHING;`,
+    );
   return statements;
 }
 // The script also rebuilds the search index from canonical rows, so new foods
 // and display names are searchable at once.
-export const taxonomySeedSql = (newId: () => string, now: number) =>
+export const taxonomySeedSql = (
+  newId: () => string,
+  now: number,
+  options: { onlyFoods?: readonly string[] } = {},
+) =>
   [
-    ...taxonomySeedStatements(newId, now),
+    ...taxonomySeedStatements(newId, now, options),
     ...SEARCH_INDEX_STATEMENTS.map((sql) => `${sql};`),
   ].join("\n");

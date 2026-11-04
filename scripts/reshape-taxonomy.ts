@@ -22,7 +22,11 @@ import { rebuildSearchIndex } from "../server/catalog/infrastructure/search-inde
 import { reshapeTaxonomy } from "../server/taxonomy/application/reshape";
 import { SYSTEM_ACTOR_ID } from "../server/community/domain/policy";
 import type { ModerationDecisionService } from "../server/moderation/application/decision-service";
-import { TAXONOMY_GROUPS, TAXONOMY_LEAVES } from "../db/seed/taxonomy";
+import {
+  TAXONOMY_GROUPS,
+  TAXONOMY_LEAVES,
+  TAXONOMY_RENAMES,
+} from "../db/seed/taxonomy";
 
 const environment = process.argv[2];
 if (environment !== "local" && environment !== "staging")
@@ -99,15 +103,57 @@ try {
       accountState: "active",
       administrator: true,
     };
-    const result = await reshapeTaxonomy(
-      service,
-      actor,
-      [
-        ...TAXONOMY_GROUPS.map((g) => ({ ...g, rankable: false })),
-        ...TAXONOMY_LEAVES.map((l) => ({ ...l, rankable: true })),
-      ],
-      apply,
-    );
+    const targets = [
+      ...TAXONOMY_GROUPS.map((g) => ({ ...g, rankable: false })),
+      ...TAXONOMY_LEAVES.map((l) => ({ ...l, rankable: true })),
+    ];
+    const shapePlan = await reshapeTaxonomy(service, actor, targets, false);
+    const initialTree = await service.tree(actor);
+    const renames = TAXONOMY_RENAMES.flatMap((rename) => {
+      const category = initialTree.categories.find(
+        (candidate) => candidate.slug === rename.slug,
+      );
+      if (!category) {
+        shapePlan.problems.push(
+          `${rename.slug} is missing; run the taxonomy seed first`,
+        );
+        return [];
+      }
+      return category.name === rename.name
+        ? []
+        : [{ slug: rename.slug, from: category.name, to: rename.name }];
+    });
+    if (shapePlan.problems.length) {
+      console.error(
+        JSON.stringify(
+          { environment, problems: shapePlan.problems },
+          null,
+          2,
+        ),
+      );
+      process.exit(1);
+    }
+    const renameActions: { slug: string; actionId: string }[] = [];
+    if (apply)
+      for (const rename of renames) {
+        const current = (await service.tree(actor)).categories.find(
+          (category) => category.slug === rename.slug,
+        )!;
+        const result = (await service.update(
+          actor,
+          `m7-rename-${rename.slug}-${current.revision}`,
+          current.id,
+          {
+            expectedRevision: current.revision,
+            name: rename.to,
+            note: "Owner-approved category consolidation from the store-photo review.",
+          },
+        )) as { actionId: string };
+        renameActions.push({ slug: rename.slug, actionId: result.actionId });
+      }
+    const result = apply
+      ? await reshapeTaxonomy(service, actor, targets, true)
+      : shapePlan;
     if (result.problems.length) {
       console.error(
         JSON.stringify({ environment, problems: result.problems }, null, 2),
@@ -119,6 +165,12 @@ try {
         {
           environment,
           applied: apply,
+          renames: renames.map((rename) => ({
+            ...rename,
+            actionId:
+              renameActions.find((action) => action.slug === rename.slug)
+                ?.actionId ?? null,
+          })),
           moves: result.moves,
           actions: result.actions,
           retired: result.retired,

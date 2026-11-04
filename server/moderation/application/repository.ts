@@ -29,6 +29,32 @@ export interface DecisionRow {
   created_at: number;
 }
 export interface DecisionRepository {
+  restrict(id: string, outcome: Outcome, resultData: string): Promise<void>;
+  budgetScope(
+    base: DecisionBase,
+    policy: ModerationPolicy,
+  ): Promise<"account" | "environment" | "busy">;
+  reusableStage(
+    provider: string,
+    model: string,
+    stage: string,
+    hash: string,
+    since: number,
+  ): Promise<string | null>;
+  reserveStage(
+    base: DecisionBase,
+    stage: "safety" | "evidence",
+    provider: string,
+    model: string,
+    hash: string,
+    policy: ModerationPolicy,
+  ): Promise<string | null>;
+  finishStage(
+    id: string,
+    data: string | null,
+    error: string | null,
+    latency: number,
+  ): Promise<void>;
   reusable(
     versions: DecisionVersions,
     inputHash: string,

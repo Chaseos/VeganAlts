@@ -1,3 +1,4 @@
+import type { WorkContext } from "../../moderation/domain/work";
 import { v7 as uuid } from "uuid";
 import { CloudflareImageTransformer } from "../../media/infrastructure/cloudflare-images";
 import { communityLimits } from "../domain/policy";
@@ -15,6 +16,7 @@ import { SubmissionService } from "../application/submission-service";
 import { StagedMediaService } from "../application/staged-media-service";
 import { ContributionService } from "../application/contribution-service";
 import { ModerationService } from "../application/moderation-service";
+import { CatalogReviewService } from "../application/catalog-review-service";
 import { waitUntil } from "cloudflare:workers";
 import {
   PublicationExtras,
@@ -24,6 +26,7 @@ import { ratingsService } from "../../ratings/infrastructure/composition";
 import { D1RatingsRepository } from "../../ratings/infrastructure/d1-repository";
 import {
   moderationDecisions,
+  moderationWork,
   type ModerationEnv,
 } from "../../moderation/infrastructure/composition";
 import { FoodSuggestions } from "../../taxonomy/application/food-suggestions";
@@ -39,7 +42,9 @@ export function communityServices(
     },
   newId: () => string = uuid,
   clock = Date.now,
+  context?: WorkContext,
 ) {
+  const work = moderationWork(env, newId, clock, context);
   const limits = communityLimits(env.COMMUNITY_LIMITS),
     lookup = new CommunityLookupRepository(env.DB),
     lines = lineRefresh(env);
@@ -93,6 +98,7 @@ export function communityServices(
       );
       return { rating };
     },
+    work,
   );
   const contributionRepository = new ContributionRepository(env.DB, limits);
   const catalog = new CatalogDecisionRepository(repository, lines),
@@ -122,6 +128,7 @@ export function communityServices(
     (proposalId) => moderation.autoAccept(proposalId),
     newId,
     clock,
+    work,
   );
   // A product's rating and allergen declaration use their own write paths.
   const extras: PublicationExtras = new PublicationExtras(receipts, {
@@ -142,12 +149,14 @@ export function communityServices(
     propose: (actor, key, change) => contributions.propose(actor, key, change),
   });
   return {
+    automaticChecks: work,
     lookup,
     media,
     submissions,
     contributions,
     extras,
     moderation,
+    catalogReview: new CatalogReviewService(repository, catalog, newId, clock),
     repository,
     contributionRepository,
     decisions,

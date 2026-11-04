@@ -63,7 +63,7 @@ describe("risk tiers", () => {
         change({
           kind: "reformulation",
           versionLabel: "2027",
-          veganStatus: "appears_vegan",
+          veganStatus: "appears_plant_based",
           manufacturerLabel: "vegan",
         }),
         snapshot(),
@@ -215,7 +215,7 @@ describe("ingredient checks", () => {
   const unchecked = {
     versionId: "v1",
     classification: {
-      veganStatus: "appears_vegan",
+      veganStatus: "appears_plant_based",
       manufacturerLabel: "unknown",
       certifications: [],
       ingredientsChecked: false,
@@ -227,7 +227,7 @@ describe("ingredient checks", () => {
   const check = (fields: Record<string, unknown> = {}) =>
     change({
       kind: "classification",
-      veganStatus: "appears_vegan",
+      veganStatus: "appears_plant_based",
       manufacturerLabel: "unknown",
       citedImageId: "panel",
       ...fields,

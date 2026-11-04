@@ -9,7 +9,9 @@ import { merge } from "../../scripts/photo-review/merge";
 import { render } from "../../scripts/photo-review/render";
 import { loadRun } from "../../scripts/photo-review/view";
 import { mergePlan } from "../../scripts/photo-review/schema";
+import { ingredientTranscription } from "../../server/community/domain/ingredient-transcription";
 import {
+  importAllergenDeclaration,
   importClassification,
   importEvidenceNote,
   importFactsHash,
@@ -159,6 +161,45 @@ async function writeBatch(batch: Batch) {
       confidence: "high",
       notes: ["Seen on the bottom shelf."],
     });
+  for (const product of batch.products) {
+    const labelPhoto = (product.slots ?? ["front", "ingredients"]).includes(
+      "ingredients",
+    );
+    await json(
+      join(run, "transcription", `${product.id}.json`),
+      labelPhoto
+        ? {
+            id: product.id,
+            ingredients: "Water, oats, oil.",
+            readings: [
+              {
+                reader: "first",
+                ingredients: "Water, oats, oil.",
+                photosUsed: [photoName(product, "ingredients")],
+                confidence: "high",
+              },
+            ],
+            verification: "single_read",
+            assessment: {
+              result: "none_found",
+              animalIngredients: [],
+              unclearIngredients: [],
+            },
+            notes: [],
+          }
+        : {
+            id: product.id,
+            readings: [],
+            verification: "no_source",
+            assessment: {
+              result: "no_source",
+              animalIngredients: [],
+              unclearIngredients: [],
+            },
+            notes: [],
+          },
+    );
+  }
   const lines = new Map<string, Product[]>();
   for (const product of batch.products) {
     const key =
@@ -470,6 +511,28 @@ describe("manifest", () => {
     );
   });
 
+  it("refuses a transcription source photo that the import would otherwise drop", async () => {
+    const web = await writeBatch({
+      name: "Photos 1 - Web",
+      stores: { "1": "Sprouts" },
+      products: [oatMilk()],
+    });
+    const transcriptionPath = join(web, "review", "transcription", "A1.json");
+    const transcription = JSON.parse(await readFile(transcriptionPath, "utf8"));
+    transcription.readings[0].photosUsed = ["unimported-side-panel.webp"];
+    await writeFile(transcriptionPath, JSON.stringify(transcription));
+    await renderBatch(web);
+
+    const { blocking } = await buildManifest([web]);
+    expect(blocking).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          "transcription cites source photos that are not among this product's imported image slots",
+        ),
+      ]),
+    );
+  });
+
   it("refuses one product by the site's identity key, an unknown store and a stale review sheet", async () => {
     const web = await writeBatch({
       name: "Photos 1 - Web",
@@ -542,8 +605,10 @@ describe("manifest", () => {
         expect.stringContaining(
           "A1-front.webp carries EXIF, XMP or IPTC metadata",
         ),
-        expect.stringContaining("high risk; ingredients not checked yet"),
       ]),
+    );
+    expect(blocking.some((problem) => problem.includes("high risk"))).toBe(
+      false,
     );
   });
 
@@ -764,20 +829,106 @@ describe("site facts", () => {
     food: "milk",
     packageLabel: "vegan",
     labelEvidence: "VEGAN on the front",
+    transcription: {
+      ingredients: "Water, oats, oil.",
+      readings: [
+        {
+          reader: "first",
+          ingredients: "Water, oats, oil.",
+          photosUsed: ["p-ingredients.webp"],
+          confidence: "high",
+        },
+      ],
+      verification: "single_read",
+      assessment: {
+        result: "none_found",
+        animalIngredients: [],
+        unclearIngredients: [],
+      },
+    },
     stores: ["Sprouts"],
     photos: [photo("front"), photo("ingredients")],
     ...overrides,
   });
 
-  it("classifies by the documented provisional rule, never by the review's checks", () => {
-    const unchecked = {
-      veganStatus: "appears_vegan",
-      ingredientsChecked: false,
-    };
-    expect(importClassification(facts())).toEqual(unchecked);
-    expect(importClassification(facts({ photos: [photo("front")] }))).toEqual(
-      unchecked,
+  it("maps package allergen keys only into the country's supported vocabulary", () => {
+    expect(
+      importAllergenDeclaration(
+        {
+          status: "declared",
+          contains: ["almond", "soy", "sulfites"],
+          mayContain: ["peanuts", "coconut"],
+        },
+        new Set(["tree_nuts", "soy", "peanut"]),
+      ),
+    ).toEqual({
+      status: "declared",
+      contains: ["tree_nuts", "soy"],
+      mayContain: ["peanut"],
+    });
+    expect(
+      importAllergenDeclaration(
+        { status: "declared", contains: ["coconut"], mayContain: [] },
+        new Set(["tree_nuts"]),
+      ),
+    ).toBeUndefined();
+    expect(
+      importAllergenDeclaration(
+        { status: "none_declared" },
+        new Set(),
+      ),
+    ).toEqual({ status: "none_declared" });
+  });
+
+  it("keeps exact-product online-only evidence separate from package text", () => {
+    const transcription = ingredientTranscription.parse({
+      onlineSupplement: {
+        ingredients: "Cultured coconut milk, pea protein, natural flavor.",
+        url: "https://siggis.com/product/toasted-coconut-plant-based/",
+        accessedAt: "2026-10-22T12:00:00.000Z",
+        productMatch:
+          "Siggi’s Plant-Based Toasted Coconut Coconut Blend, 5.3 oz",
+      },
+      readings: [],
+      verification: "online_only",
+      assessment: {
+        result: "unclear",
+        animalIngredients: [],
+        unclearIngredients: ["natural flavor"],
+      },
+    });
+    expect(transcription.ingredients).toBeUndefined();
+    expect(transcription.onlineSupplement?.ingredients).toContain(
+      "natural flavor",
     );
+    expect(importEvidenceNote(facts({ transcription }))).toContain(
+      "No matching readable package ingredient list was available",
+    );
+  });
+
+  it("classifies from the package claim and transcribed ingredients", () => {
+    expect(importClassification(facts())).toEqual({
+      veganStatus: "vegan",
+      ingredientsChecked: true,
+    });
+    expect(
+      importClassification(
+        facts({
+          transcription: {
+            readings: [],
+            verification: "no_source",
+            assessment: {
+              result: "no_source",
+              animalIngredients: [],
+              unclearIngredients: [],
+            },
+          },
+        }),
+      ),
+    ).toMatchObject({
+      veganStatus: "vegan",
+      ingredientsChecked: true,
+    });
     expect(
       importClassification(facts({ packageLabel: "plant_based" })),
     ).toEqual({
@@ -785,24 +936,41 @@ describe("site facts", () => {
       ingredientsChecked: true,
     });
     expect(
-      importClassification(
-        facts({ packageLabel: "plant_based", photos: [photo("front")] }),
-      ),
-    ).toEqual(unchecked);
+      importClassification(facts({ packageLabel: "appears_plant_based" })),
+    ).toMatchObject({
+      veganStatus: "plant_based",
+      ingredientsChecked: true,
+    });
     expect(
       importClassification(
         facts({
-          packageLabel: "appears_plant_based",
-          labelEvidence: undefined,
+          transcription: {
+            ingredients: "Wheat flour, milk.",
+            readings: [
+              {
+                reader: "first",
+                ingredients: "Wheat flour, milk.",
+                photosUsed: ["p-ingredients.webp"],
+                confidence: "high",
+              },
+            ],
+            verification: "single_read",
+            assessment: {
+              result: "animal_ingredients",
+              animalIngredients: ["milk"],
+              unclearIngredients: [],
+            },
+          },
         }),
       ),
-    ).toEqual(unchecked);
+    ).toMatchObject({ veganStatus: "under_review", ingredientsChecked: true });
   });
 
   it("submits a line's first product with the line's name and later ones into it", () => {
     const first = importSubmission(facts(), {
       categoryId: "milk",
       retailerIds: ["store"],
+      allergens: { status: "declared", contains: ["soy"], mayContain: [] },
     });
     expect(first).toMatchObject({
       country: "US",
@@ -810,11 +978,12 @@ describe("site facts", () => {
       imageSlots: ["front", "ingredients"],
       manufacturerLabel: "vegan",
       retailerIds: ["store"],
+      allergens: { status: "declared", contains: ["soy"], mayContain: [] },
       lineName: "Oat Milk",
     });
     expect(first).not.toHaveProperty("noKnownAnimalIngredients");
     expect(first.statusBasis).toBe(
-      "Added from VeganAlts store photos. The ingredient list is in the photo and has not been typed out. Package: VEGAN on the front.",
+      "Added from VeganAlts store photos. Ingredients were transcribed from the package label. Ingredient text is available below. Package: VEGAN on the front.",
     );
     const later = importSubmission(
       facts({
@@ -837,9 +1006,7 @@ describe("site facts", () => {
           photos: [photo("front")],
         }),
       ),
-    ).toBe(
-      "Added from VeganAlts store photos. No ingredients photo was taken.",
-    );
+    ).toContain("Ingredients were transcribed from the package label.");
   });
 
   it("derives the same ids, keys and receipt hash from the same source", async () => {

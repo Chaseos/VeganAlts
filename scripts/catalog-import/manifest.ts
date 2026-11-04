@@ -2,16 +2,23 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import sharp from "sharp";
-import { openBatch, runFile } from "../photo-review/batch";
+import {
+  openBatch,
+  readJsonIfPresent,
+  runFile,
+  type Batch,
+} from "../photo-review/batch";
 import { brandsMayMatch, tokenOverlap } from "../photo-review/identity";
 import { movedPhotos } from "../photo-review/move-log";
 import { loadRun, reviewLineIds, type ProductView } from "../photo-review/view";
+import { formulaVersionUpdatesFile } from "../photo-review/schema";
 import {
   IMPORT_SLOTS,
   importFacts,
   importManifestHash,
   importSubmission,
   type ImportFacts,
+  type ImportFormulaUpdate,
   type ImportManifest,
   type ImportPhoto,
   type ImportProduct,
@@ -52,6 +59,7 @@ export interface BuiltManifest {
     storeLinks: number;
     photos: Record<string, number>;
     withoutIngredientsPhoto: number;
+    formulaUpdates: number;
   };
 }
 
@@ -103,6 +111,15 @@ const sheetRow = (view: ProductView) => ({
   ingredients_photo: view.photos.ingredients ?? "",
   nutrition_photo: view.photos.nutrition ?? "",
   back_photo: view.photos.back ?? "",
+  ingredients_transcribed: view.transcription?.ingredients ?? "",
+  contains_statement: view.transcription?.contains ?? "",
+  may_contain_statement: view.transcription?.mayContain ?? "",
+  transcription_verification: view.transcription?.verification ?? "missing",
+  ingredient_assessment: view.transcription?.assessment.result ?? "missing",
+  animal_ingredients: view.transcription?.assessment.animalIngredients.join("; ") ?? "",
+  unclear_ingredients: view.transcription?.assessment.unclearIngredients.join("; ") ?? "",
+  online_source: view.transcription?.onlineSupplement?.url ?? "",
+  allergens: view.transcription?.allergens ? JSON.stringify(view.transcription.allergens) : "",
 });
 
 async function readCopy(path: string, kind: "full" | "thumbnail") {
@@ -147,11 +164,62 @@ async function readCopy(path: string, kind: "full" | "thumbnail") {
   };
 }
 
+async function formulaPhotos(
+  batch: Batch,
+  moved: Map<string, string>,
+  view: ProductView,
+  sourceKey: string,
+  blocking: string[],
+  warnings: string[],
+) {
+  const photos: ImportPhoto[] = [];
+  const paths = new Map<string, { full: string; thumbnail: string }>();
+  for (const slot of IMPORT_SLOTS) {
+    const name = view.photos[slot];
+    if (!name) continue;
+    const where = moved.get(name);
+    const path = (size: "full" | "thumbnail") =>
+      where
+        ? join(batch.web, where, size, name)
+        : join(batch.web, size, name);
+    try {
+      const [full, thumbnail] = await Promise.all([
+        readCopy(path("full"), "full"),
+        readCopy(path("thumbnail"), "thumbnail"),
+      ]);
+      const problems = [...full.problems, ...thumbnail.problems];
+      const ratio = (copy: { width: number; height: number }) =>
+        copy.width / copy.height;
+      if (Math.abs(ratio(full.copy) - ratio(thumbnail.copy)) > 0.02)
+        problems.push("its full and thumbnail copies differ in shape");
+      for (const problem of new Set(problems))
+        blocking.push(`${sourceKey}: ${slot} photo ${name} ${problem}.`);
+      if (where)
+        warnings.push(`${sourceKey}: ${slot} photo ${name} is in ${where}.`);
+      photos.push({ slot, name, full: full.copy, thumbnail: thumbnail.copy });
+      paths.set(slot, { full: path("full"), thumbnail: path("thumbnail") });
+    } catch (error) {
+      blocking.push(
+        `${sourceKey}: ${slot} photo ${name} can't be read (${(error as Error).message}).`,
+      );
+    }
+  }
+  return { photos, paths };
+}
+
 /** Builds the manifest from the batches, earliest first. */
 export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
   const blocking: string[] = [];
   const warnings: string[] = [];
   const files: PhotoFiles = new Map();
+  const formulaCandidates: {
+    batch: Batch;
+    moved: Map<string, string>;
+    view: ProductView;
+    productSourceKey: string;
+    label: string;
+    summary: string;
+  }[] = [];
   const drafts: {
     batch: number;
     view: ProductView;
@@ -180,6 +248,28 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
     const moved = await movedPhotos(batch);
     const inScope = run.views.filter((view) => !view.skip && !view.outOfScope);
     const lineIds = reviewLineIds(inScope);
+    const formulaPlan = await readJsonIfPresent(
+      runFile(batch, "formula-versions.json"),
+      formulaVersionUpdatesFile,
+    );
+    const repeated = new Map(run.repeats.map((entry) => [entry.view.id, entry]));
+    for (const update of formulaPlan?.updates ?? []) {
+      const match = repeated.get(update.product);
+      if (!match || match.repeat.earlier !== update.earlier) {
+        blocking.push(
+          `${folder}/${update.product}: formula update does not match a confirmed repeat pair in this review.`,
+        );
+        continue;
+      }
+      formulaCandidates.push({
+        batch,
+        moved,
+        view: match.view,
+        productSourceKey: `${basename(match.repeat.earlierWeb)}/${match.repeat.earlier}`,
+        label: update.label,
+        summary: update.summary,
+      });
+    }
     batches.push({ folder, products: inScope.length });
 
     // The review sheet the owner approved must still describe these products.
@@ -211,8 +301,28 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
 
     for (const view of inScope) {
       const sourceKey = `${folder}/${view.id}`;
-      if (view.flags.length)
-        blocking.push(`${sourceKey}: ${view.flags.join("; ")}`);
+      const statusFlags = new Set([
+        "no ingredient source available",
+        "ingredient transcription unresolved",
+        "ingredient assessment needs owner review",
+      ]);
+      const blockingFlags = view.flags.filter((flag) => !statusFlags.has(flag));
+      if (blockingFlags.length)
+        blocking.push(`${sourceKey}: ${blockingFlags.join("; ")}`);
+      if (statusFlags.has("ingredient assessment needs owner review") &&
+          view.transcription?.assessment.result === "unclear")
+        warnings.push(
+          `${sourceKey}: unresolved ingredient origin; public status will follow the package vegan claim or use Appears plant-based.`,
+        );
+      if (
+        view.transcription?.verification === "no_source" ||
+        view.transcription?.verification === "unresolved"
+      )
+        warnings.push(
+          `${sourceKey}: incomplete ingredient source; public status will follow the package vegan claim or use Appears plant-based.`,
+        );
+      if (view.transcription?.assessment.result === "animal_ingredients")
+        blocking.push(`${sourceKey}: ingredient transcription lists animal-derived ingredients (${view.transcription.assessment.animalIngredients.join(", ")}).`);
       if (view.newFood)
         blocking.push(
           `${sourceKey}: is in a suggested food (${view.newFood.name}).`,
@@ -262,6 +372,17 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
           );
         }
       }
+      const importedPhotoNames = new Set(photos.map((photo) => photo.name));
+      const transcriptionPhotoNames = new Set(
+        view.transcription?.readings.flatMap((reading) => reading.photosUsed) ?? [],
+      );
+      const missingTranscriptionPhotos = [...transcriptionPhotoNames].filter(
+        (name) => !importedPhotoNames.has(name),
+      );
+      if (missingTranscriptionPhotos.length)
+        blocking.push(
+          `${sourceKey}: transcription cites source photos that are not among this product's imported image slots (${missingTranscriptionPhotos.join(", ")}). Choose an imported label photo or add the needed source to a product image slot before import.`,
+        );
       files.set(sourceKey, paths);
       const lineName = view.lineName ?? view.name;
       drafts.push({
@@ -281,6 +402,26 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
           food: view.food,
           packageLabel: view.label,
           ...(view.labelEvidence ? { labelEvidence: view.labelEvidence } : {}),
+          transcription: view.transcription
+            ? {
+                ingredients: view.transcription.ingredients,
+                contains: view.transcription.contains,
+                mayContain: view.transcription.mayContain,
+                onlineSupplement: view.transcription.onlineSupplement,
+                readings: view.transcription.readings,
+                verification: view.transcription.verification,
+                assessment: view.transcription.assessment,
+                allergens: view.transcription.allergens,
+              }
+            : {
+                readings: [],
+                verification: "no_source",
+                assessment: {
+                  result: "no_source",
+                  animalIngredients: [],
+                  unclearIngredients: [],
+                },
+              },
           stores: view.stores,
           photos,
         },
@@ -389,6 +530,120 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
     products.push({ facts: parsed.data, internal: draft.internal });
   }
 
+  // A repeated product with a reviewed formula change keeps the older
+  // product identity and publishes the later label as a new formula version.
+  const factsBySourceKey = new Map(
+    products.map(({ facts }) => [facts.sourceKey, facts]),
+  );
+  const formulaUpdates: ImportFormulaUpdate[] = [];
+  for (const candidate of formulaCandidates) {
+    const prior = factsBySourceKey.get(candidate.productSourceKey);
+    const sourceKey = `${basename(candidate.batch.web)}/${candidate.view.id}`;
+    if (!prior) {
+      blocking.push(
+        `${sourceKey}: the earlier product for its formula update is not in this import.`,
+      );
+      continue;
+    }
+    const view = candidate.view;
+    // The confirmed repeat pair is the owner's identity decision. Package
+    // wording can change the photographed name (e.g. "JUST Egg" to
+    // "Egg Plant-Based Egg"), so retain the earlier catalog name and check
+    // brand, food and flavor below instead of treating the label text as a
+    // new identity.
+    if (normalizeName(prior.brand) !== normalizeName(view.brand)) {
+      blocking.push(
+        `${sourceKey}: its brand differs from the earlier product, so it cannot be attached as a formula version.`,
+      );
+      continue;
+    }
+    if (
+      normalizeName(prior.food) !== normalizeName(view.food ?? "") ||
+      normalizeName(prior.flavor ?? "") !== normalizeName(view.flavor ?? "")
+    ) {
+      blocking.push(
+        `${sourceKey}: its food or flavor differs from the earlier product, so it cannot be attached as a formula version.`,
+      );
+      continue;
+    }
+    if (!view.transcription) {
+      blocking.push(`${sourceKey}: formula update has no ingredient transcription.`);
+      continue;
+    }
+    if (view.transcription.assessment.result === "animal_ingredients") {
+      blocking.push(
+        `${sourceKey}: formula update transcription lists animal-derived ingredients (${view.transcription.assessment.animalIngredients.join(", ")}).`,
+      );
+      continue;
+    }
+    const { photos, paths } = await formulaPhotos(
+      candidate.batch,
+      candidate.moved,
+      view,
+      sourceKey,
+      blocking,
+      warnings,
+    );
+    if (!photos.some((photo) => photo.slot === "front"))
+      blocking.push(`${sourceKey}: formula update has no front photo.`);
+    const photoNames = new Set(photos.map((photo) => photo.name));
+    const missingSources = view.transcription.readings
+      .flatMap((reading) => reading.photosUsed)
+      .filter((name) => !photoNames.has(name));
+    if (missingSources.length)
+      blocking.push(
+        `${sourceKey}: formula transcription cites photos not attached to its new formula (${[...new Set(missingSources)].join(", ")}).`,
+      );
+    if (
+      view.transcription.verification === "no_source" ||
+      (!view.transcription.ingredients && !view.transcription.onlineSupplement)
+    )
+      blocking.push(`${sourceKey}: formula update has no usable ingredient list.`);
+    if (
+      view.transcription.assessment.result === "unclear" ||
+      view.transcription.verification === "unresolved"
+    )
+      warnings.push(
+        `${sourceKey}: ingredient origin or text remains flagged; public status will use the reviewed package claim or Appears plant-based.`,
+      );
+    files.set(sourceKey, paths);
+    const updated = importFacts.safeParse({
+      sourceKey,
+      country: prior.country,
+      brand: prior.brand,
+      line: prior.line,
+      ...(prior.flavor ? { flavor: prior.flavor } : {}),
+      name: prior.name,
+      food: prior.food,
+      packageLabel: view.label,
+      ...(view.labelEvidence ? { labelEvidence: view.labelEvidence } : {}),
+      transcription: {
+        ingredients: view.transcription.ingredients,
+        contains: view.transcription.contains,
+        mayContain: view.transcription.mayContain,
+        onlineSupplement: view.transcription.onlineSupplement,
+        readings: view.transcription.readings,
+        verification: view.transcription.verification,
+        assessment: view.transcription.assessment,
+        allergens: view.transcription.allergens,
+      },
+      stores: [],
+      photos,
+    });
+    if (!updated.success) {
+      blocking.push(
+        `${sourceKey}: formula update facts are invalid (${updated.error.issues.map((issue) => `${issue.path.join(".")} ${issue.message}`).join("; ")}).`,
+      );
+      continue;
+    }
+    formulaUpdates.push({
+      productSourceKey: candidate.productSourceKey,
+      facts: updated.data,
+      label: candidate.label,
+      summary: candidate.summary,
+    });
+  }
+
   // Exact duplicates by the site's identity key.
   const identities = new Map<string, string[]>();
   for (const { facts } of products) {
@@ -469,10 +724,14 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
   for (const { facts } of products)
     for (const photo of facts.photos)
       photos[photo.slot] = (photos[photo.slot] ?? 0) + 1;
+  for (const { facts } of formulaUpdates)
+    for (const photo of facts.photos)
+      photos[photo.slot] = (photos[photo.slot] ?? 0) + 1;
   const manifest = {
     version: 1 as const,
     batches,
     products,
+    formulaUpdates,
   };
   return {
     manifest: { ...manifest, hash: await importManifestHash(manifest) },
@@ -490,10 +749,14 @@ export async function buildManifest(webs: string[]): Promise<BuiltManifest> {
         0,
       ),
       photos,
-      withoutIngredientsPhoto: products.filter(
-        ({ facts }) =>
-          !facts.photos.some((photo) => photo.slot === "ingredients"),
-      ).length,
+      withoutIngredientsPhoto: products.filter(({ facts }) => {
+        const later = formulaUpdates.find(
+          (update) => update.productSourceKey === facts.sourceKey,
+        );
+        const currentPhotos = later?.facts.photos ?? facts.photos;
+        return !currentPhotos.some((photo) => photo.slot === "ingredients");
+      }).length,
+      formulaUpdates: formulaUpdates.length,
     },
   };
 }

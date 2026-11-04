@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TAXONOMY_GROUPS, TAXONOMY_LEAVES } from "../../db/seed/taxonomy";
+import { ingredientTranscription } from "../../server/community/domain/ingredient-transcription";
 
 // The files of a photo-batch run. Product fields follow the site's
 // submission contract (server/community/domain/contracts.ts) so a future
@@ -251,6 +252,23 @@ export const reconcileResult = z
   })
   .strict();
 
+// A later package label that represents a distinct formula for a product
+// already reviewed in an earlier batch. The import keeps both formulas.
+export const formulaVersionUpdatesFile = z
+  .object({
+    updates: z.array(
+      z
+        .object({
+          product: z.string().min(1).max(200),
+          earlier: z.string().min(1).max(200),
+          label,
+          summary: text,
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
 // Products a later batch photographed again: each pair puts a product of
 // this run beside a likely match from an earlier batch's run, for the Repeat
 // agents to decide (owner, 2026-10-16). Decisions use reconcileResult.
@@ -259,12 +277,15 @@ export const earlierRun = z
   .strict();
 export const repeatPlan = z
   .object({
-    earlier: earlierRun,
+    earlier: z
+      .union([z.array(earlierRun), earlierRun])
+      .transform((value) => (Array.isArray(value) ? value : [value])),
     pairs: z.array(
       z
         .object({
           id: z.string(),
           product: z.string(),
+          earlierIndex: z.number().int().nonnegative().default(0),
           earlier: z.string(),
           earlierBrand: z.string(),
           earlierName: z.string(),
@@ -355,10 +376,14 @@ export const binPlan = z
   })
   .strict();
 
+// Historical batches retain their original food assignments. The release
+// overlay reclassifies them before import; retired foods are not seeded or
+// offered by the current `foods` command.
+const retiredFoodSlugs = new Set(["pies-and-cheesecake", "skillet-meals"]);
 export const foodSlug = z
   .string()
   .refine(
-    (slug) => FOODS.has(slug),
+    (slug) => FOODS.has(slug) || retiredFoodSlugs.has(slug),
     "Use a food slug from `photos:review -- foods` (TAXONOMY_LEAVES).",
   );
 
@@ -505,6 +530,23 @@ export const checkResult = z
   );
 export type CheckResult = z.infer<typeof checkResult>;
 
+export const transcriptionResult = z
+  .object({
+    id: z.string(),
+    ...ingredientTranscription.shape,
+    notes: z.array(text).default([]),
+  })
+  .strict()
+  .superRefine((record, ctx) => {
+    const { id: _id, notes: _notes, ...transcription } = record;
+    const parsed = ingredientTranscription.safeParse(transcription);
+    if (!parsed.success)
+      parsed.error.issues.forEach((issue) =>
+        ctx.addIssue({ ...issue, path: issue.path }),
+      );
+  });
+export type TranscriptionResult = z.infer<typeof transcriptionResult>;
+
 // The owner's corrections, applied last.
 export const correction = z
   .object({
@@ -515,6 +557,17 @@ export const correction = z
     flavor: flavor.optional(),
     name: label.optional(),
     sizes: z.array(text).optional(),
+    // Correct a bad front/ingredient/nutrition/back assignment using any
+    // photo in this run; null removes a misassigned slot.
+    photos: z
+      .object({
+        front: photo.nullable().optional(),
+        ingredients: photo.nullable().optional(),
+        nutrition: photo.nullable().optional(),
+        back: photo.nullable().optional(),
+      })
+      .strict()
+      .optional(),
     food: foodSlug.optional(),
     // Moves the product out of scope, naming the food it would need.
     outOfScope: label.optional(),

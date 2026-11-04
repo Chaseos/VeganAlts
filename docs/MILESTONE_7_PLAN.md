@@ -12,7 +12,7 @@ It also:
 - simplifies the taxonomy to two levels, universal aisles and the foods under them;
 - sets the United States launch foods, so the owner can fill the catalog with direct replacements for meat, fish, dairy, cheese, eggs, and animal-based condiments, dips, sweets and baked goods.
 
-The plan and the implementation share one branch, `docs/milestone-seven-recipe-lines-plan`, and one pull request (#49), at the owner's request on 2026-10-12. The launch foods can ship first on their own (checkpoint 2), so Eggnog is in place for the season.
+The plan and the implementation share one branch, `docs/milestone-seven-recipe-lines-plan`, and pull request #50, at the owner's request. The launch foods can ship first on their own (checkpoint 2), so Eggnog is in place for the season.
 
 ## Why
 
@@ -163,11 +163,11 @@ Most of what remains is sold as a few base recipes in several flavors:
 The owner's reviewed store photos reach the catalog through an importer, planned in the [store photo importer plan](IMPORTER_PLAN.md).
 
 1. **No review queue.** Imported products skip the moderation review queue: they are the owner's own contributions ([MODERATION](MODERATION.md), "Owner imports").
-2. **Review data stays internal.** Risk levels and ingredient checks never reach the site.
+2. **Import review data.** Risk levels remain internal. For the existing four photo batches, the package transcription, its verification/source evidence and the animal/unclear ingredient assessment are stored with the formula; mapped label allergens use the existing allergen tables. Future uploads keep their separate moderation flow.
 3. **Barcodes wait.** They are left out of this importer.
 4. **Demo data goes first.** Staging's demo products are fake and are cleared before the import, so every imported product is new, even when a name matches.
 5. **Shelf-stable later.** A shelf-stable tag for products such as milk and creamer comes later, outside the importer.
-6. **The documented classification.** Vegan-labelled packages keep the Vegan manufacturer label and read "Ingredients not checked yet".
+6. **Classification after transcription (owner revision, 2026-10-22).** A vegan word or mark on the package controls Vegan even when an ingredient origin is unclear; a confirmed animal-derived ingredient is held for the owner's decision. Without a vegan package claim, a clean assessment with no flags is Plant-based, whether or not the package says plant-based. An unresolved origin, unreadable text or missing usable source is Appears plant-based. This one-time historical-batch rule does not change the future photo-upload flow.
 
 ## Agreed boundaries
 
@@ -416,7 +416,7 @@ The owner's reviewed store photos reach the catalog through an importer, planned
 
 The taxonomy becomes two levels below the root: **aisle › food**. It replaces the milestone 5 shape of aisle › shelf › food and removes shelves.
 
-- **The aisles are universal.** There are 23 of them, the same in every country. On 2026-10-15 Pizza was added and Bakery and desserts split into Desserts and Bakery; on 2026-10-16 Toaster Pastries, Meals and Sauces were added.
+- **The aisles are universal.** There are 23 of them, the same in every country. On 2026-10-15 Pizza was added and Bakery and desserts split into Desserts and Bakery; on 2026-10-16 Toaster Pastries, Meals and Sauces were added. Pepperoni was added as a food under Pork on 2026-10-23.
 - **Foods sit directly under an aisle.** They can be as specific as each country needs.
 - **Aisles stay non-rankable groups, and foods are the rankable leaves.**
 - **An aisle holding one food of its own name is silent in breadcrumbs,** so "All foods / Eggs" never reads "All foods / Eggs / Eggs".
@@ -428,7 +428,7 @@ The taxonomy becomes two levels below the root: **aisle › food**. It replaces 
 | ---------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | Beef             | `beef`                   | Ground Beef, Beef Burgers, Meatballs, Hot Dogs, Steak, Beef Deli Slices                                                         |
 | Chicken          | `chicken`                | Chicken Nuggets, Grilled Chicken Strips, Chicken Patties, Chicken Tenders, Boneless Wings, Chicken Bites                        |
-| Pork             | `pork`                   | Bacon, Breakfast Sausage, Chorizo, Italian Sausage, Dinner Sausages                                                             |
+| Pork             | `pork`                   | Bacon, Breakfast Sausage, Chorizo, Italian Sausage, Dinner Sausages, Pepperoni                                                  |
 | Turkey           | `turkey-aisle`           | Turkey Roast, Turkey Deli Slices                                                                                                |
 | Lamb             | `lamb-aisle`             | none yet (hidden until a food has a product)                                                                                    |
 | Fish and seafood | `fish-and-seafood`       | Fish Fillets                                                                                                                    |
@@ -436,18 +436,18 @@ The taxonomy becomes two levels below the root: **aisle › food**. It replaces 
 | Cream            | `cream-aisle`            | Coffee Creamer, Half-and-Half, Sour Cream, Whipped Cream, Heavy Cream                                                           |
 | Butter           | `butter-aisle`           | Butter                                                                                                                          |
 | Yogurt           | `yogurt-aisle`           | Yogurt, Greek Yogurt                                                                                                            |
-| Ice cream        | `ice-cream-aisle`        | Ice Cream                                                                                                                       |
+| Ice cream        | `ice-cream-aisle`        | Ice Cream, Milkshake                                                                                                            |
 | Cheese           | `cheese`                 | Cheddar, Mozzarella, Smoked Gouda, American Cheese, Mexican Blend, Parmesan, Swiss Cheese, Feta, Cream Cheese                   |
 | Eggs             | `eggs-aisle`             | Eggs, Eggs for Baking                                                                                                           |
-| Condiments       | `condiments`             | Mayonnaise, Ranch Dressing, Caesar Dressing, Worcestershire Sauce                                                               |
-| Dips and spreads | `dips-and-spreads`       | Queso, Tzatziki                                                                                                                 |
-| Chocolate        | `chocolate`              | Milk Chocolate, Chocolate Chips, Peanut Butter Cups, Candy Bars, Candy-Coated Chocolates                                        |
+| Condiments       | `condiments`             | Mayonnaise, Ranch Dressing, Blue Cheese Dressing, Honey Mustard Dressing, Caesar Dressing, Worcestershire Sauce                 |
+| Dips and spreads | `dips-and-spreads`       | Queso, Tzatziki, Creamy Dips, Spinach Artichoke Dip                                                                              |
+| Chocolate        | `chocolate`              | Milk Chocolate, Chocolate Chips, Nut Butter Cups, Chocolate Spread, Candy Bars, Candy-Coated Chocolates                         |
 | Candy            | `candy`                  | Gummy Candy, Marshmallows, Caramels                                                                                             |
 | Desserts         | `desserts`               | Cookies, Cake, Pies and Cheesecake, Pudding Cups                                                                                |
 | Bakery           | `bakery`                 | Muffins, Cinnamon Rolls, Baking Mixes                                                                                           |
 | Toaster Pastries | `toaster-pastries-aisle` | Toaster Pastries (added 2026-10-16)                                                                                             |
 | Pizza            | `pizza-aisle`            | Pizza (added 2026-10-15)                                                                                                        |
-| Meals            | `meals`                  | Mac and Cheese, Skillet Meals, Jamaican Beef Patties, Breakfast Burritos, Lasagna, Cheese Ravioli, Dumplings (added 2026-10-16) |
+| Meals            | `meals`                  | Mac and Cheese, Skillet Meals, Jamaican Beef Patties, Breakfast Burritos, Lasagna, Cheese-Filled Pasta, Dumplings, Breakfast Sandwich, Chicken and Rice Meal, Chicken Noodle Soup, Thai Curry Roti, Korean Rice Rolls, Korean Stir-Fried Rice Cakes, Korean Rice Balls |
 | Sauces           | `sauces`                 | Alfredo Sauce, Creamy Pasta Sauce, Pesto, Vodka Sauce, Gravy, Bouillon (added 2026-10-16)                                       |
 
 ### The 64 foods
@@ -566,6 +566,15 @@ Existing foods keep their current names and other names unless a row says otherw
 - **Folded into existing foods:** veggie burgers into Beef Burgers, butter sprays into Butter.
 - **Plain dark chocolate stays out,** because it is usually made without milk already.
 
+**Photo-batch taxonomy revision (owner decision, 2026-10-23).** A product belongs only when it replaces a conventional food that usually contains animal ingredients, or a dish commonly made with them. Products that do not fill that role stay out; SmartSweets Red Twists remain excluded because ordinary red licorice is commonly plant-based. Keep the 12 products whose transcribed ingredients confirm animal-derived ingredients out of the import.
+
+- **Fold related foods together:** Peanut Butter Cups becomes **Nut Butter Cups**, including peanut, cashew, hazelnut and seed-butter cups; Chocolate Peanut Spread and Chocolate Hazelnut Spread become **Chocolate Spread**; Cheese Ravioli becomes **Cheese-Filled Pasta** for ravioli, tortellini and similar filled pasta.
+- **Fold products into existing foods:** banana bread into Cake; beef strips and bulgogi into Steak; creamy dill dressing into Ranch Dressing.
+- **Keep dressings together in Condiments:** Blue Cheese Dressing and Honey Mustard Dressing join Ranch Dressing and the existing dressings.
+- **Add Pepperoni as its own food under Pork.**
+- **Keep Bitchin' Sauce in Dips and spreads** as Creamy Dips. The broader category can hold creamy dip alternatives beyond almond-based products; Bitchin' Sauce describes its dips as a plant-based alternative to conventional dairy-based dips and spreads ([about Bitchin' Sauce](https://bitchinsauce.com/pages/about-us)).
+- Add the remaining direct replacement foods found in the batches under existing aisles: Breakfast Sandwich, Chicken and Rice Meal, Chicken Noodle Soup, Spinach Artichoke Dip, Milkshake, Thai Curry Roti, Korean Rice Rolls, Korean Stir-Fried Rice Cakes and Korean Rice Balls.
+
 **Detail questions.**
 
 - **New foods ask the default detail questions, Taste and Texture.**
@@ -587,7 +596,7 @@ Existing foods keep their current names and other names unless a row says otherw
 
 **Watch list.** Candidates to add next. There is no size bar: the owner adds one when it is a distinct thing people look for, broadening a thin food where that fits better:
 
-- Cottage Cheese and Pepperoni (Heavy Cream and Feta joined, Steak Tips became Steak and Bratwurst joined Dinner Sausages on 2026-10-15; Ricotta and Pulled Pork joined on 2026-10-16);
+- Cottage Cheese (Heavy Cream and Feta joined, Steak Tips became Steak and Bratwurst joined Dinner Sausages on 2026-10-15; Ricotta and Pulled Pork joined on 2026-10-16; Pepperoni joined Pork on 2026-10-23);
 - Fried Eggs (Yo Egg, BeLeaf, regional) and Hard-Boiled Eggs (Crafty Counter WunderEggs);
 - Bologna and Chicken Deli Slices (Ham and Salami Deli Slices joined on 2026-10-16);
 - Tuna, which today has two brands, both sold online;
@@ -596,7 +605,7 @@ Existing foods keep their current names and other names unless a row says otherw
 - Caramel Sauce, Jelly Beans and Candy Corn (Gelatin Cups joined on 2026-10-16);
 - Sweetened Condensed Milk (it would join Milk) and bee-free Honey, sold mostly in specialty stores;
 - Croissants (two in chains), Donuts (Whole Foods only), Naan and Tiramisu (none in stores). Cookie dough joined Cookies on 2026-10-15;
-- Removed until their first product (2026-10-16): Pepper Jack, Spinach Artichoke Dip, French Onion Dip, White Chocolate, Chocolate Hazelnut Spread, Brownies, and Brioche and Rolls;
+- Removed until their first product: Pepper Jack, French Onion Dip, White Chocolate, Brownies, and Brioche and Rolls. Spinach Artichoke Dip and Chocolate Spread now have products (owner, 2026-10-23);
 - Frozen Waffles, which have enough products but no aisle yet.
 
 ### Aisle order, browsing and seasons
@@ -632,7 +641,7 @@ These shared, English-labelled presentation groups add no taxonomy level, databa
 
 | Group                  | Category slugs                                                                      |
 | ---------------------- | ----------------------------------------------------------------------------------- |
-| Meat & seafood         | `beef`, `chicken`, `pork`, `turkey-aisle`, `lamb-aisle`, `fish-and-seafood`         |
+| Meat & seafood         | `beef`, `chicken`, `pork`, `turkey-aisle`, `lamb-aisle`, `fish-and-seafood` |
 | Dairy & eggs           | `milk-aisle`, `cream-aisle`, `butter-aisle`, `yogurt-aisle`, `cheese`, `eggs-aisle` |
 | Bakery & baking        | `bakery`, `toaster-pastries-aisle`, legacy `bakery-and-desserts`                    |
 | Sweets & desserts      | `chocolate`, `candy`, `ice-cream-aisle`, `desserts`                                 |
@@ -653,7 +662,7 @@ These shared, English-labelled presentation groups add no taxonomy level, databa
    - If the 30 new foods were switched on in all six current countries, the UK, Canada and Australia pages would show empty foods such as Eggnog and Half-and-Half until someone there added a product.
    - Switched on in the US only, they appear in another country automatically when someone there adds a product for them.
    - This is not about which country a visitor lands on.
-2. **The taxonomy ships with the rest of the milestone.** The owner chose one pull request (#49) for the whole milestone, kept as a draft until it is done.
+2. **The taxonomy ships with the rest of the milestone.** The owner chose one pull request (#50) for the whole milestone, kept as a draft until it is done.
    - Staging still needs its reset to version 1 before real data is entered, or anything entered before it is wiped.
    - Until then, photos and names collected while shopping can wait in a spreadsheet.
 3. **People see the 23 groups as "aisles",** keeping the store feel of the swap aisle. Internally they remain categories.

@@ -20,6 +20,17 @@ export interface RelatedProduct {
 }
 export interface CommunityProductDetails {
   classification: Classification | null;
+  ingredientTranscription: {
+    ingredients: string | null;
+    contains: string | null;
+    mayContain: string | null;
+    onlineIngredients: string | null;
+    sourceImageIds: string[];
+    verification: string;
+    onlineContains: string | null;
+    onlineMayContain: string | null;
+    onlineSource: { url: string; accessedAt: string; productMatch: string } | null;
+  } | null;
   retailers: RetailerSummary[];
   relatedProducts: RelatedProduct[];
   revision: number;

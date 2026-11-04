@@ -224,7 +224,7 @@ export const products = sqliteTable(
       .default(sql.raw("'active'")),
     veganStatus: text("vegan_status")
       .notNull()
-      .default(sql.raw("'appears_vegan'")),
+      .default(sql.raw("'appears_plant_based'")),
     manufacturerLabel: text("manufacturer_label")
       .notNull()
       .default(sql.raw("'unknown'")),
@@ -273,7 +273,7 @@ export const products = sqliteTable(
     check(
       "ck_products_3",
       sql.raw(
-        "vegan_status IN ('vegan', 'appears_vegan', 'plant_based', 'under_review')",
+        "vegan_status IN ('vegan', 'appears_plant_based', 'plant_based', 'under_review')",
       ),
     ),
     check(

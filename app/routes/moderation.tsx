@@ -19,6 +19,8 @@ import {
   CommunityControls,
 } from "../components/community-form";
 import { CatalogSelect } from "../components/catalog-select";
+import { CatalogReversalPreview } from "../components/catalog-reversal-preview";
+import { ProductRemovalControls } from "../components/product-removal-controls";
 import {
   useCommunityAction,
   friendly,
@@ -45,7 +47,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     )) as unknown as CommunityOptions;
     const donorId = url.searchParams.get("donor");
     if (donorId && !options.products.some((p) => p.id === donorId)) {
-      const { product: donor } = await services.moderation.product(
+      const { product: donor, brand } = await services.moderation.product(
         actor,
         donorId,
       );
@@ -54,6 +56,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         name: donor.name,
         slug: donor.slug,
         countryId: donor.countryId,
+        country: donor.countryCode.toUpperCase(),
+        brand,
       });
     }
     return {
@@ -426,7 +430,9 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                         <option value="">
                           Keep what the evidence supports
                         </option>
-                        <option value="appears_vegan">Appears vegan</option>
+                        <option value="appears_plant_based">
+                          Appears plant-based
+                        </option>
                         <option value="vegan">Vegan</option>
                         <option value="plant_based">Plant-based</option>
                         <option value="under_review">Under review</option>
@@ -465,6 +471,12 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                             Hide comment from public view
                           </option>
                         )}
+                        {reported.targetType === "product" &&
+                          reported.reason === "out_of_scope" && (
+                            <option value="remove_product">
+                              Remove product from catalog
+                            </option>
+                          )}
                       </select>
                       {effect === "under_review" && (
                         <p className="notice">
@@ -474,8 +486,16 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                       )}
                       {effect === "hide_comment" && (
                         <p className="notice">
-                          The comment is collapsed from public view. Its text,
+                          The comment is hidden from public view. Its text,
                           votes and audit history remain recoverable.
+                        </p>
+                      )}
+                      {effect === "remove_product" && (
+                        <p className="notice">
+                          This removes the product from public pages, search and
+                          rankings. Its photos, formulas, ratings and comments
+                          are preserved, and the removal can be reversed from
+                          its decision history.
                         </p>
                       )}
                       {effect === "remove_image" && (
@@ -596,6 +616,11 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                 Duplicate preview
               </Link>
             </div>
+            <ProductRemovalControls
+              product={data.product}
+              action={action}
+              onRemoved={() => void revalidator.revalidate()}
+            />
             <section aria-labelledby="line-title">
               <h2 id="line-title">Recipe line</h2>
               <p>
@@ -741,10 +766,17 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
               <form className="community-form" onSubmit={reverse}>
                 <h3>Reverse the selected catalog decision</h3>
                 {reversing && (
-                  <p>
-                    <strong>{friendly(reversing.kind)}</strong> ·{" "}
-                    {dateLabel(reversing.created_at)}: {reversing.note}
-                  </p>
+                  <>
+                    <p>
+                      <strong>{friendly(reversing.kind)}</strong> ·{" "}
+                      {dateLabel(reversing.created_at)}: {reversing.note}
+                    </p>
+                    <CatalogReversalPreview
+                      before={JSON.parse(reversing.before_data)}
+                      after={JSON.parse(reversing.after_data)}
+                      labels={data.referenceLabels}
+                    />
+                  </>
                 )}
                 <label htmlFor="reverse-note">Reason for reversal</label>
                 <textarea

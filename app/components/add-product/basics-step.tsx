@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { Link } from "react-router";
 import type { Candidate } from "@server/community/domain/contracts";
+import { CATALOG_ELIGIBILITY_GUIDANCE } from "@server/community/domain/eligibility";
 import { Popover } from "../ui/popover";
 import { Icon } from "../icons/icon";
 import type { AisleOption } from "../aisle-select";
@@ -102,6 +103,7 @@ export function BasicsStep({
       <p className="va-add__note">
         Fields are required unless they say optional.
       </p>
+      <p className="va-add__note">{CATALOG_ELIGIBILITY_GUIDANCE}</p>
       <div className="va-add__country">
         <span>
           Adding to <strong>{countryName}</strong>

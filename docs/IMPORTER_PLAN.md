@@ -2,36 +2,49 @@
 
 Written on 2026-10-16 from the owner's decisions of 2026-10-15 and 2026-10-16. Built and rehearsed locally the same day ([verification](verification/catalog-import.md), [runbook](operations/catalog-import.md)); staging waits for the owner.
 
-The importer turns the owner's three reviewed store-photo batches into real catalog data, on a local database first and then on staging. The owner answered its four [questions](#owner-answers) on 2026-10-16, so nothing blocks the first run.
+The importer turns the owner's four reviewed store-photo batches into real catalog data, on a local database first and then on staging. The ingredient-transcription and package-classification rules below revise the 2026-10-16 no-transcription decision, for the existing batches only.
+
+The owner-approved production-readiness revision (2026-10-23) adds guarded production import and reversible catalog cleanup. [Operational commands and recovery](operations/catalog-import.md#production-release-import-2026-10-23) supersede the original staging-only execution boundary. Public cutover remains separately approved.
 
 ## Goal
 
-- **Done:** every in-scope product of the three batches is published on staging. Each has its food, recipe line, photos, package label and stores. No demo data remains, and nothing went through the review queue.
+- **Done:** every approved in-scope product of the four batches is published on staging. Each has its food, recipe line, photos, package label, stores, ingredient transcription and label-based allergen declarations. No demo data remains, and nothing went through the review queue.
 - **Proof:** the [verification](#verification) passes locally, then on staging, and a second run of the importer writes nothing.
 - **Not in this importer:**
-  - ratings, allergens and ingredient lists;
+  - ratings;
   - barcodes (owner answer 1);
   - the shelf-stable tag (owner decision 5);
-  - production.
+  - public launch/cutover (the guarded production import is now supported).
 
 ## Decisions it follows
 
-**The photo-batch rules** ([milestone 7](MILESTONE_7_PLAN.md), owner decisions 2026-10-15/16):
+**The photo-batch rules** ([milestone 7](MILESTONE_7_PLAN.md), owner decisions 2026-10-15/16 and revisions 2026-10-22/23):
 
-- No ingredient transcription.
-- The package label is vegan, plant-based or "appears plant-based". Only "appears" products have a risk level, and only high-risk ones had their ingredient photo checked.
-- Any plant-based alternative is in scope, and a food exists only when it has products.
+- Transcribe and assess every final product in these four batches. The package is the primary source; when its ingredient text is unreadable or incomplete, an exact-product online source may supplement it and must be recorded separately.
+- A vegan package word or mark controls Vegan even when ingredient origins are unclear, unless the transcription confirms an animal-derived ingredient. Without a vegan package claim, a clean list with no flags supports Plant-based; any flag or missing source supports Appears plant-based.
+- Owner-curated photo batches are reviewed as catalog evidence and imported through the audited owner path; they do not call OpenAI content safety or Clef. The first four batches received the additional one-time image review required by the original batch decision. Public user-submitted products and comments continue through their separate safety and moderation flow.
+- A product is in scope only when it replaces a conventional food that usually contains animal ingredients, or a dish commonly made with them. Products outside that role are excluded, even if the package says vegan.
 - A product photographed again in a later batch carries its stores to the earlier product.
 
-**The owner's import decisions** (2026-10-16):
+**The owner's taxonomy decisions** (2026-10-23):
 
-1. Imported products skip the moderation review queue. They are the owner's own contributions.
-2. Risk levels and ingredient checks stay internal and never reach the site.
+- Keep Peanut Butter Cups, including seed-butter versions, in **Nut Butter Cups**.
+- Combine Chocolate Peanut Spread and Chocolate Hazelnut Spread as **Chocolate Spread**.
+- Combine ravioli and tortellini as **Cheese-Filled Pasta**.
+- Fold banana bread into Cake, beef strips into Steak and creamy dill dressing into Ranch Dressing.
+- Place Blue Cheese Dressing and Honey Mustard Dressing under Condiments, alongside Ranch Dressing.
+- Add Pepperoni as its own food under Pork. Keep Bitchin' Sauce under Creamy Dips, a broad category for creamy dip alternatives.
+
+**The owner's import decisions** (2026-10-16, as revised 2026-10-22):
+
+1. Imported products skip the user-submission moderation queue. They are the owner's own contributions, imported with reversible catalog audit actions. The first four batches received a one-time identity, relevance, quality and safety review under the original batch decision. For owner-curated batches reviewed directly by the owner, including later batches, the importer does not call OpenAI content safety or Clef; user-submitted products and comments retain their separate moderation flow.
+2. Risk levels stay internal. Ingredient transcription and verification evidence, plus mapped allergen declarations, are site data.
 3. Barcodes are left out of this importer ([owner answer 1](#owner-answers)).
 4. The 38 demo products on staging are fake.
    - Every imported product is new, even when its name matches a demo product.
    - The demo data is cleared before the import.
 5. A shelf-stable tag for products such as milk and creamer comes later, outside this importer.
+6. The owner excludes all 12 products whose transcribed ingredients confirm animal-derived ingredients. These receive `skip` decisions in the photo review and are not imported.
 
 ## What gets imported
 
@@ -76,6 +89,7 @@ Owner decision 1 already removes the review, so the importer writes the publicat
 ## The manifest
 
 - **Per batch:** `loadRun` applies the owner's corrections, late duplicates, cross-batch repeats and carried stores. The importer takes the `views` that are neither skipped nor out of scope.
+- **Confirmed repeated products with a changed formula** stay one public product. The later package facts, photos and transcription create a new current formula version after the base products import; the earlier formula remains in history. Package wording differences alone do not create a separate public product.
 - **Batch order matters.** The batches are passed earliest first, as `repeats --earlier` expects. That order decides a brand's spelling and which product founds a line.
 - **Lines across batches.**
   - Within a batch, the line id decides the line.
@@ -95,7 +109,7 @@ Owner decision 1 already removes the review, so the importer writes the publicat
     - the risk level and reason;
     - the ingredient check;
     - sizes, confidence and notes.
-- **The manifest hash** covers everything except `internal`.
+- **The manifest hash** covers product facts and confirmed formula updates, but not `internal` review notes.
   - A dry run prints it, and `--apply` requires `--expect=<hash>`. The run then writes exactly what the owner reviewed, and the same hash applies to local and staging.
   - Changing a risk level or a note doesn't change the hash.
 - **Location.** The manifest and reports go to `--out`, a folder that must be outside the repository (the same check `openBatch` makes). They hold internal data and photo names, so they are never committed.
@@ -205,16 +219,9 @@ The rows are the ones `SubmissionRepository.publish` writes ([`submission-reposi
   - summary "Added from VeganAlts store photos";
   - created by the operator.
 - **Food** (`product_categories`). The food, ranking-eligible, created by the operator. The `category_countries` trigger keeps the food switched on in the United States.
-- **Classification** (`formula_classifications`). See [Classification](#classification). Its evidence:
-  - **urls:** none;
-  - **imageIds:** the ingredients photo, when there is one;
-  - **note** (shown on the product page under "Ingredient evidence"):
-    - "Added from VeganAlts store photos. The ingredient list is in the photo and has not been typed out.";
-    - followed by "Package: <label evidence>." when the package says vegan or plant-based.
-
-    The label evidence describes where the claim sits on the package, for example "Certified Vegan (vegan.org) logo on the right side of the front". It is never ingredient text, a risk level or a check result.
-
-  `reviewed_by` stays empty.
+- **Classification** (`formula_classifications`). See [Classification](#classification). The evidence note points to the transcription below and records package claim placement separately. `reviewed_by` identifies the operator who reviewed Vegan classifications.
+- **Ingredient transcription** (`product_version_ingredient_transcriptions`). Stores verbatim package text, source image IDs, reading and assessment data, and a separate online supplement when used. The product page shows the transcription and online-source link.
+- **Allergens** (`product_version_allergen_declarations` and `product_version_allergens`). Only explicit label statements are mapped to US keys. The evidence references the source images.
 
 - **Photos.** See [Photos](#photos).
 - **Stores.** Each store is a `product_retailers` row and the operator's `confirm` stance, through `retailerConfirmationStatements` ([`contribution-repository.ts`](../server/community/infrastructure/contribution-repository.ts)), as publication writes them.
@@ -225,24 +232,24 @@ The rows are the ones `SubmissionRepository.publish` writes ([`submission-reposi
 
 ### Classification
 
-| Package label       | Ingredients photo | Products | Status                  | `ingredients_checked` | Manufacturer label |
-| ------------------- | ----------------- | -------- | ----------------------- | --------------------- | ------------------ |
-| Vegan               | yes               | 376      | Ingredients not checked | 0                     | vegan              |
-| Vegan               | no                | 3        | Ingredients not checked | 0                     | vegan              |
-| Plant-based         | yes               | 153      | Plant-based             | 1                     | plant_based        |
-| Plant-based         | no                | 1        | Ingredients not checked | 0                     | plant_based        |
-| Appears plant-based | yes               | 291      | Ingredients not checked | 0                     | unknown            |
+The package claim and ingredient assessment are separate evidence. The public `vegan` status requires an explicit vegan word or mark on the package; that package claim controls even when a flavor origin remains unclear. A confirmed animal-derived ingredient contradicts the claim and stays blocked for owner review. Without a vegan package claim, a clean list with no flags is `plant_based`; any ingredient-origin, readability, or source flag is `appears_plant_based`. The `manufacturerLabel` field continues to record only what the package says.
 
-"Ingredients not checked" is stored as `appears_vegan` with `ingredients_checked = 0`, and reads "Ingredients not checked yet".
+| Package label | Ingredient assessment | Public status | Manufacturer label |
+| --- | --- | --- | --- |
+| Vegan word or mark | no confirmed animal ingredient | Vegan, recorded as operator-reviewed | vegan |
+| No vegan word or mark | clean, no flags | Plant-based | package label or unknown |
+| No vegan word or mark | unresolved origin, unreadable text, or no source | Appears plant-based | package label or unknown |
+| Any claim | confirmed animal-derived ingredient | Under review for an owner decision; blocked from import | package label |
 
-- **Why:** this is the documented provisional classification ([MODERATION](MODERATION.md), milestone 6 policy; `provisionalClassification`). It is what a contributor gets who attaches an ingredients photo without ticking "nothing animal-derived". Nobody read these ingredient lists, so the tick is never set.
-- **Checks stay hidden.** The 91 products' check results are not used, so no status shows which products were checked (owner decision 2).
-- **No Vegan without review.** `reviewed_by` stays empty and no product is stored as Vegan. The launch audit's "Vegan without review" count therefore stays at zero.
-- **Vegan-labelled packages** read the same way: the manufacturer label shows Vegan beside "Ingredients not checked yet" ([owner answer 2](#owner-answers)).
+For this one-time historical batch review, the owner has reviewed the transcription and assessment. Unresolved ingredients or source gaps can be imported as Appears plant-based when there is no vegan package claim; the review report retains the flag and source details. A vegan package claim remains Vegan unless the transcription confirms an animal-derived ingredient. Confirmed animal-derived ingredients are held for the owner's scope and classification decision. A clear label may use one reading as the owner directed.
+
+Ingredient transcription, source-photo IDs, read/verification data, the assessment and any separate online supplement are stored with the formula. Explicit `Contains`, `May contain`, and `none declared` package statements populate the existing allergen tables; an absent statement does not create a declaration. Risk levels remain internal and do not gate ingredient screening or determine a public label.
+
+The image moderation check applies once to the photos from batches 1 through 4. It does not alter the moderation path for future uploads.
 
 ### Stores
 
-The seven stores are new on every database: the seed has no retailers. Each is created once through the site's own path:
+The eight stores are new on every database: the seed has no retailers. Each is created once through the site's own path:
 
 1. a retailer proposal by the operator (`ContributionService.proposeRetailer`);
 2. its acceptance by the operator, through the retailer branch of the moderation decision. That is `CatalogDecisionRepository.acceptRetailer`, as `ModerationService.decide` calls it (`moderation-service.ts:611-616`).
@@ -258,6 +265,7 @@ This writes the same proposal, retailer, other names, US market, `proposal_accep
 | Trader Joe's | Trader Joe's | —                      | https://www.traderjoes.com       | 43    |
 | Aldi         | Aldi         | —                      | https://www.aldi.us              | 10    |
 | Whole Foods  | Whole Foods  | Whole Foods Market     | https://www.wholefoodsmarket.com | 1     |
+| Costco       | Costco       | —                      | https://www.costco.com            | 8     |
 
 - **Names.** Shoppers' names, as the batches record them, with the official names as other names. "ALDI" and "Trader Joes" are not other names, because they normalize to the same key.
 - **Matching.** A batch's store name maps to a retailer through its name or other names, the way `retailerExists` matches.
@@ -296,7 +304,7 @@ This writes the same proposal, retailer, other names, US market, `proposal_accep
   - The transaction writes the `product_images` rows through `imageInsertStatements`: accepted, the full and thumbnail keys, the full copy's width and height, no evidence, submitted by the operator.
 - **Cleanup safety.** The hourly recovery never deletes a `products/` key that `product_images` references, and it keeps `products/` keys it doesn't recognize ([`recovery.ts`](../server/community/infrastructure/recovery.ts)). Photos put before a transaction that then fails stay in R2 until a rerun uses them.
 - **No upload records.** No `media_uploads`, `media_attempts`, staged blobs or promotions are written. Those track web uploads, and the import never spends the daily allowance.
-- **No automated photo check.** The owner reviewed every photo on the review sheet (owner decision 1).
+- **One-time photo moderation.** Review identity, relevance, quality and safety for the currently available photos in batches 1–4 before import. Record concerns for owner review. This applies only to these four existing batches; future uploads keep their separate moderation flow.
 
 ## One product, one transaction
 
@@ -382,9 +390,7 @@ The primary keys and unique indexes refuse everything else: the product id, the 
 
 ### 1. Build
 
-1. **Branch.** The importer needs the photo-review tooling and taxonomy commits on `docs/milestone-seven-recipe-lines-plan`. That's four commits after PR #49 merged, which `develop` doesn't have yet. Recommended:
-   - open a pull request for those four commits into `develop`;
-   - then build on `feature/store-photo-import`, cut from `develop`.
+1. **Branch.** Keep the photo-review tooling, taxonomy and importer work together on `docs/milestone-seven-recipe-lines-plan` in pull request #50, as the owner requested.
 2. **Specification first:** the [documentation](#documentation) changes.
 3. **The publication builder extraction,** with the existing suites passing unchanged.
 4. **The importer and its tests;** `npm run check`.
@@ -453,6 +459,7 @@ The primary keys and unique indexes refuse everything else: the product id, the 
   - products, lines, brands, retailers and store links;
   - photos per slot.
 - **Every product:** active, with one current formula and an accepted front photo.
+- **Formula updates:** the confirmed later version is current and has its ingredient transcription and accepted photos; each product still has exactly one current formula.
 - **Photos.** Every key is in R2 with the manifest's byte size. A sample of photos reads through `readMedia` at full and thumbnail size.
 - **Search.** Every product is in search, and every brand in `brand_search`.
 - **Lines.** Every line has its first publication recorded for its food.
@@ -497,7 +504,7 @@ The primary keys and unique indexes refuse everything else: the product id, the 
   - `verify.ts`;
   - `retailers.ts`.
 - **`scripts/reset-local.ts`:** `--taxonomy-only`.
-- **`package.json`:** `catalog:import:local` and `catalog:import:staging`. Production is refused, as in `seed-images.ts`.
+- **`package.json`:** `catalog:import:local` and `catalog:import:staging`. The production-readiness revision adds `catalog:import:production` with a cleaned release overlay, approval-bound dry run, recovery bookmark and full verification (see the runbook).
 - **`scripts/audit-launch-dataset.ts`:** `productsWithoutIngredientEvidence` is reported, not blocking, because ingredient evidence is optional (owner answer 4). `readyForLaunch` ignores it.
 - **No schema change and no migration.** Version 1 stays as it is.
 
@@ -524,9 +531,9 @@ The primary keys and unique indexes refuse everything else: the product id, the 
 
 **Changed first, before the code:**
 
-- **[MODERATION](MODERATION.md):** an "Owner imports" section. It records owner decision 1, the `product_import` action and its reversal, and that the automated photo check doesn't run.
+- **[MODERATION](MODERATION.md):** an "Owner imports" section. It records owner decision 1, the one-time image check for batches 1–4, the separate future-upload flow, and the `product_import` action and its reversal.
 - **[Milestone 7](MILESTONE_7_PLAN.md):** the owner's import decisions of 2026-10-16, linking here.
-- **[DATABASE_BASELINE](DATABASE_BASELINE.md):** no schema change, the import ids, the empty evidence key of imported label photos, and the audit rows.
+- **[DATABASE_BASELINE](DATABASE_BASELINE.md):** the transcription table, import ids, the empty evidence key of imported label photos, and the audit rows.
 
 **Added once built:**
 
@@ -542,10 +549,9 @@ The primary keys and unique indexes refuse everything else: the product id, the 
 ## Out of scope
 
 - **Ratings.** The owner rates through the site, so every line starts "Not rated yet".
-- Allergens and ingredient lists.
 - Barcodes (owner answer 1).
 - The shelf-stable tag.
-- Production.
+- Automatic production deployment or public cutover.
 - **Deleting the old demo images from R2.** They are unreferenced; deleting them is a separate, explicit cleanup.
 - **The site's photo contribution flow,** in which contributors tag photos by slot.
 
@@ -556,14 +562,14 @@ The primary keys and unique indexes refuse everything else: the product id, the 
 
 ## Owner answers
 
-The owner answered the four open questions on 2026-10-16:
+The owner answered the four open questions on 2026-10-16 and confirmed the updated label rule on 2026-10-22:
 
 1. **Barcodes are left out of this importer.**
    - Barcode identifiers are a deferred table ([DATABASE_BASELINE](DATABASE_BASELINE.md) §29), and few barcode panels were photographed.
    - A later local pass can decode them from the photos, which stay in R2 and the batch folders.
-2. **Vegan-labelled packages follow the documented rule.**
-   - The manufacturer label is Vegan, the page reads "Ingredients not checked yet", and no reviewed "Appears vegan" classification is made.
-   - Vegan classification itself still needs ingredient evidence and operator review (MODERATION §9).
+2. **Vegan-labelled packages follow the documented rule (revised 2026-10-22).**
+   - The package's vegan word or mark controls Vegan even if an ingredient origin remains unclear; confirmed animal-derived ingredients are held for the owner.
+   - This replaces the earlier provisional rule that required operator-reviewed ingredient evidence for Vegan (MODERATION §9).
 3. **The Oatly Original repeat is skipped.**
    - Batch 2's `IMG_1145` is batch 1's `PXL_20261011_220200128` in another size.
    - Batch 2's `corrections/IMG_1145.json` now skips it (batch 2 has 72 products), and batch 1 already lists its store, Sprouts.

@@ -39,7 +39,7 @@ export function SeasonalBadge() {
 
 const VEGAN_STATUS: Record<string, { label: string; tone: string }> = {
   vegan: { label: "Vegan", tone: "vegan" },
-  appears_vegan: { label: "Appears vegan", tone: "appears" },
+  appears_plant_based: { label: "Appears plant-based", tone: "appears" },
   plant_based: { label: "Plant-based", tone: "plant" },
   under_review: { label: "Under review", tone: "review" },
   // Not a vegan status: no one has confirmed the ingredients (milestone 6).

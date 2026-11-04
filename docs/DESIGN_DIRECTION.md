@@ -110,7 +110,7 @@ One family, **Archivo** (variable: width 62–125, weight 100–900), fallback `
 - **Score label.** The yellow shelf label. Always reads as a score, never a price: large and medium sizes say "out of 5" under the number; compact sizes append "/5". Format follows the locked rule (`4.6/5`, no word label).
 - **#1 flag.** One red flag per list, on the closest match only. Under filters it names why the product leads ("Closest match · soy-free").
 - **Badges.** Early (1–9 ratings), New, and detail winners ("Best taste") when a product other than #1 leads a detail.
-- **Vegan status chip.** Vegan, Appears vegan, Plant-based, Under review, matching the classification model. Milestone 6 adds the display state "Ingredients not checked yet" for products whose ingredients no one has confirmed.
+- **Vegan status chip.** Vegan, Appears plant-based, Plant-based, Under review, matching the classification model. Milestone 6 adds the display state "Ingredients not checked yet" for products whose ingredients no one has confirmed.
 - **Allergen label and Free-from filter.** "Contains soy, wheat" on products; "Free from" chips on rankings. Always paired with "Always check the package."
 - **Aisle bar and aisle menu.** Header bar of aisles; the menu shows shelves in a rail and food cards with each food's top three.
 - **Search with instant answers.** Matching foods show their #1 swap and score; matching products show their rank. A preview of the pointed-at food fills the space beside the results.

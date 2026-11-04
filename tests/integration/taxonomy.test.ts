@@ -892,6 +892,8 @@ it("seeds the two-level launch tree, countries, allergen lists, display names an
   const parent = Object.fromEntries(rows.map((r) => [r.slug, r.parent]));
   expect(parent["ground-beef"]).toBe("beef");
   expect(parent.beef).toBe("food");
+  expect(parent["pepperoni-aisle"]).toBeUndefined();
+  expect(parent.pepperoni).toBe("pork");
   expect(parent.eggs).toBe("eggs-aisle");
   expect(parent["eggs-aisle"]).toBe("food");
   expect(parent.queso).toBe("dips-and-spreads");
@@ -899,7 +901,20 @@ it("seeds the two-level launch tree, countries, allergen lists, display names an
   expect(parent["milk-chocolate"]).toBe("chocolate");
   expect(parent["gummy-candy"]).toBe("candy");
   expect(parent["peanut-butter-cups"]).toBe("chocolate");
-  expect(parent["pies-and-cheesecake"]).toBe("desserts");
+  expect(parent["pies-and-cheesecake"]).toBeUndefined();
+  expect(parent["fruit-pies"]).toBe("desserts");
+  expect(parent.cheesecake).toBe("desserts");
+  expect(parent.brownies).toBe("desserts");
+  expect(parent.blondies).toBe("desserts");
+  expect(parent["banana-bread"]).toBe("bakery");
+  expect(parent["skillet-meals"]).toBeUndefined();
+  for (const food of [
+    "chili",
+    "chicken-pasta",
+    "chicken-and-chickpeas",
+    "chicken-stir-fry",
+  ])
+    expect(parent[food]).toBe("meals");
   expect(parent.muffins).toBe("bakery");
   expect(parent.cheese).toBe("food");
   expect(parent.mayonnaise).toBe("condiments");
@@ -959,7 +974,7 @@ it("seeds the two-level launch tree, countries, allergen lists, display names an
   expect(await slugs("yogurt dip")).toContain("tzatziki");
   expect(await slugs("egg-free mayo")).toContain("mayonnaise");
   expect(await slugs("gummy bears")).toContain("gummy-candy");
-  expect(await slugs("banana bread")).toContain("cake");
+  expect(await slugs("banana bread")).toEqual(["banana-bread"]);
   expect(await slugs("brownie mix")).toContain("baking-mixes");
   // Every launch country features the six foods.
   expect(

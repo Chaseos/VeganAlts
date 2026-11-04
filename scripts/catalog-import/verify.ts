@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
 import {
   IMPORT_ACTION,
+  MANUFACTURER_LABEL,
+  canonical,
+  importClassification,
   importIds,
   importImageId,
+  importLineId,
   importPhotoKey,
   type ImportManifest,
 } from "../../server/community/domain/catalog-import";
@@ -34,10 +38,19 @@ export async function verifyImport(
     (
       await db
         .prepare(
-          "SELECT id,lifecycle_status AS lifecycle,product_family_id AS line,brand_id AS brand FROM products WHERE id IN (SELECT value FROM json_each(?))",
+          "SELECT p.id,p.name,p.flavor,p.lifecycle_status AS lifecycle,p.product_family_id AS line,p.brand_id AS brand,b.name AS brandName,c.iso2 AS country FROM products p LEFT JOIN brands b ON b.id=p.brand_id JOIN countries c ON c.id=p.country_id WHERE p.id IN (SELECT value FROM json_each(?))",
         )
         .bind(ids)
-        .all<{ id: string; lifecycle: string; line: string; brand: string }>()
+        .all<{
+          id: string;
+          name: string;
+          flavor: string | null;
+          lifecycle: string;
+          line: string;
+          brand: string;
+          brandName: string;
+          country: string;
+        }>()
     ).results.map((row) => [row.id, row]),
   );
   const formulas = new Map(
@@ -50,6 +63,54 @@ export async function verifyImport(
         .all<{ id: string; n: number }>()
     ).results.map((row) => [row.id, row.n]),
   );
+  const currentVersions = new Map(
+    (
+      await db
+        .prepare(
+          "SELECT product_id AS product,id FROM product_versions WHERE is_current=1 AND product_id IN (SELECT value FROM json_each(?))",
+        )
+        .bind(ids)
+        .all<{ product: string; id: string }>()
+    ).results.map((row) => [row.product, row.id]),
+  );
+  const expectedFacts = new Map(
+    products.map(({ facts, ids: productIds }) => [productIds.product, facts]),
+  );
+  for (const update of manifest.formulaUpdates)
+    expectedFacts.set(importIds(update.productSourceKey).product, update.facts);
+  const currentClassifications = new Map(
+    (
+      await db
+        .prepare(
+          "SELECT p.id,p.vegan_status AS productStatus,p.manufacturer_label AS productLabel,f.vegan_status AS status,f.manufacturer_label AS label,f.ingredients_checked AS checked FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 JOIN formula_classifications f ON f.product_version_id=v.id WHERE p.id IN (SELECT value FROM json_each(?))",
+        )
+        .bind(ids)
+        .all<{
+          id: string;
+          productStatus: string;
+          productLabel: string;
+          status: string;
+          label: string;
+          checked: number;
+        }>()
+    ).results.map((row) => [row.id, row]),
+  );
+  for (const [productId, facts] of expectedFacts) {
+    const actual = currentClassifications.get(productId);
+    const expectedStatus = importClassification(facts).veganStatus;
+    const expectedLabel = MANUFACTURER_LABEL[facts.packageLabel];
+    if (
+      !actual ||
+      actual.status !== expectedStatus ||
+      actual.productStatus !== expectedStatus ||
+      actual.label !== expectedLabel ||
+      actual.productLabel !== expectedLabel ||
+      actual.checked !== 1
+    )
+      problems.push(
+        `${facts.sourceKey} has a current label or ingredient-check state that differs from the reviewed manifest.`,
+      );
+  }
   const images = new Map(
     (
       await db
@@ -69,6 +130,14 @@ export async function verifyImport(
   );
   const photos: Record<string, number> = {};
   const objects: { key: string; bytes: number }[] = [];
+  const memberships = (
+    await db
+      .prepare(
+        "SELECT pc.product_id AS product,c.slug AS food,pc.ranking_eligible AS eligible FROM product_categories pc JOIN categories c ON c.id=pc.category_id WHERE pc.product_id IN (SELECT value FROM json_each(?))",
+      )
+      .bind(ids)
+      .all<{ product: string; food: string; eligible: number }>()
+  ).results;
   for (const { facts, ids: productIds } of products) {
     const row = rows.get(productIds.product);
     if (!row) {
@@ -77,6 +146,23 @@ export async function verifyImport(
     }
     if (row.lifecycle !== "active")
       problems.push(`${facts.sourceKey} is ${row.lifecycle}.`);
+    if (
+      row.line !== importLineId(facts.line.first) ||
+      row.name !== facts.name ||
+      (row.flavor ?? "") !== (facts.flavor ?? "") ||
+      normalizeName(row.brandName) !== normalizeName(facts.brand) ||
+      row.country !== facts.country
+    )
+      problems.push(
+        `${facts.sourceKey} has a different identity, market or recipe line from the release manifest.`,
+      );
+    const foods = memberships.filter(
+      (m) => m.product === productIds.product && m.eligible,
+    );
+    if (foods.length !== 1 || foods[0]?.food !== facts.food)
+      problems.push(
+        `${facts.sourceKey} has different eligible foods from the release manifest.`,
+      );
     if (formulas.get(productIds.product) !== 1)
       problems.push(`${facts.sourceKey} has no single current formula.`);
     for (const photo of facts.photos) {
@@ -109,6 +195,152 @@ export async function verifyImport(
         objects.push({ key, bytes: photo[kind].bytes });
       }
     }
+  }
+  for (const update of manifest.formulaUpdates) {
+    const productId = importIds(update.productSourceKey).product;
+    const versionId = importIds(update.facts.sourceKey).version;
+    if (currentVersions.get(productId) !== versionId)
+      problems.push(
+        `${update.facts.sourceKey} is not the current version of its product.`,
+      );
+    for (const photo of update.facts.photos) {
+      const imageId = importImageId(
+        update.facts.sourceKey,
+        photo.slot,
+        photo.full.sha256,
+      );
+      const image = images.get(imageId);
+      if (!image || image.slot !== photo.slot) {
+        problems.push(
+          `${update.facts.sourceKey} lacks its ${photo.slot} photo.`,
+        );
+        continue;
+      }
+      photos[photo.slot] = (photos[photo.slot] ?? 0) + 1;
+      if (image.evidence)
+        problems.push(
+          `${update.facts.sourceKey}'s ${photo.slot} photo has an evidence copy.`,
+        );
+      for (const kind of ["full", "thumbnail"] as const) {
+        const key = importPhotoKey(productId, versionId, imageId, kind);
+        if (image[kind] !== key)
+          problems.push(
+            `${update.facts.sourceKey}'s ${photo.slot} ${kind} key differs.`,
+          );
+        objects.push({ key, bytes: photo[kind].bytes });
+      }
+    }
+  }
+  const transcriptionExpectations = [
+    ...products.map(({ facts, ids: productIds }) => ({
+      facts,
+      versionId: productIds.version,
+    })),
+    ...manifest.formulaUpdates.map(({ facts }) => ({
+      facts,
+      versionId: importIds(facts.sourceKey).version,
+    })),
+  ];
+  const transcriptionVersionIds = JSON.stringify(
+    transcriptionExpectations.map(({ versionId }) => versionId),
+  );
+  const transcriptions = new Map(
+    (
+      await db
+        .prepare(
+          "SELECT product_version_id AS id,package_ingredients,package_contains,package_may_contain,source_image_ids,readings,verification,assessment,online_ingredients,online_contains,online_may_contain,online_url,online_accessed_at,online_product_match FROM product_version_ingredient_transcriptions WHERE product_version_id IN (SELECT value FROM json_each(?))",
+        )
+        .bind(transcriptionVersionIds)
+        .all<{
+          id: string;
+          package_ingredients: string | null;
+          package_contains: string | null;
+          package_may_contain: string | null;
+          source_image_ids: string;
+          readings: string;
+          verification: string;
+          assessment: string;
+          online_ingredients: string | null;
+          online_contains: string | null;
+          online_may_contain: string | null;
+          online_url: string | null;
+          online_accessed_at: string | null;
+          online_product_match: string | null;
+        }>()
+    ).results.map((row) => [row.id, row]),
+  );
+  for (const { facts, versionId } of transcriptionExpectations) {
+    const actual = transcriptions.get(versionId);
+    const sourceImageIds = [
+      ...new Set(
+        facts.transcription.readings.flatMap((reading) => reading.photosUsed),
+      ),
+    ]
+      .map((name) => facts.photos.find((photo) => photo.name === name))
+      .filter((photo): photo is (typeof facts.photos)[number] => !!photo)
+      .map((photo) =>
+        importImageId(facts.sourceKey, photo.slot, photo.full.sha256),
+      );
+    const expected = {
+      package_ingredients: facts.transcription.ingredients ?? null,
+      package_contains: facts.transcription.contains ?? null,
+      package_may_contain: facts.transcription.mayContain ?? null,
+      source_image_ids: sourceImageIds,
+      readings: facts.transcription.readings,
+      verification: facts.transcription.verification,
+      assessment: facts.transcription.assessment,
+      online_ingredients:
+        facts.transcription.onlineSupplement?.ingredients ?? null,
+      online_contains: facts.transcription.onlineSupplement?.contains ?? null,
+      online_may_contain:
+        facts.transcription.onlineSupplement?.mayContain ?? null,
+      online_url: facts.transcription.onlineSupplement?.url ?? null,
+      online_accessed_at:
+        facts.transcription.onlineSupplement?.accessedAt ?? null,
+      online_product_match:
+        facts.transcription.onlineSupplement?.productMatch ?? null,
+    };
+    const values = actual
+      ? {
+          package_ingredients: actual.package_ingredients,
+          package_contains: actual.package_contains,
+          package_may_contain: actual.package_may_contain,
+          source_image_ids: JSON.parse(actual.source_image_ids) as string[],
+          readings: JSON.parse(actual.readings) as unknown[],
+          verification: actual.verification,
+          assessment: JSON.parse(actual.assessment) as unknown,
+          online_ingredients: actual.online_ingredients,
+          online_contains: actual.online_contains,
+          online_may_contain: actual.online_may_contain,
+          online_url: actual.online_url,
+          online_accessed_at: actual.online_accessed_at,
+          online_product_match: actual.online_product_match,
+        }
+      : null;
+    if (
+      !values ||
+      JSON.stringify(canonical(values)) !== JSON.stringify(canonical(expected))
+    )
+      problems.push(
+        `${facts.sourceKey} is missing or differs from its reviewed ingredient transcription.`,
+      );
+  }
+  for (const update of manifest.formulaUpdates) {
+    const versionId = importIds(update.facts.sourceKey).version;
+    const version = await db
+      .prepare(
+        "SELECT version_label AS label,change_summary AS summary FROM product_versions WHERE id=? AND product_id=?",
+      )
+      .bind(versionId, importIds(update.productSourceKey).product)
+      .first<{ label: string; summary: string }>();
+    if (
+      !version ||
+      version.label !== update.label ||
+      version.summary !== update.summary
+    )
+      problems.push(
+        `${update.facts.sourceKey} has formula history metadata that differs from the reviewed manifest.`,
+      );
   }
   // Every object is in R2 with the manifest's size.
   let missingObjects = 0;
@@ -229,7 +461,13 @@ export async function verifyImport(
     internalInAudit: await number(
       db
         .prepare(
-          `SELECT COUNT(*) AS n FROM audit_log WHERE entity_id IN (SELECT value FROM json_each(?)) AND (after_data LIKE '%"internal"%' OR after_data LIKE '%"risk"%' OR after_data LIKE '%"sizes"%' OR after_data LIKE '%"confidence"%')`,
+          `SELECT COUNT(*) AS n FROM audit_log a WHERE a.entity_id IN (SELECT value FROM json_each(?)) AND EXISTS(
+            SELECT 1 FROM json_tree(a.after_data) j
+            LEFT JOIN json_tree(a.after_data) parent ON parent.id=j.parent
+            LEFT JOIN json_tree(a.after_data) grandparent ON grandparent.id=parent.parent
+            WHERE j.key IN ('internal','risk','sizes','notes')
+              OR (j.key='confidence' AND grandparent.key IS NOT 'readings')
+          )`,
         )
         .bind(ids),
     ),

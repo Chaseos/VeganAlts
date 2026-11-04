@@ -20,6 +20,15 @@ export class DrizzleProfilesRepository implements ProfilesRepository {
     );
   }
 
+  async handleAvailable(handle: string, userId: string) {
+    const row = await this.db
+      .select({ userId: profiles.userId })
+      .from(profiles)
+      .where(eq(profiles.handle, handle))
+      .get();
+    return !row || row.userId === userId;
+  }
+
   async tryCreate(userId: string, handle: string, now: number) {
     const rows = await this.db
       .insert(profiles)

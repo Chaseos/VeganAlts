@@ -35,6 +35,25 @@ export interface CatalogEntry {
   newBrandId: string;
   // The formula's change summary.
   changeSummary: string;
+  // Historical store-photo batches are published only after owner review.
+  // Their package allergen statements can be stored directly; community
+  // submissions continue through the ordinary proposal path.
+  ownerReviewedImport?: boolean;
+  ingredientTranscription?: {
+    packageIngredients: string | null;
+    packageContains: string | null;
+    packageMayContain: string | null;
+    sourceImageIds: string[];
+    readings: unknown[];
+    verification: string;
+    assessment: unknown;
+    onlineIngredients: string | null;
+    onlineContains: string | null;
+    onlineMayContain: string | null;
+    onlineUrl: string | null;
+    onlineAccessedAt: string | null;
+    onlineProductMatch: string | null;
+  };
 }
 
 export const catalogProductSlug = (
@@ -216,6 +235,54 @@ export function catalogEntryStatements(
       ),
     );
   statements.push(
+    ...(entry.ingredientTranscription
+      ? [
+          db
+            .prepare(
+              `INSERT INTO product_version_ingredient_transcriptions(product_version_id,package_ingredients,package_contains,package_may_contain,source_image_ids,readings,verification,assessment,online_ingredients,online_contains,online_may_contain,online_url,online_accessed_at,online_product_match,created_at)
+              SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE ${guard}`,
+            )
+            .bind(
+              versionId,
+              entry.ingredientTranscription.packageIngredients,
+              entry.ingredientTranscription.packageContains,
+              entry.ingredientTranscription.packageMayContain,
+              JSON.stringify(entry.ingredientTranscription.sourceImageIds),
+              JSON.stringify(entry.ingredientTranscription.readings),
+              entry.ingredientTranscription.verification,
+              JSON.stringify(entry.ingredientTranscription.assessment),
+              entry.ingredientTranscription.onlineIngredients,
+              entry.ingredientTranscription.onlineContains,
+              entry.ingredientTranscription.onlineMayContain,
+              entry.ingredientTranscription.onlineUrl,
+              entry.ingredientTranscription.onlineAccessedAt,
+              entry.ingredientTranscription.onlineProductMatch,
+              now,
+              ...fence,
+            ),
+        ]
+      : []),
+    ...(entry.ownerReviewedImport && input.allergens
+      ? [
+          db
+            .prepare(
+              `INSERT INTO product_version_allergen_declarations(product_version_id,status,evidence_data,created_at,updated_at) SELECT ?,?,?,?,? WHERE ${guard}`,
+            )
+            .bind(
+              versionId,
+              input.allergens.status,
+              JSON.stringify({ source: "store_photo_import", imageIds: entry.ingredientTranscription?.sourceImageIds ?? [] }),
+              now,
+              now,
+              ...fence,
+            ),
+          ...(input.allergens.status === "declared"
+            ? [...input.allergens.contains.map((key) => [key, "contains"] as const), ...input.allergens.mayContain.map((key) => [key, "may_contain"] as const)].map(([key, presence]) =>
+                db.prepare(`INSERT INTO product_version_allergens(product_version_id,allergen_key,presence) SELECT ?,?,? WHERE ${guard}`).bind(versionId, key, presence, ...fence),
+              )
+            : []),
+        ]
+      : []),
     ...productSearchStatements(db, productId, guard, fence),
     // A food this product switched on in its country becomes searchable.
     ...categorySearchStatements(db, productId, guard, fence),

@@ -15,10 +15,18 @@ export function CommunityFeedback({
       <div
         ref={action.errorRef}
         tabIndex={-1}
-        role={action.error ? "alert" : undefined}
-        className={action.error ? "form-error" : ""}
+        role={action.error ? (action.checking ? "status" : "alert") : undefined}
+        className={
+          action.error ? (action.checking ? "notice" : "form-error") : ""
+        }
       >
         {action.error}
+        {action.checking && (
+          <>
+            {" "}
+            <Link to="/my-contributions">View automatic checks</Link>.
+          </>
+        )}
         {action.sessionExpired && (
           <>
             {" "}

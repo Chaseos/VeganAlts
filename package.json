@@ -20,7 +20,7 @@
     "db:migrate:production": "tsx scripts/migrate.ts production",
     "auth:schema": "npx auth@1.7.7 generate --config ./db/auth-config.ts --output ./db/schema/auth.ts --yes",
     "check": "npm run typecheck && npm test && npm run build",
-    "deploy:staging": "npm run build:staging && wrangler deploy",
+    "deploy:staging": "npm run build:staging && wrangler deploy --config build/server/wrangler.json --keep-vars",
     "deploy:production": "npm run build:production && wrangler deploy",
     "postinstall": "wrangler types",
     "db:seed:local": "tsx scripts/seed.ts local",
@@ -37,12 +37,15 @@
     "photos:review": "tsx scripts/photo-review/cli.ts",
     "catalog:import:local": "tsx scripts/catalog-import/cli.ts local",
     "catalog:import:staging": "tsx scripts/catalog-import/cli.ts staging",
+    "catalog:import:production": "tsx scripts/catalog-import/cli.ts production",
     "moderation:calibrate": "tsx scripts/calibrate-clef.ts",
     "taxonomy:seed:local": "tsx scripts/seed-taxonomy.ts local",
     "taxonomy:seed:staging": "tsx scripts/seed-taxonomy.ts staging",
     "taxonomy:seed:production": "tsx scripts/seed-taxonomy.ts production",
     "taxonomy:reshape:local": "tsx scripts/reshape-taxonomy.ts local",
-    "taxonomy:reshape:staging": "tsx scripts/reshape-taxonomy.ts staging"
+    "taxonomy:reshape:staging": "tsx scripts/reshape-taxonomy.ts staging",
+    "catalog:cleanup:local": "tsx scripts/catalog-import/cleanup.ts local",
+    "catalog:cleanup:staging": "tsx scripts/catalog-import/cleanup.ts staging"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.7",

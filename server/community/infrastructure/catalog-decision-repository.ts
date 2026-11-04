@@ -16,7 +16,7 @@ import type {
 } from "../domain/moderation";
 import type { ChangePlan, NewFormula } from "../domain/change-policy";
 import { normalizeName, slug } from "../domain/policy";
-import { imageInsertStatements } from "./catalog-entry";
+import { imageInsertStatements, type CatalogImage } from "./catalog-entry";
 import type { StagedAttachment } from "./staged-media-repository";
 import {
   ModerationRepository,
@@ -25,6 +25,7 @@ import {
 } from "./moderation-repository";
 import type { ReceiptWrite } from "./receipts";
 import type { LineRefresh } from "../../ranking/infrastructure/line-refresh";
+import { retailerConfirmationStatements } from "./contribution-repository";
 
 export class CatalogDecisionRepository {
   constructor(
@@ -207,7 +208,7 @@ export class CatalogDecisionRepository {
     now: number,
     fence: DecisionGuard,
     newFormula?: NewFormula,
-    images: StagedAttachment[] = [],
+    images: CatalogImage[] = [],
     imagesSubmittedBy = actor.id,
   ) {
     const statements: D1PreparedStatement[] = [];
@@ -279,6 +280,49 @@ export class CatalogDecisionRepository {
             )
             .bind(patch.classification.versionId, ...values),
         );
+    }
+    if (patch.ingredientTranscription) {
+      const { versionId, value } = patch.ingredientTranscription;
+      statements.push(
+        this.db
+          .prepare(
+            `DELETE FROM product_version_ingredient_transcriptions WHERE product_version_id=? AND ${sql}`,
+          )
+          .bind(versionId, ...values),
+      );
+      if (value)
+        statements.push(
+          this.db
+            .prepare(
+              `INSERT INTO product_version_ingredient_transcriptions(product_version_id,package_ingredients,package_contains,package_may_contain,source_image_ids,readings,verification,assessment,online_ingredients,online_contains,online_may_contain,online_url,online_accessed_at,online_product_match,created_at)
+              SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE ${sql}`,
+            )
+            .bind(
+              versionId,
+              value.packageIngredients,
+              value.packageContains,
+              value.packageMayContain,
+              JSON.stringify(value.sourceImageIds),
+              JSON.stringify(value.readings),
+              value.verification,
+              JSON.stringify(value.assessment),
+              value.onlineIngredients,
+              value.onlineContains,
+              value.onlineMayContain,
+              value.onlineUrl,
+              value.onlineAccessedAt,
+              value.onlineProductMatch,
+              value.createdAt,
+              ...values,
+            ),
+        );
+      statements.push(
+        this.db
+          .prepare(
+            `UPDATE catalog_revisions SET revision=revision+1 WHERE product_id=? AND ${sql}`,
+          )
+          .bind(snapshot.id, ...values),
+      );
     }
     if (patch.currentVersionId || patch.classification)
       statements.push(
@@ -453,6 +497,59 @@ export class CatalogDecisionRepository {
           )
           .bind(snapshot.id, ...values),
       );
+    }
+    for (const link of patch.retailerLinks ?? []) {
+      if (link.stance) {
+        statements.push(
+          ...retailerConfirmationStatements(
+            this.db,
+            {
+              userId: actor.id,
+              productId: snapshot.id,
+              retailerId: link.retailerId,
+              stance: link.stance,
+              now,
+            },
+            sql,
+            values,
+          ),
+        );
+      } else {
+        statements.push(
+          this.db
+            .prepare(
+              `DELETE FROM retailer_confirmations WHERE user_id=? AND product_id=? AND retailer_id=? AND ${sql}`,
+            )
+            .bind(actor.id, snapshot.id, link.retailerId, ...values),
+          this.db
+            .prepare(
+              `UPDATE product_retailers SET confirmation_count=(SELECT COUNT(*) FROM retailer_confirmations WHERE product_id=? AND retailer_id=? AND stance='confirm'),disagreement_count=(SELECT COUNT(*) FROM retailer_confirmations WHERE product_id=? AND retailer_id=? AND stance='not_current'),last_confirmed_at=(SELECT MAX(updated_at) FROM retailer_confirmations WHERE product_id=? AND retailer_id=? AND stance='confirm'),updated_at=? WHERE product_id=? AND retailer_id=? AND ${sql}`,
+            )
+            .bind(
+              snapshot.id,
+              link.retailerId,
+              snapshot.id,
+              link.retailerId,
+              snapshot.id,
+              link.retailerId,
+              now,
+              snapshot.id,
+              link.retailerId,
+              ...values,
+            ),
+          this.db
+            .prepare(
+              `DELETE FROM product_retailers WHERE product_id=? AND retailer_id=? AND NOT EXISTS(SELECT 1 FROM retailer_confirmations WHERE product_id=? AND retailer_id=?) AND ${sql}`,
+            )
+            .bind(
+              snapshot.id,
+              link.retailerId,
+              snapshot.id,
+              link.retailerId,
+              ...values,
+            ),
+        );
+      }
     }
     if (patch.name !== undefined)
       statements.push(

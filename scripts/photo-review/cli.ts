@@ -37,8 +37,8 @@ const usage = `Usage: npm run photos:review -- <command> "<web>" [options] [--ru
   merge "<web>" [--force]                        join sorted ranges, list possible duplicates
   pair "<web>" <pair-id|pairs-bin>               both sides of a possible duplicate
   build "<web>" [--lines-size 40] [--force]      one record per product; lines bins
-  repeats "<web>" --earlier "<earlier web>" [--earlier-run review] [--force]
-                                                 pairs with an earlier batch's products
+  repeats "<web>" --earlier "<web1>,<web2>,<web3>" [--earlier-run review] [--force]
+                                                 pairs with earlier batches' products
   carry-stores "<web>"                           add repeats' stores to the earlier products
   scope "<web>" [--check-size 10]                lines.json; check bins (high risk only)
   rescope "<web>" [--check-size 10]              check bins after the owner's corrections
@@ -153,7 +153,7 @@ if (command === "zoom") {
       if (!values.earlier) throw new Error(usage);
       await findRepeats(
         batch,
-        openBatch(values.earlier, values["earlier-run"]),
+        values.earlier.split(",").map((web: string) => openBatch(web, values["earlier-run"])),
         { force: values.force },
       );
       break;

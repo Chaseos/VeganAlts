@@ -24,10 +24,12 @@ import {
   type PackageLabel,
   type ProductRecord,
   type SetAsideEntry,
+  type TranscriptionResult,
   setAsideChanges,
   setAsideFile,
   SLOTS,
   storeChoice,
+  transcriptionResult,
   visitsFile,
 } from "./schema";
 
@@ -62,6 +64,7 @@ export interface ProductView {
   manufacturerLabel: string;
   risk?: { level: string; reason: string };
   check?: CheckResult;
+  transcription?: TranscriptionResult;
   stores: string[];
   catalog: string;
   flags: string[];
@@ -132,29 +135,23 @@ function catalogStatus(
 }
 
 /**
- * What needs the owner's action. Risk levels are shown on each product but
- * are not flags: only a high-risk check that found something, could not be
- * read or had no photo needs a look (owner, 2026-10-15). Catalog matches
- * and out-of-scope products have their own sections.
+ * What needs the owner's action. For these four historical batches, unclear
+ * ingredient origins and missing usable sources are assigned
+ * appears_plant_based by owner decision; only confirmed animal ingredients
+ * need a classification decision. Catalog matches and out-of-scope products
+ * have their own sections.
  */
 function flagsFor(view: ProductView) {
   const flags: string[] = [];
   if (!view.photos.front) flags.push("no front photo");
   if (!view.food && !view.newFood && !view.outOfScope)
     flags.push("not placed in a line yet");
-  if (view.outOfScope || view.label !== "appears_plant_based") return flags;
-  if (!view.risk) flags.push("appears plant-based; risk not set");
-  else if (view.risk.level === "high") {
-    if (!view.check) flags.push("high risk; ingredients not checked yet");
-    else if (view.check.result === "animal_ingredients")
-      flags.push(
-        `animal ingredients on the label: ${view.check.animalIngredients.join(", ")}`,
-      );
-    else if (view.check.result === "unclear")
-      flags.push("high risk; ingredient check unclear");
-    else if (view.check.result === "no_ingredient_photo")
-      flags.push("high risk; no ingredient photo to check");
-  }
+  if (view.outOfScope) return flags;
+  if (!view.transcription) flags.push("ingredient transcription missing");
+  else if (view.transcription.assessment.result === "animal_ingredients")
+    flags.push(
+      `animal ingredients in the transcription: ${view.transcription.assessment.animalIngredients.join(", ")}`,
+    );
   return flags;
 }
 
@@ -195,9 +192,13 @@ export async function loadRun(batch: Batch) {
   const ids = await savedIds(batch, "products");
   const all = await Promise.all(
     ids.map(async (id) => {
-      const [record, check, fix] = await Promise.all([
+      const [record, check, transcription, fix] = await Promise.all([
         loadProduct(batch, id),
         readJsonIfPresent(runFile(batch, "check", `${id}.json`), checkResult),
+        readJsonIfPresent(
+          runFile(batch, "transcription", `${id}.json`),
+          transcriptionResult,
+        ),
         readJsonIfPresent(
           runFile(batch, "corrections", `${id}.json`),
           correction,
@@ -219,6 +220,20 @@ export async function loadRun(batch: Batch) {
           : fix?.risk
             ? { level: fix.risk, reason: fix.riskReason ?? "Set by the owner." }
             : member?.risk;
+      const photos = { ...record.photos };
+      const knownPhotos = new Set(index.photos.map((photo) => photo.name));
+      for (const slot of SLOTS) {
+        if (!fix?.photos || !Object.hasOwn(fix.photos, slot)) continue;
+        const replacement = fix.photos[slot];
+        if (replacement && !knownPhotos.has(replacement)) {
+          problems.push(
+            `corrections/${id}.json assigns ${replacement} to ${slot}, but it is not a photo in this run.`,
+          );
+          continue;
+        }
+        if (replacement) photos[slot] = replacement;
+        else delete photos[slot];
+      }
       // A line decides the flavor: no flavor means the line's original.
       const flavor = fix?.flavor ?? (line ? member?.flavor : record.flavor);
       const view: ProductView = {
@@ -233,7 +248,7 @@ export async function loadRun(batch: Batch) {
         flavor,
         name: fix?.name ?? record.name,
         sizes: fix?.sizes ?? record.sizes,
-        photos: { ...record.photos },
+        photos,
         food: outOfScope ? undefined : (fix?.food ?? line?.food),
         newFood: outOfScope || fix?.food ? undefined : line?.newFood,
         outOfScope,
@@ -247,6 +262,7 @@ export async function loadRun(batch: Batch) {
         manufacturerLabel: MANUFACTURER_LABEL[label],
         risk,
         check,
+        transcription,
         stores: [
           ...new Set([
             ...record.visits

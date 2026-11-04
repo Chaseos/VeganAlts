@@ -422,6 +422,14 @@ export default function Contribute({
                 )}
               </select>
               <EvidenceFields required={false} />
+              {!reportImage && (
+                <p className="small muted">
+                  Choose “Doesn’t belong on VeganAlts” if the product is not
+                  intended to imitate an animal-based original, or a mix lacks a
+                  manufacturer-supported vegan preparation. Use “wrong category”
+                  if the product belongs here but is in the wrong food.
+                </p>
+              )}
               <p className="small muted">
                 Ingredient concerns receive priority. A report does not change
                 product facts until an operator assesses it. Repeated reports
@@ -640,7 +648,9 @@ export default function Contribute({
                     name="veganStatus"
                     defaultValue={product.veganStatus}
                   >
-                    <option value="appears_vegan">Appears vegan</option>
+                    <option value="appears_plant_based">
+                      Appears plant-based
+                    </option>
                     <option value="vegan">
                       Vegan — requires operator verification
                     </option>
@@ -756,9 +766,7 @@ export default function Contribute({
                           name={`category-${c.categoryId}`}
                           defaultChecked={c.eligible}
                         />
-                        {options.categories.find(
-                          (option) => option.id === c.categoryId,
-                        )?.name ?? c.categoryId}
+                        {product.categoryNames[c.categoryId] ?? c.categoryId}
                       </label>
                     ))}
                     <p className="small muted">

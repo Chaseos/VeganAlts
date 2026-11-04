@@ -50,7 +50,7 @@ export class CommunityLookupRepository {
           )
           .bind(term, normalized, normalized),
         this.db.prepare(
-          "SELECT id,name,slug FROM categories WHERE is_active=1 AND is_rankable=1 ORDER BY name LIMIT 100",
+          "SELECT id,name,slug FROM categories WHERE is_active=1 AND is_rankable=1 ORDER BY name,id",
         ),
         this.db
           .prepare(
@@ -59,9 +59,15 @@ export class CommunityLookupRepository {
           .bind(term),
         this.db
           .prepare(
-            "SELECT p.id,p.name,p.slug,p.country_id AS countryId,c.iso2 AS country FROM products p JOIN countries c ON c.id=p.country_id WHERE p.lifecycle_status<>'hidden' AND c.is_active=1 AND p.name LIKE ? ESCAPE '\\' ORDER BY p.name LIMIT 50",
+            `SELECT p.id,p.name,p.slug,p.country_id AS countryId,c.iso2 AS country,b.name AS brand
+             FROM products p JOIN countries c ON c.id=p.country_id LEFT JOIN brands b ON b.id=p.brand_id
+             WHERE p.lifecycle_status<>'hidden' AND c.is_active=1 AND (
+               p.name LIKE ? ESCAPE '\\' OR b.name LIKE ? ESCAPE '\\' OR b.normalized_name LIKE ? ESCAPE '\\'
+               OR EXISTS(SELECT 1 FROM brand_aliases a WHERE a.brand_id=b.id AND a.normalized_name LIKE ? ESCAPE '\\')
+               OR EXISTS(SELECT 1 FROM product_aliases a WHERE a.product_id=p.id AND a.alias LIKE ? ESCAPE '\\')
+             ) ORDER BY p.name,b.name,c.iso2,p.id LIMIT 50`,
           )
-          .bind(term),
+          .bind(term, term, normalized, normalized, term),
         this.db
           .prepare(
             "SELECT r.id,r.canonical_name AS name,r.website_url AS websiteUrl FROM retailers r JOIN retailer_markets m ON m.retailer_id=r.id JOIN countries c ON c.id=m.country_id WHERE c.iso2=? AND m.is_active=1 AND (r.canonical_name LIKE ? ESCAPE '\\' OR r.normalized_name LIKE ? ESCAPE '\\' OR r.id IN (SELECT retailer_id FROM retailer_aliases WHERE normalized_name LIKE ? ESCAPE '\\')) ORDER BY r.canonical_name LIMIT 50",
@@ -70,9 +76,20 @@ export class CommunityLookupRepository {
       ]);
     return {
       brands: brands!.results,
-      categories: categories!.results,
+      categories: categories!.results as {
+        id: string;
+        name: string;
+        slug: string;
+      }[],
       families: families!.results,
-      products: products!.results,
+      products: products!.results as {
+        id: string;
+        name: string;
+        slug: string;
+        countryId: string;
+        country: string;
+        brand: string | null;
+      }[],
       retailers: retailers!.results,
     };
   }

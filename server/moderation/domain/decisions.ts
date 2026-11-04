@@ -1,6 +1,7 @@
 import type { ImageSlot } from "../../media/domain/media";
+import { CATALOG_ELIGIBILITY_GUIDANCE } from "../../community/domain/eligibility";
 
-export const DECISION_SCHEMA_VERSION = 1;
+export const DECISION_SCHEMA_VERSION = 2;
 export const outcomes = [
   "READY",
   "NEEDS_REVIEW",
@@ -15,11 +16,17 @@ export const decisionKinds = [
   "edit_proposal",
   "formula_evidence",
   "category_proposal",
+  "content_safety",
 ] as const;
 export type DecisionKind = (typeof decisionKinds)[number];
 export type ModelTier = "flash" | "full";
 export type SubjectType =
-  "submission" | "comment" | "edit_proposal" | "category_proposal";
+  | "submission"
+  | "comment"
+  | "edit_proposal"
+  | "category_proposal"
+  | "profile"
+  | "proposal_response";
 
 /** One narrow finite question. Providers return a probability per option. */
 export interface Question {
@@ -78,6 +85,8 @@ const imageType = (position: number): Question => ({
 export function questionsFor(kind: DecisionKind, imageCount = 0): Question[] {
   const images = Array.from({ length: imageCount }, (_, i) => imageType(i + 1));
   switch (kind) {
+    case "content_safety":
+      return [];
     case "comment":
       return [
         {
@@ -154,9 +163,11 @@ export function questionsFor(kind: DecisionKind, imageCount = 0): Question[] {
         },
         {
           id: "category_fit",
-          instructions:
-            "Could this product plausibly be used in place of the conventional food categories listed in the state?",
-          options: yesNo("Plausible replacement.", "Not a replacement."),
+          instructions: `Does the evidence show that this product is intended to imitate the animal-based original in the listed food categories? ${CATALOG_ELIGIBILITY_GUIDANCE} Base intent and preparation on the package or manufacturer evidence. If either is unclear, answer UNCLEAR for operator review.`,
+          options: yesNo(
+            "Intended imitation with supported vegan preparation.",
+            "Outside the imitation scope or requires an improvised substitution.",
+          ),
         },
         { id: "safety", instructions: "Classify the photos.", options: safety },
         ...images,
@@ -278,6 +289,7 @@ export function questionsFor(kind: DecisionKind, imageCount = 0): Question[] {
 }
 
 export const MODEL_TIER: Record<DecisionKind, ModelTier> = {
+  content_safety: "flash",
   comment: "flash",
   category_proposal: "flash",
   submission: "full",

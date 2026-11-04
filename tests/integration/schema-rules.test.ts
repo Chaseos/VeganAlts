@@ -137,7 +137,7 @@ it("switches foods on where their products are, guards availability and the unch
     f.otherCountryId,
   );
 
-  // An unchecked formula can only carry the appears_vegan placeholder.
+  // An unchecked formula can only carry the appears_plant_based placeholder.
   await expect(
     db
       .prepare(
@@ -148,7 +148,7 @@ it("switches foods on where their products are, guards availability and the unch
   ).rejects.toThrow(/CHECK/);
   await db
     .prepare(
-      "UPDATE formula_classifications SET vegan_status='appears_vegan',ingredients_checked=0 WHERE product_version_id=?",
+      "UPDATE formula_classifications SET vegan_status='appears_plant_based',ingredients_checked=0 WHERE product_version_id=?",
     )
     .bind(f.versionId)
     .run();

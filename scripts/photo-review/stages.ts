@@ -23,6 +23,7 @@ import {
 import {
   binPlan,
   checkResult,
+  correction,
   FOODS,
   linesResult,
   mergePlan,
@@ -32,6 +33,7 @@ import {
   type SortResult,
   sortResult,
   storeChoice,
+  transcriptionResult,
 } from "./schema";
 
 // What agents call: `todo` and `put` to resume and save work, and `show`,
@@ -43,6 +45,7 @@ export const STAGES = [
   "repeat",
   "lines",
   "check",
+  "transcription",
 ] as const;
 export type Stage = (typeof STAGES)[number];
 
@@ -62,7 +65,14 @@ async function binIds(batch: Batch, stage: Stage, bin: string) {
     ids = (await readJson(runFile(batch, "bins.json"), binPlan)).lines[bin]
       ? [bin]
       : undefined;
-  else ids = (await readJson(runFile(batch, "bins.json"), binPlan)).check[bin];
+  else if (stage === "check")
+    ids = (await readJson(runFile(batch, "bins.json"), binPlan)).check[bin];
+  else if (stage === "transcription") {
+    const { loadRun } = await import("./view");
+    const products = (await loadRun(batch)).views.map((view) => view.id);
+    ids = bin === "all" ? products : products.includes(bin) ? [bin] : undefined;
+  }
+  else ids = undefined;
   if (!ids) throw new Error(`There is no ${stage} bin "${bin}".`);
   return ids;
 }
@@ -74,6 +84,19 @@ export async function todo(batch: Batch, stage: Stage, bin: string) {
   for (const id of remaining) console.log(id);
   console.log(`${remaining.length} of ${ids.length} left in ${stage} ${bin}.`);
   result({ remaining });
+}
+
+export function hasClearSingleReading(
+  transcript: z.infer<typeof transcriptionResult>,
+) {
+  const reading = transcript.readings[0];
+  return (
+    transcript.verification === "single_read" &&
+    reading?.confidence === "high" &&
+    !/\[unreadable\]/i.test(
+      `${transcript.ingredients ?? ""} ${transcript.contains ?? ""} ${transcript.mayContain ?? ""}`,
+    )
+  );
 }
 
 async function readStdin() {
@@ -184,15 +207,29 @@ export async function put(batch: Batch, stage: Stage, bin: string, id: string) {
     const info = new Map(
       await Promise.all(
         members.map(async (member) => {
-          const product = await loadProduct(batch, member);
-          return [member, product] as const;
+          const [product, fix] = await Promise.all([
+            loadProduct(batch, member),
+            readJsonIfPresent(
+              runFile(batch, "corrections", `${member}.json`),
+              correction,
+            ),
+          ]);
+          return [
+            member,
+            {
+              ...product,
+              brand: fix?.brand ?? product.brand,
+              name: fix?.name ?? product.name,
+              label: fix?.label ?? product.label,
+            },
+          ] as const;
         }),
       ),
     );
     const problems = checkLines(decided.lines, members, info);
     if (problems.length) throw new Error(problems.join("\n"));
     saved = decided;
-  } else {
+  } else if (stage === "check") {
     const checked = parse(checkResult, input);
     if (checked.id !== id) throw new Error(`Set "id" to "${id}".`);
     // A late duplicate's photos count too: its empty-slot photos join the
@@ -215,6 +252,42 @@ export async function put(batch: Batch, stage: Stage, bin: string, id: string) {
     if (unknown.length)
       throw new Error(`Not photos of ${id}: ${unknown.join(", ")}.`);
     saved = checked;
+  } else {
+    const transcript = parse(transcriptionResult, input);
+    if (transcript.id !== id) throw new Error(`Set "id" to "${id}".`);
+    if (transcript.verification === "single_read") {
+      if (!hasClearSingleReading(transcript))
+        throw new Error("A single reading is only for a clear, high-confidence label. Use two reads and resolve the differences, or record an exact-product online supplement.");
+    }
+    if (
+      batch.run.endsWith("review-pilot") &&
+      transcript.verification !== "no_source" &&
+      (transcript.readings.length !== 2 ||
+        transcript.readings[0]?.reader !== "first" ||
+        transcript.readings[1]?.reader !== "blind")
+    )
+      throw new Error("Pilot products need two independent readings: first, then blind.");
+    const product = await loadProduct(batch, id);
+    // Owner photo corrections can reassign a mislabeled panel from another
+    // product. Validate against the corrected review view so transcription
+    // can use the verified pairing, while retaining the product's alternates.
+    const { loadRun } = await import("./view");
+    const corrected = (await loadRun(batch)).views.find((view) => view.id === id);
+    const known = new Set([
+      ...Object.values(corrected?.photos ?? product.photos).filter(Boolean),
+      ...Object.values(product.alternates).flat(),
+      ...product.other,
+    ]);
+    const used = transcript.readings.flatMap((reading) => reading.photosUsed);
+    const unknown = used.filter((photo) => !known.has(photo));
+    if (unknown.length)
+      throw new Error(`Not photos of ${id}: ${unknown.join(", ")}.`);
+    if (
+      transcript.assessment.result === "no_source" &&
+      (transcript.ingredients || transcript.onlineSupplement)
+    )
+      throw new Error("no_source cannot contain a final or online list.");
+    saved = transcript;
   }
   await writeJson(runFile(batch, stage, `${id}.json`), saved);
   console.log(`Saved ${stage}/${id}.`);
@@ -360,7 +433,6 @@ async function describeRepeats(batch: Batch, id: string) {
   const plan = await loadRepeatPlan(batch);
   if (!plan) throw new Error("Run repeats first.");
   const earlier = earlierBatch(plan);
-  const moved = await movedPhotos(earlier);
   const ids = plan.bins[id] ?? [id];
   const sides = async (label: string, from: Batch, productId: string) => {
     const product = await loadProduct(from, productId);
@@ -369,10 +441,13 @@ async function describeRepeats(batch: Batch, id: string) {
     );
     for (const slot of SLOTS) {
       const photo = product.photos[slot];
-      if (photo)
+      if (photo) {
+        const earlierIndex = from === batch ? -1 : earlier.findIndex((entry) => entry.web === from.web && entry.run === from.run);
+        const moved = earlierIndex >= 0 ? await movedPhotos(from) : undefined;
         console.log(
-          `  ${slot}: ${from === earlier ? `${earlier.web}/${moved.get(photo) ? `${moved.get(photo)}/` : ""}full/${photo}` : photoFile(from, photo)}`,
+          `  ${slot}: ${earlierIndex >= 0 ? `${from.web}/${moved?.get(photo) ? `${moved.get(photo)}/` : ""}full/${photo}` : photoFile(from, photo)}`,
         );
+      }
     }
   };
   for (const pairId of ids) {
@@ -380,7 +455,9 @@ async function describeRepeats(batch: Batch, id: string) {
     if (!entry) throw new Error(`No pair ${pairId}.`);
     console.log(`${entry.id}: ${entry.reason}\nSheet: ${entry.sheet}`);
     await sides("NEW", batch, entry.product);
-    await sides("EARLIER", earlier, entry.earlier);
+    const source = earlier[entry.earlierIndex];
+    if (!source) throw new Error(`No earlier batch ${entry.earlierIndex}.`);
+    await sides("EARLIER", source, entry.earlier);
     console.log("");
   }
 }

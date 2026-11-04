@@ -41,7 +41,7 @@ export const manufacturerLabel = z.enum([
 ]);
 export const veganStatus = z.enum([
   "vegan",
-  "appears_vegan",
+  "appears_plant_based",
   "plant_based",
   "under_review",
 ]);
@@ -216,6 +216,7 @@ export const reportReasons = {
     "duplicate",
     "discontinued",
     "wrong_category",
+    "out_of_scope",
     // Milestone 7: a flavor that doesn't exist, or one in the wrong line.
     "flavor_not_real",
     "wrong_line",
@@ -409,7 +410,13 @@ export const reviewDecision = z
     expectedRevision: z.number().int().nonnegative(),
     note,
     effect: z
-      .enum(["none", "under_review", "remove_image", "hide_comment"])
+      .enum([
+        "none",
+        "under_review",
+        "remove_image",
+        "hide_comment",
+        "remove_product",
+      ])
       .default("none"),
     expectedProductRevision: z.number().int().nonnegative().optional(),
     // The operator-reviewed classification for an accepted submission.
@@ -435,6 +442,13 @@ export const consolidationInput = z
   })
   .strict();
 export type ConsolidationInput = z.infer<typeof consolidationInput>;
+export const removeProductInput = z
+  .object({ expectedRevision: z.number().int().nonnegative(), note })
+  .strict();
+export const hideCommentInput = z
+  .object({ expectedUpdatedAt: z.number().int().nonnegative(), note })
+  .strict();
+export type HideCommentInput = z.infer<typeof hideCommentInput>;
 // Operator line tools (milestone 7), on a product's moderation view: move the
 // product to another line of its brand and country, or to a new line, and
 // rename its line. Both are audited and reversible.

@@ -27,6 +27,7 @@ export function hasCatalogChanges(value: unknown) {
       "lifecycleStatus",
       "currentVersionId",
       "classification",
+      "ingredientTranscription",
       "familyId",
       "lineName",
       "categories",
@@ -41,6 +42,7 @@ export function hasCatalogChanges(value: unknown) {
       "commentStates",
       "relationships",
       "retailer",
+      "retailerLinks",
       "consolidation",
       "allergens",
     ].some((key) => Object.hasOwn(value, key)),
@@ -467,6 +469,13 @@ export function assertCompensable(
         JSON.stringify(snapshot.classification))
   )
     conflict();
+  if (
+    patch.ingredientTranscription &&
+    (patch.ingredientTranscription.versionId !== snapshot.versionId ||
+      JSON.stringify(patch.ingredientTranscription.value) !==
+        JSON.stringify(snapshot.ingredientTranscription ?? null))
+  )
+    conflict();
   if (patch.familyId !== undefined && patch.familyId !== snapshot.familyId)
     conflict();
   if (
@@ -487,6 +496,14 @@ export function assertCompensable(
     patch.retailer &&
     snapshot.retailers.find((r) => r.retailerId === patch.retailer!.retailerId)
       ?.status !== patch.retailer.status
+  )
+    conflict();
+  if (
+    patch.retailerLinks?.some(
+      (link) =>
+        (snapshot.retailers.find((r) => r.retailerId === link.retailerId)
+          ?.userStance ?? null) !== link.stance,
+    )
   )
     conflict();
   if (patch.name !== undefined && patch.name !== snapshot.name) conflict();

@@ -44,6 +44,9 @@ async function setup() {
   await env.DB.prepare("UPDATE countries SET iso2='US' WHERE id=?")
     .bind(f.countryId)
     .run();
+  await env.DB.prepare(
+    "INSERT INTO country_allergens(country_id,allergen_key,position) VALUES(?,'soy',0),(?,'sesame',1)",
+  ).bind(f.countryId, f.countryId).run();
   const community = communityServices(env, id);
   const moderation = new ModerationRepository(env.DB);
   const lines = lineRefresh(env);
@@ -55,7 +58,7 @@ async function setup() {
     new CatalogDecisionRepository(moderation, lines),
     lines,
     (actor, key, input) =>
-      community.contributions.proposeRetailer(actor, key, input),
+      community.contributions.proposeImportedRetailer(actor, key, input),
     id,
   );
   const admin = { ...f.users[0]!, administrator: true };
@@ -69,6 +72,7 @@ async function setup() {
   const target: ImportTarget = {
     foods: new Map([["milk", f.categories[0]!]]),
     stores,
+    allergens: new Set(["soy", "sesame"]),
   };
   const photo = bytes();
   const info = await env.IMAGES.info(new Blob([photo]).stream());
@@ -89,7 +93,9 @@ async function setup() {
   const facts = (
     source: string,
     overrides: Partial<ImportFacts> = {},
-  ): ImportFacts => ({
+  ): ImportFacts => {
+    const photos = overrides.photos ?? [photoOf("front"), photoOf("ingredients")];
+    return ({
     sourceKey: `Photos ${tag} - Web/${source}`,
     country: "US",
     brand: `Oatside ${tag}`,
@@ -102,10 +108,21 @@ async function setup() {
     food: "milk",
     packageLabel: "vegan",
     labelEvidence: "VEGAN on the front",
+    transcription: photos.some((photo) => photo.slot === "ingredients") ? {
+      ingredients: "Water, oats, soy, oil.",
+      readings: [{ reader: "first", ingredients: "Water, oats, soy, oil.", photosUsed: ["ingredients.webp"], confidence: "high" }],
+      verification: "single_read",
+      assessment: { result: "none_found", animalIngredients: [], unclearIngredients: [] },
+      allergens: { status: "declared", contains: ["soy"], mayContain: ["sesame"] },
+    } : {
+      readings: [], verification: "no_source",
+      assessment: { result: "no_source", animalIngredients: [], unclearIngredients: [] },
+    },
     stores: [store.name],
-    photos: [photoOf("front"), photoOf("ingredients")],
+    photos,
     ...overrides,
   });
+  };
   const read = async () => bytes();
   const run = { id: id(), manifestHash: "c".repeat(64) };
   return {
@@ -155,6 +172,12 @@ async function shape(productId: string) {
     ),
     photos: await all(
       "SELECT i.slot,i.state,i.mime_type,i.submitted_by IS NOT NULL AS authored FROM product_images i JOIN product_versions v ON v.id=i.product_version_id WHERE v.product_id=? ORDER BY i.slot",
+    ),
+    ingredientTranscription: await one(
+      "SELECT t.package_ingredients,t.verification,json_array_length(t.source_image_ids) AS sources FROM product_version_ingredient_transcriptions t JOIN product_versions v ON v.id=t.product_version_id WHERE v.product_id=?",
+    ),
+    allergenDeclaration: await one(
+      "SELECT d.status,(SELECT COUNT(*) FROM product_version_allergens a WHERE a.product_version_id=d.product_version_id) AS allergens FROM product_version_allergen_declarations d JOIN product_versions v ON v.id=d.product_version_id WHERE v.product_id=?",
     ),
     stores: await all(
       "SELECT status,confirmation_count,disagreement_count FROM product_retailers WHERE product_id=?",
@@ -278,14 +301,16 @@ it("imports a recipe line and a lone product with the rows a published submissio
       name: "Oat Milk",
     })),
   );
-  // Vegan on the package with an ingredients photo nobody read: not checked.
+  // Vegan requires both the package claim and a clean ingredient transcript.
   expect(await shape(first!.product)).toMatchObject({
-    product: { vegan_status: "appears_vegan", manufacturer_label: "vegan" },
-    classification: { ingredients_checked: 0, reviewed_by: null },
+    product: { vegan_status: "vegan", manufacturer_label: "vegan" },
+    classification: { ingredients_checked: 1, reviewed_by: s.admin.id },
     photos: [
       { slot: "front", state: "accepted" },
       { slot: "ingredients", state: "accepted" },
     ],
+    ingredientTranscription: { package_ingredients: "Water, oats, soy, oil.", verification: "single_read", sources: 1 },
+    allergenDeclaration: { status: "declared", allergens: 2 },
   });
   expect(
     await count(
@@ -295,7 +320,8 @@ it("imports a recipe line and a lone product with the rows a published submissio
     ),
   ).toBe(1);
 
-  // A twin published through Add a product has the same catalog rows.
+  // A twin published through Add a product has the same catalog rows apart
+  // from the historical import's transcription and declared label allergens.
   const input = submissionInput.parse({
     name: `Pouring Cream Twin ${s.tag}`,
     brand: `Dairyless Twin ${s.tag}`,
@@ -329,15 +355,27 @@ it("imports a recipe line and a lone product with the rows a published submissio
     search: { n: 1 },
     firstPublished: { n: 1 },
   });
-  expect(imported).toEqual(
-    await shape((published as { productId: string }).productId),
+  const publishedShape = await shape(
+    (published as { productId: string }).productId,
   );
+  expect(imported.product?.vegan_status).toBe("vegan");
+  expect({
+    ...imported,
+    classification: undefined,
+    product: { ...imported.product, vegan_status: undefined },
+    ingredientTranscription: null,
+    allergenDeclaration: null,
+  }).toEqual({
+    ...publishedShape,
+    classification: undefined,
+    product: { ...publishedShape.product, vegan_status: undefined },
+  });
   expect(
     (await env.DB.prepare("PRAGMA foreign_key_check").all()).results,
   ).toEqual([]);
 });
 
-it("writes nothing on a rerun, skips changed facts and refuses changed photos", async () => {
+it("writes nothing on a rerun, skips changed identity facts and refuses changed photos", async () => {
   const s = await setup();
   const facts = s.facts("A1");
   await s.service.importProduct(s.admin, s.run, facts, s.target, s.read);
@@ -380,6 +418,131 @@ it("writes nothing on a rerun, skips changed facts and refuses changed photos", 
     status: "blocked",
     reason: expect.stringContaining("changed since the manifest was built"),
   });
+});
+
+it("reconciles reviewed facts onto an imported product without creating a formula and can reverse the update", async () => {
+  const s = await setup();
+  const original = s.facts("A1", { photos: [s.photoOf("front")] });
+  const productId = importIds(original.sourceKey).product;
+  const originalResult = await s.service.importProduct(
+    s.admin,
+    s.run,
+    original,
+    s.target,
+    s.read,
+  );
+  expect(originalResult).toMatchObject({ status: "written", productId });
+  // The older staging catalog predates stored transcriptions.
+  await env.DB.prepare(
+    "DELETE FROM product_version_ingredient_transcriptions WHERE product_version_id=?",
+  )
+    .bind(importIds(original.sourceKey).version)
+    .run();
+
+  const secondStore: ImportStore = {
+    name: `Another Market ${s.tag}`,
+    aliases: [`Another Grocer ${s.tag}`],
+    websiteUrl: "https://example.com/another-store",
+  };
+  const second = await s.service.ensureStores(s.admin, [secondStore], "US");
+  const target = {
+    ...s.target,
+    stores: new Map([...s.stores, ...second.ids]),
+  };
+  const updated: ImportFacts = {
+    ...original,
+    packageLabel: "plant_based",
+    labelEvidence: "PLANT BASED on the package front",
+    transcription: {
+      ingredients: "Water, oats, soy, oil.",
+      readings: [
+        {
+          reader: "first",
+          ingredients: "Water, oats, soy, oil.",
+          photosUsed: ["ingredients.webp"],
+          confidence: "high",
+        },
+      ],
+      verification: "single_read",
+      assessment: {
+        result: "none_found",
+        animalIngredients: [],
+        unclearIngredients: [],
+      },
+      allergens: {
+        status: "declared",
+        contains: ["soy"],
+        mayContain: ["sesame"],
+      },
+    },
+    stores: [s.store.name, secondStore.name],
+    photos: [
+      s.photoOf("front"),
+      s.photoOf("ingredients"),
+      s.photoOf("back"),
+    ],
+  };
+  expect(
+    await s.service.plan(s.admin, updated, target, {
+      lines: new Set(),
+      stores: new Set(),
+    }),
+  ).toMatchObject({ status: "ready", productId, waitsForLine: false });
+  expect(
+    await s.service.importProduct(s.admin, s.run, updated, target, s.read),
+  ).toMatchObject({ status: "written", productId });
+
+  expect(
+    await env.DB.prepare(
+      "SELECT (SELECT COUNT(*) FROM product_versions WHERE product_id=?) AS versions,(SELECT COUNT(*) FROM product_images i JOIN product_versions v ON v.id=i.product_version_id WHERE v.product_id=? AND i.state='accepted') AS photos,(SELECT COUNT(*) FROM product_retailers WHERE product_id=?) AS stores",
+    )
+      .bind(productId, productId, productId)
+      .first(),
+  ).toEqual({ versions: 1, photos: 3, stores: 2 });
+  expect(await shape(productId)).toMatchObject({
+    product: { vegan_status: "plant_based", manufacturer_label: "plant_based" },
+    ingredientTranscription: {
+      package_ingredients: "Water, oats, soy, oil.",
+      verification: "single_read",
+      sources: 1,
+    },
+    allergenDeclaration: { status: "declared", allergens: 2 },
+  });
+
+  const action = await env.DB.prepare(
+    "SELECT id FROM moderation_actions WHERE product_id=? AND kind='product_import_reconciliation'",
+  )
+    .bind(productId)
+    .first<{ id: string }>();
+  if (!action) throw new Error("Missing reconciliation action.");
+  const snapshot = await s.community.repository.snapshot(productId, s.admin.id);
+  await s.community.moderation.reverse(s.admin, id(), action.id, {
+    expectedRevision: snapshot.revision,
+    note: "Reverse the reconciliation fixture.",
+  });
+  expect(await shape(productId)).toMatchObject({
+    product: { vegan_status: "vegan", manufacturer_label: "vegan" },
+    ingredientTranscription: null,
+    allergenDeclaration: null,
+    photos: [
+      { slot: "back", state: "archived" },
+      { slot: "front", state: "accepted" },
+      { slot: "ingredients", state: "archived" },
+    ],
+    stores: [{ status: "active", confirmation_count: 1 }],
+  });
+  expect(
+    await count(
+      "SELECT COUNT(*) AS n FROM product_retailers WHERE product_id=?",
+      productId,
+    ),
+  ).toBe(1);
+  expect(
+    await count(
+      "SELECT COUNT(*) AS n FROM product_versions WHERE product_id=?",
+      productId,
+    ),
+  ).toBe(1);
 });
 
 it("plans without writing, and waits for a line's first product", async () => {

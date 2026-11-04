@@ -44,6 +44,7 @@ export function validateProfileSettings(input: {
 
 export interface ProfilesRepository {
   find(userId: string): Promise<Profile | null>;
+  handleAvailable(handle: string, userId: string): Promise<boolean>;
   tryCreate(
     userId: string,
     handle: string,

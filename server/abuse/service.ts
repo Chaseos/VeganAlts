@@ -25,6 +25,23 @@ export async function enforceLimit(binding: RateLimit, key: string) {
     );
 }
 
+export function isContributionWrite(request: Request) {
+  if (request.method !== "POST") return false;
+  return /^\/(?:account(?:\.data)?|api\/v1\/(?:comments|submissions|proposals|reports|retailers|retailer-confirmations|category-proposals)(?:\/|$))/.test(
+    new URL(request.url).pathname,
+  );
+}
+
+/** Shared across AI-backed routes; a new endpoint does not grant a new allowance. */
+export async function protectAiAdmission(
+  request: Request,
+  env: Pick<Cloudflare.Env, "AI_ACCOUNT_RATE_LIMIT" | "AI_IP_RATE_LIMIT">,
+  user: string,
+) {
+  await enforceLimit(env.AI_IP_RATE_LIMIT, `ip:${clientKey(request)}`);
+  await enforceLimit(env.AI_ACCOUNT_RATE_LIMIT, `user:${user}`);
+}
+
 export async function verifyChallenge(
   token: string | undefined,
   action: "sign-in" | "rating" | "community",

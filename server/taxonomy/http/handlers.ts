@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ApplicationError } from "../../shared/domain/errors";
 import { requireSameOrigin } from "../../shared/http/security";
 import { limitedJson, success } from "../../shared/http/json";
-import { protectContribution } from "../../abuse/service";
+import { protectContribution, protectAiAdmission } from "../../abuse/service";
 import { communityActor, parse } from "../../community/http/handlers";
 import { id, note } from "../../community/domain/contracts";
 import { taxonomyServices } from "../infrastructure/composition";
@@ -41,6 +41,8 @@ export async function taxonomyApi(
     request.headers.get("X-Turnstile-Token") ?? undefined,
   );
   const body = await limitedJson(request, 32 * 1024);
+  if (path === "category-proposals")
+    await protectAiAdmission(request, env, actor.id);
   if (path === "category-proposals")
     return respond(await services.propose(actor, requestKey, body));
   if (parts[2] === "category" && parts[3] && parts[4] === "decide")

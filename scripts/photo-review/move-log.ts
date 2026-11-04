@@ -1,5 +1,5 @@
 import { access, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { type Batch } from "./batch";
 
 // The move logs of `<web>/set-aside` and `<web>/out-of-scope`, read by the
@@ -59,11 +59,20 @@ export async function pendingMoves(batch: Batch) {
 /** Where moved photos are now, relative to `<web>`: photo → "set-aside". */
 export async function movedPhotos(batch: Batch) {
   const moved = new Map<string, string>();
-  for (const move of await pendingMoves(batch))
-    if (move.to.includes("/thumbnail/") && (await exists(move.to)))
+  for (const move of await pendingMoves(batch)) {
+    if (!move.to.includes("/thumbnail/")) continue;
+    const currentPath = move.to.startsWith(`${batch.web}/`)
+      ? move.to
+      : move.to.replace(
+          /.*\/(set-aside|out-of-scope)\/(.*\/)?thumbnail\/[^/]+$/,
+          (_path, folder: string, subfolder = "") =>
+            join(batch.web, folder, subfolder, "thumbnail", basename(move.photo)),
+        );
+    if (await exists(currentPath))
       moved.set(
         move.photo,
-        move.to.slice(batch.web.length + 1).replace(/\/thumbnail\/[^/]+$/, ""),
+        currentPath.slice(batch.web.length + 1).replace(/\/thumbnail\/[^/]+$/, ""),
       );
+  }
   return moved;
 }

@@ -427,13 +427,13 @@ Decisions follow the milestone 6 moderation policy. A submission with `newFood` 
 
 **Public reads.**
 
-- Product and ranking reads may return the classification status `unchecked` ("Ingredients not checked yet"), alongside `vegan`, `appears_vegan`, `plant_based` and `under_review`. It never appears in a write.
+- Product and ranking reads may return the classification status `unchecked` ("Ingredients not checked yet"), alongside `vegan`, `appears_plant_based`, `plant_based` and `under_review`. It never appears in a write.
 - `GET /categories/:slug?country=` for a food that is not on in that country returns 200 with `availability: {here: false, countries: [iso2…]}` and no rows; for a food that is on, `availability.countries` lists every country where it is on. Both are shared-cacheable. The document page for a not-here food is `noindex`.
 - Aisle, home, search, suggest and sitemap results include only foods that are on in the requested country.
 
 **Changes and review.**
 
-- `ProductChange` kind `classification` accepts `citedImageId`. On an unchecked formula, Appears vegan or Plant-based citing the formula's accepted ingredients or nutrition photo is tier 2; everything else stays tier 3.
+- `ProductChange` kind `classification` accepts `citedImageId`. On an unchecked formula, Appears plant-based or Plant-based citing the formula's accepted ingredients or nutrition photo is tier 2; everything else stays tier 3.
 - `GET /admin/taxonomy` lists each food's `countries`; `POST /admin/taxonomy/categories` accepts `countries` (default: every active country).
 - Category proposal review detail adds `country`, the shelf path and `waitingProducts`. Submission review detail adds `pendingFood`. Inbox items add `waitingFor: "food"`.
 
@@ -593,3 +593,30 @@ with a query remain `noindex, follow`; production robots allows their crawl so
 that directive can be read. Staging remains disallowed. Anonymous continuation
 requests use shared caching, with every result-affecting input normalized into
 the cache key. No schema or infrastructure change is required.
+
+## Safety checks and automatic retries (2026-10-23)
+
+Community submissions, comments/edits, product proposals, food and retailer suggestions, and textual proposal responses are safety-checked before their applicable Clef checks. Any OpenAI safety flag rejects the contribution; ordinary protected-fact review requirements remain. Private reports and owner-only tools/imports are exempt.
+
+A transient provider failure retains the operation privately and returns HTTP 503 Problem Details with code `CHECKING_AUTOMATICALLY`, an actionable title, `Retry-After: 60`, and `check: {id, state: "checking"}`. It must not be interpreted as a published contribution. Same-key requests return that check status without another provider call. The existing hourly schedule retries at most three more times within 24 hours. Exhaustion returns `CHECK_RESUBMIT_REQUIRED`, with `check.state: "retry_required"`, asking the contributor to submit a new request; a product submission starts a new receipt. A background safety rejection returns `CONTRIBUTION_BLOCKED` on replay, and the author must revise before submitting again. Previously approved comment/response revisions are preserved while revised content is pending.
+
+`GET /api/v1/me/moderation-checks` returns up to twenty outstanding/rejected checks for the active account, newest first: `{id, operation, status, createdAt, expiresAt, errorCode}`. It requires authentication and is private/no-store. `running` is presented as `checking`; completed work appears through its normal contribution surface. My contributions includes this automatic-check status separately from the review list.
+
+Profile changes are synchronous: `PROFILE_NAME_BLOCKED` (422) asks for another name; `PROFILE_CHECK_UNAVAILABLE` (503) asks for a retry. Both preserve the current profile. Rate failures return `RATE_LIMITED` or `MODERATION_ACCOUNT_LIMIT` (429) with Retry-After; exhausted site capacity returns `MODERATION_CAPACITY` (503). These failures do not create automatic jobs. Structured provider details are operator-only; contributors receive decisions and actionable reasons.
+
+An identical in-flight operation/key is leased before provider work and returns `CHECK_IN_PROGRESS` (503 with Retry-After) to a concurrent caller. This does not enqueue a second job. The normal receipt/revision path supplies the result after the first request finishes.
+
+## Production-readiness lookup and reversal additions (2026-10-23)
+
+- `GET /community/options`: `categories` contains every active rankable food, without a 100-row cap. Other lookup types remain bounded. Product search matches product names, brand names, brand aliases and product aliases, escapes wildcard input, and excludes hidden products/inactive countries. Each product option adds `brand: string | null` and `country: string` (ISO2) alongside `countryId`, `id`, `name` and `slug`; clients display brand, name and country together.
+- The contribution product response adds `categoryNames: Record<categoryId, name>`, resolving every current membership independently of search limits, including retired foods. Persisted catalog snapshots keep their existing category shape for reversal/conflict comparison.
+- `GET /admin/moderation/products/:id` adds the product’s `brand` and `referenceLabels: Record<id, label>` for the stored before/after patches. Reversal requests and conflict semantics are unchanged; the UI presents the affected fields before accepting the required reason.
+
+## Direct product and comment moderation (2026-10-23)
+
+- `POST /reports` adds product-only reason `out_of_scope`, displayed as **Doesn’t belong on VeganAlts**. It creates a report without changing product visibility. Photo/comment targets reject that reason.
+- `POST /admin/moderation/report/:id/decide` adds `effect: "remove_product"`, allowed only with `decision: "resolve"` on an `out_of_scope` product report. Both `expectedRevision` (report) and `expectedProductRevision` are required for removal. The report resolution and product exclusion commit atomically.
+- `POST /admin/moderation/products/:id/remove` accepts `{expectedRevision, note}`. It records an ordinary `catalog_review` exclusion, setting the product lifecycle to `hidden` without deleting its records. Stale or already-hidden products return 409 `STALE_PRODUCT`.
+- `POST /admin/moderation/comments/:id/hide` accepts `{expectedUpdatedAt, note}`. It hides a visible, nondeleted comment on a visible product and records `comment_hide`. An intervening edit/state change returns 409 `STALE_DECISION`; deleted comments or hidden products return 404. Comment text and votes remain. Public comment objects add `updatedAt`, the revision used by this control.
+
+Both direct endpoints require an active administrator, same-origin POST, an `Idempotency-Key` and a reason of 8–2,000 trimmed characters. They return the standard private/no-store `{data: {actionId, productId}}`. Safe retries return the original receipt; they do not reapply a removal after reversal. Restore through the existing `/admin/moderation/actions/:id/reverse` endpoint with the current product revision and reason. Public loaders never read operator identity.
