@@ -20,6 +20,8 @@ test("canonical photo slots offer add or replace, never an append gallery", asyn
       has: page.getByRole("heading", { name: "Product photos" }),
     });
     await expect(slots.getByRole("listitem")).toHaveCount(5);
+    // Photo fixes are for administrators.
+    await expect(page.getByText("Manage photos")).toHaveCount(0);
     // The seeded front photo can only be replaced, not appended to.
     await expect(
       slots.getByRole("link", { name: "Suggest a better photo: Front" }),
@@ -60,5 +62,45 @@ test("canonical photo slots offer add or replace, never an append gallery", asyn
   } finally {
     await page.close();
     await contributor.dispose();
+  }
+});
+
+test("an administrator rotates and replaces a photo on the product page", async ({
+  page,
+  context,
+}) => {
+  test.skip(
+    Boolean(process.env.TEST_BASE_URL),
+    "Real staging accounts are verified interactively.",
+  );
+  const operator = await createBrowserSession({ administrator: true });
+  try {
+    await context.addCookies([operator.cookie]);
+    await page.goto("/us/products/beyond-burger");
+    await page.getByText("Manage photos", { exact: true }).click();
+    const front = page.locator(".va-gallery img").first();
+    const size = () =>
+      front.evaluate((image: HTMLImageElement) => [
+        image.naturalWidth,
+        image.naturalHeight,
+      ]);
+    await expect.poll(size).not.toEqual([0, 0]);
+    const [width, height] = await size();
+    await accessible(page);
+    await page.getByRole("button", { name: "Rotate Front photo left" }).click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "rotated" }),
+    ).toHaveText("Front photo rotated.");
+    await expect.poll(size).toEqual([height, width]);
+    const rotated = await front.getAttribute("src");
+    await page
+      .getByLabel("Photo file: Front")
+      .setInputFiles("tests/fixtures/small.jpg");
+    await expect(
+      page.getByRole("status").filter({ hasText: "replaced" }),
+    ).toHaveText("Front photo replaced.");
+    await expect(front).not.toHaveAttribute("src", rotated!);
+  } finally {
+    await operator.dispose();
   }
 });

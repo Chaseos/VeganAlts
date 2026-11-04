@@ -33,7 +33,6 @@ export default [
   route("sign-in", "routes/sign-in.tsx"),
   route("auth/return", "routes/auth-return.ts"),
   route("account", "routes/account.tsx"),
-  route("admin/media", "routes/admin-media.tsx"),
   route("api/v1/media/uploads", "routes/media-upload.ts"),
   route("api/v1/*", "routes/application-api.ts"),
   route("media/:imageId/:variant", "routes/media.ts"),

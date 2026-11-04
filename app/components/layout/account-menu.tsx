@@ -16,7 +16,6 @@ export const accountLinks = (country: string) => [
 export const OPERATOR_LINKS = [
   { to: "/admin/moderation", label: "Moderation inbox" },
   { to: "/admin/taxonomy", label: "Taxonomy" },
-  { to: "/admin/media", label: "Media" },
 ];
 
 export function useSignInHref() {

@@ -296,3 +296,34 @@ html:has(.va-photo-viewer[open]) {
     border-radius: 0;
   }
 }
+
+.va-photo-admin {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.va-photo-admin li {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: center;
+}
+
+.va-photo-admin img,
+.va-photo-admin__empty {
+  grid-row: span 2;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--va-line);
+  border-radius: var(--va-radius-field);
+  object-fit: cover;
+}
+
+.va-photo-admin__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

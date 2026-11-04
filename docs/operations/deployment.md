@@ -117,7 +117,7 @@ Choose a previously verified version compatible with the current schema. Then ve
 
 ## Images and recovery
 
-The admin interface is `/admin/media`; the API is `POST /api/v1/media/uploads`. Both require a real authenticated allowlisted user and the exact same-origin request. Use multipart fields `productVersionId`, `slot`, `idempotencyKey`, and `image`. The server bounds the actual request stream, checks format signatures, decodes metadata, and rejects images above 10 MiB or 40 megapixels.
+The admin interface is **Manage photos** on a product page, which replaces, adds or rotates its current formula's photos; the API is `POST /api/v1/media/uploads`. Both require a real authenticated allowlisted user and the exact same-origin request. Use multipart fields `productVersionId`, `slot`, `idempotencyKey`, and `image`. The server bounds the actual request stream, checks format signatures, decodes metadata, and rejects images above 10 MiB or 40 megapixels.
 
 Each upload has one idempotency key and independent attempt IDs. A D1 atomic batch claims an attempt with a five-minute lease. Processing writes original/derivatives under its attempt prefix, then commits metadata and accepted-slot replacement atomically. An expired attempt cannot later commit. A repeated completed request reuses the same image ID; no re-transformation occurs.
 

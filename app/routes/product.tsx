@@ -439,6 +439,7 @@ export default function Product({
               canPropose={
                 Boolean(p.formula.isCurrent) && p.lifecycleStatus !== "hidden"
               }
+              managedVersionId={p.formula.isCurrent ? p.versionId : undefined}
             />
             {food && p.others.length > 0 && (
               <section

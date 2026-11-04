@@ -59,17 +59,3 @@ async function readStoredMedia(
     { status: "body" in object ? 200 : 304, headers },
   );
 }
-
-export async function adminFormulaOptions(db: D1Database) {
-  const { results } = await db
-    .prepare(
-      "SELECT v.id,p.name,b.name AS brand,p.development_only AS developmentOnly FROM product_versions v JOIN products p ON p.id=v.product_id LEFT JOIN brands b ON b.id=p.brand_id WHERE v.is_current=1 AND p.lifecycle_status='active' ORDER BY b.name,p.name LIMIT 200",
-    )
-    .all<{
-      id: string;
-      name: string;
-      brand: string | null;
-      developmentOnly: number;
-    }>();
-  return results;
-}
