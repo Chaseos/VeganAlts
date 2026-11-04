@@ -22,6 +22,7 @@ import { CatalogSelect } from "../components/catalog-select";
 import { CatalogReversalPreview } from "../components/catalog-reversal-preview";
 import { ProductRemovalControls } from "../components/product-removal-controls";
 import {
+  NO_NOTE,
   useCommunityAction,
   friendly,
   dateLabel,
@@ -123,7 +124,10 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
       policy: string;
     } | null>(null),
     [reverseId, setReverseId] = useState<string | null>(null),
-    [moveTo, setMoveTo] = useState("");
+    [moveTo, setMoveTo] = useState(""),
+    [decision, setDecision] = useState("");
+  // The contributor reads a rejection or follow-up; other notes are optional.
+  const noteRequired = ["reject", "follow_up", "dismiss"].includes(decision);
   async function decide(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (data.view !== "detail") return;
@@ -136,7 +140,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         {
           decision: form.get("decision"),
           expectedRevision: data.detail.revision,
-          note: form.get("note"),
+          note: form.get("note") || NO_NOTE,
           effect: reported ? effect : "none",
           // Fences the decision to the product state shown in this review.
           ...(product ? { expectedProductRevision: product.revision } : {}),
@@ -209,7 +213,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
             : target === "new"
               ? { newLineName: form.get("newLineName") }
               : { lineId: target }),
-          note: form.get("note"),
+          note: form.get("note") || NO_NOTE,
         },
       );
       setMoveTo("");
@@ -264,8 +268,8 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                   : "Review contribution"}
           </h1>
           <p>
-            Inspect the evidence, preserve history, and record a reason for
-            every decision.
+            Inspect the evidence, preserve history, and note why for every
+            decision.
           </p>
         </header>
         {data.view === "inbox" && (
@@ -393,7 +397,11 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
               ) ? (
                 <form className="community-form" onSubmit={decide}>
                   <label htmlFor="decision">Decision</label>
-                  <select id="decision" name="decision">
+                  <select
+                    id="decision"
+                    name="decision"
+                    onChange={(e) => setDecision(e.target.value)}
+                  >
                     {data.detail.kind === "comment" ? (
                       <>
                         <option value="accept">Publish comment</option>
@@ -506,13 +514,16 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                       )}
                     </>
                   )}
-                  <label htmlFor="decision-note">Reason and next steps</label>
+                  <label htmlFor="decision-note">
+                    Reason and next steps
+                    {noteRequired ? "" : " (optional)"}
+                  </label>
                   <textarea
                     id="decision-note"
                     name="note"
                     minLength={8}
                     maxLength={2000}
-                    required
+                    required={noteRequired}
                     rows={5}
                   />
                   <button
@@ -607,9 +618,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
               >
                 Public entry ↗
               </Link>
-              <Link to={`/contribute/${data.product.id}`}>
-                Edit product
-              </Link>
+              <Link to={`/contribute/${data.product.id}`}>Edit product</Link>
               <Link
                 to={`/admin/moderation/consolidate?donor=${data.product.id}`}
               >
@@ -668,11 +677,10 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                     />
                   </>
                 )}
-                <label htmlFor="move-note">Reason</label>
+                <label htmlFor="move-note">Reason (optional)</label>
                 <textarea
                   id="move-note"
                   name="note"
-                  required
                   minLength={8}
                   maxLength={2000}
                 />
@@ -697,11 +705,10 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                   maxLength={160}
                   defaultValue={data.product.lineName ?? ""}
                 />
-                <label htmlFor="line-rename-note">Reason</label>
+                <label htmlFor="line-rename-note">Reason (optional)</label>
                 <textarea
                   id="line-rename-note"
                   name="note"
-                  required
                   minLength={8}
                   maxLength={2000}
                 />

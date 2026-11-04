@@ -1,5 +1,8 @@
 import { useRef, useState } from "react";
 
+/** Stands in for a note someone was allowed to leave blank. */
+export const NO_NOTE = "No note added.";
+
 export class CommunityError extends Error {
   constructor(
     message: string,

@@ -32,6 +32,7 @@ import {
   PhotoPicker,
 } from "../components/community-form";
 import {
+  NO_NOTE,
   useCommunityAction,
   communityRequest,
   type CommunityOptions,
@@ -242,7 +243,7 @@ export default function Contribute({
           }
       }
       const evidence = {
-        note: String(form.get("note")),
+        note: String(form.get("note") ?? "") || NO_NOTE,
         urls: form.get("evidenceUrl") ? [String(form.get("evidenceUrl"))] : [],
         imageIds: [...uploaded.current.values()],
       };
@@ -370,6 +371,7 @@ export default function Contribute({
                 product={product}
                 initialSlot={initialSlot}
                 action={action}
+                administrator={administrator}
               />
               {unchecked && labelPhotos.length > 0 && (
                 <p className="small">
@@ -835,7 +837,12 @@ export default function Contribute({
                 </>
               )}
               <EvidenceFields
-                noteLabel={administrator ? "Reason for this change" : undefined}
+                noteLabel={
+                  administrator
+                    ? "Reason for this change (optional)"
+                    : undefined
+                }
+                required={!administrator}
                 reviewed={!administrator}
               />
               {[
