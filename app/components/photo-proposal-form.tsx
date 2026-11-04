@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import type { ImageSlot } from "@server/media/domain/media";
 import type { ContributorProduct } from "@server/community/domain/moderation";
 import type { CommunityAction } from "../lib/community";
+import { shrinkPhoto } from "../lib/shrink-photo";
 import { PhotoPicker } from "./community-form";
 import { SLOT_LABELS } from "./photo-slots";
 
@@ -58,7 +59,7 @@ export function PhotoProposalForm({
       if (!uploaded.current) {
         const photo = new FormData();
         photo.set("slot", slot);
-        photo.set("image", file);
+        photo.set("image", await shrinkPhoto(file));
         uploaded.current = (
           await action.request<{ imageId: string }>(
             `submissions/${receipt}/uploads`,

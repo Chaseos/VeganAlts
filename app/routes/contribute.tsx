@@ -40,6 +40,7 @@ import {
   reportReasonLabel,
 } from "../lib/community";
 import { PhotoProposalForm } from "../components/photo-proposal-form";
+import { shrinkPhoto } from "../lib/shrink-photo";
 import { SLOT_LABELS } from "../components/photo-slots";
 import type { Route } from "./+types/contribute";
 
@@ -233,7 +234,7 @@ export default function Contribute({
           if (!uploaded.current.has(slot)) {
             const photo = new FormData();
             photo.set("slot", slot);
-            photo.set("image", files[slot]!);
+            photo.set("image", await shrinkPhoto(files[slot]!));
             const result = await action.request<{ imageId: string }>(
               `submissions/${evidenceReceiptId}/uploads`,
               photo,

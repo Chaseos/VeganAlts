@@ -5,6 +5,7 @@ import type {
   SubmissionInput,
 } from "@server/community/domain/contracts";
 import { CommunityError } from "../../lib/community";
+import { shrinkPhoto } from "../../lib/shrink-photo";
 import type { CommunityAction } from "../../lib/community";
 import { PHOTO_SLOTS, type PhotoSlot } from "../../lib/product-draft";
 
@@ -84,7 +85,7 @@ export function useSubmission(action: CommunityAction) {
             setProgress(`Uploading photo ${index + 1} of ${slots.length}…`);
             const form = new FormData();
             form.set("slot", slot);
-            form.set("image", photos[slot]!);
+            form.set("image", await shrinkPhoto(photos[slot]!));
             await action.request(
               `submissions/${receipt.current}/uploads`,
               form,

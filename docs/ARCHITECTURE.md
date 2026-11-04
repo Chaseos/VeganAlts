@@ -301,7 +301,7 @@ The preferred raw-byte Images-binding workflow may require enabling Cloudflare I
 - D1 never stores image bytes.
 - R2 Standard is the default storage class for active product imagery.
 - Image filenames/keys are opaque IDs, not user-controlled strings.
-- Strip unnecessary metadata where practical.
+- Strip unnecessary metadata where practical. Browsers redraw a photo before uploading it, at the largest size the server keeps, which removes location and camera data on the device; a photo that can't be redrawn uploads unchanged, and the server still resizes it.
 - Ingredient evidence receives higher-resolution treatment.
 - Accepted old formula images remain linked to their historical version.
 - A replacement image proposal does not destroy the current accepted image until approved.

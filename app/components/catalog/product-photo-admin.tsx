@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import type { ImageSlot } from "@server/media/domain/media";
+import { shrinkPhoto } from "../../lib/shrink-photo";
 import { usePersonalState } from "../personal-state";
 import { SLOT_LABELS } from "../photo-slots";
 import { Notice } from "../ui/feedback";
@@ -105,7 +106,7 @@ export function ProductPhotoAdmin({
                     void change(
                       slot,
                       `${label} photo ${image ? "replaced" : "added"}.`,
-                      () => file,
+                      () => shrinkPhoto(file),
                     )
                   }
                 />
