@@ -93,6 +93,15 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
       page.getByText("You have an unfinished product"),
     ).toBeVisible();
     await chooseBrand(page, "Kept Photo");
+    // Every photo is added in one place, on this step.
+    const photos = page.getByRole("group", { name: "Photos" });
+    for (const label of [
+      "Front of pack photo (required)",
+      "Ingredients photo (optional)",
+      "Back photo (optional)",
+      "Nutrition and allergens photo (optional)",
+    ])
+      await expect(photos.getByLabel(label)).toBeAttached();
     await page
       .getByLabel("Front of pack photo (required)")
       .setInputFiles("tests/fixtures/small.jpg");

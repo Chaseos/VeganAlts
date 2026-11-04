@@ -30,6 +30,11 @@ test("submission, private receipt, operator publication, reporting, formula hist
       page.getByRole("heading", { name: "Add more (optional)" }),
     ).toBeFocused();
     await openOptional(page, "Ingredients");
+    // Photos stay together on step 1.
+    await expect(page.getByLabel("Ingredients photo (optional)")).toHaveCount(
+      0,
+    );
+    await expect(page.getByText("More photos")).toHaveCount(0);
     await page
       .getByLabel(/Link to the ingredients/)
       .fill("http://example.com/manufacturer-ingredients");

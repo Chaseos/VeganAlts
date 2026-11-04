@@ -59,7 +59,7 @@ Multi-country catalogs keep one shared category list with localized names and pe
   - the contributor's overall rating;
   - stores where it is commonly found;
   - an allergen declaration;
-  - more photos (back, nutrition);
+  - more photos (back, nutrition; moved to step 1 with every other photo on 2026-11-04, see PRODUCT_MASTER §06);
   - variant details;
   - other foods it replaces.
 - **No canvas boards for milestone 6 screens.** They follow the milestone 5 design patterns. Phone and desktop screenshots in both themes are reviewed by the owner at each UI checkpoint before work continues; they are never committed.

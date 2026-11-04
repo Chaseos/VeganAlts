@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { Link } from "react-router";
 import type { Candidate } from "@server/community/domain/contracts";
-import { PhotoPicker } from "../community-form";
 import { Popover } from "../ui/popover";
 import { Icon } from "../icons/icon";
 import type { AisleOption } from "../aisle-select";
@@ -9,11 +8,12 @@ import { FoodPicker } from "./food-picker";
 import { BrandPicker } from "./brand-picker";
 import { BrandLines } from "./brand-lines";
 import { IdentityMatches } from "./identity-matches";
+import { PhotosSection } from "./photos-section";
 import type { FoodChoice } from "../../lib/food-choices";
 import {
   MAX_FLAVOR,
   type DraftErrors,
-  type DraftPhotos,
+  type PhotoSlot,
   type ProductDraft,
 } from "../../lib/product-draft";
 
@@ -56,8 +56,8 @@ export function BasicsStep({
   update: (patch: Partial<ProductDraft>) => void;
   // Text changes, with the names that follow them (editDraft).
   edit: (patch: Partial<Pick<ProductDraft, TextField | "brand">>) => void;
-  photos: DraftPhotos & Partial<Record<"front", File>>;
-  setPhoto: (slot: "front", file: File | undefined) => void;
+  photos: Partial<Record<PhotoSlot, File>>;
+  setPhoto: (slot: PhotoSlot, file: File | undefined) => void;
   foods: readonly FoodChoice[];
   aisles: AisleOption[];
   allowSuggest: boolean;
@@ -298,15 +298,14 @@ export function BasicsStep({
             />
             Sold only part of the year (seasonal)
           </label>
-          <PhotoPicker
-            slot="front"
-            label="Front of pack photo"
-            required
-            file={photos.front}
-            onChange={(file) => setPhoto("front", file)}
-            error={errors.front}
-          />
         </fieldset>
+      )}
+      {line && (
+        <PhotosSection
+          photos={photos}
+          setPhoto={setPhoto}
+          error={errors.front}
+        />
       )}
       <button className="button" disabled={busy}>
         Continue
