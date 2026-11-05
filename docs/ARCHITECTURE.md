@@ -237,7 +237,7 @@ Reasons:
 - one schema/migration history is easier to operate;
 - cross-market admin reporting remains possible.
 
-Public page loaders use `publicCatalogService`, which reads through a D1 session (`first-unconstrained`), so they use read replicas once replication is enabled on the database (owner, 2026-11-05). Their output is shared-cacheable and may be minutes stale, so replica lag is acceptable. A render straight after a purge can briefly recache older data; route freshness bounds that. Writes, and reads that decide or validate a write, stay on the primary through `catalogService`.
+Public page loaders use `publicCatalogService`, which reads through a D1 session (`first-unconstrained`), so they use read replicas once replication is enabled on the database (owner, 2026-11-05). Their output is shared-cacheable and may be minutes stale, so replica lag is acceptable. A render straight after a purge can briefly recache older data; route freshness bounds that. The comments embedded in a product page read the same way through `publicCommentService`. Writes, and reads that decide or validate a write, stay on the primary through `catalogService` and `commentServices`.
 
 That service also keeps markets, the taxonomy and filter options in a 60-second memo per Worker instance, because every cache miss needs them. Other instances see a change within that minute. Local environments skip the memo.
 

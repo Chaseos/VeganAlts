@@ -66,7 +66,7 @@ const publicJoins = `JOIN profiles pr ON pr.user_id=c.user_id AND pr.account_sta
 
 export class D1CommentRepository {
   constructor(
-    private readonly db: D1Database,
+    private readonly db: Pick<D1Database, "prepare" | "batch">,
     private readonly policy: CommentPolicy,
   ) {}
   replay<T>(receipt: ReceiptWrite) {

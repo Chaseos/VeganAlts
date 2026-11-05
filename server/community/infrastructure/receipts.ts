@@ -18,7 +18,7 @@ export async function receiptWrite(
   return { userId, operation, key, hash: await fingerprint(input), now };
 }
 export async function replay<T>(
-  db: D1Database,
+  db: Pick<D1Database, "prepare">,
   receipt: ReceiptWrite,
 ): Promise<T | null> {
   const row = await db
@@ -37,7 +37,7 @@ export async function replay<T>(
   return JSON.parse(row.result_data) as T;
 }
 export function receiptStatement(
-  db: D1Database,
+  db: Pick<D1Database, "prepare">,
   receipt: ReceiptWrite,
   result: unknown,
 ) {
@@ -55,7 +55,7 @@ export function receiptStatement(
     );
 }
 export async function commitReceipt<T>(
-  db: D1Database,
+  db: Pick<D1Database, "prepare" | "batch">,
   statements: D1PreparedStatement[],
   receipt: ReceiptWrite,
   result: T,

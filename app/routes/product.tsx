@@ -34,7 +34,7 @@ import { usePersonalState } from "../components/personal-state";
 import { ProposalResponses } from "../components/proposal-responses";
 import { SaveButton } from "../components/save-button";
 import { recordProductView } from "../lib/product-view";
-import { commentServices } from "@server/comments/infrastructure/composition";
+import { publicCommentService } from "@server/comments/infrastructure/composition";
 import { breadcrumbs, publicMetadata } from "../lib/metadata";
 import {
   foodPath,
@@ -59,7 +59,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         new URL(request.url).searchParams.get("food"),
       ),
       // The first Best page is crawler-visible and shares the product cache.
-      commentServices(env).page(
+      publicCommentService(env).page(
         market.id,
         params.productSlug,
         "best",

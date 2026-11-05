@@ -14,9 +14,10 @@ export function commentServices(
   newId: () => string = uuid,
   clock = Date.now,
   context?: WorkContext,
+  database: Pick<D1Database, "prepare" | "batch"> = env.DB,
 ) {
   return new CommentService(
-    new D1CommentRepository(env.DB, DEFAULT_COMMENT_POLICY),
+    new D1CommentRepository(database, DEFAULT_COMMENT_POLICY),
     moderationDecisions(
       { ...env, APP_ENV: env.APP_ENV ?? "local" },
       newId,
@@ -28,3 +29,19 @@ export function commentServices(
     moderationWork(env, newId, clock, context),
   );
 }
+
+/**
+ * For the comments embedded in a public product page only: that page is
+ * shared-cacheable and may be minutes stale, so it can use any read replica.
+ * Writes and a person's own comment state use `commentServices`.
+ */
+export const publicCommentService = (
+  env: Parameters<typeof commentServices>[0],
+) =>
+  commentServices(
+    env,
+    uuid,
+    Date.now,
+    undefined,
+    env.DB.withSession("first-unconstrained"),
+  );
