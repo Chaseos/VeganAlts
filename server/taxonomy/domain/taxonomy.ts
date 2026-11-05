@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApplicationError } from "../../shared/domain/errors";
+import { latinSlug, matchKey } from "../../shared/domain/text";
 import {
   countryCode,
   id,
@@ -42,13 +43,7 @@ export const RESERVED_SLUGS = new Set([
   "brand",
 ]);
 export function categorySlug(value: string) {
-  return value
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 60);
+  return latinSlug(value).slice(0, 60);
 }
 export function assertCategorySlug(slug: string) {
   if (!/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/.test(slug) || slug.length < 2)
@@ -62,10 +57,8 @@ export function assertCategorySlug(slug: string) {
       "That address is reserved. Choose another name or slug.",
     );
 }
-/** Comparable name for duplicate checks: case, accents and spacing removed. */
-export function categoryKey(value: string) {
-  return categorySlug(value).replaceAll("-", "");
-}
+/** Comparable name for duplicate checks, in any script. */
+export const categoryKey = matchKey;
 
 const aliasList = z.array(shortText).max(10).default([]);
 // An ISO 3166-1 alpha-2 code; whether the country is active is checked

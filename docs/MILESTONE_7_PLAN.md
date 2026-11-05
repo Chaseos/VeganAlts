@@ -80,7 +80,7 @@ Most of what remains is sold as a few base recipes in several flavors:
 
 **Foods**
 
-- **Two levels: aisle › food.** Aisles such as Beef, Chicken, Milk, Cheese, Eggs and Condiments are universal.
+- **Two levels: aisle › food.** Aisles such as Beef, Chicken, Milk, Cheese, Eggs and Condiments are universal. Milestone 8 keeps these as the shared base and adds local aisles (owner, 2026-11-05).
 - **Each food has exactly one aisle, and an aisle names a kind of product, not an occasion.**
   - The test is whether a food could reasonably sit in two aisles. Breakfast fails it, because bacon, sausage, eggs and yogurt already have aisles. Desserts and Bakery pass.
   - Search reaches a food from any of its names.
@@ -154,9 +154,9 @@ Most of what remains is sold as a few base recipes in several flavors:
 
 - **Search finds brands as well as foods and products.** Searching "Trader Joe's" opens the brand's page, which lists all its products in that country across every food.
 - **A new food or product lands in the country being viewed.** The country is preselected from the page the contributor starts on, as milestone 6 already does.
-- **Many more countries, sooner.** The main countries for vegan shoppers, judged by market and population, are planned as [milestone 8](#next-milestone-8-countries). English is used everywhere for now. Country and language become separate settings, and translations come later.
+- **Many more countries, sooner.** The main countries for vegan shoppers, judged by market and population, are planned as [milestone 8](#next-milestone-8-countries). English was used everywhere at this milestone. [Milestone 8](MILESTONE_8_PLAN.md) replaces this: each country has its own languages.
 - **New aisles have a path everywhere.** Operators add an aisle for any country with the taxonomy tools, and it shows only where it holds a food. Milestone 8 lets contributors suggest new aisles and gives aisles per-country names.
-- **The launch foods are a starting set, not a fixed list.** Foods grow through suggestions, and each country grows its own. Japan's foods may look nothing like the United States'. The aisles are the macro categories shared by every country.
+- **The launch foods are a starting set, not a fixed list.** Foods grow through suggestions, and each country grows its own. Japan's foods may look nothing like the United States'. The aisles are the macro categories shared by every country, and milestone 8 adds local aisles beside them.
 
 ## Owner decisions (2026-10-16): store photo import
 
@@ -416,7 +416,7 @@ The owner's reviewed store photos reach the catalog through an importer, planned
 
 The taxonomy becomes two levels below the root: **aisle › food**. It replaces the milestone 5 shape of aisle › shelf › food and removes shelves.
 
-- **The aisles are universal.** There are 23 of them, the same in every country. On 2026-10-15 Pizza was added and Bakery and desserts split into Desserts and Bakery; on 2026-10-16 Toaster Pastries, Meals and Sauces were added. Pepperoni was added as a food under Pork on 2026-10-23.
+- **The aisles are universal** (milestone 8 keeps these as the shared base and adds local aisles). There are 23 of them, the same in every country. On 2026-10-15 Pizza was added and Bakery and desserts split into Desserts and Bakery; on 2026-10-16 Toaster Pastries, Meals and Sauces were added. Pepperoni was added as a food under Pork on 2026-10-23.
 - **Foods sit directly under an aisle.** They can be as specific as each country needs.
 - **Aisles stay non-rankable groups, and foods are the rankable leaves.**
 - **An aisle holding one food of its own name is silent in breadcrumbs,** so "All foods / Eggs" never reads "All foods / Eggs / Eggs".
@@ -819,7 +819,7 @@ Indonesia, Malaysia, the Philippines, Vietnam, Turkey, Portugal, Norway, Finland
 
 - a searchable country picker grouped by region, replacing a short list;
 - country-scoped search, brand pages and sitemaps for every country;
-- a language setting kept separate from the country, defaulting to English until translations exist;
+- a language setting kept separate from the country, now planned in [milestone 8](MILESTONE_8_PLAN.md), where a country's default can be its local language;
 - **A one-time country prompt,** agreed by the owner on 2026-10-12. This amends the milestone 5 rule that nothing is inferred from IP.
   - **What it says.** When a visitor's Cloudflare country is an active country other than the one being viewed, the site offers "Looks like you're in the UK. Switch?" It never redirects.
   - **When it never shows.** It shows only while the device has no saved country choice. Choosing a country anywhere saves it: through the prompt, the switcher or dismissing the prompt. After that it never appears again, and a visitor who switches countries is never asked to switch back.
@@ -831,5 +831,5 @@ Indonesia, Malaysia, the Philippines, Vietnam, Turkey, Portugal, Norway, Finland
 - **Foods start fresh in each country.**
   - A food switches on when someone there adds the first product for it.
   - Anyone can pick any existing food, or suggest a new one when the local food doesn't exist yet. Japan, for example, will grow foods the US doesn't have.
-- **Suggesting aisles.** Inside Suggest a food, "None of these, suggest a new aisle" proposes an aisle with the food, reviewed by an operator. Aisles also gain per-country names, for local wording and later translations.
-- **Food suggestions need a lighter review.** Today an operator reviews every suggestion. With many countries, that review needs to become lighter, for example automatic acceptance into an existing aisle after the automated checks, with reports to correct mistakes. Milestone 8 decides how.
+- **Suggesting aisles.** Inside Suggest a food, "None of these, suggest a new aisle" proposes an aisle with the food, decided as milestone 8 sets out. Aisles also gain per-country names, for local wording and later translations.
+- **Food suggestions need a lighter review.** Today an operator reviews every suggestion. With many countries, that review needs to become lighter, for example automatic acceptance into an existing aisle after the automated checks, with reports to correct mistakes. [Milestone 8](MILESTONE_8_PLAN.md) sets out how.

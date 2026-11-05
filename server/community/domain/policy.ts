@@ -1,3 +1,4 @@
+import { latinSlug } from "../../shared/domain/text";
 import {
   ApplicationError,
   assertActiveAccount,
@@ -75,16 +76,25 @@ export function normalizeName(value: string) {
     .trim()
     .replace(/[\s'’.,&()\/-]/g, "");
 }
+// Removes package quantities only, never flavor/formula words or bare numbers.
+const withoutQuantities = (value: string) =>
+  value
+    .replace(
+      /\b\d+(?:\.\d+)?\s*(?:fl\.?\s*oz|oz|ounces?|g|grams?|kg|ml|litres?|liters?|lbs?|pounds?)\b/gi,
+      "",
+    )
+    .replace(/\b\d+\s*(?:pack|count|ct)\b/gi, "");
 export function productName(value: string) {
-  // Remove package quantities only, never flavor/formula words or bare numbers.
-  return normalizeName(
-    value
-      .replace(
-        /\b\d+(?:\.\d+)?\s*(?:fl\.?\s*oz|oz|ounces?|g|grams?|kg|ml|litres?|liters?|lbs?|pounds?)\b/gi,
-        "",
-      )
-      .replace(/\b\d+\s*(?:pack|count|ct)\b/gi, ""),
-  );
+  return normalizeName(withoutQuantities(value));
+}
+/**
+ * A product's address before its unique suffix. A name in another script
+ * leaves little or nothing in ASCII, so its food names it instead.
+ */
+export function productSlug(name: string, foodSlug?: string | null) {
+  return latinSlug(withoutQuantities(name))
+    ? slug(name)
+    : slug("", foodSlug || "product");
 }
 /** A name's words of three or more letters; an apostrophe never splits one. */
 export function nameWords(value: string) {
@@ -115,16 +125,8 @@ export function distinctiveNameWords(value: string) {
 export function identityKey(countryId: string, brand: string, name: string) {
   return `${countryId}:${normalizeName(brand)}:${productName(name)}`;
 }
-export function slug(value: string) {
-  return (
-    value
-      .normalize("NFKD")
-      .toLowerCase()
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 75) || "product"
-  );
+export function slug(value: string, fallback = "product") {
+  return latinSlug(value).slice(0, 75) || fallback;
 }
 export interface ProvisionalClassification {
   veganStatus: VeganStatus;

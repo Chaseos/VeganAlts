@@ -150,10 +150,10 @@ CREATE UNIQUE INDEX ux_category_aliases_display
 
 ### 5.3 Script-safe helpers
 
-Add one module, `server/shared/domain/text.ts`, and replace the copies in `taxonomy.ts`, `policy.ts`, `brand-match.ts`, `brand-rows.ts`, `food-choices.ts`, `brand-picker.tsx` and `admin-taxonomy.tsx`:
+Add one module, `server/shared/domain/text.ts`, and replace the copies in `taxonomy.ts`, `policy.ts`, `brand-match.ts`, `brand-rows.ts`, `food-choices.ts` and `brand-picker.tsx`. `questionKey` in `admin-taxonomy.tsx` stays, because it makes fixed dimension keys, not name matches. `normalizeName` also stays, because stored brand and identity keys depend on it:
 
-- `foldForMatch`: NFKC, lowercase, removes combining marks, turns œ to oe, æ to ae, ß to ss, and katakana to hiragana.
-- `categoryKey` becomes `foldForMatch` with all but letters and digits removed. A test over the whole seed taxonomy must show existing English results don't change.
+- `foldForMatch`: NFKC, lowercase, removes combining marks from Latin letters only (kana, Hangul, Thai and Devanagari need theirs), turns œ to oe, æ to ae, ß to ss, and katakana to hiragana.
+- `categoryKey` becomes `foldForMatch` with all but letters, marks and digits removed. A test over the whole seed taxonomy must show existing English results don't change.
 - `categorySlug` gains the œ fix and stays ASCII only.
 
 ### 5.4 hreflang, canonical and sitemap
@@ -380,7 +380,7 @@ Labels should come from a Japanese speaker where possible. Otherwise, confirm th
 
 Keep the existing rule for spaced scripts. For scripts without spaces, `nameWords` returns character pairs after `foldForMatch`, and the name counts as a near-duplicate when both names share at least 70% of the shorter name's pairs, from the same brand or a containing name.
 
-`GENERIC_NAME_WORDS` gains lists by language (`ヴィーガン`, `プラントベース`, `植物性`, `大豆`, `végétalien`, `sans lait`, `à base de plantes`, and more). They are removed before the comparison. `identityKey` already works on Japanese, because `normalizeName` keeps those characters. The rule moves to `MODERATION.md` under milestone 7's near-duplicate entry, and tests use real pairs (大豆ミートハンバーグ against 大豆ミートボール should not hold).
+`nameWords` and `GENERIC_NAME_WORDS` change in checkpoint 4, not checkpoint 1. `GENERIC_NAME_WORDS` gains lists by language (`ヴィーガン`, `プラントベース`, `植物性`, `大豆`, `végétalien`, `sans lait`, `à base de plantes`, and more). They are removed before the comparison. `identityKey` already works on Japanese, because `normalizeName` keeps those characters. The rule moves to `MODERATION.md` under milestone 7's near-duplicate entry, and tests use real pairs (大豆ミートハンバーグ against 大豆ミートボール should not hold).
 
 Brand lookups use trigrams, so a two-character Japanese brand finds nothing. Add an exact prefix match on `brands.normalized_name` for such queries.
 
@@ -528,7 +528,7 @@ Checkpoints 3, 4 and 5 can run beside 6. AI review (4) is useful even before any
 - `docs/PRODUCT_MASTER.md` §04, "nothing is inferred from IP". The language prompt reads the browser's language, not IP, so the rule stands.
 - `docs/ARCHITECTURE.md` §15 and §20 (rule 1): the text model is a new use of the existing Workers AI binding, so document it in an ADR in `docs/TECH_STACK.md`. Correct the Clef price and context window there too.
 - `docs/DATABASE_BASELINE.md` line 112 mentions a default locale on countries. Replace it with a pointer to `languages.ts`.
-- `docs/API.md`: add `language`, `PUT /me/language` and the `category` report target.
+- `docs/API.md`: add `language` and `PUT /me/language` in checkpoint 2, and the `category` report target in checkpoint 4, when each exists.
 - Update `AGENTS.md`'s read-first list and its milestone 7 paragraph.
 
 ## 14. Verification

@@ -1,3 +1,4 @@
+import { foldForMatch } from "../../shared/domain/text";
 // The shared brand matcher (milestone 7): search answers, brand pages and
 // Add a product's brand choice all match brands the same way. From two
 // characters, a brand matches when its name or another of its names equals or
@@ -38,11 +39,7 @@ export function compareBrandPositions(
 }
 
 const words = (value: string) =>
-  value
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .match(/[\p{L}\p{N}]+/gu) ?? [];
+  foldForMatch(value).match(/[\p{L}\p{M}\p{N}]+/gu) ?? [];
 const compact = (value: string) => words(value).join("");
 
 // Typos allowed for a typed text of this length (docs/API.md, milestone 7):

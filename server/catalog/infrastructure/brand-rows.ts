@@ -1,3 +1,4 @@
+import { foldLatinMarks } from "../../shared/domain/text";
 import {
   nameMatch,
   brandPosition,
@@ -24,11 +25,8 @@ const COUNTED = "p.lifecycle_status IN ('active','under_review')";
  */
 function trigrams(query: string) {
   const words =
-    query
-      .normalize("NFKD")
-      .replace(/\p{M}/gu, "")
-      .toLowerCase()
-      .match(/[\p{L}\p{N}]+/gu) ?? [];
+    // Matches the index as stored, so kana and ligatures aren't folded here.
+    foldLatinMarks(query).match(/[\p{L}\p{M}\p{N}]+/gu) ?? [];
   const runs = new Set<string>();
   for (const word of [...words, words.join("")]) {
     const letters = Array.from(word);

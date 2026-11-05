@@ -1,14 +1,12 @@
+import { foldForMatch } from "@server/shared/domain/text";
 import type { FoodChoice } from "@server/taxonomy/domain/food-choices";
 
 export type { FoodChoice };
 
 /** Case, accents, punctuation and spacing never decide a match. */
 export function normalizeFood(value: string) {
-  return value
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
+  return foldForMatch(value)
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, " ")
     .trim();
 }
 

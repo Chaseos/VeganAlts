@@ -1324,7 +1324,7 @@ Food
 
 People see the top level as aisles.
 
-**Countries.** The main countries for vegan shoppers are planned next (milestone 8). The site stays in English until a separate language setting and translations arrive.
+**Countries.** The main countries for vegan shoppers are planned next (milestone 8). [Milestone 8](MILESTONE_8_PLAN.md) adds each country's own languages, with English still available.
 
 **Wording.** People see flavors, line names, Closest to the original and Tastiest. "Line" and "family" are internal terms.
 

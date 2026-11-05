@@ -109,7 +109,9 @@ Core fields:
 - ISO code;
 - display name;
 - active flag;
-- default locale/currency later if useful.
+- currency later if useful.
+
+A country's languages live in code (`server/catalog/domain/languages.ts`, [milestone 8](MILESTONE_8_PLAN.md)), because the gateway decides them before any D1 read.
 
 Country records should be seeded and stable.
 

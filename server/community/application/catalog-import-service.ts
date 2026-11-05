@@ -352,7 +352,8 @@ export class CatalogImportService {
         normalizeName(facts.flavor ?? "") ||
       current.countryCode.toUpperCase() !== facts.country ||
       current.familyId !== importLineId(facts.line.first) ||
-      normalizeName(current.lineName ?? "") !== normalizeName(facts.line.name) ||
+      normalizeName(current.lineName ?? "") !==
+        normalizeName(facts.line.name) ||
       current.versionId !== importIds(facts.sourceKey).version ||
       !categoryId ||
       current.hasFood !== 1
@@ -377,12 +378,16 @@ export class CatalogImportService {
       readings: facts.transcription.readings,
       verification: facts.transcription.verification,
       assessment: facts.transcription.assessment,
-      onlineIngredients: facts.transcription.onlineSupplement?.ingredients ?? null,
+      onlineIngredients:
+        facts.transcription.onlineSupplement?.ingredients ?? null,
       onlineContains: facts.transcription.onlineSupplement?.contains ?? null,
-      onlineMayContain: facts.transcription.onlineSupplement?.mayContain ?? null,
+      onlineMayContain:
+        facts.transcription.onlineSupplement?.mayContain ?? null,
       onlineUrl: facts.transcription.onlineSupplement?.url ?? null,
-      onlineAccessedAt: facts.transcription.onlineSupplement?.accessedAt ?? null,
-      onlineProductMatch: facts.transcription.onlineSupplement?.productMatch ?? null,
+      onlineAccessedAt:
+        facts.transcription.onlineSupplement?.accessedAt ?? null,
+      onlineProductMatch:
+        facts.transcription.onlineSupplement?.productMatch ?? null,
       createdAt,
     };
   }
@@ -445,7 +450,12 @@ export class CatalogImportService {
         )
         .bind(
           context.countryId,
-          catalogProductSlug(context.brandName, facts.name, ids.product),
+          catalogProductSlug(
+            context.brandName,
+            facts.name,
+            ids.product,
+            context.foodSlug,
+          ),
           ids.product,
         )
         .first(),
@@ -512,7 +522,10 @@ export class CatalogImportService {
       const old = currentAccepted.get(photo.slot);
       if (old?.id === imageId) continue;
       const existingImage = allImages.get(imageId);
-      if (existingImage?.state === "rejected" || existingImage?.state === "pending")
+      if (
+        existingImage?.state === "rejected" ||
+        existingImage?.state === "pending"
+      )
         return blocked(
           ids.product,
           `The reviewed ${photo.slot} photo already has a ${existingImage.state} moderation state.`,
@@ -540,7 +553,12 @@ export class CatalogImportService {
             ids.product,
             `The ${photo.slot} photo's ${kind} copy changed since the manifest was built.`,
           );
-        const key = importPhotoKey(ids.product, snapshot.versionId, imageId, kind);
+        const key = importPhotoKey(
+          ids.product,
+          snapshot.versionId,
+          imageId,
+          kind,
+        );
         await this.storage.put(key, bytes, "image/webp");
         derivatives.push({
           kind,
@@ -561,7 +579,9 @@ export class CatalogImportService {
     );
     const now = this.clock();
     const sourceImageIds = [
-      ...new Set(facts.transcription.readings.flatMap((reading) => reading.photosUsed)),
+      ...new Set(
+        facts.transcription.readings.flatMap((reading) => reading.photosUsed),
+      ),
     ]
       .map((name) => facts.photos.find((photo) => photo.name === name))
       .filter((photo): photo is ImportPhoto => !!photo)
@@ -585,11 +605,7 @@ export class CatalogImportService {
       reviewedBy: classification.veganStatus === "vegan" ? actor.id : null,
       ingredientsChecked: classification.ingredientsChecked,
     };
-    const transcription = this.transcriptionValue(
-      facts,
-      sourceImageIds,
-      now,
-    );
+    const transcription = this.transcriptionValue(facts, sourceImageIds, now);
     const before: CatalogPatch = {
       classification: {
         versionId: snapshot.versionId,
@@ -834,20 +850,34 @@ export class CatalogImportService {
           packageIngredients: facts.transcription.ingredients ?? null,
           packageContains: facts.transcription.contains ?? null,
           packageMayContain: facts.transcription.mayContain ?? null,
-          sourceImageIds: [...new Set(facts.transcription.readings.flatMap((reading) => reading.photosUsed))]
+          sourceImageIds: [
+            ...new Set(
+              facts.transcription.readings.flatMap(
+                (reading) => reading.photosUsed,
+              ),
+            ),
+          ]
             .map((name) => facts.photos.find((photo) => photo.name === name))
             .filter((photo): photo is NonNullable<typeof photo> => !!photo)
-            .map((photo) => images.find((image) => image.slot === photo.slot)?.imageId)
+            .map(
+              (photo) =>
+                images.find((image) => image.slot === photo.slot)?.imageId,
+            )
             .filter((imageId): imageId is string => !!imageId),
           readings: facts.transcription.readings,
           verification: facts.transcription.verification,
           assessment: facts.transcription.assessment,
-          onlineIngredients: facts.transcription.onlineSupplement?.ingredients ?? null,
-          onlineContains: facts.transcription.onlineSupplement?.contains ?? null,
-          onlineMayContain: facts.transcription.onlineSupplement?.mayContain ?? null,
+          onlineIngredients:
+            facts.transcription.onlineSupplement?.ingredients ?? null,
+          onlineContains:
+            facts.transcription.onlineSupplement?.contains ?? null,
+          onlineMayContain:
+            facts.transcription.onlineSupplement?.mayContain ?? null,
           onlineUrl: facts.transcription.onlineSupplement?.url ?? null,
-          onlineAccessedAt: facts.transcription.onlineSupplement?.accessedAt ?? null,
-          onlineProductMatch: facts.transcription.onlineSupplement?.productMatch ?? null,
+          onlineAccessedAt:
+            facts.transcription.onlineSupplement?.accessedAt ?? null,
+          onlineProductMatch:
+            facts.transcription.onlineSupplement?.productMatch ?? null,
         },
         newBrandId: importBrandId(normalizeName(context.brandName)),
         changeSummary: IMPORT_CHANGE_SUMMARY,
@@ -988,9 +1018,7 @@ export class CatalogImportService {
       throw error;
     }
     const existing = await this.db
-      .prepare(
-        "SELECT lifecycle_status AS lifecycle FROM products WHERE id=?",
-      )
+      .prepare("SELECT lifecycle_status AS lifecycle FROM products WHERE id=?")
       .bind(productId)
       .first<{ lifecycle: string }>();
     // The first import run can plan the base product and its later formula
@@ -1081,11 +1109,15 @@ export class CatalogImportService {
       images.push({ slot: photo.slot, imageId, derivatives });
     }
     const sourceImageIds = [
-      ...new Set(facts.transcription.readings.flatMap((reading) => reading.photosUsed)),
+      ...new Set(
+        facts.transcription.readings.flatMap((reading) => reading.photosUsed),
+      ),
     ]
       .map((name) => facts.photos.find((photo) => photo.name === name))
       .filter((photo): photo is ImportPhoto => !!photo)
-      .map((photo) => images.find((image) => image.slot === photo.slot)?.imageId)
+      .map(
+        (photo) => images.find((image) => image.slot === photo.slot)?.imageId,
+      )
       .filter((imageId): imageId is string => !!imageId);
     const classification = importClassification(facts);
     const value: FormulaClassification = {

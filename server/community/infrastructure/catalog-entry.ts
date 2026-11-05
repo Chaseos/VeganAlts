@@ -4,7 +4,7 @@ import {
 } from "../../catalog/infrastructure/search-index";
 import type { LineRefresh } from "../../ranking/infrastructure/line-refresh";
 import type { SubmissionInput, VeganStatus } from "../domain/contracts";
-import { normalizeName, slug } from "../domain/policy";
+import { normalizeName, productSlug, slug } from "../domain/policy";
 import { retailerConfirmationStatements } from "./contribution-repository";
 import type { SubmissionContext } from "./lookup-repository";
 import type { StagedAttachment } from "./staged-media-repository";
@@ -60,7 +60,8 @@ export const catalogProductSlug = (
   brandName: string,
   name: string,
   productId: string,
-) => `${slug(`${brandName} ${name}`)}-${productId.slice(-8)}`;
+  foodSlug?: string | null,
+) => `${productSlug(`${brandName} ${name}`, foodSlug)}-${productId.slice(-8)}`;
 
 /**
  * The statements that put a new product in the catalog: its brand when new,
@@ -84,6 +85,7 @@ export function catalogEntryStatements(
     context.brandName,
     input.name,
     productId,
+    context.foodSlug,
   );
   // A product outside a chosen line starts its own, named by the
   // contributor ("Name without the flavor") or after the product.
@@ -100,7 +102,7 @@ export function catalogEntryStatements(
           entry.newBrandId,
           context.brandName,
           normalizeName(context.brandName),
-          `${slug(context.brandName)}-${entry.newBrandId.slice(-8)}`,
+          `${slug(context.brandName, "brand")}-${entry.newBrandId.slice(-8)}`,
           now,
           now,
           ...fence,
@@ -271,14 +273,28 @@ export function catalogEntryStatements(
             .bind(
               versionId,
               input.allergens.status,
-              JSON.stringify({ source: "store_photo_import", imageIds: entry.ingredientTranscription?.sourceImageIds ?? [] }),
+              JSON.stringify({
+                source: "store_photo_import",
+                imageIds: entry.ingredientTranscription?.sourceImageIds ?? [],
+              }),
               now,
               now,
               ...fence,
             ),
           ...(input.allergens.status === "declared"
-            ? [...input.allergens.contains.map((key) => [key, "contains"] as const), ...input.allergens.mayContain.map((key) => [key, "may_contain"] as const)].map(([key, presence]) =>
-                db.prepare(`INSERT INTO product_version_allergens(product_version_id,allergen_key,presence) SELECT ?,?,? WHERE ${guard}`).bind(versionId, key, presence, ...fence),
+            ? [
+                ...input.allergens.contains.map(
+                  (key) => [key, "contains"] as const,
+                ),
+                ...input.allergens.mayContain.map(
+                  (key) => [key, "may_contain"] as const,
+                ),
+              ].map(([key, presence]) =>
+                db
+                  .prepare(
+                    `INSERT INTO product_version_allergens(product_version_id,allergen_key,presence) SELECT ?,?,? WHERE ${guard}`,
+                  )
+                  .bind(versionId, key, presence, ...fence),
               )
             : []),
         ]

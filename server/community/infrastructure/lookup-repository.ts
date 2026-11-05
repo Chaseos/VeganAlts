@@ -24,6 +24,8 @@ export interface SubmissionContext {
   brandId: string | null;
   brandName: string;
   identity: string;
+  // Names the product's address when its own name has no Latin text.
+  foodSlug?: string | null;
 }
 
 export class CommunityLookupRepository {
@@ -178,11 +180,18 @@ export class CommunityLookupRepository {
           "Choose a line of this brand in this country.",
         );
     }
+    const food = input.categoryIds[0];
     return {
       countryId: country.id,
       brandId: brand?.id ?? null,
       brandName: brand?.name ?? input.brand,
       identity: identityKey(country.id, brand?.name ?? input.brand, input.name),
+      foodSlug: food
+        ? await this.db
+            .prepare("SELECT slug FROM categories WHERE id=?")
+            .bind(food)
+            .first<string>("slug")
+        : null,
     };
   }
   /**

@@ -12,7 +12,8 @@ Before substantial implementation work, read:
 4. `docs/RANKING.md` — ranking semantics and derived data.
 5. `docs/MODERATION.md` — contribution and trust rules.
 6. `docs/API.md` — API conventions.
-7. `docs/MILESTONE_7_PLAN.md` — current implementation scope and acceptance gates.
+7. `docs/MILESTONE_7_PLAN.md` — recent scope and acceptance gates.
+8. `docs/MILESTONE_8_PLAN.md` — current implementation scope: languages, local foods and aisles, and AI review.
 
 `docs/MILESTONE_1_PLAN.md` through `docs/MILESTONE_6_PLAN.md`, `docs/DESIGN_DIRECTION.md`, and their verification records preserve earlier scope and evidence.
 
@@ -20,7 +21,7 @@ Milestone 4 adds Cloudflare Workers AI Clef behind the provider-neutral `Moderat
 
 Milestone 6 makes ingredient evidence optional for new products (they show "Ingredients not checked yet" and still rank), lets a missing food be suggested inside Add a product, and switches foods on per country while aisles and shelves stay shared.
 
-Milestone 7 ranks recipe lines (a brand's base recipe and its flavors in one country, one vote per person) instead of single products, adds an independent Tastiest ranking beside Closest to the original, lets search find brands, and simplifies the taxonomy to universal aisles with foods directly beneath them.
+Milestone 7 ranks recipe lines (a brand's base recipe and its flavors in one country, one vote per person) instead of single products, adds an independent Tastiest ranking beside Closest to the original, lets search find brands, and simplifies the taxonomy to aisles with foods directly beneath them. Milestone 8 changes the universal-aisle rule on purpose: the 23 shared aisles remain the base, and a country may also have local aisles.
 
 If these documents conflict, do not guess. Preserve existing behavior and surface the conflict for an explicit documentation decision.
 

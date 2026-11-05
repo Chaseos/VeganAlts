@@ -820,7 +820,7 @@ export class CatalogDecisionRepository {
             proposal.target_id,
             input.name,
             normalizeName(input.name),
-            `${slug(input.name)}-${proposal.target_id.slice(-8)}`,
+            `${slug(input.name, "store")}-${proposal.target_id.slice(-8)}`,
             input.websiteUrl,
             action.now,
             action.now,

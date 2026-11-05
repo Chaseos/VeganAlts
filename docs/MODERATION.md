@@ -425,7 +425,7 @@ NEEDS_REVIEW
 BLOCKED
 ```
 
-Uncertainty routes to review rather than automatic rejection.
+Uncertainty routes to review rather than automatic rejection. For suggested foods and aisles, uncertainty routes to review with a deadline (Milestone 8 policy).
 
 ### 18.4 AI is evidence, not truth
 
@@ -438,7 +438,7 @@ Clef must not independently:
 
 Protected factual changes still require the appropriate evidence/community/human review path.
 
-Persist enough model/schema/probability metadata for auditability while avoiding unnecessary raw prompt/model text.
+Persist enough model/schema/probability metadata for auditability while avoiding unnecessary raw prompt/model text. The one exception is the English name, gloss, romanized slug, readings and translations a text model writes for a suggested food or aisle. These are stored with the proposal because they are published or shown to reviewers (Milestone 8 policy).
 
 ### 18.5 Future provider evaluation
 
@@ -496,7 +496,7 @@ The [approved scope](MILESTONE_4_PLAN.md) enables automated decisions, community
 
 **Provider modes.** `MODERATION_PROVIDER` is `clef`, `fake` or `disabled`, independently of `CONTENT_SAFETY_PROVIDER`. Fake providers are accepted only in local development and tests. Disabling Clef retains deterministic evidence rules and disables community-confidence auto-acceptance; an enabled safety provider still checks contributed content. The safety and automatic-retry policy below supersedes the original milestone 4 outage behavior: transient failures remain private for bounded retries, and exhausted budgets return retry guidance without creating a review item. Existing held comments remain eligible for the legacy hourly re-evaluation path.
 
-**Decisions.** The policy engine combines the deterministic result with the automated answers and keeps the more restrictive outcome; automation can hold or correct but never upgrade a deterministic hold. `NEEDS_CHANGES` returns an actionable reason without creating canonical rows. `BLOCKED` applies to any built-in OpenAI safety flag or an existing high-confidence Clef abuse rule (for example near-certain spam or commercial promotion) and stores no catalog data. Each evaluation records provider/model identities, schema/policy versions, input hashes, structured flags and scores, finite evidence answers, outcome, status, tokens and latency. Raw prompts and model prose are not stored. Identical recent payloads reuse an earlier decision only while content, image hashes, provider/model identities and effective policy still match.
+**Decisions.** The policy engine combines the deterministic result with the automated answers and keeps the more restrictive outcome; automation can hold or correct but never upgrade a deterministic hold. `NEEDS_CHANGES` returns an actionable reason without creating canonical rows. `BLOCKED` applies to any built-in OpenAI safety flag or an existing high-confidence Clef abuse rule (for example near-certain spam or commercial promotion) and stores no catalog data. Each evaluation records provider/model identities, schema/policy versions, input hashes, structured flags and scores, finite evidence answers, outcome, status, tokens and latency. Raw prompts are not stored. Model prose is not stored, except the structured fields named in §18.4. Identical recent payloads reuse an earlier decision only while content, image hashes, provider/model identities and effective policy still match.
 
 **Comments.** Comments are opinions about a specific formula. Votes measure whether a comment helps someone understand the product, not agreement, and have no effect on similarity rankings. One account has at most one active up or down vote per comment and cannot vote on its own comment. Strongly downvoted comments collapse behind an explicit **Show** action; they are not deleted. Automation may hold likely spam, commercial promotion, duplicated text or off-topic content; it never rejects ordinary short opinions. Authors may edit or delete their own comments; operators may hide comments and reverse that action.
 
@@ -506,13 +506,13 @@ The [approved scope](MILESTONE_4_PLAN.md) enables automated decisions, community
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 — immediate after deterministic checks and READY | Alias/search term, manufacturer source URL, photo for an empty slot                                                                                                                                                                                                                          |
 | 2 — community-confirmable                          | Packaging photos, rename with package evidence, replacing an existing manufacturer source, variant relationship without eligibility change, discontinuation or same-formula reintroduction of a non-established product, category membership addition, front/back/prepared photo replacement |
-| 3 — operator only                                  | Classification, reformulation, category removal or eligibility change, brand/identity change, ingredient or nutrition photo replacement, merges, category proposals, discontinuation of an established product                                                                               |
+| 3 — operator only                                  | Classification, reformulation, category removal or eligibility change, brand/identity change, ingredient or nutrition photo replacement, merges, category proposals outside the Milestone 8 policy, discontinuation of an established product                                                                               |
 
 Milestone 3 stored tier 2 for every proposal except classification; new proposals use the tiers above, and automatic acceptance reads the allow-list rather than any stored value.
 
 **Photos.** A product formula has at most one accepted image per slot. When a slot is empty, a contributor may add a photo. When it is filled, the action is **Suggest a better photo** with a reason: outdated packaging, blurry, wrong market, formula change or incorrect. A formula-change reason is routed to the reformulation flow. Replacements remain staged and non-canonical until accepted; accepting archives the earlier image under the formula it documents. A repeated proposal of the same image for the same product and slot becomes a confirmation and does not invoke the provider again.
 
-**Categories.** Signed-in contributors may propose a missing category with a parent, country relevance, explanation, example products and aliases. Proposals are always reviewed by an operator, who may accept, reject or turn the name into an alias of an existing category; reserved route words and near-duplicates are rejected deterministically. Operators may rename (old slugs redirect), manage aliases, re-parent, retire and merge categories. Unlike product duplicates (§14), a **category merge transfers** memberships and ratings to the survivor because both categories describe the same conventional reference product. If a user rated the same formula in both, the most recently updated rating remains counted and the other is retained uncounted. Merges run in bounded, resumable steps, record every moved row, redirect the donor slug and can be exactly reversed while preserving ratings created afterward. Reversal is last in, first out: later merges and later edits involving either category are reversed first. Homepage features are configured separately from the hierarchy.
+**Categories.** Signed-in contributors may propose a missing category with a parent, country relevance, explanation, example products and aliases. Proposals follow the Milestone 8 policy. An operator may accept, reject or turn a queued name into an alias of an existing category, and may reverse any automatic decision. Reserved route words and near-duplicates are rejected deterministically. Operators may rename (old slugs redirect), manage aliases, re-parent, retire and merge categories. Unlike product duplicates (§14), a **category merge transfers** memberships and ratings to the survivor because both categories describe the same conventional reference product. If a user rated the same formula in both, the most recently updated rating remains counted and the other is retained uncounted. Merges run in bounded, resumable steps, record every moved row, redirect the donor slug and can be exactly reversed while preserving ratings created afterward. Reversal is last in, first out: later merges and later edits involving either category are reversed first. Homepage features are configured separately from the hierarchy.
 
 ## Milestone 5 policy
 
@@ -531,7 +531,7 @@ A reformulation starts the new formula with no declaration; earlier formulas kee
 
 **Per-country contributions.** Product additions, retailer choices, category proposals and allergen lists belong to the country of the page they start from. Adding a retailer that already exists in another country proposes that retailer's market in this country and follows the same review as a new retailer. Moderation queues and the taxonomy workspace show each item's country.
 
-**Taxonomy and dimensions.** Category proposals choose a shelf. Aisles and shelves only need names that are unique among their siblings; foods and aliases stay unique across the taxonomy. Operators add, rename, reorder and retire a food's detail dimensions; retiring keeps stored answers, and every change is audited and reversible. Category merges now carry detail answers: answers follow their rating to the survivor by dimension key, a key only the donor had is kept on the survivor as a retired dimension, and reversal restores both exactly.
+**Taxonomy and dimensions.** Category proposals choose a shelf. Aisles and shelves only need names that are unique among their siblings; English food names stay unique across the taxonomy, and a country or language name is unique within its country. Operators add, rename, reorder and retire a food's detail dimensions; retiring keeps stored answers, and every change is audited and reversible. Category merges now carry detail answers: answers follow their rating to the survivor by dimension key, a key only the donor had is kept on the survivor as a retired dimension, and reversal restores both exactly.
 
 ## Milestone 6 policy
 
@@ -552,10 +552,11 @@ Giving more evidence never produces a worse outcome than giving less. When the o
 
 **Ingredients not checked.** The state is shown as "Ingredients not checked yet". The product ranks and can be rated. It is not a vegan status: it records that no one has confirmed the ingredients. On such a formula, a classification change that chooses Appears plant-based or Plant-based and cites the formula's accepted ingredients or nutrition photo is **tier 2**: community-confirmable and automatically acceptable under the milestone 4 rule, and any disagreement goes to an operator. Every other classification change, including Vegan, Under Review and any change without a cited photo, stays tier 3. Accepting any reviewed classification marks the ingredients checked, and reversal restores the earlier state exactly.
 
-**Suggested foods inside a submission.** A submission may suggest one new food (name, shelf, optional other names) in place of, or beside, existing foods. Preflight applies the standalone suggestion rules: an open country, a valid shelf, a name and other names unused across the taxonomy, reserved words, and the shared daily limit of three suggestions. Finalization evaluates the product and the suggestion and holds both together; the submission waits while its food is undecided. An operator decides the food first:
+**Suggested foods inside a submission.** A submission may suggest one new food (name, language, aisle or new aisle, optional other names) in place of, or beside, existing foods. Preflight applies the standalone suggestion rules: an open country, a valid aisle, a name and other names not already used, reserved words, and the shared daily limit of three suggestions. Finalization evaluates the product and the suggestion under the Milestone 8 policy.
 
-- **Accept or alias.** The waiting submission is re-checked with the resolved food. It publishes when nothing else needs review; otherwise it stays in the queue with its remaining reasons. An alias decision also switches the existing food on in the suggestion's country.
-- **Reject.** Each waiting submission receives a follow-up asking its contributor to choose an existing food. The revision always returns to manual review.
+- **Accepted or aliased.** The waiting submission is re-checked with the resolved food. It publishes when nothing else needs review; otherwise it stays in the queue with its remaining reasons. An alias decision also switches the existing food on in the suggestion's country.
+- **Queued.** The submission waits with its food for at most 72 hours, then follows the deadline rule.
+- **Rejected.** A submission with other foods publishes with those. Any other waiting submission receives a follow-up asking its contributor to choose an existing food. The revision follows normal review.
 
 Accepting a suggested food as non-rankable while a product waits on it is refused. Every step uses the fenced, audited and reversible decision paths.
 
@@ -574,7 +575,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) groups products into recipe
 - **Rule.** A line holds products of the same brand and country that share one base recipe and differ only in flavor or seasoning. Changed bases are separate lines (PRODUCT_MASTER, milestone 7).
 - **What does not hold a submission.** Joining an existing line, starting a new line and giving a flavor label never hold a submission on their own.
 - **What every submission still needs.** Its front photo and the deterministic and automated photo checks.
-- **What still holds,** as in milestone 6: near-duplicates, an animal-allergen declaration and a suggested food.
+- **What still holds,** as in milestone 6: near-duplicates, an animal-allergen declaration and a suggested food in the queue, for at most 72 hours.
   - A near-duplicate shares two distinctive words with another product from the same brand, or with a product containing the whole name; a name with only one distinctive word needs that one. Generic words such as "plant-based", "vegan", "original" and "dairy-free" do not count (owner, 2026-11-04), and an apostrophe does not split a word.
   - Flavors already in the line the contributor chose are never near-duplicates of the new flavor.
   - The looser similar-name matching in Add a product only widens what is shown while typing; it does not widen the hold.
@@ -593,7 +594,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) groups products into recipe
 - **Retired submission options.** The specialty-flavor checkbox is retired, and new submissions are always ranking-eligible in their foods.
 - **Relationship types.** Contributions can no longer create `variant` or `specialty_flavor` relationships. Companion and successor links remain as edit proposals, limited to the product's own country.
 
-**Suggesting a food.** With shelves removed, a food suggestion chooses an aisle instead of a shelf. Review is otherwise unchanged in this milestone.
+**Suggesting a food.** With shelves removed, a food suggestion chooses an aisle instead of a shelf. Review follows the Milestone 8 policy.
 
 **Seasonal tag.** A contributor can mark a product Seasonal when adding it (tier 1). Changing the tag later is a tier 2 edit. A food's season months are set by operators.
 
@@ -605,6 +606,24 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) groups products into recipe
 | Move an existing product to another or a new line, rename a line | 3             |
 | Flavor label on an existing product (with rename)                | 2             |
 | Eligibility exclusion of a flavor                                | 3 (unchanged) |
+
+## Milestone 8 policy
+
+The [milestone 8 specification](MILESTONE_8_PLAN.md) lets suggested foods and aisles be decided by automated review, so no country depends on an operator who knows its groceries.
+
+**Status.** Approved on 2026-11-05. It takes effect when checkpoint 4 ships; until then the operator review described above continues.
+
+**Order of checks.** Deterministic limits and checks and the safety check run first. A text model then writes an English name, gloss, slug, readings and translations. It decides nothing. Its output is validated and passes the safety check before use. Clef then answers finite questions, and the policy engine decides. Reputation, trust, contribution history and payment are never inputs.
+
+**Foods.** A suggestion that is confidently a real conventional food, new to the taxonomy, with no claim in its name, is accepted by the system account as provisional for 30 days. A confident match with an existing food, including a word for it in another language, is added as an alias there. A country accepts at most 20 foods automatically per day; further suggestions wait for the next day. Anything else goes to the review queue with English context. A country can be set to queue-only.
+
+**Aisles.** A proposed aisle never holds a food or product. The food goes in the nearest existing aisle while the aisle gathers demand. It opens after at least three distinct accounts support it, or at least five visible products from at least two accounts sit in its foods, and automated review finds it sensible. Each country has at most six local aisles and one new aisle per week; beyond that the proposal goes to the queue. A proposal with no new support for 180 days closes.
+
+**Deadline.** A queued suggestion is decided by an operator within 72 hours, or the system decides it: accepted as provisional if automated review leaned toward acceptance and safety was clean, otherwise rejected. A submission waiting on a rejected food publishes with its other foods, or receives a follow-up.
+
+**What this path can never do.** It cannot change vegan status, classification, allergen declarations, formulas or any product fact. Those keep their existing rules. A name making a vegan, allergen or health claim is not accepted.
+
+**Audit and reversal.** Every decision uses the fenced, audited path as the system account. An operator can undo any of them from the digest: an accepted food with no products is retired, one with products is merged into a chosen food, and an alias is removed. Reports on a food reach the queue.
 
 ## Owner imports
 

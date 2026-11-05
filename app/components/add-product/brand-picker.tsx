@@ -1,3 +1,4 @@
+import { matchKey } from "@server/shared/domain/text";
 import { useEffect, useState } from "react";
 import type { BrandSuggestion } from "@server/community/domain/contracts";
 import { communityRequest } from "../../lib/community";
@@ -7,11 +8,7 @@ import { useCombobox } from "../../lib/use-combobox";
 type Option =
   { kind: "brand"; brand: BrandSuggestion } | { kind: "new"; name: string };
 
-const compact = (value: string) =>
-  value
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]/gu, "");
+const compact = matchKey;
 
 /**
  * Choose the brand (milestone 7), an ARIA 1.2 combobox like the food picker.
