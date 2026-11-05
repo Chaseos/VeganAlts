@@ -458,6 +458,23 @@ export const savedProducts = sqliteTable(
   ],
 );
 
+export const productViewDays = sqliteTable(
+  "product_view_days",
+  {
+    productId: text("product_id")
+      .notNull()
+      .references((): AnySQLiteColumn => products.id, {
+        onDelete: "cascade",
+      }),
+    statDate: text("stat_date").notNull(),
+    views: integer("views").notNull().default(sql.raw("0")),
+  },
+  (table) => [
+    primaryKey({ columns: [table.productId, table.statDate] }),
+    check("ck_product_view_days_1", sql.raw("views >= 0")),
+  ],
+);
+
 export const ratings = sqliteTable(
   "ratings",
   {

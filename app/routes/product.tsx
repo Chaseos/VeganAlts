@@ -33,6 +33,7 @@ import { CommentSection } from "../components/comments/comment-section";
 import { usePersonalState } from "../components/personal-state";
 import { ProposalResponses } from "../components/proposal-responses";
 import { SaveButton } from "../components/save-button";
+import { recordProductView } from "../lib/product-view";
 import { commentServices } from "@server/comments/infrastructure/composition";
 import { breadcrumbs, publicMetadata } from "../lib/metadata";
 import {
@@ -168,6 +169,7 @@ export default function Product({
       preventScrollReset: true,
     });
   }, [location, navigate]);
+  useEffect(() => recordProductView(p.id), [p.id]);
   const food = p.categories.find((c) => c.slug === p.food) ?? null;
   const others = p.categories.filter((c) => c.isActive && c.id !== food?.id);
   const labels = Object.fromEntries(

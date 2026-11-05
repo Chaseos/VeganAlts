@@ -20,11 +20,14 @@ import { communityApi } from "@server/community/http/handlers";
 import { commentsApi, publicComments } from "@server/comments/http/handlers";
 import { taxonomyApi } from "@server/taxonomy/http/handlers";
 import { savedProductsApi } from "@server/saved/http/handlers";
+import { productViewsApi } from "@server/analytics/http/handlers";
 
 async function handle(request: Request, path: string) {
   try {
     const saved = await savedProductsApi(request, path, env);
     if (saved) return saved;
+    const views = await productViewsApi(request, path, env);
+    if (views) return views;
     const comments = await commentsApi(request, path, env);
     if (comments) return comments;
     const taxonomy = await taxonomyApi(request, path, env);

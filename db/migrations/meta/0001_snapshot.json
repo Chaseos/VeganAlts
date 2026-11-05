@@ -8292,6 +8292,65 @@
       },
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "product_view_days": {
+      "name": "product_view_days",
+      "columns": {
+        "product_id": {
+          "name": "product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "stat_date": {
+          "name": "stat_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "views": {
+          "name": "views",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "product_view_days_product_id_products_id_fk": {
+          "name": "product_view_days_product_id_products_id_fk",
+          "tableFrom": "product_view_days",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "product_view_days_product_id_stat_date_pk": {
+          "columns": [
+            "product_id",
+            "stat_date"
+          ],
+          "name": "product_view_days_product_id_stat_date_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_product_view_days_1": {
+          "name": "ck_product_view_days_1",
+          "value": "views >= 0"
+        }
+      }
     }
   },
   "views": {},

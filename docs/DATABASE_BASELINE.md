@@ -689,3 +689,7 @@ No remote schema operation is part of adding the code. Existing pre-release data
 ## Saved products
 
 `saved_products` (owner request, 2026-11-05) holds one private row per person and product, at product level rather than formula level, so a save survives a formula change. It is personal state only: nothing about it feeds ranking, trending or public profiles. Rows for hidden products stay stored but leave the list; an archived duplicate shows its surviving product.
+
+## Product analytics
+
+`product_view_days` (owner request, 2026-11-05) holds one anonymous count per product and UTC day: no person, session or IP. `/admin/analytics` reads it beside `saved_products` and `ratings`, showing administrators how many views, saves and counted raters each product has. Views and saves of an archived duplicate count toward its surviving product; its ratings do not, because consolidation doesn't transfer them. None of this feeds ranking, trending or any public page. Views aren't reproducible from canonical records, so they stay operator information.

@@ -134,9 +134,14 @@ export default function Account({
             <Link to="/my-contributions">My contributions</Link>
           </li>
           {loaderData.administrator && (
-            <li>
-              <Link to="/admin/moderation">Moderation inbox</Link>
-            </li>
+            <>
+              <li>
+                <Link to="/admin/moderation">Moderation inbox</Link>
+              </li>
+              <li>
+                <Link to="/admin/analytics">Product analytics</Link>
+              </li>
+            </>
           )}
         </ul>
       </nav>

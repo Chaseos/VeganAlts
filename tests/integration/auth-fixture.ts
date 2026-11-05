@@ -23,6 +23,7 @@ export async function authenticatedFixture() {
     UPLOAD_RATE_LIMIT: pass,
     AUTH_RATE_LIMIT: pass,
     RATING_RATE_LIMIT: pass,
+    EVENT_RATE_LIMIT: pass,
     RATING_RISK_LIMIT: pass,
     AUTH_RISK_LIMIT: pass,
     COMMENT_RATE_LIMIT: pass,

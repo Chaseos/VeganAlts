@@ -27,6 +27,7 @@ export default [
   route("add-product", "routes/add-product.tsx"),
   route("propose-category", "routes/propose-category.tsx"),
   route("admin/taxonomy", "routes/admin-taxonomy.tsx"),
+  route("admin/analytics", "routes/admin-analytics.tsx"),
   route("contribute/:productId", "routes/contribute.tsx"),
   route("my-contributions/:kind?/:id?", "routes/my-contributions.tsx"),
   route("admin/moderation/*", "routes/moderation.tsx"),

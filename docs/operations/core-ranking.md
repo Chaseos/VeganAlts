@@ -46,6 +46,8 @@ For a failed save, use the returned request ID and Problem Details code. `UNAUTH
 
 The gateway records public document views even on cache hits. The bounded, same-origin `/api/v1/events` allowlist records client navigations, cancellation and network save failures. Search events record only the route/representation. Request logs contain generated request ID, coarse route, status, cache result and duration. Error logs add a domain code and D1/R2/Images/application classification. Automatic invocation logs remain disabled to avoid full authentication URLs.
 
+Analytics Engine counts views by coarse route only. For per-product views, saves and raters, administrators use `/admin/analytics` (see `docs/DATABASE_BASELINE.md`).
+
 Use Analytics Engine Studio on the staging dataset:
 
 ```sql

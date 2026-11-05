@@ -283,6 +283,15 @@ CREATE TABLE `saved_products` (
 --> statement-breakpoint
 CREATE INDEX `ix_saved_products_user_created` ON `saved_products` (`user_id`,"created_at" desc,"product_id" desc);
 --> statement-breakpoint
+CREATE TABLE `product_view_days` (
+	`product_id` text NOT NULL,
+	`stat_date` text NOT NULL,
+	`views` integer DEFAULT 0 NOT NULL,
+	PRIMARY KEY(`product_id`, `stat_date`),
+	FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "ck_product_view_days_1" CHECK(views >= 0)
+);
+--> statement-breakpoint
 CREATE TABLE `product_versions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`product_id` text NOT NULL,
