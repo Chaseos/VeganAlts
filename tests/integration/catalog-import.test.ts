@@ -227,8 +227,13 @@ it("keeps the verification digest stable when detail ratings are rebuilt at a la
     hash: s.run.manifestHash,
     batches: [{ folder: `Photos ${s.tag} - Web`, products: 1 }],
     products: [
-      { facts, internal: { sizes: [], confidence: "high", notes: [] } },
+      {
+        // The fixture maps "milk" to this category, whose slug is its ID.
+        facts: { ...facts, food: category },
+        internal: { sizes: [], confidence: "high", notes: [] },
+      },
     ],
+    formulaUpdates: [],
   };
   const before = await verifyImport(env, manifest, { sample: 1 });
   expect(before.problems).toEqual([]);
