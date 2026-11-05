@@ -3,6 +3,7 @@ import { v7 as uuid } from "uuid";
 import { ModerationRepository } from "../../community/infrastructure/moderation-repository";
 import type { WorkContext } from "../../moderation/domain/work";
 import {
+  foodTextProvider,
   moderationDecisions,
   moderationWork,
 } from "../../moderation/infrastructure/composition";
@@ -12,6 +13,7 @@ import { trendingService } from "../../ranking/infrastructure/trending-compositi
 import { scheduleCatalogInvalidation } from "../../catalog/infrastructure/invalidation";
 import { communityServices } from "../../community/infrastructure/composition";
 import { invalidateCommunityProduct } from "../../community/infrastructure/invalidation";
+import { FoodReviewService } from "../application/food-review";
 import { TaxonomyService } from "../application/taxonomy-service";
 import { D1TaxonomyRepository } from "./d1-taxonomy-repository";
 
@@ -76,5 +78,22 @@ export function taxonomyServices(
     newId,
     clock,
     moderationWork(env, newId, clock, context),
+  );
+}
+
+/** Reviews suggested foods on the hourly schedule (MODERATION, Milestone 8). */
+export function foodReview(
+  env: Cloudflare.Env,
+  newId: () => string = uuid,
+  clock = Date.now,
+) {
+  const taxonomy = taxonomyServices(env, newId, clock);
+  return new FoodReviewService(
+    new D1TaxonomyRepository(new ModerationRepository(env.DB), newId),
+    moderationDecisions(env, newId, clock),
+    () => foodTextProvider(env),
+    (id, decision) => taxonomy.decideAutomatically(id, decision),
+    (env as { FOOD_REVIEW?: string }).FOOD_REVIEW,
+    clock,
   );
 }

@@ -6,6 +6,14 @@ import { AutomatedChecks } from "./contribution-detail";
 
 type Detail = Awaited<ReturnType<TaxonomyService["proposalDetail"]>>;
 
+const reviewSummary = (review: NonNullable<Detail["review"]>) => {
+  if (review.lane === "alias") return `looks like ${review.aliasOf}`;
+  if (review.lane === "accept") return "looks like a new food";
+  if (review.lane === "changes" || review.lane === "blocked")
+    return "doesn’t look like a plain food name";
+  return review.leansAccept ? "unsure, leaning new food" : "unsure";
+};
+
 /** Accept as a new category, add as an alias of an existing one, or reject. */
 export function CategoryReview({
   detail,
@@ -94,6 +102,18 @@ export function CategoryReview({
         {!!proposed.aliases?.length && (
           <p>
             <strong>Other names:</strong> {proposed.aliases.join(", ")}
+          </p>
+        )}
+        {detail.review?.text && (
+          <p>
+            <strong>In English:</strong> {detail.review.text.englishName}.{" "}
+            {detail.review.text.gloss}
+          </p>
+        )}
+        {detail.review && (
+          <p className="small muted">
+            Automated review: {reviewSummary(detail.review)}. A decision is made
+            automatically 72 hours after it was suggested.
           </p>
         )}
         <p className="small muted">

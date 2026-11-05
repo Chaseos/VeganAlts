@@ -62,6 +62,11 @@ export const newFood = z
     name: shortText,
     aisleId: id,
     aliases: z.array(shortText).max(10).optional(),
+    // The language it's written in; absent means English.
+    language: z
+      .string()
+      .regex(/^[a-z]{2}(?:-[A-Z][a-z]{3})?$/)
+      .optional(),
   })
   .strict();
 const unique = <T>(a: T[]) => new Set(a).size === a.length;

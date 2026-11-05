@@ -4,7 +4,10 @@ import { trendingService } from "../ranking/infrastructure/trending-composition"
 import { commentServices } from "../comments/infrastructure/composition";
 import { communityServices } from "../community/infrastructure/composition";
 import { invalidateCommunityProduct } from "../community/infrastructure/invalidation";
-import { taxonomyServices } from "../taxonomy/infrastructure/composition";
+import {
+  foodReview,
+  taxonomyServices,
+} from "../taxonomy/infrastructure/composition";
 import { lineRefresh } from "../ranking/infrastructure/line-refresh";
 
 /**
@@ -48,6 +51,9 @@ export async function runAutomation(env: Cloudflare.Env) {
   await step("appliedSubmissionExtras", () =>
     communityServices(env).extras.sweep(),
   );
+  const foods = foodReview(env);
+  await step("reviewedFoods", () => foods.sweep());
+  await step("expiredFoods", () => foods.expire());
   await step("continuedFoodSubmissions", async () => {
     const published =
       await communityServices(env).moderation.sweepFoodDecisions();

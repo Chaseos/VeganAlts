@@ -6,7 +6,16 @@ import {
 import { ApplicationError } from "../../shared/domain/errors";
 import { taxonomyShape } from "../domain/shape";
 import type { Actor } from "../../community/domain/contracts";
-import { administrator, active } from "../../community/domain/policy";
+import {
+  SYSTEM_ACTOR,
+  administrator,
+  active,
+} from "../../community/domain/policy";
+import {
+  PROVISIONAL_MS,
+  type FoodReview,
+} from "../../moderation/domain/food-review";
+import type { AutomaticDecision } from "./food-review";
 import { receiptWrite } from "../../community/infrastructure/receipts";
 import type { ActionWrite } from "../../community/infrastructure/moderation-repository";
 import type { ModerationDecisionService } from "../../moderation/application/decision-service";
@@ -41,6 +50,27 @@ import {
   assertNamesAvailable,
   type NameScope,
 } from "./food-suggestions";
+
+const storedReview = (value: string | null) =>
+  value ? (JSON.parse(value) as FoodReview) : null;
+function reviewedFood(
+  data: { name: string; aliases: string[] },
+  review: FoodReview | null,
+) {
+  const text = review?.text;
+  if (!text) return data;
+  const name = text.englishName;
+  const seen = new Set([categoryKey(name)]);
+  return {
+    name,
+    aliases: [data.name, ...data.aliases, ...text.readings].filter((alias) => {
+      const key = categoryKey(alias);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }),
+  };
+}
 
 /** Side effects after a committed taxonomy change: derived data and caches. */
 export interface TaxonomyEffects {
@@ -294,6 +324,7 @@ export class TaxonomyService {
       (!actor.administrator && proposal.submitted_by !== actor.id)
     )
       throw new ApplicationError("NOT_FOUND", "Proposal not found.", 404);
+    const review = storedReview(proposal.review);
     return {
       kind: "category" as const,
       id,
@@ -301,7 +332,9 @@ export class TaxonomyService {
       revision: proposal.updated_at,
       proposed: JSON.parse(proposal.proposed_data) as Record<string, unknown>,
       resolutionNote: proposal.resolution_note,
-      suggestedSlug: categorySlug(proposal.name),
+      suggestedSlug: review?.text?.slug ?? categorySlug(proposal.name),
+      // The automated review is for operators, never its contributor.
+      review: actor.administrator ? review : null,
       parentId: proposal.parent_id,
       country: proposal.country,
       // Products submitted with this food, decided after it.
@@ -311,6 +344,18 @@ export class TaxonomyService {
   /** Operator decision: create the category, alias an existing one, or reject. */
   async decideProposal(actor: Actor, key: string, id: string, raw: unknown) {
     administrator(actor);
+    return this.decide(actor, key, id, raw);
+  }
+  /** A review or deadline decision, recorded by the system account. */
+  async decideAutomatically(id: string, decision: AutomaticDecision) {
+    const proposal = await this.repository.proposal(id);
+    if (!proposal || proposal.status !== "pending") return null;
+    return this.decide(SYSTEM_ACTOR, `food-review-${id}`, id, {
+      ...decision,
+      expectedRevision: proposal.updated_at,
+    });
+  }
+  private async decide(actor: Actor, key: string, id: string, raw: unknown) {
     const input = categoryDecision.parse(raw);
     const now = this.clock(),
       receipt = await receiptWrite(
@@ -337,6 +382,7 @@ export class TaxonomyService {
     const data = storedCategoryProposal.parse(
       JSON.parse(proposal.proposed_data),
     );
+    const review = storedReview(proposal.review);
     const guard = {
       sql: "EXISTS(SELECT 1 FROM category_proposals WHERE id=? AND status='pending' AND updated_at=?)",
       values: [id, proposal.updated_at] as (string | number | null)[],
@@ -384,8 +430,16 @@ export class TaxonomyService {
       const held = new Set(
         [target.name, ...target.aliases.map((a) => a.alias)].map(categoryKey),
       );
-      const claimed = [data.name, ...data.aliases].filter(
-        (alias) => !held.has(categoryKey(alias)),
+      const claimed = [
+        data.name,
+        ...data.aliases,
+        ...(review?.text?.readings ?? []),
+      ].filter(
+        (alias, index, all) =>
+          !held.has(categoryKey(alias)) &&
+          all.findIndex(
+            (other) => categoryKey(other) === categoryKey(alias),
+          ) === index,
       );
       // Another category may have claimed a proposed name since submission.
       await this.assertNameAvailable(claimed, { rankable: true }, target.id);
@@ -471,9 +525,11 @@ export class TaxonomyService {
         "A product is waiting on this food, so accept it as a ranked food or reject it.",
         409,
       );
+    // A reviewed food is named in English, with what was typed kept beside it.
+    const food = reviewedFood(data, review);
     const slug = input.slug
       ? categorySlug(input.slug)
-      : categorySlug(data.name);
+      : (review?.text?.slug ?? categorySlug(data.name));
     await this.assertSlugAvailable(slug);
     const categoryId = this.newId();
     const parentId =
@@ -481,17 +537,17 @@ export class TaxonomyService {
         ? (proposal.parent_id ?? null)
         : input.parentId;
     const scope = scopeFor(input.isRankable, parentId);
-    this.assertGroupAliases(input.isRankable, data.aliases);
-    await this.assertNameAvailable([data.name, ...data.aliases], scope);
-    fenceNames(guard, [data.name, ...data.aliases], categoryId, scope);
+    this.assertGroupAliases(input.isRankable, food.aliases);
+    await this.assertNameAvailable([food.name, ...food.aliases], scope);
+    fenceNames(guard, [food.name, ...food.aliases], categoryId, scope);
     await this.assertParent(null, parentId);
     fenceParent(guard, null, parentId);
     const created = {
-      name: data.name,
+      name: food.name,
       slug,
       parentId,
       isRankable: input.isRankable,
-      aliases: data.aliases,
+      aliases: food.aliases,
     };
     const action = this.action(
       actor,
@@ -519,6 +575,15 @@ export class TaxonomyService {
               }
             : undefined,
         ),
+        ...(actor.id === SYSTEM_ACTOR.id
+          ? [
+              this.repository.provisionalStatement(
+                categoryId,
+                now + PROVISIONAL_MS,
+                fence,
+              ),
+            ]
+          : []),
         this.repository.resolveProposalStatement(
           id,
           "accepted",

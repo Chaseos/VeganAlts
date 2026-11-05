@@ -83,7 +83,9 @@ export class FoodSuggestions {
     private readonly clock = Date.now,
   ) {}
   async check(actor: Actor, food: SuggestedFood) {
-    assertCategorySlug(categorySlug(food.name));
+    // A name in another script has no address of its own: review gives it one.
+    const slug = categorySlug(food.name);
+    if (slug) assertCategorySlug(slug);
     const day = Math.floor(this.clock() / 86_400_000) * 86_400_000;
     if (
       (await this.repository.proposalsSince(actor.id, day)) >= PROPOSALS_PER_DAY

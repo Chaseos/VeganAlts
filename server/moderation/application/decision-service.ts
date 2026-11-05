@@ -65,6 +65,8 @@ export interface DecisionRequest {
   images?: DecisionImage[];
   context?: PolicyContext;
   safety?: SafetyInput;
+  // Replaces the kind's fixed questions.
+  questions?: Question[];
 }
 export interface DecisionResult {
   id: string | null;
@@ -72,6 +74,7 @@ export interface DecisionResult {
   outcome: Outcome | null;
   reasons: string[];
   flags: string[];
+  answers?: Answers;
   errorCode?: string;
   retryAfterMs?: number;
   budgetScope?: "account" | "environment" | "busy";
@@ -251,6 +254,7 @@ export class ModerationDecisionService {
         outcome: prior.outcome,
         reasons: result.reasons,
         flags: result.flags,
+        answers: result.answers,
       };
     }
     if (!(await this.repository.reserve(base, this.policy))) {
@@ -300,7 +304,8 @@ export class ModerationDecisionService {
         }
       }
       if (outcome !== "BLOCKED" && provider) {
-        const questions = questionsFor(request.kind, images.length);
+        const questions =
+          request.questions ?? questionsFor(request.kind, images.length);
         stored.evidence = await this.stage(
           base,
           "evidence",
@@ -355,6 +360,7 @@ export class ModerationDecisionService {
         outcome,
         reasons: stored.reasons,
         flags: stored.flags,
+        answers: stored.answers,
       };
     } catch (error) {
       if (error instanceof ProviderCapacityError) {

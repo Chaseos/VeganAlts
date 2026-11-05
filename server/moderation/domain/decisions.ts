@@ -17,6 +17,7 @@ export const decisionKinds = [
   "formula_evidence",
   "category_proposal",
   "content_safety",
+  "food_review",
 ] as const;
 export type DecisionKind = (typeof decisionKinds)[number];
 export type ModelTier = "flash" | "full";
@@ -85,6 +86,8 @@ const imageType = (position: number): Question => ({
 export function questionsFor(kind: DecisionKind, imageCount = 0): Question[] {
   const images = Array.from({ length: imageCount }, (_, i) => imageType(i + 1));
   switch (kind) {
+    // Food review supplies its own: they depend on the candidate foods.
+    case "food_review":
     case "content_safety":
       return [];
     case "comment":
@@ -292,6 +295,7 @@ export const MODEL_TIER: Record<DecisionKind, ModelTier> = {
   content_safety: "flash",
   comment: "flash",
   category_proposal: "flash",
+  food_review: "full",
   submission: "full",
   image: "full",
   edit_proposal: "full",

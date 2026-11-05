@@ -61,6 +61,7 @@ export function assertCategorySlug(slug: string) {
 export const categoryKey = matchKey;
 
 const aliasList = z.array(shortText).max(10).default([]);
+const languageCode = z.string().regex(/^[a-z]{2}(?:-[A-Z][a-z]{3})?$/);
 // An ISO 3166-1 alpha-2 code; whether the country is active is checked
 // against the database.
 export const categoryProposalInput = z
@@ -69,6 +70,8 @@ export const categoryProposalInput = z
     // Category proposals choose the aisle the new food belongs in.
     aisleId: id,
     country: countryCode,
+    // The language it's written in; absent means English.
+    language: languageCode.optional(),
     // Optional since milestone 6; the aisle and name carry the suggestion.
     explanation: z.string().trim().max(2000).optional(),
     exampleProducts: z.array(shortText).max(5).default([]),

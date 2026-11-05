@@ -6,6 +6,8 @@ import type {
 } from "../../community/infrastructure/moderation-repository";
 import type { ReceiptWrite } from "../../community/infrastructure/receipts";
 import { SYSTEM_ACTOR_ID } from "../../community/domain/policy";
+import type { FoodReview } from "../../moderation/domain/food-review";
+import type { ReviewRow } from "../application/food-review";
 import {
   invalidCountry,
   type CategoryPatch,
@@ -831,9 +833,83 @@ export class D1TaxonomyRepository {
         status: string;
         resolution_note: string | null;
         resolved_category_id: string | null;
+        review: string | null;
         updated_at: number;
         created_at: number;
       }>();
+  }
+  // ---- Food review -----------------------------------------------------------
+  private reviewRows(where: string, ...binds: (string | number)[]) {
+    return this.db
+      .prepare(
+        `SELECT p.id,p.name,p.proposed_data AS proposed,p.submitted_by AS userId,co.iso2 AS country,p.created_at AS createdAt,p.review
+        FROM category_proposals p JOIN countries co ON co.id=p.country_id
+        WHERE p.status='pending' AND ${where} ORDER BY p.created_at LIMIT ?`,
+      )
+      .bind(...binds);
+  }
+  async proposalsToReview(limit: number) {
+    return (await this.reviewRows("p.review IS NULL", limit).all<ReviewRow>())
+      .results;
+  }
+  async expiredProposals(before: number, limit: number) {
+    return (
+      await this.reviewRows("p.created_at<=?", before, limit).all<ReviewRow>()
+    ).results;
+  }
+  // Not a revision: an operator's open form stays valid while a review lands.
+  saveReview(id: string, review: FoodReview) {
+    return this.db
+      .prepare(
+        "UPDATE category_proposals SET review=? WHERE id=? AND status='pending'",
+      )
+      .bind(JSON.stringify(review), id)
+      .run();
+  }
+  async foodCandidates() {
+    const rows = await this.db
+      .prepare(
+        `SELECT c.slug,c.name,a.slug AS aisle,COALESCE((SELECT json_group_array(ca.alias) FROM category_aliases ca WHERE ca.category_id=c.id),'[]') AS aliases
+        FROM categories c JOIN categories a ON a.id=c.parent_id
+        WHERE c.is_active=1 AND c.is_rankable=1 ORDER BY c.slug`,
+      )
+      .all<{ slug: string; name: string; aisle: string; aliases: string }>();
+    return rows.results.map((row) => ({
+      ...row,
+      aliases: JSON.parse(row.aliases) as string[],
+    }));
+  }
+  async aisleOptions() {
+    return (
+      await this.db
+        .prepare(
+          `SELECT slug,name FROM categories WHERE is_active=1 AND is_rankable=0
+          AND parent_id=(SELECT id FROM categories WHERE parent_id IS NULL AND is_rankable=0 LIMIT 1) ORDER BY position,slug`,
+        )
+        .all<{ slug: string; name: string }>()
+    ).results;
+  }
+  async autoAcceptedSince(country: string, since: number) {
+    return (await this.db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM category_proposals p JOIN countries co ON co.id=p.country_id
+        WHERE co.iso2=? AND p.status='accepted' AND p.resolved_by=? AND p.resolved_at>=?`,
+      )
+      .bind(country, SYSTEM_ACTOR_ID, since)
+      .first<number>("n"))!;
+  }
+  foodId(slug: string) {
+    return this.db
+      .prepare("SELECT id FROM categories WHERE slug=? AND is_rankable=1")
+      .bind(slug)
+      .first<string>("id");
+  }
+  provisionalStatement(id: string, until: number, fence: DecisionGuard) {
+    return this.db
+      .prepare(
+        `UPDATE categories SET provisional_until=? WHERE id=? AND ${fence.sql}`,
+      )
+      .bind(until, id, ...fence.values);
   }
   resolveProposalStatement(
     id: string,

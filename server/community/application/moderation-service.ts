@@ -100,7 +100,9 @@ export class ModerationService {
   ) {
     const input = submissionInput.parse(JSON.parse(waiting.proposed));
     const now = this.clock();
-    if (food.status === "rejected" || !food.resolvedId) {
+    const rejected = food.status === "rejected" || !food.resolvedId;
+    // A product with other foods goes on without the rejected one.
+    if (rejected && !input.categoryIds.length) {
       await this.queue.submissionDecision(
         {
           id: this.newId(),
@@ -128,10 +130,12 @@ export class ModerationService {
     const { newFood: _decided, ...rest } = input;
     const resolved = {
       ...rest,
-      categoryIds: [...new Set([food.resolvedId, ...input.categoryIds])].slice(
-        0,
-        5,
-      ),
+      categoryIds: [
+        ...new Set([
+          ...(food.resolvedId ? [food.resolvedId] : []),
+          ...input.categoryIds,
+        ]),
+      ].slice(0, 5),
     };
     const decision = await this.submissions.recheck(resolved);
     // As at finalization, a photo the automated check could not read lowers

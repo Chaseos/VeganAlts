@@ -85,7 +85,7 @@ CREATE TABLE `categories` (
 	`is_rankable` integer DEFAULT 0 NOT NULL,
 	`is_active` integer DEFAULT 1 NOT NULL,
 	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL, `revision` integer DEFAULT 0 NOT NULL, `position` integer, `season_start` integer, `season_end` integer,
+	`updated_at` integer NOT NULL, `revision` integer DEFAULT 0 NOT NULL, `position` integer, `season_start` integer, `season_end` integer, `provisional_until` integer,
 	FOREIGN KEY (`parent_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE restrict,
 	CONSTRAINT "ck_categories_1" CHECK(is_rankable IN (0, 1)),
 	CONSTRAINT "ck_categories_2" CHECK(is_active IN (0, 1))
@@ -779,14 +779,15 @@ CREATE TABLE `category_proposals` (
 	`resolved_category_id` text,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
-	`resolved_at` integer,
+	`resolved_at` integer, `review` text,
 	FOREIGN KEY (`submitted_by`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE restrict,
 	FOREIGN KEY (`parent_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`country_id`) REFERENCES `countries`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`resolved_by`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`resolved_category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE set null,
 	CONSTRAINT "ck_category_proposals_status" CHECK("category_proposals"."status" IN ('pending','accepted','aliased','rejected')),
-	CONSTRAINT "ck_category_proposals_data" CHECK(json_valid("category_proposals"."proposed_data"))
+	CONSTRAINT "ck_category_proposals_data" CHECK(json_valid("category_proposals"."proposed_data")),
+	CONSTRAINT "ck_category_proposals_review" CHECK("category_proposals"."review" IS NULL OR json_valid("category_proposals"."review"))
 );
 --> statement-breakpoint
 CREATE TABLE `category_slug_history` (

@@ -49,6 +49,7 @@
     "catalog:cleanup:staging": "tsx scripts/catalog-import/cleanup.ts staging"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "@better-auth/drizzle-adapter": "1.7.7",
     "@better-auth/infra": "0.4.14",
     "better-auth": "1.7.7",
@@ -67,7 +68,6 @@
     }
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^1.6.0",
     "@axe-core/playwright": "^4.13.0",
     "@cloudflare/vite-plugin": "1.64.0",
     "@cloudflare/vitest-plugin": "1.4.7",

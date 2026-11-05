@@ -14,6 +14,8 @@ import { OpenAISafetyProvider } from "./openai-safety-provider";
 import { FakeSafetyProvider } from "./fake-safety-provider";
 import type { ContentSafetyProvider } from "../domain/safety";
 import { FakeDecisionProvider } from "./fake-provider";
+import { FakeTextProvider } from "./fake-text-provider";
+import type { FoodTextProvider } from "../domain/food-review";
 
 export interface ModerationEnv {
   DB: D1Database;
@@ -24,6 +26,8 @@ export interface ModerationEnv {
   CONTENT_SAFETY_PROVIDER?: string;
   CONTENT_SAFETY_POLICY?: string;
   OPENAI_API_KEY?: string;
+  FOOD_TEXT_PROVIDER?: string;
+  ANTHROPIC_API_KEY?: string;
 }
 
 export function moderationProvider(
@@ -58,6 +62,25 @@ export function contentSafetyProvider(
   if (mode === "fake" && env.APP_ENV === "local")
     return new FakeSafetyProvider();
   throw new Error("Unknown or non-local fake content safety provider.");
+}
+
+/** Loaded on first use: most requests never need the Anthropic client. */
+export async function foodTextProvider(
+  env: ModerationEnv,
+): Promise<FoodTextProvider | null> {
+  const mode = env.FOOD_TEXT_PROVIDER ?? "disabled";
+  if (mode === "disabled") return null;
+  if (mode === "fake" && env.APP_ENV === "local") return new FakeTextProvider();
+  if (mode === "claude") {
+    if (!env.ANTHROPIC_API_KEY)
+      throw new Error("Food review text requires ANTHROPIC_API_KEY.");
+    const { default: Anthropic } = await import("@anthropic-ai/sdk");
+    const { ClaudeTextProvider } = await import("./claude-text-provider");
+    return new ClaudeTextProvider(
+      new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 30_000 }),
+    );
+  }
+  throw new Error("Unknown or non-local fake food text provider.");
 }
 
 export function moderationDecisions(
