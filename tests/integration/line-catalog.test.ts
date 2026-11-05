@@ -7,6 +7,7 @@ import { RatingsService } from "../../server/ratings/application/service";
 import { D1RatingsRepository } from "../../server/ratings/infrastructure/d1-repository";
 import { INITIAL_SCORING } from "../../server/ranking/domain/policy";
 import { rebuildSearchIndex } from "../../server/catalog/infrastructure/search-index";
+import { LineRefresh } from "../../server/ranking/infrastructure/line-refresh";
 import { brandResponse } from "../../server/catalog/http/brand-response";
 
 const db = env.DB;
@@ -46,7 +47,8 @@ async function world() {
     name: string,
     flavor: string | null,
   ) => ({ id: `${key}-${s}`, version: `${key}-v-${s}`, of, name, flavor });
-  const original = product("original", oatMilk, "Oat Co Oatmilk", null),
+  // Not the line's original, so the ratings choose its lead.
+  const original = product("original", oatMilk, "Oat Co Oatmilk", "Plain"),
     strawberry = product(
       "strawberry",
       oatMilk,
@@ -233,6 +235,27 @@ it("breaks tied rankings by stable line ID instead of the representative product
   }
 });
 
+it("leads a line with its original and lists it first, however flavors rate", async () => {
+  const w = await world();
+  await db
+    .prepare("UPDATE products SET flavor=NULL WHERE id=?")
+    .bind(w.original.id)
+    .run();
+  await new LineRefresh(db, INITIAL_SCORING).refresh(
+    { familyIds: [w.oatMilk.id] },
+    Date.now(),
+  );
+  const oat = (await catalog.category(w.us, w.cat)).ranked.find(
+    (row) => row.lineId === w.oatMilk.id,
+  )!;
+  expect(oat.leadProduct.id).toBe(w.original.id);
+  expect(oat.flavors.map((f) => f.flavor)).toEqual([
+    null,
+    "Strawberry",
+    "Vanilla",
+  ]);
+});
+
 it("lists recipe lines with their flavors in both rankings", async () => {
   const w = await world();
   const top = await catalog.category(w.us, w.cat);
@@ -254,7 +277,7 @@ it("lists recipe lines with their flavors in both rankings", async () => {
   // Flavors: too few answers for their own scores, so by ratings, then name.
   expect(oat.flavors.map((f) => [f.flavor, f.ratingCount, f.score])).toEqual([
     ["Strawberry", 2, null],
-    [null, 1, null],
+    ["Plain", 1, null],
     ["Vanilla", 1, null],
   ]);
   expect(oat.hiddenFlavorCount).toBe(0);
@@ -276,7 +299,7 @@ it("lists recipe lines with their flavors in both rankings", async () => {
   expect(
     tastiest.ranked[0]!.flavors.map((f) => [f.flavor, f.ratingCount]),
   ).toEqual([
-    [null, 1],
+    ["Plain", 1],
     ["Strawberry", 0],
     ["Vanilla", 0],
   ]);
@@ -376,8 +399,8 @@ it("gives a flavor's page its line's ranks, its siblings and other lines", async
       f.food,
     ]),
   ).toEqual([
-    [w.original.id, w.cat],
     [chocolate, null],
+    [w.original.id, w.cat],
     [w.strawberry.id, w.cat],
   ]);
 });
@@ -416,7 +439,7 @@ it("finds brands loosely and lists a brand's lines by aisle and food", async () 
     [w.lite.name, null, null],
   ]);
   expect(food.lines[0]!.flavors.map((f) => f.flavor)).toEqual([
-    null,
+    "Plain",
     "Strawberry",
     "Vanilla",
   ]);

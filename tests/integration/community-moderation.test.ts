@@ -61,7 +61,7 @@ it("deduplicates reports, prioritizes ingredient concerns, and requires an opera
     "Possible milk ingredient listed.\n\nA second label photo lists whey.",
   );
   expect((await repository.snapshot(f.productId)).veganStatus).toBe(
-    "appears_vegan",
+    "appears_plant_based",
   );
   const report = (await repository.report(a.id))!;
   expect(JSON.parse(report.evidence_data)).toEqual(
@@ -124,7 +124,7 @@ it("deduplicates reports, prioritizes ingredient concerns, and requires an opera
     note: "Ingredient concern resolved after manufacturer clarification.",
   });
   expect((await repository.snapshot(f.productId)).veganStatus).toBe(
-    "appears_vegan",
+    "appears_plant_based",
   );
 });
 

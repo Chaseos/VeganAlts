@@ -2,51 +2,30 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import type { BrandLine } from "@server/community/domain/contracts";
 import { flavorLabel } from "@server/catalog/domain/flavor-label";
+import { ProductThumbnail } from "../catalog/product-thumbnail";
 import { communityRequest } from "../../lib/community";
 import { plural } from "../../lib/format";
 import { productPath } from "../../lib/site-chrome";
 
 export type { BrandLine };
 
-/**
- * "Already listed from [brand]" (milestone 7): the brand's lines in the
- * country, those in the chosen food first and the rest collapsed. Each
- * flavor offers "That's it, rate it"; each line offers a new flavor; the
- * list ends with something else from the brand. A brand with nothing listed
- * here goes straight on (`onNothing`).
- */
-export function BrandLines({
-  country,
-  brand,
-  food,
-  onFlavor,
-  onSomethingElse,
-  onNothing,
-  error,
-}: {
-  country: string;
-  brand: { id: string; name: string };
-  food: { id: string; slug: string } | null;
-  onFlavor: (line: BrandLine) => void;
-  onSomethingElse: () => void;
-  onNothing: () => void;
-  error?: string;
-}) {
+/** A brand's lines in a country, for the food list and "Already listed". */
+export function useBrandLines(
+  country: string,
+  brandId: string | null,
+  onNothing: () => void,
+) {
   const [lines, setLines] = useState<BrandLine[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const code = country.toLowerCase();
   useEffect(() => {
-    let live = true;
-    const controller = new AbortController();
     setLines(null);
     setFailed(false);
-    const query = new URLSearchParams({
-      country,
-      ...(food ? { food: food.id } : {}),
-    });
+    if (!brandId) return;
+    let live = true;
+    const controller = new AbortController();
     void communityRequest<BrandLine[]>(
-      `community/brands/${brand.id}/lines?${query}`,
+      `community/brands/${brandId}/lines?${new URLSearchParams({ country })}`,
       undefined,
       undefined,
       undefined,
@@ -63,18 +42,45 @@ export function BrandLines({
       live = false;
       controller.abort();
     };
-    // The callbacks change identity on each render; the list depends only
-    // on these.
-  }, [country, brand.id, food?.id, attempt]);
+    // The callback changes identity on each render; the list doesn't.
+  }, [country, brandId, attempt]);
+  return { lines, failed, retry: () => setAttempt((value) => value + 1) };
+}
+
+/**
+ * "Already listed from [brand]" (milestone 7): the brand's lines in the
+ * country, those in the chosen food first and the rest collapsed. Each
+ * flavor shows its photo and opens its page, offers "That's it, rate it", and
+ * each line offers a new flavor; the list ends with something else from the
+ * brand. With no food chosen yet, every line shows.
+ */
+export function BrandLines({
+  country,
+  brand,
+  food,
+  lines,
+  failed,
+  onRetry,
+  onFlavor,
+  onSomethingElse,
+  error,
+}: {
+  country: string;
+  brand: { id: string; name: string };
+  food: { id: string; slug: string } | null;
+  lines: BrandLine[] | null;
+  failed: boolean;
+  onRetry: () => void;
+  onFlavor: (line: BrandLine) => void;
+  onSomethingElse: () => void;
+  error?: string;
+}) {
+  const code = country.toLowerCase();
   if (failed)
     return (
       <div className="va-listed" id="brand-lines">
         <p>We couldn’t check what’s listed from {brand.name}.</p>
-        <button
-          type="button"
-          className="button secondary"
-          onClick={() => setAttempt((value) => value + 1)}
-        >
+        <button type="button" className="button secondary" onClick={onRetry}>
           Retry
         </button>
         <button
@@ -117,7 +123,18 @@ export function BrandLines({
         <ul className="va-divided va-listed__flavors">
           {line.flavors.map((flavor) => (
             <li key={flavor.productId}>
-              <span>{flavorLabel(flavor, line.flavors)}</span>
+              <Link
+                className="va-listed__product"
+                to={productPath(code, flavor.slug, foodOf(flavor))}
+              >
+                <ProductThumbnail
+                  imageId={flavor.imageId}
+                  food={foodOf(flavor) ?? "food"}
+                  size="small"
+                />
+                <span>{flavorLabel(flavor, line.flavors)}</span>
+                <span className="sr-only">: open {flavor.name}</span>
+              </Link>
               <Link
                 className="button secondary small-button"
                 to={`${productPath(code, flavor.slug, foodOf(flavor))}#scores-title`}

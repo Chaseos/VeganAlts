@@ -272,6 +272,26 @@ CREATE TABLE `product_trials` (
 	FOREIGN KEY (`product_version_id`) REFERENCES `product_versions`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE TABLE `saved_products` (
+	`user_id` text NOT NULL,
+	`product_id` text NOT NULL,
+	`created_at` integer NOT NULL,
+	PRIMARY KEY(`user_id`, `product_id`),
+	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `ix_saved_products_user_created` ON `saved_products` (`user_id`,"created_at" desc,"product_id" desc);
+--> statement-breakpoint
+CREATE TABLE `product_view_days` (
+	`product_id` text NOT NULL,
+	`stat_date` text NOT NULL,
+	`views` integer DEFAULT 0 NOT NULL,
+	PRIMARY KEY(`product_id`, `stat_date`),
+	FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "ck_product_view_days_1" CHECK(views >= 0)
+);
+--> statement-breakpoint
 CREATE TABLE `product_versions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`product_id` text NOT NULL,
@@ -299,7 +319,7 @@ CREATE TABLE `products` (
 	`slug` text NOT NULL,
 	`product_type` text DEFAULT 'packaged_food' NOT NULL,
 	`lifecycle_status` text DEFAULT 'active' NOT NULL,
-	`vegan_status` text DEFAULT 'appears_vegan' NOT NULL,
+	`vegan_status` text DEFAULT 'appears_plant_based' NOT NULL,
 	`manufacturer_label` text DEFAULT 'unknown' NOT NULL,
 	`manufacturer_url` text,
 	`created_by` text,
@@ -312,7 +332,7 @@ CREATE TABLE `products` (
 	FOREIGN KEY (`created_by`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE set null,
 	CONSTRAINT "ck_products_1" CHECK(product_type IN ('packaged_food', 'restaurant_item', 'recipe', 'material')),
 	CONSTRAINT "ck_products_2" CHECK(lifecycle_status IN ('active', 'under_review', 'discontinued', 'hidden')),
-	CONSTRAINT "ck_products_3" CHECK(vegan_status IN ('vegan', 'appears_vegan', 'plant_based', 'under_review')),
+	CONSTRAINT "ck_products_3" CHECK(vegan_status IN ('vegan', 'appears_plant_based', 'plant_based', 'under_review')),
 	CONSTRAINT "ck_products_4" CHECK(manufacturer_label IN ('vegan', 'plant_based', 'neither', 'unknown'))
 );
 --> statement-breakpoint
@@ -510,10 +530,10 @@ CREATE TABLE `formula_classifications` (
 	`evidence_data` text NOT NULL,
 	`certifications` text DEFAULT '[]' NOT NULL,
 	`reviewed_by` text,
-	`updated_at` integer NOT NULL, `ingredients_checked` integer DEFAULT 1 NOT NULL CONSTRAINT "ck_formula_ingredients_checked" CHECK("ingredients_checked" IN (0,1) AND ("ingredients_checked"=1 OR "vegan_status"='appears_vegan')),
+	`updated_at` integer NOT NULL, `ingredients_checked` integer DEFAULT 1 NOT NULL CONSTRAINT "ck_formula_ingredients_checked" CHECK("ingredients_checked" IN (0,1) AND ("ingredients_checked"=1 OR "vegan_status"='appears_plant_based')),
 	FOREIGN KEY (`product_version_id`) REFERENCES `product_versions`(`id`) ON UPDATE no action ON DELETE restrict,
 	FOREIGN KEY (`reviewed_by`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE set null,
-	CONSTRAINT "ck_formula_classification_status" CHECK("formula_classifications"."vegan_status" IN ('vegan','appears_vegan','plant_based','under_review')),
+	CONSTRAINT "ck_formula_classification_status" CHECK("formula_classifications"."vegan_status" IN ('vegan','appears_plant_based','plant_based','under_review')),
 	CONSTRAINT "ck_formula_classification_label" CHECK("formula_classifications"."manufacturer_label" IN ('vegan','plant_based','neither','unknown')),
 	CONSTRAINT "ck_formula_classification_json" CHECK(json_valid("formula_classifications"."evidence_data") AND json_valid("formula_classifications"."certifications"))
 );
@@ -669,7 +689,7 @@ CREATE TABLE `moderation_decisions` (
 	`created_at` integer NOT NULL,
 	`completed_at` integer,
 	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE restrict,
-	CONSTRAINT "ck_decision_subject" CHECK("moderation_decisions"."subject_type" IN ('submission','comment','edit_proposal','category_proposal')),
+	CONSTRAINT "ck_decision_subject" CHECK("moderation_decisions"."subject_type" IN ('submission','comment','edit_proposal','category_proposal','profile','proposal_response')),
 	CONSTRAINT "ck_decision_status" CHECK("moderation_decisions"."status" IN ('reserved','completed','reused','failed','over_budget')),
 	CONSTRAINT "ck_decision_outcome" CHECK("moderation_decisions"."outcome" IS NULL OR "moderation_decisions"."outcome" IN ('READY','NEEDS_REVIEW','NEEDS_CHANGES','BLOCKED')),
 	CONSTRAINT "ck_decision_failure_reviews" CHECK(("moderation_decisions"."status" = 'reserved' AND "moderation_decisions"."outcome" IS NULL) OR ("moderation_decisions"."status" IN ('completed','reused') AND "moderation_decisions"."outcome" IS NOT NULL) OR ("moderation_decisions"."status" IN ('failed','over_budget') AND "moderation_decisions"."outcome" = 'NEEDS_REVIEW')),
@@ -1440,3 +1460,72 @@ CREATE TRIGGER brand_search_alias_insert AFTER INSERT ON brand_aliases BEGIN DEL
 CREATE TRIGGER brand_search_alias_update AFTER UPDATE ON brand_aliases BEGIN DELETE FROM brand_search WHERE brand_id=OLD.brand_id; INSERT INTO brand_search(brand_id,aliases,names) SELECT b.id,(SELECT json_group_array(alias) FROM brand_aliases WHERE brand_id=b.id),b.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM brand_aliases WHERE brand_id=b.id),'') FROM brands b WHERE b.id=OLD.brand_id; DELETE FROM brand_search WHERE brand_id=NEW.brand_id; INSERT INTO brand_search(brand_id,aliases,names) SELECT b.id,(SELECT json_group_array(alias) FROM brand_aliases WHERE brand_id=b.id),b.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM brand_aliases WHERE brand_id=b.id),'') FROM brands b WHERE b.id=NEW.brand_id; END;
 --> statement-breakpoint
 CREATE TRIGGER brand_search_alias_delete AFTER DELETE ON brand_aliases BEGIN DELETE FROM brand_search WHERE brand_id=OLD.brand_id; INSERT INTO brand_search(brand_id,aliases,names) SELECT b.id,(SELECT json_group_array(alias) FROM brand_aliases WHERE brand_id=b.id),b.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM brand_aliases WHERE brand_id=b.id),'') FROM brands b WHERE b.id=OLD.brand_id; END;
+
+--> statement-breakpoint
+CREATE TABLE `product_version_ingredient_transcriptions` (
+	`product_version_id` text PRIMARY KEY NOT NULL,
+	`package_ingredients` text,
+	`package_contains` text,
+	`package_may_contain` text,
+	`source_image_ids` text NOT NULL,
+	`readings` text NOT NULL,
+	`verification` text NOT NULL,
+	`assessment` text NOT NULL,
+	`online_ingredients` text,
+	`online_contains` text,
+	`online_may_contain` text,
+	`online_url` text,
+	`online_accessed_at` text,
+	`online_product_match` text,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`product_version_id`) REFERENCES `product_versions`(`id`) ON UPDATE no action ON DELETE restrict,
+	CONSTRAINT "ck_ingredient_transcription_json" CHECK(json_valid("product_version_ingredient_transcriptions"."source_image_ids") AND json_valid("product_version_ingredient_transcriptions"."readings") AND json_valid("product_version_ingredient_transcriptions"."assessment")),
+	CONSTRAINT "ck_ingredient_transcription_verification" CHECK("product_version_ingredient_transcriptions"."verification" IN ('online_only','single_read','agreed','corrected','unresolved','no_source'))
+);
+--> statement-breakpoint
+
+--> statement-breakpoint
+CREATE TABLE moderation_provider_attempts (
+ id TEXT PRIMARY KEY NOT NULL,
+ decision_id TEXT NOT NULL REFERENCES moderation_decisions(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES profiles(user_id) ON DELETE RESTRICT,
+ provider TEXT NOT NULL, model TEXT NOT NULL, stage TEXT NOT NULL CHECK(stage IN ('safety','evidence')),
+ input_hash TEXT NOT NULL,
+ status TEXT NOT NULL CHECK(status IN ('reserved','completed','failed')),
+ result_data TEXT CHECK(result_data IS NULL OR json_valid(result_data)), error_code TEXT, latency_ms INTEGER,
+ created_at INTEGER NOT NULL, lease_expires_at INTEGER
+);
+--> statement-breakpoint
+CREATE INDEX ix_provider_reuse ON moderation_provider_attempts(provider,model,stage,input_hash,created_at);
+--> statement-breakpoint
+CREATE INDEX ix_provider_budget ON moderation_provider_attempts(provider,created_at);
+--> statement-breakpoint
+CREATE INDEX ix_provider_account_budget ON moderation_provider_attempts(user_id,provider,created_at);
+--> statement-breakpoint
+CREATE TABLE moderation_jobs (
+ id TEXT PRIMARY KEY NOT NULL,
+ user_id TEXT NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+ operation TEXT NOT NULL CHECK(operation IN ('submission_finalize','comment_create','comment_edit','proposal_create','proposal_response','retailer_proposal','category_proposal')),
+ idempotency_key TEXT NOT NULL, input_hash TEXT NOT NULL, payload_data TEXT NOT NULL CHECK(json_valid(payload_data)),
+ status TEXT NOT NULL CHECK(status IN ('checking','running','completed','blocked','retry_required')),
+ attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 3),
+ next_attempt_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, token TEXT, lease_expires_at INTEGER,
+ result_data TEXT CHECK(result_data IS NULL OR json_valid(result_data)), error_code TEXT,
+ created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX ux_moderation_job_request ON moderation_jobs(user_id,operation,idempotency_key);
+--> statement-breakpoint
+CREATE INDEX ix_moderation_jobs_due ON moderation_jobs(status,next_attempt_at);
+--> statement-breakpoint
+CREATE INDEX ix_moderation_jobs_owner ON moderation_jobs(user_id,created_at);
+
+--> statement-breakpoint
+CREATE TABLE moderation_request_leases (
+ user_id TEXT NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+ operation TEXT NOT NULL, idempotency_key TEXT NOT NULL, input_hash TEXT NOT NULL,
+ token TEXT NOT NULL, expires_at INTEGER NOT NULL,
+ PRIMARY KEY (user_id,operation,idempotency_key)
+);
+--> statement-breakpoint
+CREATE INDEX ix_moderation_request_expiry ON moderation_request_leases(expires_at);

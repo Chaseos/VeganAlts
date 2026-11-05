@@ -1,3 +1,8 @@
+import { contributedText } from "../../moderation/domain/safety";
+import {
+  ModerationWorkService,
+  requireAutomatedCheck,
+} from "../../moderation/application/work-service";
 import { ApplicationError } from "../../shared/domain/errors";
 import type {
   Actor,
@@ -23,7 +28,10 @@ import { StagedMediaRepository } from "../infrastructure/staged-media-repository
 import type { StagedMediaService } from "./staged-media-service";
 import type { ReceiptWrite } from "../infrastructure/receipts";
 import type { SubmissionContext } from "../infrastructure/lookup-repository";
-import type { ModerationDecisionService } from "../../moderation/application/decision-service";
+import type {
+  ModerationDecisionService,
+  DecisionResult,
+} from "../../moderation/application/decision-service";
 import { combineDecisions } from "../../moderation/domain/decisions";
 import type { RatingOutcome } from "./publication-extras";
 import { categoryKey } from "../../taxonomy/domain/taxonomy";
@@ -51,6 +59,7 @@ export class SubmissionService {
     // says what became of the rating.
     private readonly afterPublish:
       ((receiptId: string) => Promise<{ rating: RatingOutcome }>) | null = null,
+    private readonly work?: ModerationWorkService,
   ) {}
   /**
    * Why a suggested food can't be added, as a contributor-facing reason, or
@@ -285,6 +294,23 @@ export class SubmissionService {
   }
   async finalize(actor: Actor, receiptId: string, input: SubmissionInput) {
     active(actor);
+    const data = { receiptId, input };
+    return this.work
+      ? this.work.execute(
+          actor.id,
+          "submission_finalize",
+          receiptId,
+          data,
+          () => this.finalizeNow(actor, receiptId, input),
+        )
+      : this.finalizeNow(actor, receiptId, input);
+  }
+  private async finalizeNow(
+    actor: Actor,
+    receiptId: string,
+    input: SubmissionInput,
+  ) {
+    active(actor);
     const receipt = await this.owned(actor, receiptId);
     if (
       receipt.purpose !== "submission" ||
@@ -319,6 +345,34 @@ export class SubmissionService {
     if (decision.decision === "NEEDS_CHANGES")
       return { ...decision, receiptId };
     await this.validateImages(receipt, input);
+    // The complete payload goes through safety before either Clef evaluation.
+    const automatedInput = await this.decisionInput(receipt, input, context);
+    let productEvaluation: DecisionResult | undefined;
+    if (input.newFood) {
+      productEvaluation = await this.decisions.evaluate({
+        kind: "submission",
+        subject: { type: "submission", id: receipt.id },
+        userId: actor.id,
+        ...automatedInput,
+      });
+      requireAutomatedCheck(productEvaluation);
+      if (productEvaluation.outcome === "BLOCKED") {
+        await this.repository.block(receipt.id, this.clock());
+        return {
+          ...decision,
+          decision: "BLOCKED" as const,
+          reasons: productEvaluation.reasons,
+          receiptId,
+        };
+      }
+      if (productEvaluation.outcome === "NEEDS_CHANGES")
+        return {
+          ...decision,
+          decision: "NEEDS_CHANGES" as const,
+          reasons: productEvaluation.reasons,
+          receiptId,
+        };
+    }
     // A suggested food is checked again (names and allowances move) and
     // assessed on its own before it is held with the product.
     const food = await this.foodProblem(actor, input);
@@ -333,6 +387,7 @@ export class SubmissionService {
     if (input.newFood && !food.carry) {
       const suggestion = await this.decisions.evaluate({
         kind: "category_proposal",
+        safety: automatedInput.safety,
         subject: { type: "category_proposal", id: proposalId },
         userId: actor.id,
         state: {
@@ -344,7 +399,13 @@ export class SubmissionService {
           },
         },
       });
+      requireAutomatedCheck(suggestion);
       if (suggestion.outcome === "BLOCKED") {
+        await this.decisions.restrictSubject(
+          "submission",
+          receipt.id,
+          suggestion,
+        );
         await this.repository.block(receipt.id, this.clock());
         return {
           ...decision,
@@ -363,12 +424,16 @@ export class SubmissionService {
     }
     // Automated evidence checks run only after every deterministic gate and
     // can only make the decision more restrictive.
-    const automated = await this.decisions.evaluate({
-      kind: "submission",
-      subject: { type: "submission", id: receipt.id },
-      userId: actor.id,
-      ...(await this.decisionInput(receipt, input, context)),
-    });
+    const automated =
+      productEvaluation ??
+      (await this.decisions.evaluate({
+        kind: "submission",
+        subject: { type: "submission", id: receipt.id },
+        userId: actor.id,
+        ...automatedInput,
+      }));
+    requireAutomatedCheck(automated);
+    await this.work?.assertCurrent();
     // An ingredients photo the check could not read lowers the classification
     // to "Ingredients not checked yet" instead of holding the product.
     const unreadablePhoto = onlyUnreadablePhoto(automated);
@@ -585,6 +650,7 @@ export class SubmissionService {
   ) {
     const images = await this.media.decisionImages(receipt.id);
     return {
+      safety: { text: contributedText(input), images },
       state: {
         product: {
           brand: context.brandName,

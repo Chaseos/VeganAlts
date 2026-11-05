@@ -28,7 +28,7 @@ it("canonicalizes HTTP and www including static paths without dropping path or q
 it("never shares private, write, error, or Set-Cookie responses", () => {
   for (const path of [
     "/account",
-    "/admin/media",
+    "/admin/moderation",
     "/api/auth/get-session",
     "/healthz",
   ]) {

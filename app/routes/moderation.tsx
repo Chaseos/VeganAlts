@@ -19,7 +19,10 @@ import {
   CommunityControls,
 } from "../components/community-form";
 import { CatalogSelect } from "../components/catalog-select";
+import { CatalogReversalPreview } from "../components/catalog-reversal-preview";
+import { ProductRemovalControls } from "../components/product-removal-controls";
 import {
+  NO_NOTE,
   useCommunityAction,
   friendly,
   dateLabel,
@@ -45,7 +48,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     )) as unknown as CommunityOptions;
     const donorId = url.searchParams.get("donor");
     if (donorId && !options.products.some((p) => p.id === donorId)) {
-      const { product: donor } = await services.moderation.product(
+      const { product: donor, brand } = await services.moderation.product(
         actor,
         donorId,
       );
@@ -54,6 +57,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         name: donor.name,
         slug: donor.slug,
         countryId: donor.countryId,
+        country: donor.countryCode.toUpperCase(),
+        brand,
       });
     }
     return {
@@ -119,7 +124,10 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
       policy: string;
     } | null>(null),
     [reverseId, setReverseId] = useState<string | null>(null),
-    [moveTo, setMoveTo] = useState("");
+    [moveTo, setMoveTo] = useState(""),
+    [decision, setDecision] = useState("");
+  // The contributor reads a rejection or follow-up; other notes are optional.
+  const noteRequired = ["reject", "follow_up", "dismiss"].includes(decision);
   async function decide(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (data.view !== "detail") return;
@@ -132,7 +140,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         {
           decision: form.get("decision"),
           expectedRevision: data.detail.revision,
-          note: form.get("note"),
+          note: form.get("note") || NO_NOTE,
           effect: reported ? effect : "none",
           // Fences the decision to the product state shown in this review.
           ...(product ? { expectedProductRevision: product.revision } : {}),
@@ -205,7 +213,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
             : target === "new"
               ? { newLineName: form.get("newLineName") }
               : { lineId: target }),
-          note: form.get("note"),
+          note: form.get("note") || NO_NOTE,
         },
       );
       setMoveTo("");
@@ -260,8 +268,8 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                   : "Review contribution"}
           </h1>
           <p>
-            Inspect the evidence, preserve history, and record a reason for
-            every decision.
+            Inspect the evidence, preserve history, and note why for every
+            decision.
           </p>
         </header>
         {data.view === "inbox" && (
@@ -389,7 +397,11 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
               ) ? (
                 <form className="community-form" onSubmit={decide}>
                   <label htmlFor="decision">Decision</label>
-                  <select id="decision" name="decision">
+                  <select
+                    id="decision"
+                    name="decision"
+                    onChange={(e) => setDecision(e.target.value)}
+                  >
                     {data.detail.kind === "comment" ? (
                       <>
                         <option value="accept">Publish comment</option>
@@ -426,7 +438,9 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                         <option value="">
                           Keep what the evidence supports
                         </option>
-                        <option value="appears_vegan">Appears vegan</option>
+                        <option value="appears_plant_based">
+                          Appears plant-based
+                        </option>
                         <option value="vegan">Vegan</option>
                         <option value="plant_based">Plant-based</option>
                         <option value="under_review">Under review</option>
@@ -465,6 +479,12 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                             Hide comment from public view
                           </option>
                         )}
+                        {reported.targetType === "product" &&
+                          reported.reason === "out_of_scope" && (
+                            <option value="remove_product">
+                              Remove product from catalog
+                            </option>
+                          )}
                       </select>
                       {effect === "under_review" && (
                         <p className="notice">
@@ -474,8 +494,16 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                       )}
                       {effect === "hide_comment" && (
                         <p className="notice">
-                          The comment is collapsed from public view. Its text,
+                          The comment is hidden from public view. Its text,
                           votes and audit history remain recoverable.
+                        </p>
+                      )}
+                      {effect === "remove_product" && (
+                        <p className="notice">
+                          This removes the product from public pages, search and
+                          rankings. Its photos, formulas, ratings and comments
+                          are preserved, and the removal can be reversed from
+                          its decision history.
                         </p>
                       )}
                       {effect === "remove_image" && (
@@ -486,13 +514,16 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                       )}
                     </>
                   )}
-                  <label htmlFor="decision-note">Reason and next steps</label>
+                  <label htmlFor="decision-note">
+                    Reason and next steps
+                    {noteRequired ? "" : " (optional)"}
+                  </label>
                   <textarea
                     id="decision-note"
                     name="note"
                     minLength={8}
                     maxLength={2000}
-                    required
+                    required={noteRequired}
                     rows={5}
                   />
                   <button
@@ -587,15 +618,18 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
               >
                 Public entry ↗
               </Link>
-              <Link to={`/contribute/${data.product.id}`}>
-                Propose a catalog change
-              </Link>
+              <Link to={`/contribute/${data.product.id}`}>Edit product</Link>
               <Link
                 to={`/admin/moderation/consolidate?donor=${data.product.id}`}
               >
                 Duplicate preview
               </Link>
             </div>
+            <ProductRemovalControls
+              product={data.product}
+              action={action}
+              onRemoved={() => void revalidator.revalidate()}
+            />
             <section aria-labelledby="line-title">
               <h2 id="line-title">Recipe line</h2>
               <p>
@@ -643,11 +677,10 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                     />
                   </>
                 )}
-                <label htmlFor="move-note">Reason</label>
+                <label htmlFor="move-note">Reason (optional)</label>
                 <textarea
                   id="move-note"
                   name="note"
-                  required
                   minLength={8}
                   maxLength={2000}
                 />
@@ -672,11 +705,10 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                   maxLength={160}
                   defaultValue={data.product.lineName ?? ""}
                 />
-                <label htmlFor="line-rename-note">Reason</label>
+                <label htmlFor="line-rename-note">Reason (optional)</label>
                 <textarea
                   id="line-rename-note"
                   name="note"
-                  required
                   minLength={8}
                   maxLength={2000}
                 />
@@ -741,10 +773,17 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
               <form className="community-form" onSubmit={reverse}>
                 <h3>Reverse the selected catalog decision</h3>
                 {reversing && (
-                  <p>
-                    <strong>{friendly(reversing.kind)}</strong> ·{" "}
-                    {dateLabel(reversing.created_at)}: {reversing.note}
-                  </p>
+                  <>
+                    <p>
+                      <strong>{friendly(reversing.kind)}</strong> ·{" "}
+                      {dateLabel(reversing.created_at)}: {reversing.note}
+                    </p>
+                    <CatalogReversalPreview
+                      before={JSON.parse(reversing.before_data)}
+                      after={JSON.parse(reversing.after_data)}
+                      labels={data.referenceLabels}
+                    />
+                  </>
                 )}
                 <label htmlFor="reverse-note">Reason for reversal</label>
                 <textarea

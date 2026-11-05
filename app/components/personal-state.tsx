@@ -25,6 +25,11 @@ import {
   storePendingRating,
   type PendingRating,
 } from "../lib/pending-rating";
+import {
+  clearPendingSave,
+  readPendingSave,
+  storePendingSave,
+} from "../lib/pending-save";
 
 type User = RatingState["user"];
 interface PersonalContext {
@@ -38,6 +43,14 @@ interface PersonalContext {
   pending: PendingRating | null;
   visibleVersionIds: string[];
   forgetPending: () => void;
+  // Absent until this browser knows; the save icon then falls back to its page.
+  saved: Record<string, boolean>;
+  registerSaved: (productId: string) => () => void;
+  setProductSaved: (
+    productId: string,
+    value: boolean,
+    returnTo: string,
+  ) => Promise<void>;
 }
 const Context = createContext<PersonalContext | null>(null);
 export const ratingKey = (versionId: string, categoryId: string) =>
@@ -75,6 +88,12 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<PendingRating | null>(null);
   const [states, setStates] = useState<Record<string, RatingControlState>>({});
   const [revision, setRevision] = useState(0);
+  const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const savedRef = useRef<Record<string, boolean>>({});
+  // A write in this tab outranks a state read that may have started before it.
+  const writtenSaves = useRef(new Set<string>());
+  const attemptedSave = useRef<string | null>(null);
+  const savedProducts = useRef(new Map<string, number>());
   const versions = useRef(new Map<string, number>());
   const queues = useRef(new Map<string, RatingQueue>());
   const attempted = useRef(new Set<string>());
@@ -85,15 +104,27 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
       active.current = false;
     };
   }, []);
-  const register = useCallback((id: string) => {
-    versions.current.set(id, (versions.current.get(id) ?? 0) + 1);
+  const trackId = useCallback((tracked: Map<string, number>, id: string) => {
+    tracked.set(id, (tracked.get(id) ?? 0) + 1);
     setRevision((value) => value + 1);
     return () => {
-      const count = (versions.current.get(id) ?? 1) - 1;
-      if (count) versions.current.set(id, count);
-      else versions.current.delete(id);
+      const count = (tracked.get(id) ?? 1) - 1;
+      if (count) tracked.set(id, count);
+      else tracked.delete(id);
       setRevision((value) => value + 1);
     };
+  }, []);
+  const register = useCallback(
+    (id: string) => trackId(versions.current, id),
+    [trackId],
+  );
+  const registerSaved = useCallback(
+    (id: string) => trackId(savedProducts.current, id),
+    [trackId],
+  );
+  const markSaved = useCallback((productId: string, value: boolean) => {
+    savedRef.current = { ...savedRef.current, [productId]: value };
+    setSaved(savedRef.current);
   }, []);
 
   const signIn = useCallback((input: RatingInput, returnTo: string) => {
@@ -207,6 +238,55 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
     [signIn],
   );
 
+  const signInToSave = useCallback((productId: string, returnTo: string) => {
+    try {
+      storePendingSave(sessionStorage, productId);
+    } catch {
+      /* Signing in still works; the visitor taps save again afterwards. */
+    }
+    window.location.assign(`/sign-in?returnTo=${encodeURIComponent(returnTo)}`);
+  }, []);
+
+  const writeSaved = useCallback(
+    async (productId: string, value: boolean, returnTo: string) => {
+      const response = await fetch(
+        `/api/v1/me/saved-products/${encodeURIComponent(productId)}`,
+        { method: value ? "PUT" : "DELETE" },
+      ).catch(() => {
+        throw new Error("Connection lost. Please try again.");
+      });
+      if (response.status === 401) {
+        userRef.current = null;
+        setUser(null);
+        if (value) signInToSave(productId, returnTo);
+        else
+          window.location.assign(
+            `/sign-in?returnTo=${encodeURIComponent(returnTo)}`,
+          );
+        return;
+      }
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as {
+          title?: string;
+        } | null;
+        throw new Error(
+          result?.title ?? "Your saved list didn’t change. Please try again.",
+        );
+      }
+      writtenSaves.current.add(productId);
+      markSaved(productId, value);
+    },
+    [markSaved, signInToSave],
+  );
+
+  const setProductSaved = useCallback(
+    async (productId: string, value: boolean, returnTo: string) => {
+      if (!userRef.current) signInToSave(productId, returnTo);
+      else await writeSaved(productId, value, returnTo);
+    },
+    [signInToSave, writeSaved],
+  );
+
   const select = useCallback(
     (input: RatingInput, returnTo: string) => {
       try {
@@ -231,8 +311,9 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       const ids = [...versions.current.keys()].slice(0, 40);
+      const productIds = [...savedProducts.current.keys()].slice(0, 40);
       void fetch(
-        `/api/v1/me/rating-state?versionIds=${encodeURIComponent(ids.join(","))}`,
+        `/api/v1/me/rating-state?versionIds=${encodeURIComponent(ids.join(","))}&productIds=${encodeURIComponent(productIds.join(","))}`,
         { signal: controller.signal, cache: "no-store" },
       )
         .then(async (response) => {
@@ -250,11 +331,15 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
           ) {
             queues.current.clear();
             setStates({});
+            writtenSaves.current.clear();
           }
           userRef.current = data.user;
           setUser(data.user);
           setSiteKey(data.turnstileSiteKey);
           setError("");
+          for (const id of productIds)
+            if (!writtenSaves.current.has(id))
+              markSaved(id, data.savedProductIds.includes(id));
           for (const rating of data.ratings)
             getQueue(
               rating,
@@ -265,6 +350,21 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
               rating,
             );
           if (data.user) {
+            const pendingSave = (() => {
+              try {
+                return readPendingSave(sessionStorage);
+              } catch {
+                return null;
+              }
+            })();
+            if (pendingSave && attemptedSave.current !== pendingSave) {
+              attemptedSave.current = pendingSave;
+              void writeSaved(pendingSave, true, window.location.pathname)
+                .then(() => clearPendingSave(sessionStorage))
+                .catch(() => {
+                  /* Kept for the next page, which tries once more. */
+                });
+            }
             let pending;
             try {
               pending = readPendingRating(
@@ -294,7 +394,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [revision, location.pathname, getQueue]);
+  }, [revision, location.pathname, getQueue, markSaved, writeSaved]);
 
   return (
     <Context.Provider
@@ -315,6 +415,9 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
           }
         },
         retryLoad: () => setRevision((value) => value + 1),
+        saved,
+        registerSaved,
+        setProductSaved,
       }}
     >
       {children}

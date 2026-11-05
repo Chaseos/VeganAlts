@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import type { QueueDecisionRepository } from "@server/community/infrastructure/queue-decision-repository";
-import { friendly, dateLabel } from "../lib/community";
+import { friendly, dateLabel, reportReasonLabel } from "../lib/community";
 import { veganStatusLabel } from "./ui/badges";
 import {
   allergenDeclaration,
@@ -68,7 +68,9 @@ export function ProposalSummary({
                   ? input[key]
                     ? "Yes"
                     : "No"
-                  : friendly(String(input[key]))}
+                  : key === "reason"
+                    ? reportReasonLabel(String(input[key]))
+                    : friendly(String(input[key]))}
               </dd>
             </div>
           ))}
@@ -196,6 +198,24 @@ export function AutomatedChecks({
         <p>
           <strong>Signals:</strong> {checks.flags.map(friendly).join(", ")}
         </p>
+      )}
+      {checks.safety && (
+        <div>
+          <p>
+            Safety: {checks.safety.model}
+            {checks.safety.reused ? " (reused)" : ""}.{" "}
+            {checks.safety.result.flagged ? "Flagged" : "Passed"}.
+          </p>
+          {Object.entries(checks.safety.result.categories)
+            .filter(([, flag]) => flag)
+            .map(([category]) => (
+              <p key={category}>
+                {friendly(category)}: score{" "}
+                {checks.safety!.result.scores[category]?.toFixed(3)} (
+                {checks.safety!.result.appliedInputTypes[category]?.join(", ")})
+              </p>
+            ))}
+        </div>
       )}
       {checks.answers.length > 0 && (
         <dl className="review-facts">

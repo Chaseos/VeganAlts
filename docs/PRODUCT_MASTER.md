@@ -585,7 +585,7 @@ status.
 | **Status**    | **Meaning**                                                                                                                                           |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Vegan         | Available evidence supports that the product contains no animal-derived ingredients.                                                                  |
-| Appears Vegan | No known animal-derived ingredients are identified, but evidence is incomplete or not yet strong enough for full verification.                        |
+| Appears Plant-based | No known animal-derived ingredients are identified, but evidence is incomplete or not yet strong enough for full verification.                        |
 | Plant-Based   | Manufacturer or market positioning uses plant-based language; this can coexist with other metadata and does not automatically guarantee vegan status. |
 | Under Review  | A credible ingredient or classification concern is pending resolution.                                                                                |
 
@@ -603,9 +603,22 @@ status.
 
 ## Ingredient evidence
 
-A typed ingredient list is not required for v1. Package images can act
-as the supporting source of truth. Structured ingredient transcription
-or extraction can be introduced later if it becomes useful.
+A typed ingredient list is stored with its formula when the owner imports
+the existing store-photo batches. The transcription records the package
+wording, the photo or online source used, the independent readings, and how
+differences were resolved. A readable package list is the primary evidence;
+an exact-product online list may supplement words the package photo does not
+show, with its URL and lookup date recorded separately. Conflicting or
+uncertain evidence stays unresolved for operator review.
+
+For these imported batches, the ingredient list is assessed for animal-derived
+ingredients. An explicit vegan word or mark on the package controls Vegan
+status even when an ingredient origin remains unclear. With no vegan package
+claim, a clean list with no flags supports `plant_based`, whether or not the
+package says plant-based; unresolved origins, unreadable text or no usable
+source support `appears_plant_based`. Confirmed animal-derived ingredients
+remain under review for an owner decision. This batch assessment does not
+change the future photo-upload review flow.
 
 # 09 Retailers & Availability
 
@@ -1142,7 +1155,7 @@ Food
 
 The launch foods stay where they are. New shelves whose name could also be a food's use a `-shelf` slug (`turkey-shelf`, `fish-shelf`) so the plain slug stays free for the food; shelves have no page of their own. Navigation hides a shelf level that only repeats its aisle or food ("All foods / Eggs aisle / Eggs").
 
-**Product additions (§06).** Adding a product asks for its name, brand, food and a front photo, with the country taken from the page. This supersedes the milestone 3 decision that new submissions require an ingredient-panel photo or manufacturer ingredient source. Ingredient evidence, the contributor's rating, stores, an allergen declaration, back and nutrition photos, variant details and further foods are optional and collected on a second step before one submit. Duplicate matches appear while the contributor types. A product published without ingredient evidence shows "Ingredients not checked yet" until someone adds evidence and another member confirms it; it still ranks and can be rated. A contributor who cannot find the food suggests it inside the same form, and the product goes live once the food is accepted.
+**Product additions (§06).** Adding a product asks for its brand, food, name and a front photo, with the country taken from the page. The brand comes first: the food field opens once it is chosen and lists that brand's foods first, with every other food still available, and the brand's listed products show their photos and open their pages. This supersedes the milestone 3 decision that new submissions require an ingredient-panel photo or manufacturer ingredient source. All photos are added together on the first step: the front photo is required, and ingredients, back and nutrition photos are optional. An ingredient link, the contributor's rating, stores, an allergen declaration, variant details and further foods are optional and collected on a second step before one submit. Duplicate matches appear while the contributor types. A product published without ingredient evidence shows "Ingredients not checked yet" until someone adds evidence and another member confirms it; it still ranks and can be rated. A contributor who cannot find the food suggests it inside the same form, and the product goes live once the food is accepted.
 
 **Wording.** People see aisles, shelves and foods. "Suggest a food" is the action for a missing food; "category" stays an internal term.
 
@@ -1244,7 +1257,7 @@ Every product belongs to the one country it is added in.
 - **Shape.** The taxonomy is two levels below the root, and shelves are removed.
 - **Public wording (owner, 2026-10-20).** Navigation calls the broad aisles "Categories" and their foods "food types". The desktop Foods menu shows these from the embedded country tree without requests on hover, focus or filtering. Branded products and rankings stay on the food pages. Existing internal identifiers and routes remain stable.
 - **Navigation groups (owner, 2026-10-20).** Desktop, phone navigation and the full directory organize categories under six shared headings, in this order: Meat & seafood; Dairy & eggs; Bakery & baking; Sweets & desserts; Sauces, dips & spreads; Meals & prepared foods. These are presentation groups, not another database level. Categories and foods keep their country-specific names, availability and popularity order within each group. The home and footer keep their six popular category shortcuts. Unknown categories remain visible under More foods; empty public groups are hidden. Add a product gains no step: an existing food determines its group, and suggesting a food uses the same Category selector with grouped headings. See MILESTONE_7_PLAN for the mapping and navigation behavior.
-- **The 18 aisles are universal,** the same in every country: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, and Bakery and desserts.
+- **The 23 aisles are universal,** the same in every country: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Desserts, Bakery, Toaster Pastries, Pizza, Meals, and Sauces. Pizza was added and Bakery and desserts split into Desserts and Bakery on 2026-10-15; Toaster Pastries, Meals and Sauces were added on 2026-10-16. Pepperoni was added as its own food under Pork on 2026-10-23.
 - **Each food has one aisle, and an aisle names a kind of product, never an occasion** such as Breakfast. Thin foods are broadened rather than held back, and foods without products stay listed.
 - **An aisle follows how a food is used, not what the original is made from.** Mayonnaise is a condiment and Tzatziki a dip, as stores shelve them. Search finds a food from either side.
 - **Foods sit directly under an aisle.** They can be as specific as each country needs.
@@ -1255,7 +1268,7 @@ Every product belongs to the one country it is added in.
 **Ordering and browsing (§03).**
 
 - **Popularity order.** In each country, aisles and the foods within them are ordered by popularity: most counted ratings first, from the rating aggregates.
-- **Default order.** A country without ratings uses a default store order: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Bakery and desserts.
+- **Default order.** A country without ratings uses a default store order: Beef, Chicken, Pork, Turkey, Lamb, Fish and seafood, Milk, Cream, Butter, Yogurt, Ice cream, Cheese, Eggs, Condiments, Dips and spreads, Chocolate, Candy, Desserts, Bakery, Toaster Pastries, Pizza, Meals, Sauces.
 - **Browse every food** shows each aisle as a card with its three most popular foods and "See all" when there are more.
 - **New aisles.** Operators can add aisles for any country, and an aisle shows only where it holds a food. Contributor aisle suggestions and per-country aisle names follow in milestone 8.
 
@@ -1268,32 +1281,42 @@ Every product belongs to the one country it is added in.
 
 **United States launch foods.** The initial database focuses on direct replacements in the United States.
 
-- **The list.** The plan's [launch food list](MILESTONE_7_PLAN.md#united-states-launch-foods) proposes 64 foods: the 10 launch foods plus 54 United States foods. Among them, each condiment and dip is its own food, Queso sits with the dips, sweets split into Chocolate and Candy, baked goods share one Bakery and desserts aisle, and Eggs for Baking is separate from cooked Eggs.
+- **The list.** The plan's [launch food list](MILESTONE_7_PLAN.md#united-states-launch-foods) proposes 64 foods: the 10 launch foods plus 54 United States foods. Among them, each condiment and dip is its own food, Queso sits with the dips, sweets split into Chocolate and Candy, baked goods shared one Bakery and desserts aisle (split into Desserts and Bakery on 2026-10-15), and Eggs for Baking is separate from cooked Eggs.
 - **A starting set.** The list is a starting set, not a fixed one. Foods grow through suggestions, and each country grows its own.
+- **Added from the first photo batch (owner, 2026-10-15).** Steak, Beef Deli Slices, Chicken Bites, Dinner Sausages, Bottled Lattes, Heavy Cream, Swiss Cheese, Feta and Pizza, in a new Pizza aisle. Bakery and desserts split into Desserts and Bakery, and cookie dough is part of Cookies. A swap is any plant-based alternative to an animal product, including dishes defined by one such as mac and cheese, Alfredo sauce and bouillon; foods are added as products are found.
+- **Added from the full photo batch (owner, 2026-10-16).** 37 foods and the Toaster Pastries, Meals and Sauces aisles (see the plan's list). Kimchi counts because traditional kimchi uses fish sauce; plain dark chocolate stays out. Foods are added when their first product is found. Spinach Artichoke Dip and Chocolate Spread now have products; Pepper Jack, French Onion Dip, White Chocolate, Brownies, and Brioche and Rolls remain off until a product is found.
+- **Photo-batch taxonomy revision (owner, 2026-10-23).** Include a product only when it replaces a conventional food that usually contains animal ingredients, or a dish commonly made with them. Exclude the 12 products whose transcribed lists confirm animal-derived ingredients. Fold Peanut Butter Cups into **Nut Butter Cups**; Chocolate Peanut Spread and Chocolate Hazelnut Spread into **Chocolate Spread**; Cheese Ravioli and Tortellini into **Cheese-Filled Pasta**; banana bread into Cake; beef strips into Steak; and creamy dill dressing into Ranch Dressing. Blue Cheese Dressing and Honey Mustard Dressing join Condiments. Pepperoni is its own food under Pork. Keep Bitchin' Sauce under **Creamy Dips**, a broad category for creamy dip alternatives ([about Bitchin' Sauce](https://bitchinsauce.com/pages/about-us)).
+- **Production-readiness scope (owner, 2026-10-23; supersedes the broader substitute rule above).** Products must be intended to imitate an animal-based original. Generic vegetable burgers and vegetable meals need evidence of that intent. Mixes require a vegan preparation supplied on the package or by the manufacturer; an improvised egg substitution does not qualify. Actual Veggies burgers are excluded. Unresolved products are held out of public discovery pending evidence. Ordinary dark/semisweet chips do not qualify solely because their ingredients happen to be vegan; explicit dairy-chocolate alternatives may qualify. Keep Bitchin’ Sauce in Creamy Dips.
+- **Targeted food corrections from the release review.** Keep the navigation groups and aisles. Brownies, Blondies and Banana Bread have separate foods; Fruit Pies and Cheesecake replace the combined comparison. Daring meals with imitation chicken qualify but rank in Chicken Chili, Chicken Stir-Fry, Chicken Pasta or Chicken and Chickpeas, each distinct recipe in its own line. A mixed-flavor variety pack is held instead of representing one flavor. Confirmed duplicates are consolidated reversibly, preserving formula and rating history. This supersedes the earlier banana-bread-in-Cake and combined pie/skillet assignments.
 - **Detail questions.** Milk's "In coffee" becomes "In hot drinks", and Milk and Eggs gain Baking.
 
 The owner confirmed the tree on 2026-10-12. The 10 launch foods stay on in all six launch countries, the 32 new foods start in the United States, and the aisles are shared by every country. Eggs for Baking and Turkey Deli Slices were added on 2026-10-12:
 
 ```text
 Food
-├─ Beef ── Ground Beef · Beef Burgers · Meatballs · Hot Dogs
-├─ Chicken ── Chicken Nuggets · Grilled Chicken Strips · Chicken Patties · Chicken Tenders · Boneless Wings
-├─ Pork ── Bacon · Breakfast Sausage · Chorizo · Italian Sausage
+├─ Beef ── Ground Beef · Beef Burgers · Meatballs · Hot Dogs · Steak · Beef Deli Slices · Corn Dogs · Canned Roast Beef
+├─ Chicken ── Chicken Nuggets · Grilled Chicken Strips · Chicken Patties · Chicken Tenders · Boneless Wings · Chicken Bites · Shredded Chicken · Chicken Breasts
+├─ Pork ── Bacon · Breakfast Sausage · Chorizo · Italian Sausage · Dinner Sausages · Pulled Pork · Ribs · Ham Roast · Ham Deli Slices · Salami Deli Slices · Luncheon Meat
 ├─ Turkey ── Turkey Roast · Turkey Deli Slices
 ├─ Lamb ── (no food yet)
 ├─ Fish and seafood ── Fish Fillets
-├─ Milk ── Milk · Chocolate Milk · Eggnog
-├─ Cream ── Coffee Creamer · Half-and-Half · Sour Cream · Whipped Cream
+├─ Milk ── Milk · Chocolate Milk · Eggnog · Bottled Lattes
+├─ Cream ── Coffee Creamer · Half-and-Half · Sour Cream · Whipped Cream · Heavy Cream
 ├─ Butter ── Butter
 ├─ Yogurt ── Yogurt · Greek Yogurt
 ├─ Ice cream ── Ice Cream
-├─ Cheese ── Cheddar · Mozzarella · Smoked Gouda · Pepper Jack · American Cheese · Mexican Blend · Parmesan · Cream Cheese
+├─ Cheese ── Cheddar · Mozzarella · Smoked Gouda · American Cheese · Mexican Blend · Parmesan · Swiss Cheese · Feta · Ricotta · Provolone · Soft Cheese · Italian Blend · Cheddar Mozzarella Blend · Cream Cheese
 ├─ Eggs ── Eggs · Eggs for Baking
-├─ Condiments ── Mayonnaise · Ranch Dressing · Caesar Dressing · Worcestershire Sauce
-├─ Dips and spreads ── Queso · Spinach Artichoke Dip · French Onion Dip · Tzatziki
-├─ Chocolate ── Milk Chocolate · White Chocolate · Chocolate Chips · Peanut Butter Cups · Candy Bars · Candy-Coated Chocolates · Chocolate Hazelnut Spread
-├─ Candy ── Gummy Candy · Marshmallows · Caramels
-└─ Bakery and desserts ── Cookies · Cake · Brownies · Muffins · Cinnamon Rolls · Pies and Cheesecake · Brioche and Rolls · Pudding Cups · Baking Mixes
+├─ Condiments ── Mayonnaise · Ranch Dressing · Caesar Dressing · Worcestershire Sauce · Green Goddess Dressing · Thousand Island Dressing · Kimchi
+├─ Dips and spreads ── Queso · Tzatziki
+├─ Chocolate ── Milk Chocolate · Chocolate Chips · Peanut Butter Cups · Candy Bars · Candy-Coated Chocolates · Chocolate Peanut Spread · Hot Cocoa Mix · Caramel Cups
+├─ Candy ── Gummy Candy · Marshmallows · Caramels · Fruit Chews
+├─ Desserts ── Cookies · Cake · Brownies · Blondies · Fruit Pies · Cheesecake · Pudding Cups · Gelatin Cups
+├─ Bakery ── Muffins · Cinnamon Rolls · Baking Mixes
+├─ Toaster Pastries ── Toaster Pastries
+├─ Pizza ── Pizza
+├─ Meals ── Mac and Cheese · Chicken Chili · Chicken Stir-Fry · Chicken Pasta · Chicken and Chickpeas · Jamaican Beef Patties · Breakfast Burritos · Lasagna · Cheese Ravioli · Dumplings
+└─ Sauces ── Alfredo Sauce · Creamy Pasta Sauce · Pesto · Vodka Sauce · Gravy · Bouillon
 ```
 
 People see the top level as aisles.
@@ -1350,3 +1373,7 @@ Text/photo persistence failures are visible, and leaving is warned about only
 when work cannot safely survive navigation or reload. Contribution controls
 explain their JavaScript requirement. Full-size photos show loading, failure,
 and retry states; failed list thumbnails show the food icon.
+
+## Owner decision: automated safety (2026-10-23)
+
+New community text and uploaded images pass OpenAI safety moderation before the existing Clef checks. Built-in safety flags reject the contribution with an invitation to revise or appeal. The owner prioritizes low routine moderation workload: transient check outages are retried privately and eventually ask the contributor to resubmit, rather than creating manual review tasks. Protected factual changes keep their existing review rules. Private abuse reports and owner-only tools/imports are exempt. IP/account limits and atomic provider budgets apply before expensive work, including automatic retries.

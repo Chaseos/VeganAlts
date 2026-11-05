@@ -1,5 +1,8 @@
 import { useRef, useState } from "react";
 
+/** Stands in for a note someone was allowed to leave blank. */
+export const NO_NOTE = "No note added.";
+
 export class CommunityError extends Error {
   constructor(
     message: string,
@@ -46,13 +49,24 @@ export async function communityRequest<T>(
   } | null;
   if (!response.ok || !value || typeof value !== "object" || !("data" in value))
     throw new CommunityError(
-      response.status === 401
-        ? "Your session has expired. Sign in again, then retry. Your entries are still here."
-        : response.status === 429
-          ? "Too many requests. Wait a minute, then retry. Your entries are still here."
-          : response.status >= 500 || !value || typeof value !== "object"
-            ? "The server couldn’t complete this request. Please retry. Your entries are still here."
-            : (value.title ?? "The request could not be saved. Please retry."),
+      [
+        "CHECK_IN_PROGRESS",
+        "CHECKING_AUTOMATICALLY",
+        "CHECK_RESUBMIT_REQUIRED",
+        "MODERATION_UNAVAILABLE",
+        "PROFILE_CHECK_UNAVAILABLE",
+        "MODERATION_ACCOUNT_LIMIT",
+        "MODERATION_CAPACITY",
+      ].includes(value?.code ?? "")
+        ? (value?.title ?? "The check could not finish. Please retry.")
+        : response.status === 401
+          ? "Your session has expired. Sign in again, then retry. Your entries are still here."
+          : response.status === 429
+            ? "Too many requests. Wait a minute, then retry. Your entries are still here."
+            : response.status >= 500 || !value || typeof value !== "object"
+              ? "The server couldn’t complete this request. Please retry. Your entries are still here."
+              : (value.title ??
+                "The request could not be saved. Please retry."),
       value?.code ?? "REQUEST_FAILED",
       response.status,
     );
@@ -61,6 +75,7 @@ export async function communityRequest<T>(
 export function useCommunityAction() {
   const [busy, setBusy] = useState(false),
     [sessionExpired, setSessionExpired] = useState(false),
+    [checking, setChecking] = useState(false),
     [error, setError] = useState(""),
     [challenge, setChallenge] = useState(false),
     [challengeAttempt, setChallengeAttempt] = useState(0),
@@ -86,7 +101,18 @@ export function useCommunityAction() {
     // Tokens are single-use, including rejected requests. A multi-request flow
     // may need another challenge before its next upload or finalization.
     if (value) setChallengeAttempt((attempt) => attempt + 1);
-    const result = await communityRequest<T>(path, body, key, value);
+    let result: T;
+    try {
+      result = await communityRequest<T>(path, body, key, value);
+    } catch (error) {
+      if (
+        identity &&
+        error instanceof CommunityError &&
+        ["CHECK_RESUBMIT_REQUIRED", "CONTRIBUTION_BLOCKED"].includes(error.code)
+      )
+        keys.current.delete(identity);
+      throw error;
+    }
     if (identity) keys.current.delete(identity);
     return result;
   }
@@ -94,11 +120,16 @@ export function useCommunityAction() {
     setBusy(true);
     setError("");
     setSessionExpired(false);
+    setChecking(false);
     try {
       const result = await work();
       setChallenge(false);
       return result;
     } catch (error) {
+      setChecking(
+        error instanceof CommunityError &&
+          error.code === "CHECKING_AUTOMATICALLY",
+      );
       setSessionExpired(
         error instanceof CommunityError && error.status === 401,
       );
@@ -120,6 +151,7 @@ export function useCommunityAction() {
   return {
     busy,
     sessionExpired,
+    checking,
     error,
     challenge,
     challengeAttempt,
@@ -128,14 +160,24 @@ export function useCommunityAction() {
     setToken,
     request,
     run,
-    clearError: () => setError(""),
+    clearError: () => {
+      setError("");
+      setChecking(false);
+    },
   };
 }
 export interface CommunityOptions {
   brands: { id: string; name: string }[];
   categories: { id: string; name: string; slug: string }[];
   families: { id: string; name: string; brandId: string | null }[];
-  products: { id: string; name: string; slug: string; countryId: string }[];
+  products: {
+    id: string;
+    name: string;
+    slug: string;
+    countryId: string;
+    country: string;
+    brand: string | null;
+  }[];
   retailers: { id: string; name: string; websiteUrl: string | null }[];
 }
 export type CommunityAction = ReturnType<typeof useCommunityAction>;
@@ -144,6 +186,7 @@ export function friendly(value: string) {
 }
 // Report reasons whose code doesn't read well on its own (milestone 7).
 const REPORT_REASONS: Record<string, string> = {
+  out_of_scope: "Doesn’t belong on VeganAlts",
   flavor_not_real: "This flavor doesn’t exist",
   wrong_line: "Not part of this line",
 };

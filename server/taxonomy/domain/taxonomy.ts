@@ -32,6 +32,7 @@ export const RESERVED_SLUGS = new Set([
   "media",
   "users",
   "my-ratings",
+  "saved",
   "add-product",
   "contribute",
   "my-contributions",

@@ -17,7 +17,11 @@ import {
   type MaterialCatalogChange,
 } from "../server/shared/http/public-cache";
 import { deliverDocument } from "../server/shared/http/document-delivery";
-import { clientKey, enforceLimit } from "../server/abuse/service";
+import {
+  clientKey,
+  enforceLimit,
+  isContributionWrite,
+} from "../server/abuse/service";
 import {
   failureKind,
   recordEvent,
@@ -126,6 +130,11 @@ export default {
       )
         response = await env.ASSETS.fetch(request);
       else {
+        if (isContributionWrite(request))
+          await enforceLimit(
+            env.WRITE_IP_RATE_LIMIT,
+            `ip:${clientKey(request)}`,
+          );
         if (url.pathname.startsWith("/api/auth/"))
           await enforceLimit(env.AUTH_RATE_LIMIT, `ip:${clientKey(request)}`);
         if (route && ["GET", "HEAD"].includes(request.method)) {

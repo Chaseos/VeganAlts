@@ -52,11 +52,12 @@ export interface PublicComment {
   downvotes: number;
   collapsed: boolean;
   createdAt: number;
+  updatedAt: number;
   editedAt: number | null;
 }
 
 const visible = "c.moderation_state='visible' AND c.deleted_at IS NULL";
-const publicFields = `c.id,c.body,c.up_count AS upvotes,c.down_count AS downvotes,c.best_rank AS bestRank,c.created_at AS createdAt,c.edited_at AS editedAt,
+const publicFields = `c.id,c.body,c.up_count AS upvotes,c.down_count AS downvotes,c.best_rank AS bestRank,c.created_at AS createdAt,c.updated_at AS updatedAt,c.edited_at AS editedAt,
   pr.handle,pr.display_name AS displayName,v.id AS formulaId,COALESCE(v.version_label,'Original formula') AS formulaLabel,v.is_current AS isCurrent,
   cat.id AS categoryId,cat.name AS categoryName`;
 const publicJoins = `JOIN profiles pr ON pr.user_id=c.user_id AND pr.account_state='active'
@@ -138,6 +139,7 @@ export class D1CommentRepository {
           downvotes: number;
           bestRank: number;
           createdAt: number;
+          updatedAt: number;
           editedAt: number | null;
           handle: string;
           displayName: string | null;
@@ -169,6 +171,7 @@ export class D1CommentRepository {
         downvotes: r.downvotes,
         collapsed: isCollapsed(r.upvotes, r.downvotes, this.policy),
         createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
         editedAt: r.editedAt,
       })),
       nextCursor:

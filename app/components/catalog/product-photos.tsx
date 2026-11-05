@@ -5,22 +5,38 @@ import { Icon } from "../icons/icon";
 import { usePhotoSwipe } from "../../lib/use-photo-swipe";
 import { useHydrated } from "../../lib/use-hydrated";
 import { PhotoGallery } from "./photo-gallery";
+import { ProductPhotoAdmin } from "./product-photo-admin";
 
 /** One viewer for both the gallery and the photo contribution slots. */
 export function ProductPhotos({
   productId,
   productName,
   food,
-  images,
+  images: published,
   canPropose,
+  managedVersionId,
 }: {
   productId: string;
   productName: string;
   food: string;
   images: { id: string; slot: string; hasEvidence: number }[];
   canPropose: boolean;
+  // The current formula, whose photos an administrator can change here.
+  managedVersionId?: string;
 }) {
   const hydrated = useHydrated();
+  // A change shows at once: the cached page catches up on its own.
+  const [changed, setChanged] = useState<Partial<Record<ImageSlot, string>>>(
+    {},
+  );
+  const images = [
+    ...published.filter((image) => !changed[image.slot as ImageSlot]),
+    ...(Object.entries(changed) as [ImageSlot, string][]).map(([slot, id]) => ({
+      id,
+      slot,
+      hasEvidence: Number(slot === "ingredients" || slot === "nutrition"),
+    })),
+  ];
   const photos = (Object.keys(SLOT_LABELS) as ImageSlot[]).flatMap((slot) => {
     const photo = images.find((image) => image.slot === slot);
     return photo ? [{ ...photo, slot }] : [];
@@ -66,6 +82,15 @@ export function ProductPhotos({
           onOpenPhoto={hydrated ? openPhoto : undefined}
         />
       </details>
+      {managedVersionId && (
+        <ProductPhotoAdmin
+          versionId={managedVersionId}
+          images={images}
+          onChanged={(slot, id) =>
+            setChanged((current) => ({ ...current, [slot]: id }))
+          }
+        />
+      )}
       <dialog
         ref={dialog}
         className="va-photo-viewer"

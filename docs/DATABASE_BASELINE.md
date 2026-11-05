@@ -224,7 +224,7 @@ Suggested values:
 
 ```text
 vegan
-appears_vegan
+appears_plant_based
 plant_based
 under_review
 ```
@@ -543,7 +543,6 @@ Not required in the initial baseline unless implementation makes them immediatel
 - recipe-specific structured data;
 - restaurant chain/location integrations;
 - notification subscriptions;
-- saved/favorite lists;
 - barcode identifiers;
 - native-device tokens;
 - business/brand claim records.
@@ -613,7 +612,7 @@ The approved [milestone 6 specification](MILESTONE_6_PLAN.md) adds the following
     - inserting a `product_categories` row switches the food on in the product's country (covering publication, category additions and merges);
     - restoring a hidden product switches its foods on again.
 - `0020_quick_additions.sql`
-  - Adds `formula_classifications.ingredients_checked` (`1` by default). A check allows `0` only with the placeholder status `appears_vegan`, so an unchecked formula can never be stored as Vegan or Under Review.
+  - Adds `formula_classifications.ingredients_checked` (`1` by default). A check allows `0` only with the placeholder status `appears_plant_based`, so an unchecked formula can never be stored as Vegan or Under Review.
   - Adds `pending_submissions.category_proposal_id`, referencing `category_proposals`, with a partial index. A held submission that suggested a food points at that suggestion.
 
 **Foods per country.** Aisles and shelves are never country-scoped. Public reads list a food in a country only when it has a `category_countries` row there; groups without such a food are hidden. A food stays on wherever it has a visible product. Activating a new country switches no foods on. The taxonomy seed writes launch availability only for foods that have none, so an operator's choices are never overwritten.
@@ -627,7 +626,7 @@ The approved [milestone 6 specification](MILESTONE_6_PLAN.md) adds the following
 The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following. They were built as migrations `0002`–`0004` and folded into version 1, `0001_initial.sql`, before staging (owner decision, 2026-10-12). Every database is reset to version 1, so their backfills went with them. The folded file produces exactly the schema the four migrations produced.
 
 - **Aisle order and seasons**
-  - Adds `categories.position`, the default order of an aisle where a country has no ratings yet, seeded for the 18 aisles.
+  - Adds `categories.position`, the default order of an aisle where a country has no ratings yet, seeded for every aisle.
   - Adds `categories.season_start` and `categories.season_end`, both months 1–12; a season may wrap past December. Both are null for a food without a season, and a check keeps them both set or both null.
   - Adds `products.seasonal` (0 or 1).
 - **Recipe lines**
@@ -656,7 +655,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following. They we
 **Taxonomy shape.** This replaces milestone 5's three-level shape and milestone 6's starter shelves.
 
 - **Depth.** Aisles are children of the root and foods are children of aisles.
-- **Seed.** The taxonomy seed writes the 18 aisles and the launch foods.
+- **Seed.** The taxonomy seed writes the aisles and the launch foods.
 - **Availability.** `TAXONOMY_LEAVES` carries an optional `countries` list for launch availability.
 - **Existing environments.** For an environment that is not reset, the reshape script re-parents foods to aisles through the audited taxonomy path and retires the emptied shelves.
 
@@ -664,3 +663,33 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following. They we
 
 - **Seed processing.** `media_attempts.counted` (default 1). Owner-run demo seeding (`scripts/seed-images.ts`) records 0, so a reseed is neither held to nor spends the environment's daily processing allowance that web uploads share; both allowance checks count only `counted=1`.
 - **Brand index.** `brand_search` is an FTS5 table with the trigram tokenizer: each brand's name and other names (`names`), and its other names as a JSON array (`aliases`). Triggers on `brands` and `brand_aliases` keep it current in the same transaction as any write, and the search rebuild rewrites it. Brand lookups read candidates sharing three letters in a row with the typed text and, from five letters, brands whose `normalized_name` (or an alias's) starts with a typed word's first letter, through their unique indexes, so they never read every brand.
+
+## Store photo import persistence decisions
+
+The [store photo importer](IMPORTER_PLAN.md) (owner, 2026-10-16) writes no new table and no migration; version 1 is unchanged.
+
+- **Rows.** An imported product has the catalog rows a published submission has: brand, line, product, identity key, formula, food, classification, accepted photos, store confirmations, search documents and line statistics, written by the same statement builder in one transaction. It has no submission receipt, staged photos, media uploads or pending review.
+- **Ids.** Product, formula, photo, brand and audit ids are UUIDv5 in the `veganalts:import:` namespace, derived from the product's source key (`<batch folder>/<product id>`), so every environment and every rerun gets the same ids, slugs and photo keys. Lines keep the publication rule, `line-<first product id>`.
+- **Photos.** Keys are `products/<product>/<formula>/<image>/import/<kind>.webp`. The image id includes the full copy's SHA-256, so bytes under a referenced key never change. Imported ingredients and nutrition photos have no evidence copy (`evidence_r2_key` is null): their 1,800 px full copy is the most readable version kept.
+- **Idempotency.** Each product commits a `contribution_receipts` row (operation `catalog-import`) whose hash covers its site facts. A rerun replays it; changed facts are reported and never overwrite the catalog.
+- **Audit.** Each product records a `product_import` moderation action (before `{"lifecycleStatus":"hidden"}`, after `{"lifecycleStatus":"active"}`) with its `audit_log` entry, and a `product_published` audit entry holding the run, source key, manifest hash and submission facts. Runs record `catalog_import_started` and `catalog_import_finished` entries (entity type `catalog_import`).
+
+## Automated safety persistence (2026-10-23)
+
+Folded into the pre-release version 1 baseline under the owner's reset rule:
+
+- Moderation decision subjects also allow `profile` and `proposal_response`. Combined results retain structured `safety` and `evidence` stage details, with no extra OpenAI score cutoff.
+- `moderation_provider_attempts` stores each actual stage call, provider/model/hash, structured result, failure, latency and lease. Daily per-provider, per-account and environment budgets and concurrency are reserved atomically. Successful identical stages can be reused after another stage fails.
+- `moderation_jobs` stores a normalized private contribution payload and its original account, operation/key/hash, state, retry count, due/expiry times, lease token and result. The operation/key is unique per account. States are `checking`, `running`, `completed`, `blocked`, `retry_required`; attempts cannot exceed three additional calls. These are pending operations, not public content or manual review items. Existing approved comment text and proposal responses remain unchanged while revised content is checked.
+
+No remote schema operation is part of adding the code. Existing pre-release databases need the documented reset before enabling the updated Worker.
+
+`moderation_request_leases` holds a five-minute lease for an in-flight account/operation/idempotency key. It prevents duplicate provider calls even if surrounding comments or evidence context changes while the first request runs. Successful and rejected requests release their lease; hourly cleanup removes abandoned leases. It stores only the input hash, not a second payload.
+
+## Saved products
+
+`saved_products` (owner request, 2026-11-05) holds one private row per person and product, at product level rather than formula level, so a save survives a formula change. It is personal state only: nothing about it feeds ranking, trending or public profiles. Rows for hidden products stay stored but leave the list; an archived duplicate shows its surviving product.
+
+## Product analytics
+
+`product_view_days` (owner request, 2026-11-05) holds one anonymous count per product and UTC day: no person, session or IP. `/admin/analytics` reads it beside `saved_products` and `ratings`, showing administrators how many views, saves and counted raters each product has. Views and saves of an archived duplicate count toward its surviving product; its ratings do not, because consolidation doesn't transfer them. None of this feeds ranking, trending or any public page. Views aren't reproducible from canonical records, so they stay operator information.

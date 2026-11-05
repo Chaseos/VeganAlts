@@ -47,6 +47,9 @@ export function errorResponse(
         headers: {
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "private, no-store",
+          ...(known && (error.retryAfter || error.status === 429)
+            ? { "Retry-After": String(error.retryAfter ?? 60) }
+            : {}),
         },
       },
     );
@@ -57,6 +60,7 @@ export function errorResponse(
       title: known ? error.message : "Unexpected error",
       status: known ? error.status : 500,
       code: known ? error.code : "INTERNAL_ERROR",
+      ...(known ? error.details : {}),
       requestId,
     },
     {
@@ -64,6 +68,9 @@ export function errorResponse(
       headers: {
         "Content-Type": "application/problem+json",
         "Cache-Control": "private, no-store",
+        ...(known && (error.retryAfter || error.status === 429)
+          ? { "Retry-After": String(error.retryAfter ?? 60) }
+          : {}),
       },
     },
   );

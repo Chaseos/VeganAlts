@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import type { PublicComment } from "@server/comments/infrastructure/d1-comment-repository";
 import { reportReasons } from "@server/community/domain/contracts";
@@ -22,6 +22,7 @@ export function CommentItem({
   onVote,
   onEdit,
   onDelete,
+  onHide,
 }: {
   comment: PublicComment;
   vote: number;
@@ -31,11 +32,14 @@ export function CommentItem({
   onVote: (value: -1 | 0 | 1) => void;
   onEdit: (body: string) => Promise<boolean>;
   onDelete: () => void;
+  onHide?: (note: string) => Promise<boolean>;
 }) {
   const [revealed, setRevealed] = useState(false),
     [editing, setEditing] = useState(false),
     [reporting, setReporting] = useState(false),
     [reported, setReported] = useState(false);
+  const [hiding, setHiding] = useState(false);
+  const hideButton = useRef<HTMLButtonElement>(null);
   const hidden = comment.collapsed && !revealed;
   async function saveReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,6 +62,11 @@ export function CommentItem({
     event.preventDefault();
     const body = String(new FormData(event.currentTarget).get("body") ?? "");
     if (await onEdit(body)) setEditing(false);
+  }
+  async function hideComment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const note = String(new FormData(event.currentTarget).get("note") ?? "");
+    if (await onHide?.(note)) setHiding(false);
   }
   return (
     <li className="comment" id={`comment-${comment.id}`}>
@@ -172,7 +181,63 @@ export function CommentItem({
             </button>
           ))
         )}
+        {onHide && (
+          <button
+            ref={hideButton}
+            type="button"
+            className="link-button"
+            disabled={action.busy}
+            aria-expanded={hiding}
+            aria-controls={`hide-comment-${comment.id}`}
+            onClick={() => {
+              setHiding((value) => !value);
+              setReporting(false);
+              setEditing(false);
+            }}
+          >
+            Hide comment
+          </button>
+        )}
       </div>
+      {hiding && onHide && (
+        <form
+          id={`hide-comment-${comment.id}`}
+          className="community-form comment-report"
+          onSubmit={hideComment}
+        >
+          <p>
+            Hide this comment from public view? Its text and votes are
+            preserved, and you can restore it from the product’s decision
+            history.
+          </p>
+          <label htmlFor={`hide-note-${comment.id}`}>Reason for hiding</label>
+          <textarea
+            id={`hide-note-${comment.id}`}
+            name="note"
+            rows={2}
+            required
+            minLength={8}
+            maxLength={2000}
+            autoFocus
+          />
+          <div className="button-row">
+            <button className="button" disabled={action.busy}>
+              Confirm hide
+            </button>
+            <button
+              type="button"
+              className="button secondary"
+              disabled={action.busy}
+              onClick={() => {
+                setHiding(false);
+                hideButton.current?.focus();
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
       {reporting && (
         <form className="community-form comment-report" onSubmit={saveReport}>
           <label htmlFor={`reason-${comment.id}`}>Why report this?</label>

@@ -92,6 +92,27 @@ async function world() {
   };
 }
 
+it("holds a near-duplicate on distinctive words, not on words most vegan products share", async () => {
+  const w = await world();
+  // The candidates a submission would be held on, without using up submissions.
+  const held = async (name: string) =>
+    (
+      await w.services.submissions.checkIdentity(
+        w.contributor,
+        submissionIdentity.parse({ country: "US", brand: w.brand, name }),
+      )
+    ).length > 0;
+  await w.publish({ name: "Plant-Based Orchard Roast" });
+  await w.publish({ name: "Chopped Fajita Chic'ken" });
+  // Shared generic words, or one distinctive word of several, never hold.
+  expect(await held("Plant-Based Harvest Gravy")).toBe(false);
+  expect(await held("Classic Chic'ken")).toBe(false);
+  // Two distinctive words still do, and so does a name's only one.
+  expect(await held("Orchard Roast Deluxe")).toBe(true);
+  expect(await held("Plant-Based Roast")).toBe(true);
+  // An apostrophe is part of the word on both sides.
+  expect(await held("Fajita Chicken Bites")).toBe(true);
+});
 it("adds a new flavor to its line without a hold and names a flavored product's own line", async () => {
   const w = await world();
   const original = await w.publish({ name: "Orchard Patties" });
@@ -438,4 +459,160 @@ it("accepts a flavor rename and a seasonal mark as proposals and takes the new r
         reason,
       }).success,
     ).toBe(true);
+});
+
+const reason = {
+  urls: [],
+  imageIds: [],
+  note: "Checked the package against the catalog.",
+};
+it("applies an administrator's edit at once, audited and reversible, never a contributor's", async () => {
+  const w = await world();
+  const { productId } = await w.publish({ name: `Orchard Move ${tag()}` });
+  const other = w.f.categories[1]!;
+  const foods = async () =>
+    (
+      await env.DB.prepare(
+        "SELECT category_id AS id,ranking_eligible AS eligible FROM product_categories WHERE product_id=?",
+      )
+        .bind(productId)
+        .all<{ id: string; eligible: number }>()
+    ).results;
+  const change = changeInput.parse({
+    kind: "foods",
+    productId,
+    expectedRevision: await w.revision(productId),
+    categoryIds: [other],
+    evidence: reason,
+  });
+  await expect(
+    w.services.contributions.apply(w.contributor, id(), change),
+  ).rejects.toMatchObject({ status: 403 });
+  expect(await foods()).toEqual([{ id: w.food, eligible: 1 }]);
+
+  const applied = (await w.services.contributions.apply(
+    w.operator,
+    id(),
+    change,
+  )) as { actionId: string; productId: string };
+  expect(applied.productId).toBe(productId);
+  // An unrated food leaves entirely.
+  expect(await foods()).toEqual([{ id: other, eligible: 1 }]);
+  expect(
+    (await w.services.moderation.product(w.operator, productId)).actions.some(
+      (action) => action.id === applied.actionId,
+    ),
+  ).toBe(true);
+
+  await w.services.moderation.reverse(w.operator, id(), applied.actionId, {
+    expectedRevision: await w.revision(productId),
+    note: "The original food was right after all.",
+  });
+  expect(await foods()).toEqual([{ id: w.food, eligible: 1 }]);
+});
+it("keeps a rated food's ratings when an administrator moves the product", async () => {
+  const w = await world();
+  const { productId } = await w.publish({ name: `Orchard Rated ${tag()}` });
+  const other = w.f.categories[1]!;
+  const before = await w.services.repository.snapshot(productId);
+  await ratingsService(env).rate(w.contributor, before.versionId, w.food, 4);
+  await w.services.contributions.apply(
+    w.operator,
+    id(),
+    changeInput.parse({
+      kind: "foods",
+      productId,
+      expectedRevision: await w.revision(productId),
+      categoryIds: [other],
+      evidence: reason,
+    }),
+  );
+  expect(
+    await env.DB.prepare(
+      "SELECT ranking_eligible AS eligible FROM product_categories WHERE product_id=? AND category_id=?",
+    )
+      .bind(productId, w.food)
+      .first(),
+  ).toEqual({ eligible: 0 });
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM ratings WHERE product_version_id=? AND category_id=?",
+    )
+      .bind(before.versionId, w.food)
+      .first(),
+  ).toEqual({ n: 1 });
+});
+it("leaves no proposal waiting when an administrator's edit can't apply", async () => {
+  const w = await world();
+  const taken = `Orchard Taken ${tag()}`;
+  await w.publish({ name: taken });
+  const { productId } = await w.publish({ name: `Orchard Other ${tag()}` });
+  await expect(
+    w.services.contributions.apply(
+      w.operator,
+      id(),
+      changeInput.parse({
+        kind: "rename",
+        productId,
+        expectedRevision: await w.revision(productId),
+        name: taken,
+        evidence: reason,
+      }),
+    ),
+  ).rejects.toMatchObject({ code: "DUPLICATE_PRODUCT" });
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM edit_proposals WHERE target_id=? AND status='pending'",
+    )
+      .bind(productId)
+      .first(),
+  ).toEqual({ n: 0 });
+});
+it("moves a product to another brand and line together, reversibly", async () => {
+  const w = await world();
+  const a = await w.publish({ name: `Orchard Yogurt ${tag()}` });
+  const other = await w.publish({
+    brand: `Grove ${tag()}`,
+    name: `Grove Yogurt ${tag()}`,
+  });
+  const brandOf = async (productId: string) =>
+    (await w.services.repository.snapshot(productId)).brandId!;
+  const [startBrand, startLine] = [
+    await brandOf(a.productId),
+    (await w.product(a.productId)).lineId,
+  ];
+  const groveBrand = await brandOf(other.productId);
+  const change = (fields: object) =>
+    w.revision(a.productId).then((expectedRevision) =>
+      changeInput.parse({
+        kind: "brand",
+        productId: a.productId,
+        expectedRevision,
+        brandId: groveBrand,
+        evidence: reason,
+        ...fields,
+      }),
+    );
+  // A line of the old brand can't come with the new brand.
+  await expect(
+    w.services.contributions.apply(
+      w.operator,
+      id(),
+      await change({ lineId: startLine }),
+    ),
+  ).rejects.toThrow("Choose a line of this brand");
+  const applied = (await w.services.contributions.apply(
+    w.operator,
+    id(),
+    await change({ newLineName: "Grove Cups" }),
+  )) as { actionId: string };
+  expect(await brandOf(a.productId)).toBe(groveBrand);
+  expect((await w.product(a.productId)).lineName).toBe("Grove Cups");
+
+  await w.services.moderation.reverse(w.operator, id(), applied.actionId, {
+    expectedRevision: await w.revision(a.productId),
+    note: "It was the original brand after all.",
+  });
+  expect(await brandOf(a.productId)).toBe(startBrand);
+  expect((await w.product(a.productId)).lineId).toBe(startLine);
 });

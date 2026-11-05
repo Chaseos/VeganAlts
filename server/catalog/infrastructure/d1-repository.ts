@@ -34,6 +34,7 @@ import {
 } from "../../community/infrastructure/public-read";
 import { matchingBrandResults } from "./brand-rows";
 import type { SearchPosition, BrandPosition } from "../domain/batches";
+import { originalFlavorSql } from "../domain/flavor-label";
 
 const frontImageSql = (version = "v") =>
   `(SELECT i.id FROM product_images i WHERE i.product_version_id=${version}.id AND i.slot='front' AND i.state='accepted' LIMIT 1)`;
@@ -487,7 +488,7 @@ export class D1CatalogRepository implements CatalogRepository {
           FROM ${lineFlavorJoins("?")}
           LEFT JOIN product_category_stats ps ON ps.product_version_id=lfv.id AND ps.category_id=lfc.category_id
           WHERE lf.product_family_id IN (SELECT value FROM json_each(?)) AND lf.lifecycle_status='active' AND lf.vegan_status<>'under_review' AND lf.country_id=?
-          ORDER BY lf.product_family_id,lf.id`,
+          ORDER BY lf.product_family_id,NOT ${originalFlavorSql("lf")},lf.flavor,lf.name,lf.id`,
         )
         .bind(...match.binds, categoryId, JSON.stringify(lineIds), countryId)
         .all<FlavorRow & { allergens: unknown }>()
@@ -886,7 +887,7 @@ export class D1CatalogRepository implements CatalogRepository {
             COALESCE((SELECT json_group_array(c.slug) FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 WHERE pc.product_id=p.id),'[]') AS foods
           FROM products p LEFT JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
           WHERE p.product_family_id=? AND p.country_id=? AND p.id<>? AND p.lifecycle_status='active'
-          ORDER BY p.flavor IS NOT NULL,p.flavor,p.name,p.id LIMIT 50`,
+          ORDER BY NOT ${originalFlavorSql("p")},p.flavor,p.name,p.id LIMIT 50`,
         )
         .bind(lineId, countryId, productId)
         .all<Omit<SiblingFlavor, "foods"> & { foods: string }>()
@@ -951,7 +952,7 @@ export class D1CatalogRepository implements CatalogRepository {
             (SELECT json_group_array(json_object('id',lf.id,'slug',lf.slug,'name',lf.name,'flavor',lf.flavor))
               FROM (SELECT lf.id,lf.slug,lf.name,lf.flavor FROM products lf
                 JOIN product_categories lfc ON lfc.product_id=lf.id AND lfc.category_id=pl.categoryId
-                WHERE lf.product_family_id=pl.lineId AND ${listed("lf")} ORDER BY lf.flavor IS NOT NULL,lf.flavor,lf.name) lf) AS flavors
+                WHERE lf.product_family_id=pl.lineId AND ${listed("lf")} ORDER BY NOT ${originalFlavorSql("lf")},lf.flavor,lf.name) lf) AS flavors
           FROM placed pl JOIN product_families fam ON fam.id=pl.lineId
           LEFT JOIN family_category_stats s ON s.product_family_id=pl.lineId AND s.category_id=pl.categoryId
           LEFT JOIN ranked r ON r.categoryId=pl.categoryId AND r.lineId=pl.lineId

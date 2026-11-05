@@ -16,6 +16,23 @@ export interface FormulaClassification {
   // Absent in actions recorded before milestone 6, which were all checked.
   ingredientsChecked?: boolean;
 }
+/** A formula's stored package transcription and matching-source metadata. */
+export interface IngredientTranscriptionSnapshot {
+  packageIngredients: string | null;
+  packageContains: string | null;
+  packageMayContain: string | null;
+  sourceImageIds: string[];
+  readings: unknown[];
+  verification: string;
+  assessment: unknown;
+  onlineIngredients: string | null;
+  onlineContains: string | null;
+  onlineMayContain: string | null;
+  onlineUrl: string | null;
+  onlineAccessedAt: string | null;
+  onlineProductMatch: string | null;
+  createdAt: number;
+}
 export interface ProductSnapshot {
   id: string;
   name: string;
@@ -40,6 +57,7 @@ export interface ProductSnapshot {
   versionId: string;
   versionLabel: string | null;
   classification: FormulaClassification | null;
+  ingredientTranscription?: IngredientTranscriptionSnapshot | null;
   categories: { categoryId: string; eligible: boolean }[];
   images: { id: string; versionId: string; slot: string; state: string }[];
   // The current formula's declaration (null: not confirmed yet) and the
@@ -56,6 +74,7 @@ export interface ProductSnapshot {
     contributorCount: number;
     disagreementCount: number;
     lastConfirmedAt: number | null;
+    userStance?: string | null;
   }[];
 }
 export interface ProposalRecord {
@@ -83,7 +102,13 @@ export interface CatalogPatch {
   lifecycleStatus?: string;
   currentVersionId?: string;
   classification?: { versionId: string; value: FormulaClassification | null };
+  ingredientTranscription?: {
+    versionId: string;
+    value: IngredientTranscriptionSnapshot | null;
+  };
   familyId?: string | null;
+  // Always changes with `familyId`: a product's line is its brand's.
+  brandId?: string | null;
   // A line an operator move created, inserted before the product joins it.
   // Reversal leaves it in place, empty.
   newLine?: { id: string; name: string; slug: string };
@@ -106,6 +131,11 @@ export interface CatalogPatch {
   commentStates?: { id: string; state: string }[];
   relationships?: { productId: string; type: string }[];
   retailer?: { retailerId: string; status: string };
+  // The current account's stance for each added/removed store confirmation.
+  retailerLinks?: {
+    retailerId: string;
+    stance: "confirm" | "not_current" | null;
+  }[];
   consolidation?: { survivorId: string; active: boolean };
   // A formula's declaration; null removes it.
   allergens?: {

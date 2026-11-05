@@ -1,3 +1,4 @@
+import type { StoredResult } from "../../moderation/application/decision-service";
 import { ApplicationError } from "../../shared/domain/errors";
 import type { Actor, ReviewKind, SubmissionReceipt } from "../domain/contracts";
 import {
@@ -16,6 +17,7 @@ import {
 import { CatalogDecisionRepository } from "./catalog-decision-repository";
 import type { ReceiptWrite } from "./receipts";
 import { StagedMediaRepository } from "./staged-media-repository";
+import { catalogReferenceLabels } from "./reference-labels";
 
 export class QueueDecisionRepository {
   constructor(
@@ -50,13 +52,7 @@ export class QueueDecisionRepository {
       }>();
     if (!row) return null;
     const result = row.result_data
-      ? (JSON.parse(row.result_data) as {
-          answers: Record<
-            string,
-            { option: string; probabilities: Record<string, number> }
-          >;
-          flags: string[];
-        })
+      ? (JSON.parse(row.result_data) as StoredResult)
       : null;
     return {
       status: row.status,
@@ -65,6 +61,8 @@ export class QueueDecisionRepository {
       errorCode: row.error_code,
       createdAt: row.created_at,
       flags: result?.flags ?? [],
+      safety: result?.safety ?? null,
+      evidenceModel: result?.evidence?.model ?? null,
       answers: Object.entries(result?.answers ?? {}).map(([question, a]) => ({
         question,
         option: a.option,
@@ -268,17 +266,7 @@ export class QueueDecisionRepository {
         ? input.categoryEligibility.map((c) => c?.categoryId)
         : []),
     ].filter((value): value is string => typeof value === "string");
-    const query = JSON.stringify([...new Set(ids)]);
-    const rows = await this.db
-      .prepare(
-        `SELECT id,name FROM categories WHERE id IN(SELECT value FROM json_each(?))
-      UNION ALL SELECT id,canonical_name FROM product_families WHERE id IN(SELECT value FROM json_each(?))
-      UNION ALL SELECT id,name FROM products WHERE id IN(SELECT value FROM json_each(?))
-      UNION ALL SELECT id,canonical_name FROM retailers WHERE id IN(SELECT value FROM json_each(?))`,
-      )
-      .bind(query, query, query, query)
-      .all<{ id: string; name: string }>();
-    return Object.fromEntries(rows.results.map((r) => [r.id, r.name]));
+    return catalogReferenceLabels(this.db, ids);
   }
   private async privateImages(receiptId: string) {
     return (await this.staged.attachments(receiptId)).map((i) => ({

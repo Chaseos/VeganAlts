@@ -63,7 +63,7 @@ export const formulaClassifications = sqliteTable(
     evidenceData: text("evidence_data").notNull(),
     certifications: text("certifications").notNull().default("[]"),
     // 0 = "Ingredients not checked yet" (milestone 6). The stored status is
-    // then only the appears_vegan placeholder; reads derive "unchecked".
+    // then only the appears_plant_based placeholder; reads derive "unchecked".
     ingredientsChecked: integer("ingredients_checked").notNull().default(1),
     reviewedBy: text("reviewed_by").references(() => profiles.userId, {
       onDelete: "set null",
@@ -73,7 +73,7 @@ export const formulaClassifications = sqliteTable(
   (t) => [
     check(
       "ck_formula_classification_status",
-      sql`${t.veganStatus} IN ('vegan','appears_vegan','plant_based','under_review')`,
+      sql`${t.veganStatus} IN ('vegan','appears_plant_based','plant_based','under_review')`,
     ),
     check(
       "ck_formula_classification_label",
@@ -85,7 +85,7 @@ export const formulaClassifications = sqliteTable(
     ),
     check(
       "ck_formula_ingredients_checked",
-      sql`${t.ingredientsChecked} IN (0,1) AND (${t.ingredientsChecked}=1 OR ${t.veganStatus}='appears_vegan')`,
+      sql`${t.ingredientsChecked} IN (0,1) AND (${t.ingredientsChecked}=1 OR ${t.veganStatus}='appears_plant_based')`,
     ),
   ],
 );
@@ -384,7 +384,7 @@ export const moderationDecisions = sqliteTable(
       .where(sql`${t.status} = 'reserved'`),
     check(
       "ck_decision_subject",
-      sql`${t.subjectType} IN ('submission','comment','edit_proposal','category_proposal')`,
+      sql`${t.subjectType} IN ('submission','comment','edit_proposal','category_proposal','profile','proposal_response')`,
     ),
     check(
       "ck_decision_status",
@@ -492,5 +492,152 @@ export const productVersionAllergens = sqliteTable(
       "ck_product_version_allergens_presence",
       sql.raw("presence IN ('contains', 'may_contain')"),
     ),
+  ],
+);
+
+// Owner-reviewed package transcription for a product formula. Package text is
+// kept separate from any online supplement so a website can never overwrite
+// what the photographed label actually said.
+export const productVersionIngredientTranscriptions = sqliteTable(
+  "product_version_ingredient_transcriptions",
+  {
+    productVersionId: text("product_version_id")
+      .primaryKey()
+      .references(() => productVersions.id, { onDelete: "restrict" }),
+    packageIngredients: text("package_ingredients"),
+    packageContains: text("package_contains"),
+    packageMayContain: text("package_may_contain"),
+    sourceImageIds: text("source_image_ids").notNull(),
+    readings: text("readings").notNull(),
+    verification: text("verification").notNull(),
+    assessment: text("assessment").notNull(),
+    onlineIngredients: text("online_ingredients"),
+    onlineContains: text("online_contains"),
+    onlineMayContain: text("online_may_contain"),
+    onlineUrl: text("online_url"),
+    onlineAccessedAt: text("online_accessed_at"),
+    onlineProductMatch: text("online_product_match"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    check(
+      "ck_ingredient_transcription_json",
+      sql`json_valid(${t.sourceImageIds}) AND json_valid(${t.readings}) AND json_valid(${t.assessment})`,
+    ),
+    check(
+      "ck_ingredient_transcription_verification",
+      sql`${t.verification} IN ('online_only','single_read','agreed','corrected','unresolved','no_source')`,
+    ),
+  ],
+);
+
+// Provider attempts are separate from the authoritative combined decision.
+export const moderationProviderAttempts = sqliteTable(
+  "moderation_provider_attempts",
+  {
+    id: text("id").primaryKey(),
+    decisionId: text("decision_id")
+      .notNull()
+      .references(() => moderationDecisions.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => profiles.userId, { onDelete: "restrict" }),
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    stage: text("stage").notNull(),
+    inputHash: text("input_hash").notNull(),
+    status: text("status").notNull(),
+    resultData: text("result_data"),
+    errorCode: text("error_code"),
+    latencyMs: integer("latency_ms"),
+    createdAt: integer("created_at").notNull(),
+    leaseExpiresAt: integer("lease_expires_at"),
+  },
+  (t) => [
+    index("ix_provider_reuse").on(
+      t.provider,
+      t.model,
+      t.stage,
+      t.inputHash,
+      t.createdAt,
+    ),
+    index("ix_provider_budget").on(t.provider, t.createdAt),
+    index("ix_provider_account_budget").on(t.userId, t.provider, t.createdAt),
+    check("ck_provider_stage", sql`${t.stage} IN ('safety','evidence')`),
+    check(
+      "ck_provider_status",
+      sql`${t.status} IN ('reserved','completed','failed')`,
+    ),
+    check(
+      "ck_provider_json",
+      sql`${t.resultData} IS NULL OR json_valid(${t.resultData})`,
+    ),
+  ],
+);
+
+// Private, bounded retry payloads, not public contributions or review tasks.
+export const moderationJobs = sqliteTable(
+  "moderation_jobs",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => profiles.userId, { onDelete: "cascade" }),
+    operation: text("operation").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    inputHash: text("input_hash").notNull(),
+    payloadData: text("payload_data").notNull(),
+    status: text("status").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: integer("next_attempt_at").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+    token: text("token"),
+    leaseExpiresAt: integer("lease_expires_at"),
+    resultData: text("result_data"),
+    errorCode: text("error_code"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("ux_moderation_job_request").on(
+      t.userId,
+      t.operation,
+      t.idempotencyKey,
+    ),
+    index("ix_moderation_jobs_due").on(t.status, t.nextAttemptAt),
+    index("ix_moderation_jobs_owner").on(t.userId, t.createdAt),
+    check(
+      "ck_moderation_job_operation",
+      sql`${t.operation} IN ('submission_finalize','comment_create','comment_edit','proposal_create','proposal_response','retailer_proposal','category_proposal')`,
+    ),
+    check(
+      "ck_moderation_job_status",
+      sql`${t.status} IN ('checking','running','completed','blocked','retry_required')`,
+    ),
+    check("ck_moderation_job_attempts", sql`${t.attempts} BETWEEN 0 AND 3`),
+    check(
+      "ck_moderation_job_payload",
+      sql`json_valid(${t.payloadData}) AND (${t.resultData} IS NULL OR json_valid(${t.resultData}))`,
+    ),
+  ],
+);
+
+// Short-lived request leases prevent duplicate calls for an in-flight key,
+// even when other contributors change the surrounding moderation context.
+export const moderationRequestLeases = sqliteTable(
+  "moderation_request_leases",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => profiles.userId, { onDelete: "cascade" }),
+    operation: text("operation").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    inputHash: text("input_hash").notNull(),
+    token: text("token").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.operation, t.idempotencyKey] }),
+    index("ix_moderation_request_expiry").on(t.expiresAt),
   ],
 );

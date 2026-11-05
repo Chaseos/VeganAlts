@@ -16,7 +16,7 @@ Before substantial implementation work, read:
 
 `docs/MILESTONE_1_PLAN.md` through `docs/MILESTONE_6_PLAN.md`, `docs/DESIGN_DIRECTION.md`, and their verification records preserve earlier scope and evidence.
 
-Milestone 4 adds Cloudflare Workers AI Clef behind the provider-neutral `ModerationDecisionService`. Automation is advisory: deterministic checks run first, and provider failure routes to review, never approval. Product duplicate consolidation still archives the donor without transferring ratings; category merges are the documented exception and transfer ratings reversibly. Protected changes remain auditable and reversible.
+Milestone 4 adds Cloudflare Workers AI Clef behind the provider-neutral `ModerationDecisionService`. Deterministic checks run first. The owner-approved OpenAI safety layer (2026-10-23) rejects built-in safety flags before Clef; transient provider failures retry privately through bounded automatic work, never approval or a new manual review task. Clef evidence uncertainty and protected factual changes retain their review rules. Product duplicate consolidation still archives the donor without transferring ratings; category merges are the documented exception and transfer ratings reversibly. Protected changes remain auditable and reversible.
 
 Milestone 6 makes ingredient evidence optional for new products (they show "Ingredients not checked yet" and still rank), lets a missing food be suggested inside Add a product, and switches foods on per country while aisles and shelves stay shared.
 
@@ -67,6 +67,8 @@ Future-ready schema abstractions are allowed only when they materially avoid a k
 - Migrations are append-only once applied to a shared environment. Never silently rewrite an applied migration.
 - Version 1 is `db/migrations/0001_initial.sql`: the pre-release history was folded into it on the owner's instruction (2026-10-10). Until the first release, schema changes are folded into version 1 too, never added as new migrations (owner, 2026-10-13); databases are reset (`npm run db:reset:<env>`), never upgraded. Add new migrations only after the first release.
 - Owner exception (2026-10-20): the first independent-rating rollout may recreate only the empty staging `ratings` and `rating_dimension_values` tables in one guarded D1 batch, after a fresh recovery bookmark/export. Preserve all other data and restore related triggers/indexes; abort if either table has rows. This one-time staging exception does not change the reset rule for other pre-release schema changes.
+- Owner exception (2026-11-05): `saved_products` was added to staging as one new, empty table and index from version 1, so the reviewed staging catalog was not reset. This one-time exception does not change the reset rule for other pre-release schema changes.
+- Owner exception (2026-11-05): `product_view_days` was added to staging as one new, empty table from version 1, for the same reason. This one-time exception does not change the reset rule for other pre-release schema changes.
 - Never commit screenshots or visual captures. `CAPTURE=1` writes them to the ignored `test-results/captures`.
 - Better Auth owns its auth tables; application migrations should not manually duplicate them unless the auth strategy is intentionally revised.
 - Formula/version history and revision/audit history are durable product requirements.

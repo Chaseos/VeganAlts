@@ -212,17 +212,19 @@ export function basicsErrors(
   photos: DraftPhotos,
 ): DraftErrors {
   const errors: DraftErrors = {};
-  if (!draft.food)
-    errors.food = "Choose the food it replaces, or suggest a new one.";
-  else if (draft.food.kind === "new") {
+  if (!enough(draft.brand)) errors.brand = "Enter the brand.";
+  else if (!draft.brandChosen)
+    errors.brand = "Choose the brand from the list, or add it as a new brand.";
+  // The food field opens once the brand is chosen.
+  if (!draft.food) {
+    if (draft.brandChosen)
+      errors.food = "Choose the food it replaces, or suggest a new one.";
+  } else if (draft.food.kind === "new") {
     if (!enough(draft.food.name)) errors.food = "Name the food it replaces.";
     if (!draft.food.aisleId)
       errors.aisle = "Choose the category this food belongs in.";
   }
-  if (!enough(draft.brand)) errors.brand = "Enter the brand.";
-  else if (!draft.brandChosen)
-    errors.brand = "Choose the brand from the list, or add it as a new brand.";
-  else if (!draft.line)
+  if (draft.brandChosen && !draft.line)
     errors.line =
       "Choose the product if it’s listed, a new flavor of a line, or something else from the brand.";
   // The product's own fields appear once it's clear what it is.

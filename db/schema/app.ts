@@ -224,7 +224,7 @@ export const products = sqliteTable(
       .default(sql.raw("'active'")),
     veganStatus: text("vegan_status")
       .notNull()
-      .default(sql.raw("'appears_vegan'")),
+      .default(sql.raw("'appears_plant_based'")),
     manufacturerLabel: text("manufacturer_label")
       .notNull()
       .default(sql.raw("'unknown'")),
@@ -273,7 +273,7 @@ export const products = sqliteTable(
     check(
       "ck_products_3",
       sql.raw(
-        "vegan_status IN ('vegan', 'appears_vegan', 'plant_based', 'under_review')",
+        "vegan_status IN ('vegan', 'appears_plant_based', 'plant_based', 'under_review')",
       ),
     ),
     check(
@@ -430,6 +430,48 @@ export const productTrials = sqliteTable(
     primaryKey({ columns: [table.userId, table.productVersionId] }),
     index("ix_product_trials_created").on(table.createdAt),
     index("ix_product_trials_version").on(table.productVersionId),
+  ],
+);
+
+export const savedProducts = sqliteTable(
+  "saved_products",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references((): AnySQLiteColumn => profiles.userId, {
+        onDelete: "cascade",
+      }),
+    productId: text("product_id")
+      .notNull()
+      .references((): AnySQLiteColumn => products.id, {
+        onDelete: "cascade",
+      }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.productId] }),
+    index("ix_saved_products_user_created").on(
+      table.userId,
+      desc(table.createdAt),
+      desc(table.productId),
+    ),
+  ],
+);
+
+export const productViewDays = sqliteTable(
+  "product_view_days",
+  {
+    productId: text("product_id")
+      .notNull()
+      .references((): AnySQLiteColumn => products.id, {
+        onDelete: "cascade",
+      }),
+    statDate: text("stat_date").notNull(),
+    views: integer("views").notNull().default(sql.raw("0")),
+  },
+  (table) => [
+    primaryKey({ columns: [table.productId, table.statDate] }),
+    check("ck_product_view_days_1", sql.raw("views >= 0")),
   ],
 );
 

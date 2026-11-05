@@ -1,3 +1,4 @@
+import { hasIngredientEvidence } from "../../scripts/ingredient-evidence";
 import { env } from "cloudflare:workers";
 import { afterEach, expect, it } from "vitest";
 import { taxonomySeedStatements } from "../../db/seed/taxonomy";
@@ -16,7 +17,7 @@ afterEach(async () => {
 });
 
 async function product({
-  status = "appears_vegan",
+  status = "appears_plant_based",
   checked = 0,
   classification = true,
   front = true,
@@ -73,7 +74,7 @@ it("accepts a front-photo-only product explicitly marked unchecked and reports m
   expect(audit.report.productsWithoutIngredientEvidence?.count).toBe(0);
 });
 
-it.each(["appears_vegan", "plant_based", "vegan", "under_review"])(
+it.each(["appears_plant_based", "plant_based", "vegan", "under_review"])(
   "still requires ingredient evidence for checked %s classifications",
   async (status) => {
     const { productId } = await product({ status, checked: 1 });
@@ -135,4 +136,152 @@ it("still requires a front photo for unchecked products", async () => {
   expect((await auditLaunchDataset(env.DB)).blocking).toEqual([
     "productsWithoutFrontPhoto",
   ]);
+});
+
+async function transcription(
+  versionId: string,
+  changes: Record<string, unknown> = {},
+) {
+  const sourceId = crypto.randomUUID();
+  await env.DB.prepare(
+    "INSERT INTO product_images(id,product_version_id,slot,state,full_r2_key,created_at,updated_at) VALUES(?,?,'back','accepted','back.webp',1,1)",
+  )
+    .bind(sourceId, versionId)
+    .run();
+  const row = {
+    package: "Oats, water",
+    sources: JSON.stringify([sourceId]),
+    verification: "single_read",
+    online: null,
+    url: null,
+    accessed: null,
+    match: null,
+    ...changes,
+  };
+  await env.DB.prepare(
+    `INSERT INTO product_version_ingredient_transcriptions(product_version_id,package_ingredients,source_image_ids,readings,verification,assessment,online_ingredients,online_url,online_accessed_at,online_product_match,created_at) VALUES(?,?,?,'[]',?,'{}',?,?,?,?,1)`,
+  )
+    .bind(
+      versionId,
+      row.package,
+      row.sources,
+      row.verification,
+      row.online,
+      row.url,
+      row.accessed,
+      row.match,
+    )
+    .run();
+  return sourceId;
+}
+
+it.each(["front", "back"])(
+  "accepts a checked transcription citing its accepted %s photo",
+  async (slot) => {
+    const { versionId } = await product({ checked: 1 });
+    const photo = await transcription(versionId);
+    if (slot === "front") {
+      await env.DB.prepare(
+        "UPDATE product_images SET state='rejected' WHERE product_version_id=? AND slot='front'",
+      )
+        .bind(versionId)
+        .run();
+      await env.DB.prepare("UPDATE product_images SET slot='front' WHERE id=?")
+        .bind(photo)
+        .run();
+    }
+    expect(
+      (await auditLaunchDataset(env.DB)).report
+        .productsWithoutIngredientEvidence?.count,
+    ).toBe(0);
+  },
+);
+
+it.each([
+  { sources: "[]" },
+  { sources: '["unrelated-photo"]' },
+  { package: " " },
+  { verification: "no_source" },
+  { verification: "unresolved" },
+])("does not accept unusable transcription evidence: %j", async (changes) => {
+  const { versionId } = await product({ checked: 1 });
+  await transcription(versionId, changes);
+  expect((await auditLaunchDataset(env.DB)).blocking).toContain(
+    "productsWithoutIngredientEvidence",
+  );
+});
+
+it("rejects rejected source photos and photos belonging to a different formula", async () => {
+  const { versionId, productId } = await product({ checked: 1 });
+  const photo = await transcription(versionId);
+  await env.DB.prepare("UPDATE product_images SET state='rejected' WHERE id=?")
+    .bind(photo)
+    .run();
+  expect((await auditLaunchDataset(env.DB)).blocking).toContain(
+    "productsWithoutIngredientEvidence",
+  );
+  const historical = crypto.randomUUID();
+  await env.DB.prepare(
+    "INSERT INTO product_versions(id,product_id,is_current,created_at,updated_at) VALUES(?,?,0,1,1)",
+  )
+    .bind(historical, productId)
+    .run();
+  await env.DB.prepare(
+    "UPDATE product_images SET state='accepted',product_version_id=? WHERE id=?",
+  )
+    .bind(historical, photo)
+    .run();
+  expect((await auditLaunchDataset(env.DB)).blocking).toContain(
+    "productsWithoutIngredientEvidence",
+  );
+});
+
+it("requires a usable, dated matching online ingredient source", async () => {
+  const { versionId } = await product({ checked: 1 });
+  await transcription(versionId, {
+    package: null,
+    sources: "[]",
+    verification: "online_only",
+    online: "Oats, water",
+    url: "https://example.com/product",
+    accessed: "2026-10-23T00:00:00.000Z",
+    match: "Exact photographed product",
+  });
+  expect(
+    (await auditLaunchDataset(env.DB)).report.productsWithoutIngredientEvidence
+      ?.count,
+  ).toBe(0);
+  for (const url of ["", "javascript:alert(1)", "not-a-url"]) {
+    await env.DB.prepare(
+      "UPDATE product_version_ingredient_transcriptions SET online_url=? WHERE product_version_id=?",
+    )
+      .bind(url, versionId)
+      .run();
+    expect((await auditLaunchDataset(env.DB)).blocking).toContain(
+      "productsWithoutIngredientEvidence",
+    );
+  }
+  await env.DB.prepare(
+    "UPDATE product_version_ingredient_transcriptions SET online_url='https://example.com/product',online_product_match='' WHERE product_version_id=?",
+  )
+    .bind(versionId)
+    .run();
+  expect((await auditLaunchDataset(env.DB)).blocking).toContain(
+    "productsWithoutIngredientEvidence",
+  );
+});
+
+it("rejects online evidence with an unrecognized verification state", () => {
+  expect(
+    hasIngredientEvidence({
+      evidenceUrls: "[]",
+      packageIngredients: null,
+      verification: "invalid",
+      acceptedSourcePhotos: 0,
+      onlineIngredients: "Oats, water",
+      onlineUrl: "https://example.com/product",
+      onlineAccessedAt: "2026-10-23T00:00:00.000Z",
+      onlineProductMatch: "Exact product",
+    }),
+  ).toBe(false);
 });

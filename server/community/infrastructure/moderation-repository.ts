@@ -13,6 +13,7 @@ import type {
 } from "../domain/moderation";
 import { decodeCursor, encodeCursor } from "../domain/policy";
 import { replay, type ReceiptWrite } from "./receipts";
+import { catalogReferenceLabels } from "./reference-labels";
 
 export type BindValue = string | number | null;
 export interface DecisionGuard {
@@ -54,6 +55,9 @@ export const ACTIVE_RESPONSES = (
 
 export class ModerationRepository {
   constructor(readonly db: D1Database) {}
+  referenceLabels(ids: string[]) {
+    return catalogReferenceLabels(this.db, ids);
+  }
   replay<T>(receipt: ReceiptWrite) {
     return replay<T>(this.db, receipt);
   }
@@ -66,7 +70,10 @@ export class ModerationRepository {
         .first<string>("account_state")) ?? null
     );
   }
-  async snapshot(productId: string): Promise<ProductSnapshot> {
+  async snapshot(
+    productId: string,
+    viewerId?: string,
+  ): Promise<ProductSnapshot> {
     const rows = await this.db.batch<Record<string, unknown>>([
       this.db
         .prepare(
@@ -102,9 +109,9 @@ export class ModerationRepository {
         .bind(productId),
       this.db
         .prepare(
-          "SELECT pr.retailer_id AS retailerId,r.canonical_name AS name,pr.status,pr.confirmation_count AS contributorCount,pr.disagreement_count AS disagreementCount,pr.last_confirmed_at AS lastConfirmedAt FROM product_retailers pr JOIN retailers r ON r.id=pr.retailer_id WHERE pr.product_id=? ORDER BY pr.retailer_id",
+          "SELECT pr.retailer_id AS retailerId,r.canonical_name AS name,pr.status,pr.confirmation_count AS contributorCount,pr.disagreement_count AS disagreementCount,pr.last_confirmed_at AS lastConfirmedAt,own.stance AS userStance FROM product_retailers pr JOIN retailers r ON r.id=pr.retailer_id LEFT JOIN retailer_confirmations own ON own.product_id=pr.product_id AND own.retailer_id=pr.retailer_id AND own.user_id=? WHERE pr.product_id=? ORDER BY pr.retailer_id",
         )
-        .bind(productId),
+        .bind(viewerId ?? "", productId),
       this.db
         .prepare(
           `SELECT d.status,d.evidence_data AS evidence,d.source_proposal_id AS proposalId,(SELECT json_group_array(json_object('key',a.allergen_key,'presence',a.presence)) FROM product_version_allergens a WHERE a.product_version_id=d.product_version_id) AS allergens
@@ -114,6 +121,11 @@ export class ModerationRepository {
       this.db
         .prepare(
           "SELECT ca.allergen_key AS key,COALESCE(ca.label,a.label) AS label FROM country_allergens ca JOIN allergens a ON a.key=ca.allergen_key JOIN products p ON p.country_id=ca.country_id WHERE p.id=? ORDER BY ca.position",
+        )
+        .bind(productId),
+      this.db
+        .prepare(
+          "SELECT t.* FROM product_version_ingredient_transcriptions t JOIN product_versions v ON v.id=t.product_version_id WHERE v.product_id=? AND v.is_current=1",
         )
         .bind(productId),
     ]);
@@ -137,10 +149,30 @@ export class ModerationRepository {
           ingredientsChecked: f.ingredients_checked !== 0,
         }
       : null;
+    const t = rows[9]!.results[0];
+    const ingredientTranscription = t
+      ? {
+          packageIngredients: t.package_ingredients as string | null,
+          packageContains: t.package_contains as string | null,
+          packageMayContain: t.package_may_contain as string | null,
+          sourceImageIds: JSON.parse(String(t.source_image_ids)) as string[],
+          readings: JSON.parse(String(t.readings)) as unknown[],
+          verification: String(t.verification),
+          assessment: JSON.parse(String(t.assessment)) as unknown,
+          onlineIngredients: t.online_ingredients as string | null,
+          onlineContains: t.online_contains as string | null,
+          onlineMayContain: t.online_may_contain as string | null,
+          onlineUrl: t.online_url as string | null,
+          onlineAccessedAt: t.online_accessed_at as string | null,
+          onlineProductMatch: t.online_product_match as string | null,
+          createdAt: Number(t.created_at),
+        }
+      : null;
     return {
       ...p,
       seasonal: p.seasonal === 1,
       classification,
+      ingredientTranscription,
       categories: rows[2]!.results.map((r) => ({
         categoryId: String(r.categoryId),
         eligible: r.eligible === 1,

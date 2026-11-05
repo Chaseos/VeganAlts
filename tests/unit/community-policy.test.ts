@@ -1,8 +1,10 @@
 import { expect, it } from "vitest";
 import {
   decideSubmission,
+  distinctiveNameWords,
   effectiveDate,
   identityKey,
+  nameWords,
   normalizeName,
   productName,
   communityLimits,
@@ -211,7 +213,7 @@ const snapshot: ProductSnapshot = {
   flavor: null,
   seasonal: false,
   lifecycleStatus: "active",
-  veganStatus: "appears_vegan",
+  veganStatus: "appears_plant_based",
   manufacturerLabel: "vegan",
   manufacturerUrl: null,
   aliases: [],
@@ -220,7 +222,7 @@ const snapshot: ProductSnapshot = {
   versionId: "formula",
   versionLabel: null,
   classification: {
-    veganStatus: "appears_vegan",
+    veganStatus: "appears_plant_based",
     manufacturerLabel: "vegan",
     evidence: { urls: [], imageIds: [], note: "Reviewed label evidence." },
     certifications: [],
@@ -344,7 +346,10 @@ it("refuses to restore a photo into a slot a newer photo holds", () => {
   ).not.toThrow();
 });
 it("classifies by the evidence given, and more evidence never does worse", () => {
-  const unchecked = { veganStatus: "appears_vegan", ingredientsChecked: false };
+  const unchecked = {
+    veganStatus: "appears_plant_based",
+    ingredientsChecked: false,
+  };
   const labels = ["vegan", "plant_based", "neither", "unknown"] as const;
   const shapes = [
     { imageSlots: ["front"] as const, ingredientUrl: undefined },
@@ -354,7 +359,7 @@ it("classifies by the evidence given, and more evidence never does worse", () =>
       ingredientUrl: "https://example.com/ingredients",
     },
   ];
-  // Rank: unchecked < plant-based < appears vegan.
+  // Rank: unchecked < plant-based < appears plant-based.
   const rank = (c: ReturnType<typeof provisionalClassification>) =>
     !c.ingredientsChecked ? 0 : c.veganStatus === "plant_based" ? 1 : 2;
   for (const manufacturerLabel of labels)
@@ -372,7 +377,7 @@ it("classifies by the evidence given, and more evidence never does worse", () =>
         expect(rank(given)).toBeGreaterThanOrEqual(rank(none));
         expect(given).toEqual(
           noKnownAnimalIngredients
-            ? { veganStatus: "appears_vegan", ingredientsChecked: true }
+            ? { veganStatus: "appears_plant_based", ingredientsChecked: true }
             : manufacturerLabel === "plant_based"
               ? { veganStatus: "plant_based", ingredientsChecked: true }
               : unchecked,
@@ -396,7 +401,7 @@ it("classifies by the evidence given, and more evidence never does worse", () =>
       ...evidence,
       allergens: { status: "declared", contains: [], mayContain: ["egg"] },
     }),
-  ).toEqual({ veganStatus: "appears_vegan", ingredientsChecked: true });
+  ).toEqual({ veganStatus: "appears_plant_based", ingredientsChecked: true });
   // An unreadable ingredients photo counts only when a source backs it.
   const photo = { ...input, imageSlots: ["front", "ingredients"] as const };
   expect(
@@ -424,4 +429,16 @@ it("decides the New label once, from the publication time", () => {
   expect(isNewProduct(1_000 * day, 1_030 * day)).toBe(false);
   expect(isNewProduct(1_001 * day, 1_000 * day)).toBe(false);
   expect(isNewProduct(null, 1_000 * day)).toBe(false);
+});
+it("reads a name's words whole and leaves out the generic ones", () => {
+  expect(nameWords("Classic Chic'ken & Rice")).toEqual([
+    "classic",
+    "chicken",
+    "rice",
+  ]);
+  expect(distinctiveNameWords("Plant-Based Roast & Gravy")).toEqual([
+    "roast",
+    "gravy",
+  ]);
+  expect(distinctiveNameWords("Vegan Original")).toEqual([]);
 });

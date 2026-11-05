@@ -178,6 +178,14 @@
   }
 }
 
+.va-saved-list > li {
+  grid-template-columns: 64px 1fr auto;
+}
+
+.va-saved-list .va-save__status {
+  grid-column: 2 / -1;
+}
+
 .section-space-sm {
   margin-top: var(--va-space-5);
 }
@@ -381,4 +389,59 @@
 .va-photo-choice img {
   border-radius: 6px;
   object-fit: cover;
+}
+
+/* Product analytics (administrators) */
+.va-analytics-search {
+  margin: var(--va-space-4) 0;
+}
+
+.va-analytics-scroll {
+  overflow-x: auto;
+}
+
+.va-analytics {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.va-analytics th,
+.va-analytics td {
+  padding: var(--va-space-2) var(--va-space-3);
+  border-bottom: 1px solid var(--va-line);
+  text-align: right;
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+
+.va-analytics thead th {
+  font-size: 0.875rem;
+  vertical-align: bottom;
+}
+
+.va-analytics th:first-child {
+  padding-left: 0;
+  text-align: left;
+  font-weight: 400;
+}
+
+.va-analytics tbody th span {
+  display: block;
+}
+
+/* Every measure stays visible on a phone, so a sort never lands off-screen. */
+@media (max-width: 640px) {
+  .va-analytics th,
+  .va-analytics td {
+    padding-inline: var(--va-space-1);
+  }
+
+  .va-analytics thead th {
+    font-size: 0.75rem;
+  }
+
+  .va-analytics td:last-child,
+  .va-analytics thead th:last-child {
+    padding-right: 0;
+  }
 }

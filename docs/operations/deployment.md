@@ -46,6 +46,8 @@ The approved milestone 2 seed uses deterministic IDs for 31 products, ten catego
 
 Milestone 4 adds a taxonomy-only seed that is safe outside development: `npm run taxonomy:seed:<env>` inserts the reviewed categories, aliases and homepage features from `db/seed/taxonomy.ts` and leaves existing rows alone. Production additionally requires `-- --confirm-taxonomy-only`. After any seed or repair, `npm run rankings:rebuild:<env>` rebuilds aggregates, daily statistics and Trending.
 
+To add one reviewed food without seeding other new foods, pass `--only-food=<slug>` (for example, `npm run taxonomy:seed:staging -- --only-food=beef-jerky`). This seeds only that food, its aliases, rating dimensions and launch-country availability, then refreshes search indexes. It leaves other taxonomy foods and homepage features untouched. Take a fresh Time Travel recovery bookmark before a staging seed.
+
 Production migrations precede deployment of code requiring them:
 
 ```sh
@@ -115,7 +117,7 @@ Choose a previously verified version compatible with the current schema. Then ve
 
 ## Images and recovery
 
-The admin interface is `/admin/media`; the API is `POST /api/v1/media/uploads`. Both require a real authenticated allowlisted user and the exact same-origin request. Use multipart fields `productVersionId`, `slot`, `idempotencyKey`, and `image`. The server bounds the actual request stream, checks format signatures, decodes metadata, and rejects images above 10 MiB or 40 megapixels.
+The admin interface is **Manage photos** on a product page, which replaces, adds or rotates its current formula's photos; the API is `POST /api/v1/media/uploads`. Both require a real authenticated allowlisted user and the exact same-origin request. Use multipart fields `productVersionId`, `slot`, `idempotencyKey`, and `image`. The server bounds the actual request stream, checks format signatures, decodes metadata, and rejects images above 10 MiB or 40 megapixels.
 
 Each upload has one idempotency key and independent attempt IDs. A D1 atomic batch claims an attempt with a five-minute lease. Processing writes original/derivatives under its attempt prefix, then commits metadata and accepted-slot replacement atomically. An expired attempt cannot later commit. A repeated completed request reuses the same image ID; no re-transformation occurs.
 
@@ -164,8 +166,36 @@ Milestone 3 contribution limits, private staging, review decisions, reversals an
 
 ## Milestone 4 operations
 
-- **Automated moderation.** `MODERATION_PROVIDER` is `clef` on staging and `disabled` in production until launch. `MODERATION_POLICY` holds the daily, per-account and concurrency budgets and the decision thresholds. Failures, timeouts, rate limits and an exhausted budget all route items to operator review. `npm run moderation:calibrate` re-runs the labeled calibration set against real Clef (it consumes Workers AI tokens).
-- **Hourly automation.** The scheduled handler expires decision leases, re-evaluates held comments, auto-accepts eligible proposals, continues unfinished category merges and recomputes Trending. Each step logs `automation` with counts and fails independently.
+- **Automated moderation.** `MODERATION_PROVIDER` is `clef` on staging and `disabled` in production until launch. `MODERATION_POLICY` holds the daily, per-account and concurrency budgets and the Clef decision thresholds. New transient failures use private automatic retries; exhausted budgets return retry guidance without creating review items. Ambiguous evidence retains its existing review requirements. `npm run moderation:calibrate` re-runs the labeled calibration set against real Clef (it consumes Workers AI tokens).
+- **Hourly automation.** The scheduled handler expires decision leases, retries private automatic-check work, re-evaluates existing held comments, auto-accepts eligible proposals, continues unfinished category merges and recomputes Trending. Each step logs `automation` with counts and fails independently.
 - **Launch gate.** `PUBLIC_LAUNCH` controls whether production serves the catalog. `robots.txt` is generated per environment: staging disallows everything, production lists the sitemap once launched.
 - **Checks.** `npx tsx scripts/verify-staging-public.ts` (add `--load` for a two-minute anonymous load test), `npx tsx scripts/verify-backup-staging.ts --staging` and `npx tsx scripts/audit-launch-dataset.ts <env>` are read-only and write evidence under `test-results/milestone-4/`.
 - [Backup and recovery](backup-recovery.md) and the [launch checklist](launch-checklist.md) cover restores and the production cutover.
+
+## OpenAI safety activation and limits
+
+OpenAI safety is configured independently from `MODERATION_PROVIDER` (Clef):
+
+- `CONTENT_SAFETY_PROVIDER`: `disabled`, `openai`, or local-only `fake`.
+- `CONTENT_SAFETY_POLICY`: positive integer `timeoutMs` (15000) and `reuseDays` (30). There is no OpenAI score cutoff: built-in flags determine rejection.
+- `OPENAI_API_KEY`: a secret, never a public Wrangler variable. For local use add it to ignored `.dev.vars`; for staging use `npx wrangler secret put OPENAI_API_KEY --env staging`. Configure production separately when preparing launch.
+
+Staging selects `openai`; production remains disabled until its release is prepared. The 2026-10-23 staging rollout was deployed against the current version-1 D1 baseline. `npx wrangler d1 migrations list veganalts-staging --remote --env staging` reported no migrations to apply, and the provider-attempt, automatic-job and request-lease tables and expanded decision subjects were present. No migration or database reset was applied. The staging Worker version and live-check results are recorded in [content-safety staging verification](../verification/content-safety-staging.md).
+
+The `OPENAI_API_KEY` secret name is present in staging, but that alone does not prove the provider is reachable or healthy. The 2026-10-23 authenticated staging requests failed at OpenAI's safety stage with a generic provider error; Clef was not called. Keep production disabled and use a separate production key and explicit production release when preparing launch. Local fake safety uses explicit `[safety:blocked]` and `[safety:unavailable]` fixture markers and makes no external request. Never enable fake providers outside local development.
+
+Check the live staging contribution flow with benign text, an ordinary negative product opinion, an attached product photo and a flagged fixture. Confirm the structured OpenAI result in D1, preservation of an existing profile on rejection, and that safety rejection stops Clef. Outage/retry behavior must also pass the mocked tests; do not revoke or replace a shared key merely to manufacture a staging outage.
+
+At production release, create a separate restricted OpenAI key for production and store it from the website project root:
+
+```sh
+npx wrangler secret put OPENAI_API_KEY --config wrangler.jsonc --env production
+```
+
+Paste the key at Wrangler's secret prompt. Then set only production's `CONTENT_SAFETY_PROVIDER` to `openai` in `wrangler.jsonc`, verify the production database baseline, and use the normal explicit production deployment. The secret stays in Cloudflare and is retained by subsequent deployments; it is not copied from `.dev.vars` or from staging. Production Clef configuration remains an independent setting. Verify a benign request and the recorded provider/model after release.
+
+Launch burst limits: early contribution writes 60/minute/IP; comments 10/minute/IP and account; uploads and profile saves 5/minute/IP and account; shared AI admission 30/minute/IP and 10/minute/account. Bindings have distinct namespaces per environment. Existing Turnstile, request-body, daily contribution, image processing/storage and upload concurrency protections remain.
+
+`MODERATION_POLICY` also controls `daily` (300), `accountDaily` (30), `concurrent` (2) and `globalConcurrent` (5). These are conservative admission caps; actual calls additionally have per-provider D1 budgets at the same daily/account limits. Every failed attempt and scheduled retry is charged to its original account. Provider adapters never retry behind this accounting. These defaults protect the site even when several accounts or endpoints are used; tune public variables intentionally when usage warrants more capacity. Native Cloudflare rate limits are approximate/regional; atomic D1 accounting is the strict quota boundary.
+
+Hourly automation reports `retriedModeration`. At most twenty due contributions run in a sweep. Transient provider failures stay private for up to three additional attempts, due after 1, 3 and 6 hours, respecting Retry-After and a 24-hour expiry. Permanent configuration/response errors ask for resubmission; quota/capacity refusals do not enqueue new work. Inspect aggregate logs and provider attempt status for an outage rather than treating failed checks as manual content-review work. The staging rollout required no database reset; production release preparation still follows the version-1 baseline and reset rules above. Do not apply an ad hoc upgrade to a shared database.

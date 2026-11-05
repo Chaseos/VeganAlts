@@ -30,7 +30,10 @@ import { useHydrated } from "../lib/use-hydrated";
 import { saveFilters, useSavedFilters } from "../lib/ranking-filters";
 import { RatingControl, SCORE_MEANINGS } from "../components/rating-control";
 import { CommentSection } from "../components/comments/comment-section";
+import { usePersonalState } from "../components/personal-state";
 import { ProposalResponses } from "../components/proposal-responses";
+import { SaveButton } from "../components/save-button";
+import { recordProductView } from "../lib/product-view";
 import { commentServices } from "@server/comments/infrastructure/composition";
 import { breadcrumbs, publicMetadata } from "../lib/metadata";
 import {
@@ -126,6 +129,15 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
 type ProductData = Route.ComponentProps["loaderData"]["product"];
 type FoodView = ProductData["categories"][number];
 
+function ProductAdminLink({ productId }: { productId: string }) {
+  const { user } = usePersonalState();
+  return user?.administrator ? (
+    <p className="va-small">
+      <Link to={`/admin/moderation/products/${productId}`}>Manage product</Link>
+    </p>
+  ) : null;
+}
+
 // A product page about one of its foods (canvas: Product5, PProduct5).
 export default function Product({
   loaderData: { product: p, comments, market },
@@ -157,6 +169,7 @@ export default function Product({
       preventScrollReset: true,
     });
   }, [location, navigate]);
+  useEffect(() => recordProductView(p.id), [p.id]);
   const food = p.categories.find((c) => c.slug === p.food) ?? null;
   const others = p.categories.filter((c) => c.isActive && c.id !== food?.id);
   const labels = Object.fromEntries(
@@ -220,7 +233,10 @@ export default function Product({
                 {p.seasonal === 1 && <SeasonalBadge />}
                 {!!p.developmentOnly && <Badge>Demo product</Badge>}
               </p>
-              <h1 className="va-product__name">{title}</h1>
+              <div className="va-product__title-row">
+                <h1 className="va-product__name">{title}</h1>
+                <SaveButton productId={p.id} productName={title} showListLink />
+              </div>
               {p.flavor && (
                 <p className="va-product__flavor va-muted">
                   Flavor: {p.flavor}
@@ -429,6 +445,7 @@ export default function Product({
               canPropose={
                 Boolean(p.formula.isCurrent) && p.lifecycleStatus !== "hidden"
               }
+              managedVersionId={p.formula.isCurrent ? p.versionId : undefined}
             />
             {food && p.others.length > 0 && (
               <section
@@ -502,6 +519,7 @@ export default function Product({
                 Report product
               </Link>
             </p>
+            <ProductAdminLink productId={p.id} />
           </div>
           <dl className="va-facts">
             <dt>Vegan status</dt>
@@ -597,6 +615,72 @@ export default function Product({
           ))}
 
         <div className="va-product__more">
+          {p.ingredientTranscription && (
+            <details className="va-product__details">
+              <summary>Transcribed ingredients</summary>
+              <p className="va-small va-muted">
+                {p.ingredientTranscription.verification === "online_only"
+                  ? "No matching readable package list; checked against an exact-product online source."
+                  : p.ingredientTranscription.verification === "no_source"
+                    ? "No readable package or online ingredient source was available."
+                    : `${p.ingredientTranscription.verification.replaceAll("_", " ")} from the package label.`}
+              </p>
+              {p.ingredientTranscription.ingredients ? (
+                <p>{p.ingredientTranscription.ingredients}</p>
+              ) : (
+                <p>No readable package ingredient list was available.</p>
+              )}
+              {p.ingredientTranscription.onlineIngredients && (
+                <div>
+                  <h3 className="va-small">Online ingredient supplement</h3>
+                  <p>{p.ingredientTranscription.onlineIngredients}</p>
+                  {p.ingredientTranscription.onlineContains && (
+                    <p>
+                      <strong>Contains:</strong>{" "}
+                      {p.ingredientTranscription.onlineContains}
+                    </p>
+                  )}
+                  {p.ingredientTranscription.onlineMayContain && (
+                    <p>
+                      <strong>May contain:</strong>{" "}
+                      {p.ingredientTranscription.onlineMayContain}
+                    </p>
+                  )}
+                </div>
+              )}
+              {p.ingredientTranscription.contains && (
+                <p>
+                  <strong>Contains:</strong>{" "}
+                  {p.ingredientTranscription.contains}
+                </p>
+              )}
+              {p.ingredientTranscription.mayContain && (
+                <p>
+                  <strong>May contain:</strong>{" "}
+                  {p.ingredientTranscription.mayContain}
+                </p>
+              )}
+              {p.ingredientTranscription.onlineSource && (
+                <p>
+                  Package text was supplemented from{" "}
+                  {p.ingredientTranscription.onlineSource.productMatch}.{" "}
+                  <a
+                    href={p.ingredientTranscription.onlineSource.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    View source
+                  </a>{" "}
+                  (checked{" "}
+                  {p.ingredientTranscription.onlineSource.accessedAt.slice(
+                    0,
+                    10,
+                  )}
+                  ).
+                </p>
+              )}
+            </details>
+          )}
           {p.classification && (
             <details className="va-product__details">
               <summary>Ingredient evidence</summary>

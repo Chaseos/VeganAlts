@@ -27,7 +27,7 @@ import {
   parseCategoryView,
 } from "../domain/ranking-view";
 import { DEFAULT_TRENDING } from "../../ranking/domain/trending";
-import { flavorLabel } from "../domain/flavor-label";
+import { flavorLabel, isOriginalFlavor } from "../domain/flavor-label";
 import {
   aisleFood,
   aisleTree,
@@ -1293,6 +1293,7 @@ export function lineFlavors(
   });
   flavors.sort(
     (a, b) =>
+      Number(isOriginalFlavor(b.flavor)) - Number(isOriginalFlavor(a.flavor)) ||
       (b.score ?? -Infinity) - (a.score ?? -Infinity) ||
       b.ratingCount - a.ratingCount ||
       (a.flavor ?? "").localeCompare(b.flavor ?? "") ||

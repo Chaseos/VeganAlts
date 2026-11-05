@@ -25,6 +25,7 @@ export function robotsTxt(env: {
     "Disallow: /sign-in",
     "Disallow: /admin/",
     "Disallow: /my-ratings",
+    "Disallow: /saved",
     "Disallow: /my-contributions",
     "Disallow: /contribute/",
     "Disallow: /add-product",

@@ -130,10 +130,8 @@ it("counts a person once per line across the Trending window and ranks lines for
     () => NOW,
   ).category(testMarket(f.countryId), cat, { view: "trending" });
   expect(view.ranked).toHaveLength(5);
-  // A line is shown by its lead flavor. The main product and Spicy each have
-  // two ratings with the same score; the main product was never published,
-  // so the earlier-published Spicy leads.
-  expect(view.ranked[0]!.leadProduct.id).toBe(spicy.id);
+  // A line is shown by its original, however its flavors are rated.
+  expect(view.ranked[0]!.leadProduct.id).toBe(f.productId);
   // Other views tag as many of the top trending lines as configured.
   const tagged = async (taggedLines?: number) =>
     (

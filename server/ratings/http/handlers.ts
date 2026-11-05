@@ -10,15 +10,24 @@ import { requireSameOrigin } from "../../shared/http/security";
 import { limitedJson, success } from "../../shared/http/json";
 import { protectContribution } from "../../abuse/service";
 import { recordEvent } from "../../observability/events";
+import { savedProductsService } from "../../saved/infrastructure/composition";
 
 export async function ratingState(request: Request, env: Cloudflare.Env) {
   const user = await getOptionalUser(request, new BetterAuthSessionReader(env));
-  const personal = await personalRatingsService(env).state(
-    user?.id ?? null,
-    new URL(request.url).searchParams.get("versionIds") ?? "",
-  );
+  const params = new URL(request.url).searchParams;
+  const [personal, savedProductIds] = await Promise.all([
+    personalRatingsService(env).state(
+      user?.id ?? null,
+      params.get("versionIds") ?? "",
+    ),
+    savedProductsService(env).state(
+      user?.id ?? null,
+      params.get("productIds") ?? "",
+    ),
+  ]);
   const state: RatingState = {
     ...personal,
+    savedProductIds,
     user: user
       ? {
           handle: user.profile.handle,

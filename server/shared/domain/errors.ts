@@ -3,6 +3,8 @@ export class ApplicationError extends Error {
     public readonly code: string,
     message: string,
     public readonly status: number = 400,
+    public readonly retryAfter?: number,
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApplicationError";

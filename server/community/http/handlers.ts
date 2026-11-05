@@ -4,7 +4,12 @@ import {
   requireUser,
 } from "../../auth/application/session";
 import { BetterAuthSessionReader } from "../../auth/infrastructure/session-reader";
-import { protectContribution, enforceLimit } from "../../abuse/service";
+import {
+  protectContribution,
+  enforceLimit,
+  clientKey,
+  protectAiAdmission,
+} from "../../abuse/service";
 import { ApplicationError } from "../../shared/domain/errors";
 import { catalogIsPublic } from "../../shared/domain/launch";
 import { requireSameOrigin } from "../../shared/http/security";
@@ -30,6 +35,8 @@ import {
   countryCode,
   lineMoveInput,
   lineRenameInput,
+  removeProductInput,
+  hideCommentInput,
   note,
   type Actor,
 } from "../domain/contracts";
@@ -88,6 +95,7 @@ export async function communityApi(
   if (
     !roots.has(root ?? "") &&
     !path.startsWith("me/contributions") &&
+    path !== "me/moderation-checks" &&
     !path.startsWith("admin/moderation/")
   )
     return null;
@@ -187,6 +195,8 @@ export async function communityApi(
       return respond(
         await services.contributions.product(actor, parse(id, third)),
       );
+    if (path === "me/moderation-checks")
+      return respond(await services.automaticChecks.list(actor.id));
     if (path === "me/contributions")
       return respond(
         await services.moderation.contributions(
@@ -275,6 +285,7 @@ export async function communityApi(
       third === "uploads" &&
       parts.length === 3
     ) {
+      await enforceLimit(env.UPLOAD_RATE_LIMIT, `ip:${clientKey(request)}`);
       await enforceLimit(env.UPLOAD_RATE_LIMIT, `user:${actor.id}`);
       const form = await limitedFormData(request, MAX_UPLOAD_BYTES + 64 * 1024),
         file = form.get("image");
@@ -293,6 +304,20 @@ export async function communityApi(
       );
     }
     const body = await limitedJson(request, 32 * 1024);
+    if (
+      path === "proposals" ||
+      path === "retailers/proposals" ||
+      (root === "submissions" && third === "finalize") ||
+      (root === "proposals" &&
+        third === "responses" &&
+        body !== null &&
+        typeof body === "object" &&
+        (("note" in body &&
+          typeof body.note === "string" &&
+          body.note.trim()) ||
+          ("urls" in body && Array.isArray(body.urls) && body.urls.length)))
+    )
+      await protectAiAdmission(request, env, actor.id);
     let result: unknown;
     if (path === "submissions/check-identity")
       result = await services.submissions.checkIdentity(
@@ -330,6 +355,12 @@ export async function communityApi(
       );
     else if (path === "proposals")
       result = await services.contributions.propose(
+        actor,
+        requestKey,
+        parse(changeInput, body),
+      );
+    else if (path === "proposals/apply")
+      result = await services.contributions.apply(
         actor,
         requestKey,
         parse(changeInput, body),
@@ -388,6 +419,32 @@ export async function communityApi(
               parse(id, fourth),
               parse(lineRenameInput, body),
             );
+    else if (
+      admin &&
+      third === "products" &&
+      fourth &&
+      fifth === "remove" &&
+      parts.length === 5
+    )
+      result = await services.catalogReview.apply(
+        actor,
+        requestKey,
+        parse(id, fourth),
+        { ...parse(removeProductInput, body), decision: "exclude" },
+      );
+    else if (
+      admin &&
+      third === "comments" &&
+      fourth &&
+      fifth === "hide" &&
+      parts.length === 5
+    )
+      result = await services.moderation.hideComment(
+        actor,
+        requestKey,
+        parse(id, fourth),
+        parse(hideCommentInput, body),
+      );
     else if (path === "admin/moderation/consolidations")
       result = await services.moderation.consolidate(
         actor,

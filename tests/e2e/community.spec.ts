@@ -30,6 +30,11 @@ test("submission, private receipt, operator publication, reporting, formula hist
       page.getByRole("heading", { name: "Add more (optional)" }),
     ).toBeFocused();
     await openOptional(page, "Ingredients");
+    // Photos stay together on step 1.
+    await expect(page.getByLabel("Ingredients photo (optional)")).toHaveCount(
+      0,
+    );
+    await expect(page.getByText("More photos")).toHaveCount(0);
     await page
       .getByLabel(/Link to the ingredients/)
       .fill("http://example.com/manufacturer-ingredients");
@@ -224,7 +229,7 @@ test("submission, private receipt, operator publication, reporting, formula hist
       .fill("2026-09");
     await page
       .getByLabel("Proposed platform classification")
-      .selectOption("appears_vegan");
+      .selectOption("appears_plant_based");
     await page
       .getByLabel("What does the evidence show?")
       .fill(
@@ -309,7 +314,7 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await page.goto(`/admin/moderation/consolidate?donor=${productId}`);
     await page
       .getByLabel("Product to keep", { exact: true })
-      .selectOption({ label: "Beyond Burger" });
+      .selectOption({ label: "Beyond · Beyond Burger · US" });
     await page.getByRole("button", { name: "Preview consolidation" }).click();
     await expect(
       page.getByText(/The survivor keeps its metadata and scores/),
@@ -355,6 +360,16 @@ test("submission, private receipt, operator publication, reporting, formula hist
       .filter({ has: page.getByText("consolidation", { exact: true }) })
       .getByRole("button", { name: "Review reversal" })
       .click();
+    const preview = page.getByRole("region", { name: "Changes to restore" });
+    await expect(preview).toContainText("Product visibility");
+    await expect(preview).toContainText("hidden");
+    await expect(preview).toContainText("active");
+    await expect(preview).toContainText("Duplicate redirect");
+    await accessible(page);
+    await page.screenshot({
+      path: testInfo.outputPath("reversal-impact.png"),
+      fullPage: true,
+    });
     await page
       .getByLabel("Reason for reversal")
       .fill(

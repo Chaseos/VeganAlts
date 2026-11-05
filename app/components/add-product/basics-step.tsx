@@ -1,19 +1,20 @@
 import { useCallback } from "react";
 import { Link } from "react-router";
 import type { Candidate } from "@server/community/domain/contracts";
-import { PhotoPicker } from "../community-form";
+import { CATALOG_ELIGIBILITY_GUIDANCE } from "@server/community/domain/eligibility";
 import { Popover } from "../ui/popover";
 import { Icon } from "../icons/icon";
 import type { AisleOption } from "../aisle-select";
 import { FoodPicker } from "./food-picker";
 import { BrandPicker } from "./brand-picker";
-import { BrandLines } from "./brand-lines";
+import { BrandLines, useBrandLines } from "./brand-lines";
 import { IdentityMatches } from "./identity-matches";
+import { PhotosSection } from "./photos-section";
 import type { FoodChoice } from "../../lib/food-choices";
 import {
   MAX_FLAVOR,
   type DraftErrors,
-  type DraftPhotos,
+  type PhotoSlot,
   type ProductDraft,
 } from "../../lib/product-draft";
 
@@ -31,10 +32,11 @@ export const BASICS_FIELDS = {
 type TextField = "name" | "flavor" | "lineName";
 
 /**
- * Step 1 (milestone 7): the food, then the brand, then what's already listed
- * from it, then the product: a new flavor of a listed line or something else
- * from the brand. A new brand, or one with nothing listed here, goes straight
- * to the product.
+ * Step 1 (milestone 7): the brand, then the food, which opens once the brand
+ * is chosen and lists that brand's foods first, then what's already listed
+ * from the brand, then the product: a new flavor of a listed line or
+ * something else from the brand. A new brand, or one with nothing listed here,
+ * goes straight to the product.
  */
 export function BasicsStep({
   draft,
@@ -56,8 +58,8 @@ export function BasicsStep({
   update: (patch: Partial<ProductDraft>) => void;
   // Text changes, with the names that follow them (editDraft).
   edit: (patch: Partial<Pick<ProductDraft, TextField | "brand">>) => void;
-  photos: DraftPhotos & Partial<Record<"front", File>>;
-  setPhoto: (slot: "front", file: File | undefined) => void;
+  photos: Partial<Record<PhotoSlot, File>>;
+  setPhoto: (slot: PhotoSlot, file: File | undefined) => void;
   foods: readonly FoodChoice[];
   aisles: AisleOption[];
   allowSuggest: boolean;
@@ -88,6 +90,14 @@ export function BasicsStep({
       : null;
   const line = draft.line;
   const listed = draft.brandChosen && draft.brandId !== null;
+  const lines = useBrandLines(
+    draft.country,
+    listed ? draft.brandId : null,
+    () => update({ line: { kind: "new" } }),
+  );
+  const brandFoods = [
+    ...new Set(lines.lines?.flatMap((l) => l.foods.map((f) => f.id)) ?? []),
+  ];
   // A product follows its food's season unless the contributor says.
   const seasonal = draft.seasonal ?? chosenFood?.seasonal ?? false;
   return (
@@ -102,6 +112,7 @@ export function BasicsStep({
       <p className="va-add__note">
         Fields are required unless they say optional.
       </p>
+      <p className="va-add__note">{CATALOG_ELIGIBILITY_GUIDANCE}</p>
       <div className="va-add__country">
         <span>
           Adding to <strong>{countryName}</strong>
@@ -143,18 +154,6 @@ export function BasicsStep({
           </Popover>
         )}
       </div>
-      <FoodPicker
-        id="food"
-        label="What food does it replace? (required)"
-        foods={foods}
-        countryName={countryName}
-        value={draft.food}
-        onChange={(food) => update({ food })}
-        aisles={aisles}
-        allowSuggest={allowSuggest}
-        error={errors.food}
-        aisleError={errors.aisle}
-      />
       <BrandPicker
         id="brand"
         country={draft.country}
@@ -177,11 +176,32 @@ export function BasicsStep({
         }
         error={errors.brand}
       />
+      <FoodPicker
+        id="food"
+        label="What food does it replace? (required)"
+        foods={foods}
+        countryName={countryName}
+        value={draft.food}
+        onChange={(food) => update({ food })}
+        aisles={aisles}
+        allowSuggest={allowSuggest}
+        preferred={
+          brandFoods.length
+            ? { ids: brandFoods, tag: `From ${draft.brand.trim()}` }
+            : undefined
+        }
+        disabledHint={draft.brandChosen ? undefined : "Choose the brand first."}
+        error={errors.food}
+        aisleError={errors.aisle}
+      />
       {listed && !line && (
         <BrandLines
           country={draft.country}
           brand={{ id: draft.brandId!, name: draft.brand }}
           food={chosenFood}
+          lines={lines.lines}
+          failed={lines.failed}
+          onRetry={lines.retry}
           onFlavor={(chosen) =>
             update({
               line: {
@@ -195,7 +215,6 @@ export function BasicsStep({
             })
           }
           onSomethingElse={() => update({ line: { kind: "new" } })}
-          onNothing={() => update({ line: { kind: "new" } })}
           error={errors.line}
         />
       )}
@@ -298,15 +317,14 @@ export function BasicsStep({
             />
             Sold only part of the year (seasonal)
           </label>
-          <PhotoPicker
-            slot="front"
-            label="Front of pack photo"
-            required
-            file={photos.front}
-            onChange={(file) => setPhoto("front", file)}
-            error={errors.front}
-          />
         </fieldset>
+      )}
+      {line && (
+        <PhotosSection
+          photos={photos}
+          setPhoto={setPhoto}
+          error={errors.front}
+        />
       )}
       <button className="button" disabled={busy}>
         Continue

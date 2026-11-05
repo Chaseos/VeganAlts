@@ -25,6 +25,113 @@ const values = (base: DecisionBase) => [
 
 export class D1DecisionRepository implements DecisionRepository {
   constructor(private readonly db: D1Database) {}
+
+  async restrict(id: string, outcome: Outcome, resultData: string) {
+    await this.db
+      .prepare(
+        "UPDATE moderation_decisions SET outcome=?,result_data=? WHERE id=? AND status IN ('completed','reused') AND outcome<>'BLOCKED'",
+      )
+      .bind(outcome, resultData, id)
+      .run();
+  }
+  async budgetScope(base: DecisionBase, policy: ModerationPolicy) {
+    const day = Math.floor(base.now / DAY) * DAY;
+    const row = await this.db
+      .prepare(
+        "SELECT SUM(CASE WHEN user_id=? THEN 1 ELSE 0 END) AS account,COUNT(*) AS total FROM moderation_decisions WHERE charged=1 AND created_at>=?",
+      )
+      .bind(base.userId, day)
+      .first<{ account: number; total: number }>();
+    return row && row.account >= policy.accountDaily
+      ? ("account" as const)
+      : row && row.total >= policy.daily
+        ? ("environment" as const)
+        : ("busy" as const);
+  }
+  async reusableStage(
+    provider: string,
+    model: string,
+    stage: string,
+    hash: string,
+    since: number,
+  ) {
+    return this.db
+      .prepare(
+        "SELECT result_data FROM moderation_provider_attempts WHERE provider=? AND model=? AND stage=? AND input_hash=? AND status='completed' AND created_at>=? ORDER BY created_at DESC LIMIT 1",
+      )
+      .bind(provider, model, stage, hash, since)
+      .first<string>("result_data");
+  }
+  async reserveStage(
+    base: DecisionBase,
+    stage: "safety" | "evidence",
+    provider: string,
+    model: string,
+    hash: string,
+    policy: ModerationPolicy,
+  ) {
+    const id = crypto.randomUUID(),
+      day = Math.floor(base.now / DAY) * DAY;
+    await this.db
+      .prepare(
+        "UPDATE moderation_provider_attempts SET status='failed',error_code='timeout',lease_expires_at=NULL WHERE status='reserved' AND lease_expires_at<=?",
+      )
+      .bind(base.now)
+      .run();
+    const result = await this.db
+      .prepare(
+        `INSERT INTO moderation_provider_attempts(id,decision_id,user_id,provider,model,stage,input_hash,status,created_at,lease_expires_at)
+      SELECT ?,?,?,?,?,?,?,'reserved',?,? WHERE
+      (SELECT COUNT(*) FROM moderation_provider_attempts WHERE provider=? AND created_at>=?) < ? AND
+      (SELECT COUNT(*) FROM moderation_provider_attempts WHERE provider=? AND user_id=? AND created_at>=?) < ? AND
+      (SELECT COUNT(*) FROM moderation_provider_attempts WHERE status='reserved' AND lease_expires_at>?) < ? AND
+      (SELECT COUNT(*) FROM moderation_provider_attempts WHERE status='reserved' AND user_id=? AND lease_expires_at>?) < ? AND
+      NOT EXISTS(SELECT 1 FROM moderation_provider_attempts WHERE provider=? AND model=? AND stage=? AND input_hash=? AND status='reserved')`,
+      )
+      .bind(
+        id,
+        base.id,
+        base.userId,
+        provider,
+        model,
+        stage,
+        hash,
+        base.now,
+        base.now + policy.leaseMs,
+        provider,
+        day,
+        policy.daily,
+        provider,
+        base.userId,
+        day,
+        policy.accountDaily,
+        base.now,
+        policy.globalConcurrent,
+        base.userId,
+        base.now,
+        policy.concurrent,
+        provider,
+        model,
+        stage,
+        hash,
+      )
+      .run();
+    return result.meta.changes === 1 ? id : null;
+  }
+  async finishStage(
+    id: string,
+    data: string | null,
+    error: string | null,
+    latency: number,
+  ) {
+    await this.db
+      .prepare(
+        "UPDATE moderation_provider_attempts SET status=?,result_data=?,error_code=?,latency_ms=?,lease_expires_at=NULL WHERE id=? AND status='reserved'",
+      )
+      .bind(error ? "failed" : "completed", data, error, latency, id)
+      .run();
+  }
+
   async reusable(versions: DecisionVersions, inputHash: string, since: number) {
     return this.db
       .prepare(
@@ -61,7 +168,8 @@ export class D1DecisionRepository implements DecisionRepository {
         SELECT ?,?,?,?,?,?,?,?,?,?,'reserved',1,?,?
         WHERE (SELECT COUNT(*) FROM moderation_decisions WHERE charged=1 AND created_at>=?) < ?
         AND (SELECT COUNT(*) FROM moderation_decisions WHERE charged=1 AND user_id=? AND created_at>=?) < ?
-        AND (SELECT COUNT(*) FROM moderation_decisions WHERE status='reserved' AND user_id=? AND lease_expires_at>?) < ?`,
+        AND (SELECT COUNT(*) FROM moderation_decisions WHERE status='reserved' AND user_id=? AND lease_expires_at>?) < ?
+        AND (SELECT COUNT(*) FROM moderation_decisions WHERE status='reserved' AND lease_expires_at>?) < ?`,
       )
       .bind(
         ...values(base),
@@ -75,6 +183,8 @@ export class D1DecisionRepository implements DecisionRepository {
         base.userId,
         base.now,
         policy.concurrent,
+        base.now,
+        policy.globalConcurrent,
       )
       .run();
     return result.meta.changes === 1;

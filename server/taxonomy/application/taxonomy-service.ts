@@ -1,3 +1,8 @@
+import { contributedText } from "../../moderation/domain/safety";
+import {
+  ModerationWorkService,
+  requireAutomatedCheck,
+} from "../../moderation/application/work-service";
 import { ApplicationError } from "../../shared/domain/errors";
 import { taxonomyShape } from "../domain/shape";
 import type { Actor } from "../../community/domain/contracts";
@@ -106,6 +111,7 @@ export class TaxonomyService {
     private readonly effects: TaxonomyEffects,
     private readonly newId: () => string,
     private readonly clock = Date.now,
+    private readonly work?: ModerationWorkService,
   ) {}
   async tree(actor: Actor) {
     administrator(actor);
@@ -212,6 +218,15 @@ export class TaxonomyService {
   async propose(actor: Actor, key: string, raw: unknown) {
     active(actor);
     const input = categoryProposalInput.parse(raw);
+    return this.work
+      ? this.work.execute(actor.id, "category_proposal", key, input, () =>
+          this.proposeNow(actor, key, input),
+        )
+      : this.proposeNow(actor, key, input);
+  }
+  private async proposeNow(actor: Actor, key: string, raw: unknown) {
+    active(actor);
+    const input = categoryProposalInput.parse(raw);
     const receipt = await receiptWrite(
       actor.id,
       "category-proposal",
@@ -232,6 +247,7 @@ export class TaxonomyService {
     const id = this.newId();
     const automated = await this.decisions.evaluate({
       kind: "category_proposal",
+      safety: { text: contributedText(input) },
       subject: { type: "category_proposal", id },
       userId: actor.id,
       state: {
@@ -243,6 +259,8 @@ export class TaxonomyService {
         },
       },
     });
+    requireAutomatedCheck(automated);
+    await this.work?.assertCurrent();
     if (
       automated.outcome === "BLOCKED" ||
       automated.outcome === "NEEDS_CHANGES"

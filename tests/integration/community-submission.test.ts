@@ -35,6 +35,14 @@ async function setup() {
   await env.DB.prepare("UPDATE countries SET iso2='US' WHERE id=?")
     .bind(f.countryId)
     .run();
+  await env.DB.batch(
+    ["milk", "egg", "fish", "crustacean", "tree_nuts", "peanut", "wheat", "soy", "sesame"].map(
+      (allergen, index) =>
+        env.DB.prepare(
+          "INSERT INTO country_allergens(country_id,allergen_key,position) VALUES(?,?,?)",
+        ).bind(f.countryId, allergen, index + 1),
+    ),
+  );
   const repo = new SubmissionRepository(
       env.DB,
       DEFAULT_LIMITS,
@@ -132,7 +140,7 @@ it("publishes atomically from private media, replays keys and rejects package-si
     await env.DB.prepare("SELECT vegan_status FROM products WHERE id=?")
       .bind(receipt.planned_product_id)
       .first("vegan_status"),
-  ).toBe("appears_vegan");
+  ).toBe("appears_plant_based");
   expect(
     await env.DB.prepare("SELECT entity_id FROM search_index WHERE entity_id=?")
       .bind(receipt.planned_product_id)
@@ -506,7 +514,7 @@ it("publishes unconfirmed ingredients as not checked yet, and an operator's choi
   const first = await publish(unconfirmed);
   expect(first.checked.decision).toBe("READY");
   expect(await classification(first.checked.receiptId!)).toEqual({
-    vegan_status: "appears_vegan",
+    vegan_status: "appears_plant_based",
     ingredients_checked: 0,
     reviewed_by: null,
   });
@@ -548,10 +556,10 @@ it("publishes unconfirmed ingredients as not checked yet, and an operator's choi
     0,
     "The operator verified the ingredient panel.",
     undefined,
-    "appears_vegan",
+    "appears_plant_based",
   );
   expect(await classification(third.checked.receiptId!)).toEqual({
-    vegan_status: "appears_vegan",
+    vegan_status: "appears_plant_based",
     ingredients_checked: 1,
     reviewed_by: admin.id,
   });
@@ -602,12 +610,12 @@ it("lowers an unreadable ingredients photo to not checked yet instead of holding
       .first();
   };
   expect(await classify("The ingredient panel lists only plants.")).toEqual({
-    status: "appears_vegan",
+    status: "appears_plant_based",
     checked: 1,
   });
   expect(
     await classify("Blurry panel photo. [fake:evidence_quality=NONE]"),
-  ).toEqual({ status: "appears_vegan", checked: 0 });
+  ).toEqual({ status: "appears_plant_based", checked: 0 });
 });
 
 it("publishes a front-photo-only product with its ingredients not checked yet", async () => {
@@ -639,7 +647,7 @@ it("publishes a front-photo-only product with its ingredients not checked yet", 
     .bind((await repo.get(checked.receiptId!))!.planned_version_id)
     .first<{ note: string }>();
   expect(row).toMatchObject({
-    status: "appears_vegan",
+    status: "appears_plant_based",
     checked: 0,
     label: "unknown",
   });

@@ -1,3 +1,8 @@
+import { decisionHash } from "../../moderation/application/decision-service";
+import {
+  ModerationWorkService,
+  requireAutomatedCheck,
+} from "../../moderation/application/work-service";
 import { ApplicationError } from "../../shared/domain/errors";
 import { active } from "../../community/domain/policy";
 import type { Actor } from "../../community/domain/contracts";
@@ -32,7 +37,7 @@ export interface SavedComment {
 
 /**
  * Comments are opinions about one formula. Deterministic checks run first;
- * the automated evaluation can only hold a comment for review or block
+ * safety flags reject the comment; Clef can hold uncertain content or block
  * near-certain spam. Votes measure usefulness and never touch rankings.
  */
 export class CommentService {
@@ -42,6 +47,7 @@ export class CommentService {
     private readonly policy: CommentPolicy,
     private readonly newId: () => string,
     private readonly clock = Date.now,
+    private readonly work?: ModerationWorkService,
   ) {}
   private async product(where: CommentProductLookup) {
     const product = await this.repository.product(where);
@@ -77,6 +83,7 @@ export class CommentService {
   ) {
     const decision = await this.decisions.evaluate({
       kind: "comment",
+      safety: { text: body },
       subject: { type: "comment", id: commentId },
       userId: actor.id,
       state: {
@@ -94,6 +101,8 @@ export class CommentService {
         comment: { body },
       },
     });
+    requireAutomatedCheck(decision);
+    await this.work?.assertCurrent();
     if (decision.outcome === "BLOCKED")
       throw new ApplicationError(
         "COMMENT_BLOCKED",
@@ -116,6 +125,15 @@ export class CommentService {
     };
   }
   async create(actor: Actor, key: string, raw: unknown) {
+    active(actor);
+    const input = commentInput.parse(raw);
+    return this.work
+      ? this.work.execute(actor.id, "comment_create", key, input, () =>
+          this.createNow(actor, key, input),
+        )
+      : this.createNow(actor, key, input);
+  }
+  private async createNow(actor: Actor, key: string, raw: unknown) {
     active(actor);
     const input = commentInput.parse(raw);
     const now = this.clock(),
@@ -188,7 +206,21 @@ export class CommentService {
       throw new ApplicationError("NOT_FOUND", "Comment not found.", 404);
     return comment;
   }
-  async edit(actor: Actor, id: string, raw: unknown) {
+  async edit(actor: Actor, id: string, raw: unknown, key?: string) {
+    active(actor);
+    const input = commentEdit.parse(raw),
+      data = { id, input };
+    return this.work
+      ? this.work.execute(
+          actor.id,
+          "comment_edit",
+          key ?? (await decisionHash(data)),
+          data,
+          () => this.editNow(actor, id, input),
+        )
+      : this.editNow(actor, id, input);
+  }
+  private async editNow(actor: Actor, id: string, raw: unknown) {
     active(actor);
     const input = commentEdit.parse(raw);
     const comment = await this.owned(actor, id);
@@ -198,14 +230,14 @@ export class CommentService {
         "A moderator has hidden this comment, so it can't be edited.",
         409,
       );
+    if (comment.body === input.body)
+      return this.saved(comment, comment.moderation_state, []);
     if (comment.updated_at !== input.expectedUpdatedAt)
       throw new ApplicationError(
         "COMMENT_CHANGED",
         "This comment changed. Refresh before editing.",
         409,
       );
-    if (comment.body === input.body)
-      return this.saved(comment, comment.moderation_state, []);
     const product = await this.product({ id: comment.product_id });
     const evaluation = await this.evaluate(
       actor,

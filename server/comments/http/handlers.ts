@@ -3,7 +3,7 @@ import { ApplicationError } from "../../shared/domain/errors";
 import { catalogIsPublic } from "../../shared/domain/launch";
 import { requireSameOrigin } from "../../shared/http/security";
 import { limitedJson, success } from "../../shared/http/json";
-import { protectContribution } from "../../abuse/service";
+import { protectContribution, protectAiAdmission } from "../../abuse/service";
 import { communityActor } from "../../community/http/handlers";
 import { catalogService } from "../../catalog/infrastructure/composition";
 import { scheduleCatalogInvalidation } from "../../catalog/infrastructure/invalidation";
@@ -102,6 +102,8 @@ export async function commentsApi(
     operation === "vote" ? env.VOTE_RATE_LIMIT : env.COMMENT_RATE_LIMIT,
   );
   const body = await limitedJson(request, 16 * 1024);
+  if (parts.length === 1 || operation === "edit")
+    await protectAiAdmission(request, env, actor.id);
   if (parts.length === 1)
     return success(await services.create(actor, requestKey, body), {}, true);
   if (parts.length !== 3) return null;
@@ -114,7 +116,11 @@ export async function commentsApi(
     );
   }
   if (operation === "edit")
-    return success(await services.edit(actor, target, body), {}, true);
+    return success(
+      await services.edit(actor, target, body, requestKey),
+      {},
+      true,
+    );
   if (operation === "delete") {
     const result = await services.remove(actor, target);
     await purgeProduct(env, result.productId);

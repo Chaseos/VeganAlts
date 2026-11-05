@@ -1,11 +1,19 @@
 import { ApplicationError } from "../../shared/domain/errors";
+import { originalFlavorSql } from "../../catalog/domain/flavor-label";
 import type {
   BrandLine,
   BrandSuggestion,
   Candidate,
   SubmissionIdentity,
 } from "../domain/contracts";
-import { identityKey, normalizeName, productName } from "../domain/policy";
+import {
+  comparableName,
+  distinctiveNameWords,
+  identityKey,
+  nameWords,
+  normalizeName,
+  productName,
+} from "../domain/policy";
 import {
   BRAND_LOOKUP_MIN,
   matchingBrands,
@@ -50,7 +58,7 @@ export class CommunityLookupRepository {
           )
           .bind(term, normalized, normalized),
         this.db.prepare(
-          "SELECT id,name,slug FROM categories WHERE is_active=1 AND is_rankable=1 ORDER BY name LIMIT 100",
+          "SELECT id,name,slug FROM categories WHERE is_active=1 AND is_rankable=1 ORDER BY name,id",
         ),
         this.db
           .prepare(
@@ -59,9 +67,15 @@ export class CommunityLookupRepository {
           .bind(term),
         this.db
           .prepare(
-            "SELECT p.id,p.name,p.slug,p.country_id AS countryId,c.iso2 AS country FROM products p JOIN countries c ON c.id=p.country_id WHERE p.lifecycle_status<>'hidden' AND c.is_active=1 AND p.name LIKE ? ESCAPE '\\' ORDER BY p.name LIMIT 50",
+            `SELECT p.id,p.name,p.slug,p.country_id AS countryId,c.iso2 AS country,b.name AS brand
+             FROM products p JOIN countries c ON c.id=p.country_id LEFT JOIN brands b ON b.id=p.brand_id
+             WHERE p.lifecycle_status<>'hidden' AND c.is_active=1 AND (
+               p.name LIKE ? ESCAPE '\\' OR b.name LIKE ? ESCAPE '\\' OR b.normalized_name LIKE ? ESCAPE '\\'
+               OR EXISTS(SELECT 1 FROM brand_aliases a WHERE a.brand_id=b.id AND a.normalized_name LIKE ? ESCAPE '\\')
+               OR EXISTS(SELECT 1 FROM product_aliases a WHERE a.product_id=p.id AND a.alias LIKE ? ESCAPE '\\')
+             ) ORDER BY p.name,b.name,c.iso2,p.id LIMIT 50`,
           )
-          .bind(term),
+          .bind(term, term, normalized, normalized, term),
         this.db
           .prepare(
             "SELECT r.id,r.canonical_name AS name,r.website_url AS websiteUrl FROM retailers r JOIN retailer_markets m ON m.retailer_id=r.id JOIN countries c ON c.id=m.country_id WHERE c.iso2=? AND m.is_active=1 AND (r.canonical_name LIKE ? ESCAPE '\\' OR r.normalized_name LIKE ? ESCAPE '\\' OR r.id IN (SELECT retailer_id FROM retailer_aliases WHERE normalized_name LIKE ? ESCAPE '\\')) ORDER BY r.canonical_name LIMIT 50",
@@ -70,9 +84,20 @@ export class CommunityLookupRepository {
       ]);
     return {
       brands: brands!.results,
-      categories: categories!.results,
+      categories: categories!.results as {
+        id: string;
+        name: string;
+        slug: string;
+      }[],
       families: families!.results,
-      products: products!.results,
+      products: products!.results as {
+        id: string;
+        name: string;
+        slug: string;
+        countryId: string;
+        country: string;
+        brand: string | null;
+      }[],
       retailers: retailers!.results,
     };
   }
@@ -239,10 +264,11 @@ export class CommunityLookupRepository {
     const rows = await this.db
       .prepare(
         `SELECT f.id AS lineId,f.canonical_name AS lineName,p.id AS productId,p.slug,p.name,p.flavor,
+          (SELECT i.id FROM product_versions v JOIN product_images i ON i.product_version_id=v.id WHERE v.product_id=p.id AND v.is_current=1 AND i.slot='front' AND i.state='accepted' LIMIT 1) AS imageId,
           COALESCE((SELECT json_group_array(json_object('id',c.id,'slug',c.slug,'name',c.name)) FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 WHERE pc.product_id=p.id),'[]') AS foods
         FROM product_families f JOIN countries co ON co.id=f.country_id AND co.iso2=? AND co.is_active=1
         JOIN products p ON p.product_family_id=f.id AND p.lifecycle_status IN ('active','under_review')
-        WHERE f.brand_id=? ORDER BY f.canonical_name,f.id,p.flavor IS NOT NULL,p.flavor,p.name LIMIT 500`,
+        WHERE f.brand_id=? ORDER BY f.canonical_name,f.id,NOT ${originalFlavorSql("p")},p.flavor,p.name LIMIT 500`,
       )
       .bind(country, brandId)
       .all<{
@@ -252,6 +278,7 @@ export class CommunityLookupRepository {
         slug: string;
         name: string;
         flavor: string | null;
+        imageId: string | null;
         foods: string;
       }>();
     const lines = new Map<string, BrandLine>();
@@ -270,6 +297,7 @@ export class CommunityLookupRepository {
         slug: row.slug,
         name: row.name,
         flavor: row.flavor,
+        imageId: row.imageId,
         foods: foods.map((food) => food.slug),
       });
       lines.set(row.lineId, line);
@@ -285,9 +313,9 @@ export class CommunityLookupRepository {
    * Products a new one may duplicate. An exact identity always comes first and
    * blocks publication. Otherwise, by default, the milestone 6 rule decides
    * the near-duplicate hold: the same brand or the whole name, sharing two
-   * words (one for a one-word name). `loose` widens what is shown while
-   * typing (milestone 7): any brand, one shared word of three or more
-   * letters, brands that match the typed brand loosely first. The chosen
+   * distinctive words (one when the name has only one). `loose` widens what
+   * is shown while typing (milestone 7): any brand, one shared word of three
+   * or more letters, brands that match the typed brand loosely first. The chosen
    * line's flavors are siblings, never near-duplicates.
    */
   async candidates(
@@ -304,8 +332,7 @@ export class CommunityLookupRepository {
       .bind(context.identity)
       .first<Omit<Candidate, "exact">>();
     if (exact) return [{ ...exact, exact: true }];
-    const tokens = input.name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-    const significant = [...new Set(tokens.filter((t) => t.length > 2))];
+    const significant = (loose ? nameWords : distinctiveNameWords)(input.name);
     const like = (value: string) => `%${value.replace(/[\\%_]/g, "\\$&")}%`;
     const nameLike = like(input.name.slice(0, 40));
     // The database ranks the brand's catalog by shared name tokens, so a large
@@ -329,7 +356,7 @@ export class CommunityLookupRepository {
       p.brand_id IN (SELECT value FROM json_each(?)) AS brandMatch,
       COALESCE(p.product_family_id=?,0) AS inLine,
       COALESCE((SELECT json_group_array(alias) FROM product_aliases WHERE product_id=p.id),'[]') AS aliases,
-      p.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM product_aliases WHERE product_id=p.id),'') AS names
+      replace(replace(p.name||' '||COALESCE((SELECT group_concat(alias,' ') FROM product_aliases WHERE product_id=p.id),''),'''',''),'’','') AS names
       FROM products p LEFT JOIN brands b ON b.id=p.brand_id WHERE p.country_id=? AND p.lifecycle_status<>'hidden'
       AND (${loose ? "1" : "p.brand_id=? OR p.name LIKE ? ESCAPE '\\'"})
     ), scored AS (SELECT *,${hits} AS hits FROM scoped)
@@ -351,14 +378,14 @@ export class CommunityLookupRepository {
         normalizeName(row.brand ?? "") === normalizeName(context.brandName) &&
         names.some((name) => productName(name) === productName(input.name));
       const shared = (name: string) =>
-        significant.filter((token) => name.toLowerCase().includes(token))
+        significant.filter((token) => comparableName(name).includes(token))
           .length;
       const similar =
         !row.inLine &&
         names.some(
           (name) =>
             shared(name) >=
-            (loose ? 1 : Math.min(2, Math.max(1, tokens.length))),
+            (loose ? 1 : Math.min(2, Math.max(1, significant.length))),
         );
       return same || similar
         ? [

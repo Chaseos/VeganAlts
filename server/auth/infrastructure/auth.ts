@@ -1,3 +1,7 @@
+import {
+  moderationDecisions,
+  type ModerationEnv,
+} from "../../moderation/infrastructure/composition";
 import { betterAuth } from "better-auth";
 import { dash } from "@better-auth/infra";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
@@ -9,8 +13,15 @@ import { DrizzleProfilesRepository } from "../../profiles/infrastructure/drizzle
 import { ApplicationError } from "../../shared/domain/errors";
 import { AppleClientSecret } from "./apple-secret";
 
-export function profilesService(env: Pick<Cloudflare.Env, "DB">) {
-  return new ProfilesService(new DrizzleProfilesRepository(env.DB), uuid);
+export function profilesService(
+  env: Pick<Cloudflare.Env, "DB"> & Partial<Omit<ModerationEnv, "DB">>,
+) {
+  return new ProfilesService(
+    new DrizzleProfilesRepository(env.DB),
+    uuid,
+    Date.now,
+    moderationDecisions({ ...env, APP_ENV: env.APP_ENV ?? "local" }),
+  );
 }
 
 export function configuredProviders(env: Cloudflare.Env) {

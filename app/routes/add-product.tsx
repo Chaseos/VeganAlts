@@ -596,7 +596,6 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                   draft={draft}
                   update={update}
                   photos={photos}
-                  setPhoto={setPhoto}
                   foods={foods}
                   countryName={market.name}
                   allergenList={allergens}

@@ -19,6 +19,7 @@ export function NavigationEvents() {
           "category",
           "profile",
           "my-ratings",
+          "saved",
           "account",
         ] as const
       ).find((value) => value === label) ?? "auth";

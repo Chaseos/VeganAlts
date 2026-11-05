@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import type { PublicComment } from "@server/comments/infrastructure/d1-comment-repository";
 import type { SavedComment } from "@server/comments/application/comment-service";
 import { usePersonalState } from "../personal-state";
@@ -44,6 +45,8 @@ export function CommentSection({
     [own, setOwn] = useState<OwnComment[]>([]),
     [status, setStatus] = useState(""),
     [loading, setLoading] = useState(false);
+  const [hiddenComment, setHiddenComment] = useState(false);
+  const statusRef = useRef<HTMLParagraphElement>(null);
   const productId = initial.productId;
   // The viewer's votes and own comments for the comments on screen, merged
   // as further pages load so older comments keep their controls.
@@ -185,7 +188,12 @@ export function CommentSection({
           ? old.comments.filter((c) => c.id !== saved.id)
           : old.comments.map((c) =>
               c.id === saved.id
-                ? { ...c, body: saved.body, editedAt: saved.editedAt }
+                ? {
+                    ...c,
+                    body: saved.body,
+                    editedAt: saved.editedAt,
+                    updatedAt: saved.updatedAt,
+                  }
                 : c,
             ),
     }));
@@ -212,6 +220,33 @@ export function CommentSection({
   const held = own.filter(
     (o) => o.state === "pending" && !page.comments.some((c) => c.id === o.id),
   );
+  async function hide(comment: PublicComment, note: string) {
+    const saved = await action.run(() =>
+      action.request(`admin/moderation/comments/${comment.id}/hide`, {
+        expectedUpdatedAt: comment.updatedAt,
+        note,
+      }),
+    );
+    if (!saved) return false;
+    setPage((old) => {
+      const formula = comment.formula.isCurrent ? "current" : "earlier";
+      return {
+        ...old,
+        comments: old.comments.filter((c) => c.id !== comment.id),
+        counts: {
+          ...old.counts,
+          [formula]: Math.max(0, old.counts[formula] - 1),
+        },
+      };
+    });
+    setOwn((old) =>
+      old.map((o) => (o.id === comment.id ? { ...o, state: "hidden" } : o)),
+    );
+    setStatus("Comment hidden from public view.");
+    setHiddenComment(true);
+    statusRef.current?.focus();
+    return true;
+  }
   // Shared product HTML can lag a new comment by its 15-minute TTL plus
   // revalidation, so authors see their just-published comments meanwhile.
   const recent = own.filter(
@@ -268,8 +303,17 @@ export function CommentSection({
             )}
           </div>
         </div>
-        <p role="status" className="small">
+        <p role="status" className="small" ref={statusRef} tabIndex={-1}>
           {status}
+          {hiddenComment && user?.administrator && (
+            <>
+              {" "}
+              <Link to={`/admin/moderation/products/${productId}`}>
+                Review history or restore a comment
+              </Link>
+              .
+            </>
+          )}
         </p>
         {held.length > 0 && (
           <ul
@@ -309,6 +353,11 @@ export function CommentSection({
                 onVote={(value) => void vote(comment, value)}
                 onEdit={(body) => edit(comment, body)}
                 onDelete={() => void remove(comment.id)}
+                onHide={
+                  user?.administrator
+                    ? (note) => hide(comment, note)
+                    : undefined
+                }
               />
             ))}
           </ul>

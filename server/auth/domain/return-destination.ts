@@ -11,12 +11,13 @@ const APPLICATION_PAGE = new RegExp(
     [
       ...PUBLIC_PATHS,
       "my-ratings",
+      "saved",
       "account",
       "add-product",
       "propose-category",
       "contribute/[a-zA-Z0-9_-]+",
       "my-contributions(?:/[a-z]+/[a-zA-Z0-9_-]+)?",
-      "admin/(?:taxonomy|media|moderation(?:/[a-zA-Z0-9_/-]+)?)",
+      "admin/(?:taxonomy|analytics|media|moderation(?:/[a-zA-Z0-9_/-]+)?)",
     ].join("|") +
     ")?$",
 );

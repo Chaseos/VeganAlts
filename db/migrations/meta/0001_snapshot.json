@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3a645875-a7a5-485b-9552-589420449ca6",
+  "id": "4cc0685b-bfc8-4e1f-8719-623fde271574",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -3651,7 +3651,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'appears_vegan'"
+          "default": "'appears_plant_based'"
         },
         "manufacturer_label": {
           "name": "manufacturer_label",
@@ -3837,7 +3837,7 @@
         },
         "ck_products_3": {
           "name": "ck_products_3",
-          "value": "vegan_status IN ('vegan', 'appears_vegan', 'plant_based', 'under_review')"
+          "value": "vegan_status IN ('vegan', 'appears_plant_based', 'plant_based', 'under_review')"
         },
         "ck_products_4": {
           "name": "ck_products_4",
@@ -5464,7 +5464,7 @@
       "checkConstraints": {
         "ck_formula_classification_status": {
           "name": "ck_formula_classification_status",
-          "value": "\"formula_classifications\".\"vegan_status\" IN ('vegan','appears_vegan','plant_based','under_review')"
+          "value": "\"formula_classifications\".\"vegan_status\" IN ('vegan','appears_plant_based','plant_based','under_review')"
         },
         "ck_formula_classification_label": {
           "name": "ck_formula_classification_label",
@@ -5476,7 +5476,7 @@
         },
         "ck_formula_ingredients_checked": {
           "name": "ck_formula_ingredients_checked",
-          "value": "\"formula_classifications\".\"ingredients_checked\" IN (0,1) AND (\"formula_classifications\".\"ingredients_checked\"=1 OR \"formula_classifications\".\"vegan_status\"='appears_vegan')"
+          "value": "\"formula_classifications\".\"ingredients_checked\" IN (0,1) AND (\"formula_classifications\".\"ingredients_checked\"=1 OR \"formula_classifications\".\"vegan_status\"='appears_plant_based')"
         }
       }
     },
@@ -5891,7 +5891,7 @@
       "checkConstraints": {
         "ck_decision_subject": {
           "name": "ck_decision_subject",
-          "value": "\"moderation_decisions\".\"subject_type\" IN ('submission','comment','edit_proposal','category_proposal')"
+          "value": "\"moderation_decisions\".\"subject_type\" IN ('submission','comment','edit_proposal','category_proposal','profile','proposal_response')"
         },
         "ck_decision_status": {
           "name": "ck_decision_status",
@@ -6270,6 +6270,144 @@
         "ck_product_version_allergens_presence": {
           "name": "ck_product_version_allergens_presence",
           "value": "presence IN ('contains', 'may_contain')"
+        }
+      }
+    },
+    "product_version_ingredient_transcriptions": {
+      "name": "product_version_ingredient_transcriptions",
+      "columns": {
+        "product_version_id": {
+          "name": "product_version_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "package_ingredients": {
+          "name": "package_ingredients",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "package_contains": {
+          "name": "package_contains",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "package_may_contain": {
+          "name": "package_may_contain",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_image_ids": {
+          "name": "source_image_ids",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "readings": {
+          "name": "readings",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "verification": {
+          "name": "verification",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "assessment": {
+          "name": "assessment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "online_ingredients": {
+          "name": "online_ingredients",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "online_contains": {
+          "name": "online_contains",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "online_may_contain": {
+          "name": "online_may_contain",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "online_url": {
+          "name": "online_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "online_accessed_at": {
+          "name": "online_accessed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "online_product_match": {
+          "name": "online_product_match",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "product_version_ingredient_transcriptions_product_version_id_product_versions_id_fk": {
+          "name": "product_version_ingredient_transcriptions_product_version_id_product_versions_id_fk",
+          "tableFrom": "product_version_ingredient_transcriptions",
+          "tableTo": "product_versions",
+          "columnsFrom": [
+            "product_version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_ingredient_transcription_json": {
+          "name": "ck_ingredient_transcription_json",
+          "value": "json_valid(\"product_version_ingredient_transcriptions\".\"source_image_ids\") AND json_valid(\"product_version_ingredient_transcriptions\".\"readings\") AND json_valid(\"product_version_ingredient_transcriptions\".\"assessment\")"
+        },
+        "ck_ingredient_transcription_verification": {
+          "name": "ck_ingredient_transcription_verification",
+          "value": "\"product_version_ingredient_transcriptions\".\"verification\" IN ('online_only','single_read','agreed','corrected','unresolved','no_source')"
         }
       }
     },
@@ -7645,6 +7783,574 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "moderation_provider_attempts": {
+      "name": "moderation_provider_attempts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "decision_id": {
+          "name": "decision_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "input_hash": {
+          "name": "input_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "result_data": {
+          "name": "result_data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "latency_ms": {
+          "name": "latency_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ix_provider_reuse": {
+          "name": "ix_provider_reuse",
+          "columns": [
+            "provider",
+            "model",
+            "stage",
+            "input_hash",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "ix_provider_budget": {
+          "name": "ix_provider_budget",
+          "columns": [
+            "provider",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "ix_provider_account_budget": {
+          "name": "ix_provider_account_budget",
+          "columns": [
+            "user_id",
+            "provider",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "moderation_provider_attempts_decision_id_moderation_decisions_id_fk": {
+          "name": "moderation_provider_attempts_decision_id_moderation_decisions_id_fk",
+          "tableFrom": "moderation_provider_attempts",
+          "tableTo": "moderation_decisions",
+          "columnsFrom": [
+            "decision_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "moderation_provider_attempts_user_id_profiles_user_id_fk": {
+          "name": "moderation_provider_attempts_user_id_profiles_user_id_fk",
+          "tableFrom": "moderation_provider_attempts",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_provider_stage": {
+          "name": "ck_provider_stage",
+          "value": "\"moderation_provider_attempts\".\"stage\" IN ('safety','evidence')"
+        },
+        "ck_provider_status": {
+          "name": "ck_provider_status",
+          "value": "\"moderation_provider_attempts\".\"status\" IN ('reserved','completed','failed')"
+        },
+        "ck_provider_json": {
+          "name": "ck_provider_json",
+          "value": "\"moderation_provider_attempts\".\"result_data\" IS NULL OR json_valid(\"moderation_provider_attempts\".\"result_data\")"
+        }
+      }
+    },
+    "moderation_jobs": {
+      "name": "moderation_jobs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "input_hash": {
+          "name": "input_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payload_data": {
+          "name": "payload_data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "result_data": {
+          "name": "result_data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ux_moderation_job_request": {
+          "name": "ux_moderation_job_request",
+          "columns": [
+            "user_id",
+            "operation",
+            "idempotency_key"
+          ],
+          "isUnique": true
+        },
+        "ix_moderation_jobs_due": {
+          "name": "ix_moderation_jobs_due",
+          "columns": [
+            "status",
+            "next_attempt_at"
+          ],
+          "isUnique": false
+        },
+        "ix_moderation_jobs_owner": {
+          "name": "ix_moderation_jobs_owner",
+          "columns": [
+            "user_id",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "moderation_jobs_user_id_profiles_user_id_fk": {
+          "name": "moderation_jobs_user_id_profiles_user_id_fk",
+          "tableFrom": "moderation_jobs",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_moderation_job_operation": {
+          "name": "ck_moderation_job_operation",
+          "value": "\"moderation_jobs\".\"operation\" IN ('submission_finalize','comment_create','comment_edit','proposal_create','proposal_response','retailer_proposal','category_proposal')"
+        },
+        "ck_moderation_job_status": {
+          "name": "ck_moderation_job_status",
+          "value": "\"moderation_jobs\".\"status\" IN ('checking','running','completed','blocked','retry_required')"
+        },
+        "ck_moderation_job_attempts": {
+          "name": "ck_moderation_job_attempts",
+          "value": "\"moderation_jobs\".\"attempts\" BETWEEN 0 AND 3"
+        },
+        "ck_moderation_job_payload": {
+          "name": "ck_moderation_job_payload",
+          "value": "json_valid(\"moderation_jobs\".\"payload_data\") AND (\"moderation_jobs\".\"result_data\" IS NULL OR json_valid(\"moderation_jobs\".\"result_data\"))"
+        }
+      }
+    },
+    "moderation_request_leases": {
+      "name": "moderation_request_leases",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "input_hash": {
+          "name": "input_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ix_moderation_request_expiry": {
+          "name": "ix_moderation_request_expiry",
+          "columns": [
+            "expires_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "moderation_request_leases_user_id_profiles_user_id_fk": {
+          "name": "moderation_request_leases_user_id_profiles_user_id_fk",
+          "tableFrom": "moderation_request_leases",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "moderation_request_leases_user_id_operation_idempotency_key_pk": {
+          "columns": [
+            "user_id",
+            "operation",
+            "idempotency_key"
+          ],
+          "name": "moderation_request_leases_user_id_operation_idempotency_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "saved_products": {
+      "name": "saved_products",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ix_saved_products_user_created": {
+          "name": "ix_saved_products_user_created",
+          "columns": [
+            "user_id",
+            "\"created_at\" desc",
+            "\"product_id\" desc"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "saved_products_user_id_profiles_user_id_fk": {
+          "name": "saved_products_user_id_profiles_user_id_fk",
+          "tableFrom": "saved_products",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "saved_products_product_id_products_id_fk": {
+          "name": "saved_products_product_id_products_id_fk",
+          "tableFrom": "saved_products",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "saved_products_user_id_product_id_pk": {
+          "columns": [
+            "user_id",
+            "product_id"
+          ],
+          "name": "saved_products_user_id_product_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "product_view_days": {
+      "name": "product_view_days",
+      "columns": {
+        "product_id": {
+          "name": "product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "stat_date": {
+          "name": "stat_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "views": {
+          "name": "views",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "product_view_days_product_id_products_id_fk": {
+          "name": "product_view_days_product_id_products_id_fk",
+          "tableFrom": "product_view_days",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "product_view_days_product_id_stat_date_pk": {
+          "columns": [
+            "product_id",
+            "stat_date"
+          ],
+          "name": "product_view_days_product_id_stat_date_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ck_product_view_days_1": {
+          "name": "ck_product_view_days_1",
+          "value": "views >= 0"
+        }
+      }
     }
   },
   "views": {},
@@ -7847,6 +8553,16 @@
             "isExpression": true
           },
           "\"id\" desc": {
+            "isExpression": true
+          }
+        }
+      },
+      "ix_saved_products_user_created": {
+        "columns": {
+          "\"created_at\" desc": {
+            "isExpression": true
+          },
+          "\"product_id\" desc": {
             "isExpression": true
           }
         }

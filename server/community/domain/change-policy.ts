@@ -6,7 +6,7 @@ import type {
   FormulaClassification,
   ProductSnapshot,
 } from "./moderation";
-import { effectiveDate } from "./policy";
+import { effectiveDate, slug } from "./policy";
 
 export interface NewFormula {
   id: string;
@@ -27,7 +27,9 @@ export function hasCatalogChanges(value: unknown) {
       "lifecycleStatus",
       "currentVersionId",
       "classification",
+      "ingredientTranscription",
       "familyId",
+      "brandId",
       "lineName",
       "categories",
       "name",
@@ -41,6 +43,7 @@ export function hasCatalogChanges(value: unknown) {
       "commentStates",
       "relationships",
       "retailer",
+      "retailerLinks",
       "consolidation",
       "allergens",
     ].some((key) => Object.hasOwn(value, key)),
@@ -111,7 +114,10 @@ export function proposalBaseline(
     case "source_url":
       return { manufacturerUrl: snapshot.manufacturerUrl };
     case "category_add":
+    case "foods":
       return { categories: snapshot.categories.map((c) => c.categoryId) };
+    case "brand":
+      return { brandId: snapshot.brandId, familyId: snapshot.familyId };
     case "allergens":
       return { versionId: snapshot.versionId, allergens: snapshot.allergens };
   }
@@ -350,6 +356,49 @@ export function planProductChange(
       before.removedCategories = [input.categoryId];
       after.addedCategories = [input.categoryId];
       break;
+    case "brand": {
+      if (input.brandId === snapshot.brandId)
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "The product already has this brand.",
+        );
+      if (Boolean(input.lineId) === Boolean(input.newLineName))
+        throw new ApplicationError(
+          "INVALID_LINE",
+          "Choose one of the brand’s lines, or name a new one.",
+        );
+      before.brandId = snapshot.brandId;
+      before.familyId = snapshot.familyId;
+      after.brandId = input.brandId;
+      if (input.newLineName) {
+        const lineId = `line-${newVersionId}`;
+        after.newLine = {
+          id: lineId,
+          name: input.newLineName,
+          slug: `${snapshot.countryCode}-${slug(input.newLineName)}-${lineId.slice(-8)}`,
+        };
+        after.familyId = lineId;
+      } else after.familyId = input.lineId!;
+      break;
+    }
+    case "foods": {
+      const listed = snapshot.categories
+        .filter((c) => c.eligible)
+        .map((c) => c.categoryId);
+      const added = input.categoryIds.filter((id) => !listed.includes(id));
+      const removed = listed.filter((id) => !input.categoryIds.includes(id));
+      if (!added.length && !removed.length)
+        throw new ApplicationError(
+          "NO_CHANGE",
+          "The product is already listed under these foods.",
+        );
+      // Removing a rated food keeps it unranked, so ratings stay intact.
+      before.removedCategories = added;
+      before.addedCategories = removed;
+      after.addedCategories = added;
+      after.removedCategories = removed;
+      break;
+    }
     case "allergens": {
       const allowed = new Set(snapshot.allergenList.map((a) => a.key));
       const declaration = normalizeDeclaration(input.declaration);
@@ -467,7 +516,16 @@ export function assertCompensable(
         JSON.stringify(snapshot.classification))
   )
     conflict();
+  if (
+    patch.ingredientTranscription &&
+    (patch.ingredientTranscription.versionId !== snapshot.versionId ||
+      JSON.stringify(patch.ingredientTranscription.value) !==
+        JSON.stringify(snapshot.ingredientTranscription ?? null))
+  )
+    conflict();
   if (patch.familyId !== undefined && patch.familyId !== snapshot.familyId)
+    conflict();
+  if (patch.brandId !== undefined && patch.brandId !== snapshot.brandId)
     conflict();
   if (
     patch.categories?.some(
@@ -487,6 +545,14 @@ export function assertCompensable(
     patch.retailer &&
     snapshot.retailers.find((r) => r.retailerId === patch.retailer!.retailerId)
       ?.status !== patch.retailer.status
+  )
+    conflict();
+  if (
+    patch.retailerLinks?.some(
+      (link) =>
+        (snapshot.retailers.find((r) => r.retailerId === link.retailerId)
+          ?.userStance ?? null) !== link.stance,
+    )
   )
     conflict();
   if (patch.name !== undefined && patch.name !== snapshot.name) conflict();

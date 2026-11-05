@@ -1,7 +1,11 @@
 import { waitUntil } from "cloudflare:workers";
 import { v7 as uuid } from "uuid";
 import { ModerationRepository } from "../../community/infrastructure/moderation-repository";
-import { moderationDecisions } from "../../moderation/infrastructure/composition";
+import type { WorkContext } from "../../moderation/domain/work";
+import {
+  moderationDecisions,
+  moderationWork,
+} from "../../moderation/infrastructure/composition";
 import { ratingsService } from "../../ratings/infrastructure/composition";
 import { rebuildSearchIndex } from "../../catalog/infrastructure/search-index";
 import { trendingService } from "../../ranking/infrastructure/trending-composition";
@@ -15,6 +19,7 @@ export function taxonomyServices(
   env: Cloudflare.Env,
   newId: () => string = uuid,
   clock = Date.now,
+  context?: WorkContext,
 ) {
   return new TaxonomyService(
     new D1TaxonomyRepository(new ModerationRepository(env.DB), newId),
@@ -70,5 +75,6 @@ export function taxonomyServices(
     },
     newId,
     clock,
+    moderationWork(env, newId, clock, context),
   );
 }

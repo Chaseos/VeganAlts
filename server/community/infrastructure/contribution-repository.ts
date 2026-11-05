@@ -1,3 +1,4 @@
+import type { WorkContext } from "../../moderation/domain/work";
 import { ApplicationError } from "../../shared/domain/errors";
 import type {
   ProductChange,
@@ -212,6 +213,20 @@ export class ContributionRepository {
    * responses in the same batch, so concurrent responses never drift, and the
    * proposal revision advances so any decision drafted before it is stale.
    */
+  async assertResponseAllowed(proposalId: string, actor: Actor) {
+    const proposal = await this.db
+      .prepare(
+        "SELECT 1 FROM edit_proposals WHERE id=? AND status='pending' AND target_type='product' AND submitted_by<>?",
+      )
+      .bind(proposalId, actor.id)
+      .first();
+    if (!proposal)
+      throw new ApplicationError(
+        "PROPOSAL_CLOSED",
+        "This proposal is closed, or it is your own proposal.",
+        409,
+      );
+  }
   async respond(
     proposalId: string,
     actor: Actor,
@@ -219,6 +234,7 @@ export class ContributionRepository {
     note: string,
     urls: string[],
     receipt: ReceiptWrite,
+    context?: WorkContext,
   ) {
     const counted = (value: string) =>
       `(SELECT COUNT(*) FROM edit_proposal_responses r JOIN profiles p ON p.user_id=r.user_id AND p.account_state='active' WHERE r.proposal_id=edit_proposals.id AND r.stance='${value}')`;
@@ -230,6 +246,7 @@ export class ContributionRepository {
           `INSERT INTO edit_proposal_responses(proposal_id,user_id,stance,note,evidence_data,created_at,updated_at)
           SELECT ?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM edit_proposals WHERE id=? AND status='pending' AND target_type='product' AND submitted_by<>?)
           AND EXISTS(SELECT 1 FROM profiles WHERE user_id=? AND account_state='active')
+          AND (? IS NULL OR EXISTS(SELECT 1 FROM moderation_jobs WHERE id=? AND token=? AND status='running' AND lease_expires_at>? AND expires_at>?))
           ON CONFLICT(proposal_id,user_id) DO UPDATE SET stance=excluded.stance,note=excluded.note,evidence_data=excluded.evidence_data,updated_at=excluded.updated_at`,
         )
         .bind(
@@ -243,6 +260,11 @@ export class ContributionRepository {
           proposalId,
           actor.id,
           actor.id,
+          context?.id ?? null,
+          context?.id ?? null,
+          context?.token ?? null,
+          receipt.now,
+          receipt.now,
         ),
       this.db
         .prepare(
@@ -261,6 +283,20 @@ export class ContributionRepository {
           receipt.hash,
           JSON.stringify({ proposalId, stance }),
           receipt.now,
+          proposalId,
+          actor.id,
+          receipt.now,
+        ),
+      this.db
+        .prepare(
+          "UPDATE moderation_jobs SET status='retry_required',error_code='RESPONSE_CHANGED',token=NULL,lease_expires_at=NULL,updated_at=? WHERE user_id=? AND operation='proposal_response' AND json_extract(payload_data,'$.proposalId')=? AND status IN ('checking','running') AND (? IS NULL OR id<>?) AND EXISTS(SELECT 1 FROM edit_proposal_responses WHERE proposal_id=? AND user_id=? AND updated_at=?)",
+        )
+        .bind(
+          receipt.now,
+          actor.id,
+          proposalId,
+          context?.id ?? null,
+          context?.id ?? null,
           proposalId,
           actor.id,
           receipt.now,

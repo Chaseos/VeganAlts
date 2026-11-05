@@ -32,6 +32,7 @@ import {
   PhotoPicker,
 } from "../components/community-form";
 import {
+  NO_NOTE,
   useCommunityAction,
   communityRequest,
   type CommunityOptions,
@@ -39,6 +40,8 @@ import {
   reportReasonLabel,
 } from "../lib/community";
 import { PhotoProposalForm } from "../components/photo-proposal-form";
+import { ProductEditSummary } from "../components/product-edit-summary";
+import { shrinkPhoto } from "../lib/shrink-photo";
 import { SLOT_LABELS } from "../components/photo-slots";
 import type { Route } from "./+types/contribute";
 
@@ -232,7 +235,7 @@ export default function Contribute({
           if (!uploaded.current.has(slot)) {
             const photo = new FormData();
             photo.set("slot", slot);
-            photo.set("image", files[slot]!);
+            photo.set("image", await shrinkPhoto(files[slot]!));
             const result = await action.request<{ imageId: string }>(
               `submissions/${evidenceReceiptId}/uploads`,
               photo,
@@ -242,7 +245,7 @@ export default function Contribute({
           }
       }
       const evidence = {
-        note: String(form.get("note")),
+        note: String(form.get("note") ?? "") || NO_NOTE,
         urls: form.get("evidenceUrl") ? [String(form.get("evidenceUrl"))] : [],
         imageIds: [...uploaded.current.values()],
       };
@@ -307,6 +310,16 @@ export default function Contribute({
         };
       if (kind === "allergens") details = allergenDetails(form);
       if (isFactKind(kind)) details = factChangeDetails(kind, form);
+      if (administrator) {
+        // Applied at once, so a retry starts fresh against the new revision.
+        await action.request(
+          "proposals/apply",
+          { ...base, ...details },
+          crypto.randomUUID(),
+        );
+        await navigate(`/admin/moderation/products/${product.id}`);
+        return;
+      }
       const saved = await action.request<{ id: string }>("proposals", {
         ...base,
         ...details,
@@ -330,14 +343,15 @@ export default function Contribute({
           <p className="eyebrow">Keep the catalog useful</p>
           <h1>{product.name}</h1>
           <p>
-            Your evidence helps an operator make an informed decision. Existing
-            ratings remain with their original formula.
+            {administrator
+              ? "Your edits apply right away. Existing ratings remain with their original formula."
+              : "Your evidence helps an operator make an informed decision. Existing ratings remain with their original formula."}
           </p>
           <GuidelinesNote />
         </header>
         <nav className="contribution-tabs" aria-label="Contribution type">
           {[
-            ["change", "Suggest a change"],
+            ["change", administrator ? "Edit product" : "Suggest a change"],
             ["photo", "Photos"],
             ["report", "Report a concern"],
             ["retailer", "Retailer availability"],
@@ -359,6 +373,7 @@ export default function Contribute({
                 product={product}
                 initialSlot={initialSlot}
                 action={action}
+                administrator={administrator}
               />
               {unchecked && labelPhotos.length > 0 && (
                 <p className="small">
@@ -422,6 +437,14 @@ export default function Contribute({
                 )}
               </select>
               <EvidenceFields required={false} />
+              {!reportImage && (
+                <p className="small muted">
+                  Choose “Doesn’t belong on VeganAlts” if the product is not
+                  intended to imitate an animal-based original, or a mix lacks a
+                  manufacturer-supported vegan preparation. Use “wrong category”
+                  if the product belongs here but is in the wrong food.
+                </p>
+              )}
               <p className="small muted">
                 Ingredient concerns receive priority. A report does not change
                 product facts until an operator assesses it. Repeated reports
@@ -552,8 +575,30 @@ export default function Contribute({
           )}
           {tab === "change" && (
             <form className="community-form" onSubmit={saveChange}>
-              <h2>Suggest a change</h2>
-              <label htmlFor="change-kind">What changed?</label>
+              <h2>{administrator ? "Edit product" : "Suggest a change"}</h2>
+              {administrator && (
+                <p className="notice">
+                  Saved changes apply immediately, with no review. Each one is
+                  recorded in Decision history and can be reversed.
+                </p>
+              )}
+              {administrator && (
+                <ProductEditSummary
+                  product={product}
+                  categoryNames={product.categoryNames}
+                  onChange={(next) => {
+                    setKind(next);
+                    requestAnimationFrame(() =>
+                      document.getElementById("change-kind")?.focus(),
+                    );
+                  }}
+                />
+              )}
+              <label htmlFor="change-kind">
+                {administrator
+                  ? "What do you want to change?"
+                  : "What changed?"}
+              </label>
               <select
                 id="change-kind"
                 value={kind}
@@ -640,7 +685,9 @@ export default function Contribute({
                     name="veganStatus"
                     defaultValue={product.veganStatus}
                   >
-                    <option value="appears_vegan">Appears vegan</option>
+                    <option value="appears_plant_based">
+                      Appears plant-based
+                    </option>
                     <option value="vegan">
                       Vegan — requires operator verification
                     </option>
@@ -756,9 +803,7 @@ export default function Contribute({
                           name={`category-${c.categoryId}`}
                           defaultChecked={c.eligible}
                         />
-                        {options.categories.find(
-                          (option) => option.id === c.categoryId,
-                        )?.name ?? c.categoryId}
+                        {product.categoryNames[c.categoryId] ?? c.categoryId}
                       </label>
                     ))}
                     <p className="small muted">
@@ -778,7 +823,13 @@ export default function Contribute({
                   currentFlavor={product.flavor}
                   seasonal={product.seasonal}
                   categories={options.categories}
-                  existing={product.categories.map((c) => c.categoryId)}
+                  country={product.countryCode.toUpperCase()}
+                  countryName={countryName}
+                  currentBrandId={product.brandId}
+                  lineName={product.lineName ?? product.name}
+                  existing={product.categories
+                    .filter((c) => kind !== "foods" || c.eligible)
+                    .map((c) => c.categoryId)}
                 />
               )}
               {kind === "allergens" && <AllergenFields product={product} />}
@@ -803,7 +854,15 @@ export default function Contribute({
                   </select>
                 </>
               )}
-              <EvidenceFields />
+              <EvidenceFields
+                noteLabel={
+                  administrator
+                    ? "Reason for this change (optional)"
+                    : undefined
+                }
+                required={!administrator}
+                reviewed={!administrator}
+              />
               {[
                 "classification",
                 "reformulation",
@@ -832,8 +891,10 @@ export default function Contribute({
               )}
               <button className="button" disabled={action.busy}>
                 {action.busy
-                  ? "Saving evidence…"
-                  : "Submit proposal for review"}
+                  ? "Saving…"
+                  : administrator
+                    ? "Save change"
+                    : "Submit proposal for review"}
               </button>
               {receiptId && action.error && (
                 <button

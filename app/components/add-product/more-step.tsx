@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { PhotoPicker } from "../community-form";
 import { AllergenChecklist } from "../allergen-fields";
 import { OverallScale, SCORE_MEANINGS, TasteScale } from "../rating-control";
 import { CheckThePackage } from "../ui/badges";
@@ -27,7 +26,6 @@ export function MoreStep({
   draft,
   update,
   photos,
-  setPhoto,
   foods,
   countryName,
   allergenList,
@@ -41,7 +39,6 @@ export function MoreStep({
   draft: ProductDraft;
   update: (patch: Partial<ProductDraft>) => void;
   photos: Photos;
-  setPhoto: (slot: PhotoSlot, file: File | undefined) => void;
   foods: readonly FoodChoice[];
   countryName: string;
   allergenList: { key: string; label: string }[];
@@ -61,7 +58,6 @@ export function MoreStep({
   const ingredients = draft.ingredients;
   const setIngredients = (patch: Partial<ProductDraft["ingredients"]>) =>
     update({ ingredients: { ...ingredients, ...patch } });
-  const morePhotos = (["back", "nutrition"] as const).filter((s) => photos[s]);
   const otherFoods = draft.alsoReplaces
     .map((id) => foods.find((f) => f.id === id))
     .filter((f): f is FoodChoice => Boolean(f));
@@ -157,14 +153,10 @@ export function MoreStep({
           open={evidence || Boolean(errors.ingredientUrl)}
         >
           <p className="small muted">
-            Without ingredients, the product shows “Ingredients not checked yet”
-            until someone adds them.
+            Without an ingredients photo or link, the product shows “Ingredients
+            not checked yet” until someone adds them. Photos are added in the
+            basics.
           </p>
-          <PhotoPicker
-            slot="ingredients"
-            file={photos.ingredients}
-            onChange={(file) => setPhoto("ingredients", file)}
-          />
           <label htmlFor="ingredient-source">
             Link to the ingredients on the brand’s site (optional)
           </label>
@@ -302,32 +294,6 @@ export function MoreStep({
               the product page once it’s live.
             </p>
           )}
-        </OptionalRow>
-
-        <OptionalRow
-          title="More photos"
-          status={
-            morePhotos.length
-              ? morePhotos.map((s) => `${s} photo`).join(", ")
-              : undefined
-          }
-          open={morePhotos.length > 0}
-        >
-          <p className="small muted">
-            JPEG, PNG or WebP, up to 10 MiB each. Photos stay private until the
-            product is published.
-          </p>
-          <PhotoPicker
-            slot="back"
-            file={photos.back}
-            onChange={(file) => setPhoto("back", file)}
-          />
-          <PhotoPicker
-            slot="nutrition"
-            label="Nutrition and allergens photo"
-            file={photos.nutrition}
-            onChange={(file) => setPhoto("nutrition", file)}
-          />
         </OptionalRow>
 
         <OptionalRow

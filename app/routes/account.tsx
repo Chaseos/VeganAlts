@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { Turnstile } from "../components/turnstile";
+import { protectContribution, protectAiAdmission } from "@server/abuse/service";
 import { env } from "cloudflare:workers";
 import { Form, data, redirect } from "react-router";
 import { getAuth, profilesService } from "@server/auth/infrastructure/auth";
@@ -18,6 +21,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   return {
     user,
     staging: env.APP_ENV !== "production",
+    siteKey: env.TURNSTILE_SITE_KEY || null,
     administrator: env.ADMIN_USER_IDS.split(",")
       .map((s) => s.trim())
       .includes(user.id),
@@ -40,7 +44,12 @@ export async function action({ request }: Route.ActionArgs) {
     ).api.signOut({ headers: request.headers, asResponse: true });
     if (!response.ok)
       return data(
-        { saved: false, error: "Sign-out failed. Please try again." },
+        {
+          saved: false,
+          error: "Sign-out failed. Please try again.",
+          challengeRequired: false,
+          values: null,
+        },
         { status: 502 },
       );
     const headers = new Headers();
@@ -49,6 +58,15 @@ export async function action({ request }: Route.ActionArgs) {
     return redirect("/", { headers });
   }
   try {
+    await protectContribution(
+      request,
+      env,
+      "community",
+      user.id,
+      String(form.get("challengeToken") ?? "") || undefined,
+      env.PROFILE_RATE_LIMIT,
+    );
+    await protectAiAdmission(request, env, user.id);
     const profile = await profilesService(env).update(user.id, {
       handle: String(form.get("handle") ?? ""),
       displayName: String(form.get("displayName") ?? ""),
@@ -59,12 +77,26 @@ export async function action({ request }: Route.ActionArgs) {
         slug,
       })),
     );
-    return { saved: true, error: null };
+    return { saved: true, error: null, challengeRequired: false, values: null };
   } catch (error) {
     if (error instanceof ApplicationError)
       return data(
-        { saved: false, error: error.message },
-        { status: error.status },
+        {
+          saved: false,
+          error: error.message,
+          challengeRequired: error.code === "CHALLENGE_REQUIRED",
+          values: {
+            handle: String(form.get("handle") ?? ""),
+            displayName: String(form.get("displayName") ?? ""),
+          },
+        },
+        {
+          status: error.status,
+          headers:
+            error.status === 429
+              ? { "Retry-After": String(error.retryAfter ?? 60) }
+              : undefined,
+        },
       );
     throw error;
   }
@@ -75,6 +107,8 @@ export default function Account({
   actionData,
 }: Route.ComponentProps) {
   const { profile } = loaderData.user;
+  const [token, setToken] = useState("");
+  const values = actionData?.values;
   return (
     <PageShell width="narrow" aisles={false}>
       <header className="page-heading">
@@ -94,12 +128,20 @@ export default function Account({
             <Link to="/my-ratings">My ratings</Link>
           </li>
           <li>
+            <Link to="/saved">Saved products</Link>
+          </li>
+          <li>
             <Link to="/my-contributions">My contributions</Link>
           </li>
           {loaderData.administrator && (
-            <li>
-              <Link to="/admin/moderation">Moderation inbox</Link>
-            </li>
+            <>
+              <li>
+                <Link to="/admin/moderation">Moderation inbox</Link>
+              </li>
+              <li>
+                <Link to="/admin/analytics">Product analytics</Link>
+              </li>
+            </>
           )}
         </ul>
       </nav>
@@ -113,7 +155,7 @@ export default function Account({
             <input
               id="handle"
               name="handle"
-              defaultValue={profile.handle}
+              defaultValue={values?.handle ?? profile.handle}
               required
               minLength={3}
               maxLength={30}
@@ -130,11 +172,19 @@ export default function Account({
             <input
               id="display-name"
               name="displayName"
-              defaultValue={profile.displayName ?? ""}
+              defaultValue={values?.displayName ?? profile.displayName ?? ""}
               maxLength={60}
               autoComplete="nickname"
             />
           </div>
+          <input type="hidden" name="challengeToken" value={token} />
+          {actionData?.challengeRequired && (
+            <Turnstile
+              siteKey={loaderData.siteKey}
+              action="community"
+              onToken={setToken}
+            />
+          )}
           <button className="button" name="intent" value="save">
             Save profile
           </button>

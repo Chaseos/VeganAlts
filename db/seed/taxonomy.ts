@@ -42,19 +42,78 @@ export const TAXONOMY_GROUPS = [
   // Chocolate, the rest of the candy in Candy (owner decision, 2026-10-12).
   { slug: "chocolate", name: "Chocolate", parent: "food", position: 16 },
   { slug: "candy", name: "Candy", parent: "food", position: 17 },
-  // One aisle, as a store's bakery department holds cakes, cookies and bread
-  // together; it can split once it outgrows one (owner decision, 2026-10-12).
+  // Sweet desserts and bread-like bakes are two aisles, split from one
+  // "Bakery and desserts" aisle (owner decision, 2026-10-15).
+  { slug: "desserts", name: "Desserts", parent: "food", position: 18 },
+  { slug: "bakery", name: "Bakery", parent: "food", position: 19 },
+  // Its own aisle, the way stores keep a frozen pizza section (owner
+  // decision, 2026-10-15).
   {
-    slug: "bakery-and-desserts",
-    name: "Bakery and desserts",
+    slug: "toaster-pastries-aisle",
+    name: "Toaster Pastries",
     parent: "food",
-    position: 18,
+    position: 20,
   },
+  { slug: "pizza-aisle", name: "Pizza", parent: "food", position: 21 },
+  // Prepared dishes and sauces whose originals are made with meat or dairy
+  // (owner decision, 2026-10-16).
+  { slug: "meals", name: "Meals", parent: "food", position: 22 },
+  { slug: "sauces", name: "Sauces", parent: "food", position: 23 },
 ] as const;
 // The United States launch foods (milestone 7) start only there; a food
 // switches on elsewhere when a product for it is published there.
 const US = ["US"] as const;
 export const TAXONOMY_LEAVES = [
+  // Distinct baked foods and meal recipes keep their own comparisons.
+  {
+    slug: "cheesecake",
+    name: "Cheesecake",
+    parent: "desserts",
+    aliases: ["cheese cake", "cheesecake bites"],
+    countries: US,
+  },
+  {
+    slug: "brownies",
+    name: "Brownies",
+    parent: "desserts",
+    aliases: ["brownie"],
+    countries: US,
+  },
+  {
+    slug: "blondies",
+    name: "Blondies",
+    parent: "desserts",
+    aliases: ["blondie"],
+    countries: US,
+  },
+  {
+    slug: "banana-bread",
+    name: "Banana Bread",
+    parent: "bakery",
+    aliases: ["banana loaf"],
+    countries: US,
+  },
+  {
+    slug: "chili",
+    name: "Chili",
+    parent: "meals",
+    aliases: ["chilli", "meat chili", "chicken chili", "chicken chilli"],
+    countries: US,
+  },
+  {
+    slug: "chicken-pasta",
+    name: "Chicken Pasta",
+    parent: "meals",
+    aliases: ["chicken penne", "chicken rotini"],
+    countries: US,
+  },
+  {
+    slug: "chicken-and-chickpeas",
+    name: "Chicken and Chickpeas",
+    parent: "meals",
+    aliases: ["mediterranean chicken and chickpeas"],
+    countries: US,
+  },
   {
     slug: "ground-beef",
     name: "Ground Beef",
@@ -72,7 +131,7 @@ export const TAXONOMY_LEAVES = [
     slug: "beef-burgers",
     name: "Beef Burgers",
     parent: "beef",
-    aliases: ["hamburgers", "burger patties"],
+    aliases: ["hamburgers", "burger patties", "veggie burgers"],
   },
   {
     slug: "meatballs",
@@ -86,6 +145,44 @@ export const TAXONOMY_LEAVES = [
     name: "Hot Dogs",
     parent: "beef",
     aliases: ["franks", "frankfurters", "wieners", "veggie dogs"],
+    countries: US,
+  },
+  // Foods added from the first photo batch (owner decision, 2026-10-15).
+  // Deli meats sit in their animal's aisle as "[Animal] Deli Slices".
+  {
+    slug: "steak",
+    name: "Steak",
+    parent: "beef",
+    aliases: ["steak strips", "steak tips", "beef strips", "bulgogi"],
+    countries: US,
+  },
+  {
+    slug: "beef-deli-slices",
+    name: "Beef Deli Slices",
+    parent: "beef",
+    aliases: ["roast beef slices", "deli beef", "pastrami", "deli steak"],
+    countries: US,
+  },
+  // Added from the full photo batch (owner decision, 2026-10-16).
+  {
+    slug: "corn-dogs",
+    name: "Corn Dogs",
+    parent: "beef",
+    aliases: ["corn dog"],
+    countries: US,
+  },
+  {
+    slug: "canned-roast-beef",
+    name: "Canned Roast Beef",
+    parent: "beef",
+    aliases: ["canned beef"],
+    countries: US,
+  },
+  {
+    slug: "beef-jerky",
+    name: "Beef Jerky",
+    parent: "beef",
+    aliases: ["jerky", "plant-based jerky", "vegan jerky"],
     countries: US,
   },
   {
@@ -122,6 +219,34 @@ export const TAXONOMY_LEAVES = [
     aliases: ["buffalo wings", "chicken wings", "wings"],
     countries: US,
   },
+  // Unbreaded pieces, usually in a sauce (owner decision, 2026-10-15).
+  {
+    slug: "chicken-bites",
+    name: "Chicken Bites",
+    parent: "chicken",
+    aliases: [
+      "chicken chunks",
+      "orange chicken",
+      "kung pao chicken",
+      "sesame chicken",
+    ],
+    countries: US,
+  },
+  // Added from the full photo batch (owner decision, 2026-10-16).
+  {
+    slug: "shredded-chicken",
+    name: "Shredded Chicken",
+    parent: "chicken",
+    aliases: ["pulled chicken", "chicken shreds"],
+    countries: US,
+  },
+  {
+    slug: "chicken-breasts",
+    name: "Chicken Breasts",
+    parent: "chicken",
+    aliases: ["chicken breast", "chicken cutlets"],
+    countries: US,
+  },
   { slug: "bacon", name: "Bacon", parent: "pork", aliases: ["bacon strips"] },
   {
     slug: "breakfast-sausage",
@@ -142,6 +267,72 @@ export const TAXONOMY_LEAVES = [
     name: "Italian Sausage",
     parent: "pork",
     aliases: ["sweet Italian sausage", "mild Italian sausage"],
+    countries: US,
+  },
+  // Dinner links that are neither breakfast nor Italian (owner decision,
+  // 2026-10-15).
+  {
+    slug: "dinner-sausages",
+    name: "Dinner Sausages",
+    parent: "pork",
+    aliases: ["bratwurst", "brats", "kielbasa", "smoked sausage"],
+    countries: US,
+  },
+  {
+    slug: "pepperoni",
+    name: "Pepperoni",
+    parent: "pork",
+    aliases: ["pepperoni slices", "plant-based pepperoni", "vegan pepperoni"],
+    countries: US,
+  },
+  // Added from the full photo batch (owner decision, 2026-10-16).
+  {
+    slug: "pulled-pork",
+    name: "Pulled Pork",
+    parent: "pork",
+    aliases: ["BBQ pulled pork", "carnitas"],
+    countries: US,
+  },
+  {
+    slug: "ribs",
+    name: "Ribs",
+    parent: "pork",
+    aliases: ["riblets", "BBQ ribs"],
+    countries: US,
+  },
+  {
+    slug: "ham-roast",
+    name: "Ham Roast",
+    parent: "pork",
+    aliases: ["holiday ham", "glazed ham"],
+    countries: US,
+  },
+  {
+    slug: "ham-deli-slices",
+    name: "Ham Deli Slices",
+    parent: "pork",
+    aliases: ["ham slices", "deli ham", "Black Forest ham"],
+    countries: US,
+  },
+  {
+    slug: "salami-deli-slices",
+    name: "Salami Deli Slices",
+    parent: "pork",
+    aliases: ["salami", "deli salami"],
+    countries: US,
+  },
+  {
+    slug: "luncheon-meat",
+    name: "Luncheon Meat",
+    parent: "pork",
+    aliases: ["luncheon loaf", "canned meat"],
+    countries: US,
+  },
+  {
+    slug: "lard",
+    name: "Lard",
+    parent: "pork",
+    aliases: ["pork lard", "animal shortening"],
     countries: US,
   },
   {
@@ -187,6 +378,14 @@ export const TAXONOMY_LEAVES = [
     countries: US,
     season: { start: 11, end: 1 },
   },
+  // Ready-to-drink coffee made with milk (owner decision, 2026-10-15).
+  {
+    slug: "bottled-lattes",
+    name: "Bottled Lattes",
+    parent: "milk-aisle",
+    aliases: ["iced latte", "iced coffee", "latte", "ready-to-drink coffee"],
+    countries: US,
+  },
   {
     slug: "coffee-creamer",
     name: "Coffee Creamer",
@@ -216,10 +415,17 @@ export const TAXONOMY_LEAVES = [
     countries: US,
   },
   {
+    slug: "heavy-cream",
+    name: "Heavy Cream",
+    parent: "cream-aisle",
+    aliases: ["heavy whipping cream", "whipping cream", "cooking cream"],
+    countries: US,
+  },
+  {
     slug: "butter",
     name: "Butter",
     parent: "butter-aisle",
-    aliases: ["buttery spread"],
+    aliases: ["buttery spread", "butter spray"],
   },
   {
     slug: "yogurt",
@@ -249,6 +455,13 @@ export const TAXONOMY_LEAVES = [
     aliases: ["cheddar cheese"],
   },
   {
+    slug: "cheese-slices",
+    name: "Cheese Slices",
+    parent: "cheese",
+    aliases: ["sliced cheese", "cheese slices"],
+    countries: US,
+  },
+  {
     slug: "mozzarella",
     name: "Mozzarella",
     parent: "cheese",
@@ -259,13 +472,6 @@ export const TAXONOMY_LEAVES = [
     name: "Smoked Gouda",
     parent: "cheese",
     aliases: ["gouda"],
-    countries: US,
-  },
-  {
-    slug: "pepper-jack",
-    name: "Pepper Jack",
-    parent: "cheese",
-    aliases: ["pepper jack cheese"],
     countries: US,
   },
   {
@@ -287,6 +493,63 @@ export const TAXONOMY_LEAVES = [
     name: "Parmesan",
     parent: "cheese",
     aliases: ["parm", "parmigiano", "grated parmesan"],
+    countries: US,
+  },
+  // More cheeses join as products are found (owner decision, 2026-10-15).
+  {
+    slug: "swiss-cheese",
+    name: "Swiss Cheese",
+    parent: "cheese",
+    aliases: ["Swiss", "Swiss slices", "Emmental"],
+    countries: US,
+  },
+  {
+    slug: "feta",
+    name: "Feta",
+    parent: "cheese",
+    aliases: ["feta cheese", "feta crumbles"],
+    countries: US,
+  },
+  // Added from the full photo batch (owner decision, 2026-10-16).
+  {
+    slug: "ricotta",
+    name: "Ricotta",
+    parent: "cheese",
+    aliases: ["ricotta cheese"],
+    countries: US,
+  },
+  {
+    slug: "provolone",
+    name: "Provolone",
+    parent: "cheese",
+    aliases: ["provolone cheese", "smoked provolone"],
+    countries: US,
+  },
+  {
+    slug: "soft-cheese",
+    name: "Soft Cheese",
+    parent: "cheese",
+    aliases: [
+      "brie",
+      "camembert",
+      "goat cheese",
+      "cheese wedges",
+      "soft-ripened cheese",
+    ],
+    countries: US,
+  },
+  {
+    slug: "italian-blend",
+    name: "Italian Blend",
+    parent: "cheese",
+    aliases: ["Italian cheese blend", "pizza cheese"],
+    countries: US,
+  },
+  {
+    slug: "cheddar-mozzarella-blend",
+    name: "Cheddar Mozzarella Blend",
+    parent: "cheese",
+    aliases: ["cheddar mozzarella", "mozzarella cheddar blend"],
     countries: US,
   },
   {
@@ -324,6 +587,20 @@ export const TAXONOMY_LEAVES = [
     countries: US,
   },
   {
+    slug: "blue-cheese-dressing",
+    name: "Blue Cheese Dressing",
+    parent: "condiments",
+    aliases: ["bleu cheese dressing", "blue cheese", "bleu cheese"],
+    countries: US,
+  },
+  {
+    slug: "honey-mustard-dressing",
+    name: "Honey Mustard Dressing",
+    parent: "condiments",
+    aliases: ["honey mustard", "honey mustard salad dressing"],
+    countries: US,
+  },
+  {
     slug: "caesar-dressing",
     name: "Caesar Dressing",
     parent: "condiments",
@@ -337,26 +614,36 @@ export const TAXONOMY_LEAVES = [
     aliases: ["worcestershire", "worcester sauce"],
     countries: US,
   },
+  // Added from the full photo batch (owner decision, 2026-10-16).
+  {
+    slug: "green-goddess-dressing",
+    name: "Green Goddess Dressing",
+    parent: "condiments",
+    aliases: ["green goddess"],
+    countries: US,
+  },
+  {
+    slug: "thousand-island-dressing",
+    name: "Thousand Island Dressing",
+    parent: "condiments",
+    aliases: ["thousand island", "burger sauce"],
+    countries: US,
+  },
+  // Traditional kimchi is made with fish sauce or shrimp (owner decision,
+  // 2026-10-16).
+  {
+    slug: "kimchi",
+    name: "Kimchi",
+    parent: "condiments",
+    aliases: ["kimchee", "vegan kimchi"],
+    countries: US,
+  },
   // Queso moved here from Cheese: stores shelve it with the dips.
   {
     slug: "queso",
     name: "Queso",
     parent: "dips-and-spreads",
     aliases: ["nacho cheese dip", "cheese dip", "cheese sauce"],
-    countries: US,
-  },
-  {
-    slug: "spinach-artichoke-dip",
-    name: "Spinach Artichoke Dip",
-    parent: "dips-and-spreads",
-    aliases: ["spinach dip", "artichoke dip"],
-    countries: US,
-  },
-  {
-    slug: "french-onion-dip",
-    name: "French Onion Dip",
-    parent: "dips-and-spreads",
-    aliases: ["onion dip", "sour cream dip", "sour cream and onion dip"],
     countries: US,
   },
   {
@@ -367,17 +654,29 @@ export const TAXONOMY_LEAVES = [
     countries: US,
   },
   {
+    slug: "dairy-based-dips",
+    name: "Creamy Dips",
+    parent: "dips-and-spreads",
+    aliases: [
+      "dairy-based dips",
+      "almond-based dip",
+      "almond-based dips",
+      "creamy dairy-free dips",
+    ],
+    countries: US,
+  },
+  {
+    slug: "spinach-artichoke-dip",
+    name: "Spinach Artichoke Dip",
+    parent: "dips-and-spreads",
+    aliases: ["spinach dip", "artichoke dip", "spinach artichoke"],
+    countries: US,
+  },
+  {
     slug: "milk-chocolate",
     name: "Milk Chocolate",
     parent: "chocolate",
     aliases: ["chocolate bar", "milk chocolate bar", "oat milk chocolate"],
-    countries: US,
-  },
-  {
-    slug: "white-chocolate",
-    name: "White Chocolate",
-    parent: "chocolate",
-    aliases: ["white chocolate bar", "white chocolate chips"],
     countries: US,
   },
   {
@@ -389,9 +688,15 @@ export const TAXONOMY_LEAVES = [
   },
   {
     slug: "peanut-butter-cups",
-    name: "Peanut Butter Cups",
+    name: "Nut Butter Cups",
     parent: "chocolate",
-    aliases: ["peanut butter cup", "pb cups"],
+    aliases: [
+      "peanut butter cup",
+      "peanut butter cups",
+      "pb cups",
+      "sunflower butter cups",
+      "seed butter cups",
+    ],
     countries: US,
   },
   {
@@ -408,15 +713,38 @@ export const TAXONOMY_LEAVES = [
     aliases: ["chocolate candies", "candy coated chocolate", "chocolate gems"],
     countries: US,
   },
+  // Added from the full photo batch (owner decision, 2026-10-16).
   {
-    slug: "chocolate-hazelnut-spread",
-    name: "Chocolate Hazelnut Spread",
+    slug: "chocolate-peanut-spread",
+    name: "Chocolate Spread",
     parent: "chocolate",
-    aliases: ["hazelnut spread", "chocolate spread"],
+    aliases: [
+      "peanut chocolate spread",
+      "chocolate peanut butter spread",
+      "chocolate hazelnut spread",
+      "hazelnut chocolate spread",
+      "chocolate nut butter spread",
+      "chocolate nut spread",
+      "nutella-style spread",
+    ],
     countries: US,
   },
-  // Vegan versions of gelatin gummies; candy that was always vegan isn't a
-  // swap.
+  {
+    slug: "hot-cocoa-mix",
+    name: "Hot Cocoa Mix",
+    parent: "chocolate",
+    aliases: ["hot chocolate", "hot cocoa", "cocoa mix"],
+    countries: US,
+  },
+  {
+    slug: "caramel-cups",
+    name: "Caramel Cups",
+    parent: "chocolate",
+    aliases: ["chocolate caramel cups", "caramel chocolate cups"],
+    countries: US,
+  },
+  // Gummies made without gelatin, including ones that were always
+  // gelatin-free: most gummies contain gelatin (owner, 2026-10-15).
   {
     slug: "gummy-candy",
     name: "Gummy Candy",
@@ -438,46 +766,67 @@ export const TAXONOMY_LEAVES = [
     aliases: ["caramel candy", "chewy caramels", "caramel chews"],
     countries: US,
   },
+  // Added from the full photo batch (owner decision, 2026-10-16).
+  {
+    slug: "fruit-chews",
+    name: "Fruit Chews",
+    parent: "candy",
+    aliases: ["taffy", "chewy candy", "fruit chew candy"],
+    countries: US,
+  },
   {
     slug: "cookies",
     name: "Cookies",
-    parent: "bakery-and-desserts",
-    aliases: ["cookie", "chocolate chip cookies", "bakery cookies"],
+    parent: "desserts",
+    // Cookie dough is compared with the dough it replaces, but stays a
+    // cookie (owner decision, 2026-10-15).
+    aliases: [
+      "cookie",
+      "chocolate chip cookies",
+      "bakery cookies",
+      "cookie dough",
+    ],
     countries: US,
   },
   // Banana bread is a loaf cake here until it has products of its own.
   {
     slug: "cake",
     name: "Cake",
-    parent: "bakery-and-desserts",
+    parent: "desserts",
     aliases: [
       "cupcakes",
       "chocolate cake",
       "layer cake",
       "pound cake",
       "loaf cake",
-      "banana bread",
     ],
-    countries: US,
-  },
-  {
-    slug: "brownies",
-    name: "Brownies",
-    parent: "bakery-and-desserts",
-    aliases: ["brownie"],
     countries: US,
   },
   {
     slug: "muffins",
     name: "Muffins",
-    parent: "bakery-and-desserts",
+    parent: "bakery",
     aliases: ["muffin"],
+    countries: US,
+  },
+  {
+    slug: "pumpkin-bread",
+    name: "Pumpkin Bread",
+    parent: "bakery",
+    aliases: ["pumpkin loaf", "pumpkin quick bread"],
+    countries: US,
+  },
+  {
+    slug: "scones",
+    name: "Scones",
+    parent: "bakery",
+    aliases: ["scone"],
     countries: US,
   },
   {
     slug: "cinnamon-rolls",
     name: "Cinnamon Rolls",
-    parent: "bakery-and-desserts",
+    parent: "bakery",
     aliases: ["cinnamon roll", "cinnamon buns"],
     countries: US,
   },
@@ -485,37 +834,25 @@ export const TAXONOMY_LEAVES = [
   // same food; a brand's frozen pie and a store's bakery pie are separate
   // lines anyway.
   {
-    slug: "pies-and-cheesecake",
-    name: "Pies and Cheesecake",
-    parent: "bakery-and-desserts",
-    aliases: [
-      "pie",
-      "pumpkin pie",
-      "cheesecake",
-      "cheese cake",
-      "cheesecake bites",
-    ],
-    countries: US,
-  },
-  {
-    slug: "brioche-and-rolls",
-    name: "Brioche and Rolls",
-    parent: "bakery-and-desserts",
-    aliases: [
-      "brioche",
-      "brioche buns",
-      "hawaiian rolls",
-      "sweet rolls",
-      "dinner rolls",
-      "challah",
-    ],
+    slug: "fruit-pies",
+    name: "Fruit Pies",
+    parent: "desserts",
+    aliases: ["pie", "pumpkin pie"],
     countries: US,
   },
   {
     slug: "pudding-cups",
     name: "Pudding Cups",
-    parent: "bakery-and-desserts",
+    parent: "desserts",
     aliases: ["pudding", "chocolate pudding"],
+    countries: US,
+  },
+  // Added from the full photo batch (owner decision, 2026-10-16).
+  {
+    slug: "gelatin-cups",
+    name: "Gelatin Cups",
+    parent: "desserts",
+    aliases: ["gelatin dessert", "jello cups", "jelly cups"],
     countries: US,
   },
   // Mixes bake at home, so they are compared with what a regular box mix
@@ -523,11 +860,202 @@ export const TAXONOMY_LEAVES = [
   {
     slug: "baking-mixes",
     name: "Baking Mixes",
-    parent: "bakery-and-desserts",
+    parent: "bakery",
     aliases: ["cake mix", "brownie mix", "cookie mix", "muffin mix", "box mix"],
     countries: US,
   },
+  {
+    slug: "pizza",
+    name: "Pizza",
+    parent: "pizza-aisle",
+    aliases: [
+      "frozen pizza",
+      "cheese pizza",
+      "pepperoni pizza",
+      "flatbread pizza",
+    ],
+    countries: US,
+  },
+  // Added from the full photo batch (owner decision, 2026-10-16).
+  {
+    slug: "toaster-pastries",
+    name: "Toaster Pastries",
+    parent: "toaster-pastries-aisle",
+    aliases: ["toaster tarts", "breakfast pastries", "frosted pastries"],
+    countries: US,
+  },
+  {
+    slug: "mac-and-cheese",
+    name: "Mac and Cheese",
+    parent: "meals",
+    aliases: ["mac & cheese", "macaroni and cheese", "mac n cheese"],
+    countries: US,
+  },
+  {
+    slug: "chicken-stir-fry",
+    name: "Chicken Stir-Fry",
+    parent: "meals",
+    aliases: ["chicken stir fry", "teriyaki chicken stir fry"],
+    countries: US,
+  },
+  {
+    slug: "jamaican-beef-patties",
+    name: "Jamaican Beef Patties",
+    parent: "meals",
+    aliases: ["beef patties", "Jamaican patties"],
+    countries: US,
+  },
+  {
+    slug: "jambalaya",
+    name: "Jambalaya",
+    parent: "meals",
+    aliases: ["cajun jambalaya"],
+    countries: US,
+  },
+  {
+    slug: "breakfast-burritos",
+    name: "Breakfast Burritos",
+    parent: "meals",
+    aliases: ["breakfast burrito"],
+    countries: US,
+  },
+  {
+    slug: "lasagna",
+    name: "Lasagna",
+    parent: "meals",
+    aliases: ["lasagne"],
+    countries: US,
+  },
+  {
+    slug: "cheese-ravioli",
+    name: "Cheese-Filled Pasta",
+    parent: "meals",
+    aliases: [
+      "ravioli",
+      "cheese ravioli",
+      "tortellini",
+      "cheese tortellini",
+      "stuffed pasta",
+      "filled pasta",
+    ],
+    countries: US,
+  },
+  {
+    slug: "breakfast-sandwich",
+    name: "Breakfast Sandwich",
+    parent: "meals",
+    aliases: ["sausage egg and cheese sandwich", "vegan breakfast sandwich"],
+    countries: US,
+  },
+  {
+    slug: "chicken-rice-meal",
+    name: "Chicken and Rice Meal",
+    parent: "meals",
+    aliases: ["chicken and rice", "chicken rice bowl"],
+    countries: US,
+  },
+  {
+    slug: "chicken-noodle-soup",
+    name: "Chicken Noodle Soup",
+    parent: "meals",
+    aliases: ["chicken soup", "chicken noodle"],
+    countries: US,
+  },
+  {
+    slug: "thai-curry-roti",
+    name: "Thai Curry Roti",
+    parent: "meals",
+    aliases: ["curry roti", "thai curry wrap"],
+    countries: US,
+  },
+  {
+    slug: "korean-rice-rolls",
+    name: "Korean Rice Rolls",
+    parent: "meals",
+    aliases: ["kimbap", "gimbap", "kim bap"],
+    countries: US,
+  },
+  {
+    slug: "korean-stir-fried-rice-cakes",
+    name: "Korean Stir-Fried Rice Cakes",
+    parent: "meals",
+    aliases: ["tteokbokki", "tteok-bokki", "topokki"],
+    countries: US,
+  },
+  {
+    slug: "korean-rice-balls",
+    name: "Korean Rice Balls",
+    parent: "meals",
+    aliases: ["jumeokbap", "korean rice ball"],
+    countries: US,
+  },
+  {
+    slug: "milkshake",
+    name: "Milkshake",
+    parent: "ice-cream-aisle",
+    aliases: ["milk shakes", "milk shake", "dairy milkshake"],
+    countries: US,
+  },
+  {
+    slug: "dumplings",
+    name: "Dumplings",
+    parent: "meals",
+    aliases: ["potstickers", "gyoza", "dim sum"],
+    countries: US,
+  },
+  {
+    slug: "alfredo-sauce",
+    name: "Alfredo Sauce",
+    parent: "sauces",
+    aliases: ["alfredo", "cream sauce"],
+    countries: US,
+  },
+  {
+    slug: "creamy-pasta-sauce",
+    name: "Creamy Pasta Sauce",
+    parent: "sauces",
+    aliases: ["cream pasta sauce", "ros\u00e9 sauce"],
+    countries: US,
+  },
+  {
+    slug: "pesto",
+    name: "Pesto",
+    parent: "sauces",
+    aliases: ["basil pesto", "pesto sauce"],
+    countries: US,
+  },
+  {
+    slug: "vodka-sauce",
+    name: "Vodka Sauce",
+    parent: "sauces",
+    aliases: ["vodka pasta sauce", "penne alla vodka sauce"],
+    countries: US,
+  },
+  {
+    slug: "gravy",
+    name: "Gravy",
+    parent: "sauces",
+    aliases: ["brown gravy", "beef gravy", "gravy mix"],
+    countries: US,
+  },
+  {
+    slug: "bouillon",
+    name: "Bouillon",
+    parent: "sauces",
+    aliases: ["broth", "stock", "bouillon cubes", "soup base"],
+    countries: US,
+  },
 ] as const;
+
+// Owner-approved consolidation of names that already exist in earlier
+// catalogs. These use the audited taxonomy update path so the change can be
+// reversed without replacing operator-edited names elsewhere.
+export const TAXONOMY_RENAMES = [
+  { slug: "cheese-ravioli", name: "Cheese-Filled Pasta" },
+  { slug: "chocolate-peanut-spread", name: "Chocolate Spread" },
+  { slug: "peanut-butter-cups", name: "Nut Butter Cups" },
+] as const;
+
 // The main foods' detail questions (owner decisions, 2026-10-09; Milk and
 // Eggs revised on 2026-10-12). Every other food asks Taste and Texture.
 export const TAXONOMY_DIMENSIONS: Record<
@@ -723,7 +1251,25 @@ const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
  * Idempotent SQL keyed by slug: existing categories, aliases and configured
  * features are left untouched, so it is safe on any environment's data.
  */
-export function taxonomySeedStatements(newId: () => string, now: number) {
+export function taxonomySeedStatements(
+  newId: () => string,
+  now: number,
+  options: { onlyFoods?: readonly string[] } = {},
+) {
+  const onlyFoods = options.onlyFoods;
+  const selectedFoods = onlyFoods
+    ? TAXONOMY_LEAVES.filter((leaf) => onlyFoods.includes(leaf.slug))
+    : TAXONOMY_LEAVES;
+  if (
+    onlyFoods &&
+    (onlyFoods.length === 0 ||
+      selectedFoods.length !== onlyFoods.length ||
+      new Set(onlyFoods).size !== onlyFoods.length)
+  )
+    throw new Error("The targeted taxonomy seed must name known food slugs once.");
+  const selectedSlugs = new Set<string>(
+    selectedFoods.map((leaf) => leaf.slug),
+  );
   const statements: string[] = [];
   for (const country of TAXONOMY_COUNTRIES) {
     statements.push(
@@ -740,7 +1286,10 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
       ON CONFLICT DO NOTHING;`,
     );
   }
-  for (const category of [...TAXONOMY_GROUPS, ...TAXONOMY_LEAVES]) {
+  const categoriesToSeed = onlyFoods
+    ? selectedFoods
+    : [...TAXONOMY_GROUPS, ...selectedFoods];
+  for (const category of categoriesToSeed) {
     const rankable = "aliases" in category ? 1 : 0;
     const position = "position" in category ? category.position : null;
     const season = "season" in category ? category.season : null;
@@ -769,7 +1318,7 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
           ON CONFLICT DO NOTHING;`,
         );
   }
-  for (const leaf of TAXONOMY_LEAVES)
+  for (const leaf of selectedFoods)
     if ("displayNames" in leaf)
       for (const [iso2, name] of Object.entries(leaf.displayNames))
         statements.push(
@@ -791,17 +1340,21 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
     WHERE ${where} AND NOT EXISTS(SELECT 1 FROM category_rating_dimensions d WHERE d.category_id=c.id)
     ON CONFLICT DO NOTHING;`;
   for (const [slug, list] of Object.entries(TAXONOMY_DIMENSIONS))
-    statements.push(questions(`c.slug=${quote(slug)}`, list));
+    if (!onlyFoods || selectedSlugs.has(slug))
+      statements.push(questions(`c.slug=${quote(slug)}`, list));
+  const defaultQuestionFilter = onlyFoods
+    ? `c.slug IN (${[...selectedSlugs].map(quote).join(",")})`
+    : "c.is_rankable=1";
   statements.push(
     questions(
-      "c.is_rankable=1",
+      defaultQuestionFilter,
       DEFAULT_DIMENSIONS.map(({ key, label }) => [key, label] as const),
     ),
   );
   // Each launch food is on in its launch countries: every launch country
   // unless it names its own. A food whose countries an operator has ever
   // changed is skipped, so their choices are never undone.
-  const launch = TAXONOMY_LEAVES.flatMap((leaf) =>
+  const launch = selectedFoods.flatMap((leaf) =>
     ("countries" in leaf
       ? leaf.countries
       : TAXONOMY_COUNTRIES.map((c) => c.iso2)
@@ -816,19 +1369,24 @@ export function taxonomySeedStatements(newId: () => string, now: number) {
     ON CONFLICT DO NOTHING;`,
   );
   // Features are seeded per country, only where none are configured yet.
-  statements.push(
-    `INSERT INTO category_features(country_id,category_id,position,updated_at)
-    SELECT co.id,c.id,j.key+1,${now} FROM json_each(${quote(JSON.stringify(TAXONOMY_FEATURES))}) j
-    JOIN categories c ON c.slug=j.value AND c.is_active=1 CROSS JOIN countries co WHERE co.iso2 IN (${TAXONOMY_COUNTRIES.map((c) => quote(c.iso2)).join(",")})
-    AND NOT EXISTS(SELECT 1 FROM category_features f WHERE f.country_id=co.id)
-    ON CONFLICT DO NOTHING;`,
-  );
+  if (!onlyFoods)
+    statements.push(
+      `INSERT INTO category_features(country_id,category_id,position,updated_at)
+      SELECT co.id,c.id,j.key+1,${now} FROM json_each(${quote(JSON.stringify(TAXONOMY_FEATURES))}) j
+      JOIN categories c ON c.slug=j.value AND c.is_active=1 CROSS JOIN countries co WHERE co.iso2 IN (${TAXONOMY_COUNTRIES.map((c) => quote(c.iso2)).join(",")})
+      AND NOT EXISTS(SELECT 1 FROM category_features f WHERE f.country_id=co.id)
+      ON CONFLICT DO NOTHING;`,
+    );
   return statements;
 }
 // The script also rebuilds the search index from canonical rows, so new foods
 // and display names are searchable at once.
-export const taxonomySeedSql = (newId: () => string, now: number) =>
+export const taxonomySeedSql = (
+  newId: () => string,
+  now: number,
+  options: { onlyFoods?: readonly string[] } = {},
+) =>
   [
-    ...taxonomySeedStatements(newId, now),
+    ...taxonomySeedStatements(newId, now, options),
     ...SEARCH_INDEX_STATEMENTS.map((sql) => `${sql};`),
   ].join("\n");

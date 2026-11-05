@@ -14,14 +14,17 @@ import type { Route } from "./+types/my-contributions";
 export async function loader({ request, params }: Route.LoaderArgs) {
   const actor = await communityPageActor(request, env),
     service = communityServices(env).moderation;
+  const checks = await communityServices(env).automaticChecks.list(actor.id);
   if (params.kind === "category" && params.id)
     return {
+      checks,
       detail: null,
       category: await taxonomyServices(env).proposalDetail(actor, params.id),
       list: null,
     };
   if (params.kind && params.id)
     return {
+      checks,
       detail: await service.detail(
         actor,
         parse(z.enum(["submission", "proposal", "report"]), params.kind),
@@ -31,6 +34,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       list: null,
     };
   return {
+    checks,
     detail: null,
     category: null,
     list: await service.contributions(
@@ -46,7 +50,7 @@ export function meta() {
   ];
 }
 export default function Contributions({
-  loaderData: { detail, category, list },
+  loaderData: { detail, category, list, checks },
 }: Route.ComponentProps) {
   // Paging links only once there is more than one page.
   const paged = useSearchParams()[0].has("cursor") || Boolean(list?.nextCursor);
@@ -59,6 +63,47 @@ export default function Contributions({
           Check publication, review outcomes, and requests for more evidence.
         </p>
       </header>
+      {checks.length > 0 && (
+        <section
+          className="community-panel"
+          aria-labelledby="automatic-checks-heading"
+        >
+          <h2 id="automatic-checks-heading">Automatic checks</h2>
+          <ul className="contribution-list">
+            {checks.map((check) => (
+              <li key={check.id}>
+                <strong>
+                  {
+                    {
+                      submission_finalize: "Product submission",
+                      comment_create: "Comment",
+                      comment_edit: "Comment edit",
+                      proposal_create: "Product change",
+                      proposal_response: "Response to a suggested change",
+                      retailer_proposal: "Store suggestion",
+                      category_proposal: "Food suggestion",
+                    }[check.operation]
+                  }
+                </strong>
+                <p role="status">
+                  {check.errorCode === "RESPONSE_CHANGED"
+                    ? "Replaced by your newer response"
+                    : check.status === "checking"
+                      ? "Checking automatically"
+                      : check.status === "blocked"
+                        ? "Rejected — please revise before submitting again"
+                        : "Please resubmit"}
+                </p>
+                <small>{dateLabel(check.createdAt)}</small>
+              </li>
+            ))}
+          </ul>
+          <p>
+            These checks run automatically. Your contributions stay private
+            until they finish.
+          </p>
+        </section>
+      )}
       {category && (
         <div className="community-panel">
           <div className="notice">

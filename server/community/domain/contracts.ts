@@ -41,7 +41,7 @@ export const manufacturerLabel = z.enum([
 ]);
 export const veganStatus = z.enum([
   "vegan",
-  "appears_vegan",
+  "appears_plant_based",
   "plant_based",
   "under_review",
 ]);
@@ -168,6 +168,8 @@ export interface BrandLine {
     slug: string;
     name: string;
     flavor: string | null;
+    // The accepted front photo of its current formula.
+    imageId: string | null;
     // Slugs of the line's foods this flavor is listed in.
     foods: string[];
   }[];
@@ -216,6 +218,7 @@ export const reportReasons = {
     "duplicate",
     "discontinued",
     "wrong_category",
+    "out_of_scope",
     // Milestone 7: a flavor that doesn't exist, or one in the wrong line.
     "flavor_not_real",
     "wrong_line",
@@ -352,6 +355,25 @@ export const changeInput = z.discriminatedUnion("kind", [
   z
     .object({ ...changeBase, kind: z.literal("category_add"), categoryId: id })
     .strict(),
+  // The product's brand. A line belongs to one brand, so it moves to one of
+  // the new brand's lines, or a new one, at the same time.
+  z
+    .object({
+      ...changeBase,
+      kind: z.literal("brand"),
+      brandId: id,
+      lineId: id.optional(),
+      newLineName: shortText.optional(),
+    })
+    .strict(),
+  // Every food the product is listed under, so it can move between foods.
+  z
+    .object({
+      ...changeBase,
+      kind: z.literal("foods"),
+      categoryIds: z.array(id).min(1).max(5),
+    })
+    .strict(),
   // What the package says about allergens, optionally citing the formula's
   // accepted ingredients or nutrition photo (which lowers the risk tier).
   z
@@ -409,7 +431,13 @@ export const reviewDecision = z
     expectedRevision: z.number().int().nonnegative(),
     note,
     effect: z
-      .enum(["none", "under_review", "remove_image", "hide_comment"])
+      .enum([
+        "none",
+        "under_review",
+        "remove_image",
+        "hide_comment",
+        "remove_product",
+      ])
       .default("none"),
     expectedProductRevision: z.number().int().nonnegative().optional(),
     // The operator-reviewed classification for an accepted submission.
@@ -435,6 +463,13 @@ export const consolidationInput = z
   })
   .strict();
 export type ConsolidationInput = z.infer<typeof consolidationInput>;
+export const removeProductInput = z
+  .object({ expectedRevision: z.number().int().nonnegative(), note })
+  .strict();
+export const hideCommentInput = z
+  .object({ expectedUpdatedAt: z.number().int().nonnegative(), note })
+  .strict();
+export type HideCommentInput = z.infer<typeof hideCommentInput>;
 // Operator line tools (milestone 7), on a product's moderation view: move the
 // product to another line of its brand and country, or to a new line, and
 // rename its line. Both are audited and reversible.

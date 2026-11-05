@@ -12,7 +12,10 @@ const cursorSchema = z
     id: recordId,
   })
   .strict();
-export function decodeRatingCursor(input: string | null): RatingCursor | null {
+export function decodeRatingCursor(
+  input: string | null,
+  expired = "This page link has expired. Open My Ratings again.",
+): RatingCursor | null {
   if (input === null) return null;
   try {
     if (input.length > 250 || !/^[A-Za-z0-9_-]+$/.test(input))
@@ -21,10 +24,7 @@ export function decodeRatingCursor(input: string | null): RatingCursor | null {
       JSON.parse(atob(input.replaceAll("-", "+").replaceAll("_", "/"))),
     );
   } catch {
-    throw new ApplicationError(
-      "INVALID_CURSOR",
-      "This page link has expired. Open My Ratings again.",
-    );
+    throw new ApplicationError("INVALID_CURSOR", expired);
   }
 }
 export const encodeRatingCursor = (cursor: RatingCursor) =>

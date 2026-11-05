@@ -6,7 +6,7 @@ import {
   type Outcome,
 } from "./decisions";
 
-export const POLICY_VERSION = 1;
+export const POLICY_VERSION = 2;
 const DAY = 86_400_000;
 
 /**
@@ -18,6 +18,7 @@ export const DEFAULT_MODERATION_POLICY = {
   daily: 300,
   accountDaily: 30,
   concurrent: 2,
+  globalConcurrent: 5,
   reuseDays: 30,
   timeoutMs: 15_000,
   leaseMs: 60_000,
@@ -112,6 +113,8 @@ export function evaluatePolicy(
 ): PolicyResult {
   const flags: string[] = [];
   switch (kind) {
+    case "content_safety":
+      return { outcome: "READY", reasons: [], flags: [] };
     case "comment": {
       if (p(answers, "recommended_action", "REJECT_SPAM") >= policy.block)
         return {

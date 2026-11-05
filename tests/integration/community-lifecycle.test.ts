@@ -144,7 +144,7 @@ it("keeps packaging updates on the same formula, removes reported media privatel
   // Existing canonical evidence and newly staged evidence use the same validator.
   const classification = await propose({
     kind: "classification",
-    veganStatus: "appears_vegan",
+    veganStatus: "appears_plant_based",
     manufacturerLabel: "unknown",
     evidence: { ...evidence, imageIds: [photo.imageId] },
   });

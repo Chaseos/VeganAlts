@@ -34,6 +34,8 @@ npm run db:reset:local -- --confirm-local-reset
 npm run rankings:rebuild:local
 ```
 
+GitHub Actions runs `npm test`, covering the unit and integration suites. Type checks, Worker builds and browser tests remain available through the local commands above.
+
 Install the browser used by the end-to-end tests with `npx playwright install chromium` if it is missing. Reset deletes only the local D1 state and recreates the development catalog; it does not reset staging or production.
 
 ## Architecture

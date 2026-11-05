@@ -7,6 +7,7 @@ import {
   type ConsolidationInput,
   type LineMoveInput,
   type LineRenameInput,
+  type HideCommentInput,
   type ReviewDecision,
   type ReviewKind,
   type InboxFilter,
@@ -35,6 +36,7 @@ import {
   type ProposalBaseline,
 } from "../domain/change-policy";
 import type { CatalogPatch, ProposalRecord } from "../domain/moderation";
+import { catalogReferenceIds } from "../domain/catalog-diff";
 import {
   ModerationRepository,
   type ActionWrite,
@@ -208,9 +210,19 @@ export class ModerationService {
   async product(actor: Actor, productId: string) {
     administrator(actor);
     const product = await this.repository.snapshot(productId);
+    const actions = await this.repository.actions(productId);
     return {
       product,
-      actions: await this.repository.actions(productId),
+      brand: product.brandId
+        ? await this.repository.brandName(product.brandId)
+        : null,
+      actions,
+      referenceLabels: await this.repository.referenceLabels(
+        actions.flatMap((action) => [
+          ...catalogReferenceIds(JSON.parse(action.before_data)),
+          ...catalogReferenceIds(JSON.parse(action.after_data)),
+        ]),
+      ),
       // The brand's other lines here, for Move to line (milestone 7).
       lines: product.brandId
         ? (
@@ -498,6 +510,17 @@ export class ModerationService {
             );
           before.commentStates = [{ id: comment.id, state: "visible" }];
           after.commentStates = [{ id: comment.id, state: "hidden" }];
+        } else if (input.effect === "remove_product") {
+          if (
+            report.target_type !== "product" ||
+            report.reason_code !== "out_of_scope"
+          )
+            throw new ApplicationError(
+              "INVALID_DECISION",
+              "Product removal requires a report that the product does not belong on VeganAlts.",
+            );
+          before.lifecycleStatus = snapshot.lifecycleStatus;
+          after.lifecycleStatus = "hidden";
         } else if (input.effect === "under_review") {
           if (
             report.target_type !== "product" ||
@@ -593,6 +616,29 @@ export class ModerationService {
       receipt,
     );
   }
+  /**
+   * Accepts an administrator's own change. If it can't apply, the proposal is
+   * rejected so a failed edit never waits in the review inbox.
+   */
+  async acceptOwn(actor: Actor, key: string, id: string, note: string) {
+    administrator(actor);
+    const proposal = await this.repository.proposal(id);
+    if (!proposal)
+      throw new ApplicationError("NOT_FOUND", "Proposal not found.", 404);
+    const decide = (decisionKey: string, decision: "accept" | "reject") =>
+      this.decide(actor, decisionKey, "proposal", id, {
+        decision,
+        expectedRevision: proposal.updated_at,
+        note,
+        effect: "none",
+      });
+    try {
+      return await decide(key, "accept");
+    } catch (error) {
+      await decide(this.newId(), "reject").catch(() => undefined);
+      throw error;
+    }
+  }
   /** Accepts a pending proposal through the fenced, audited decision path. */
   private async acceptChange(
     action: ActionWrite,
@@ -641,12 +687,20 @@ export class ModerationService {
     // An accepted declaration remembers the proposal it came from.
     if (plan.after.allergens?.value)
       plan.after.allergens.value.proposalId = proposal.id;
-    if (change.kind === "rename") {
-      // A new display name must not collide with another product's identity.
+    if (change.kind === "brand") {
+      if (!(await this.repository.brandName(change.brandId)))
+        throw new ApplicationError("NOT_FOUND", "Brand not found.", 404);
+      if (change.lineId)
+        await this.catalog.assertLine(snapshot, change.lineId, change.brandId);
+    }
+    if (change.kind === "rename" || change.kind === "brand") {
+      // A new name or brand must not collide with another product's identity.
       const key = identityKey(
         snapshot.countryId,
-        (await this.repository.brandName(snapshot.brandId)) ?? "",
-        change.name,
+        (await this.repository.brandName(
+          change.kind === "brand" ? change.brandId : snapshot.brandId,
+        )) ?? "",
+        change.kind === "rename" ? change.name : snapshot.name,
       );
       const owner = await this.repository.identityOwner(key);
       if (owner && owner !== snapshot.id)
@@ -876,6 +930,64 @@ export class ModerationService {
       receipt,
     );
   }
+  /** Hide a visible comment directly, preserving its text, votes and reversal. */
+  async hideComment(
+    actor: Actor,
+    key: string,
+    id: string,
+    input: HideCommentInput,
+  ) {
+    administrator(actor);
+    const now = this.clock(),
+      receipt = await receiptWrite(
+        actor.id,
+        "comment-hide",
+        key,
+        { id, ...input },
+        now,
+      );
+    const prior = await this.repository.replay<{
+      actionId: string;
+      productId: string | null;
+    }>(receipt);
+    if (prior) return prior;
+    const comment = await this.repository.comment(id);
+    if (!comment || comment.deleted_at)
+      throw new ApplicationError("NOT_FOUND", "Comment not found.", 404);
+    if (
+      comment.moderation_state !== "visible" ||
+      comment.updated_at !== input.expectedUpdatedAt
+    )
+      throw new ApplicationError(
+        "STALE_DECISION",
+        "This comment changed. Reload the page before hiding it.",
+        409,
+      );
+    const snapshot = await this.repository.snapshot(comment.product_id);
+    if (snapshot.lifecycleStatus === "hidden")
+      throw new ApplicationError("NOT_FOUND", "Product not found.", 404);
+    const after: CatalogPatch = { commentStates: [{ id, state: "hidden" }] };
+    return this.repository.commit(
+      {
+        id: this.newId(),
+        actor,
+        kind: "comment_hide",
+        targetId: id,
+        productId: comment.product_id,
+        before: { commentStates: [{ id, state: "visible" }] },
+        after,
+        note: input.note,
+        now,
+      },
+      {
+        sql: "EXISTS(SELECT 1 FROM comments c JOIN products p ON p.id=c.product_id WHERE c.id=? AND c.moderation_state='visible' AND c.updated_at=? AND c.deleted_at IS NULL AND p.lifecycle_status<>'hidden')",
+        values: [id, comment.updated_at],
+      },
+      (fence) =>
+        this.catalog.patchStatements(snapshot, after, actor, now, fence),
+      receipt,
+    );
+  }
   /** Publish or hide a comment held by automated review; reversible. */
   private async decideComment(
     action: ActionWrite,
@@ -955,7 +1067,10 @@ export class ModerationService {
         "INVALID_REVERSAL",
         "This action has no reversible catalog changes.",
       );
-    const snapshot = await this.repository.snapshot(original.product_id);
+    const snapshot = await this.repository.snapshot(
+      original.product_id,
+      actor.id,
+    );
     if (snapshot.revision !== input.expectedRevision)
       throw new ApplicationError(
         "STALE_PRODUCT",

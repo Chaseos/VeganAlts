@@ -59,7 +59,7 @@ Multi-country catalogs keep one shared category list with localized names and pe
   - the contributor's overall rating;
   - stores where it is commonly found;
   - an allergen declaration;
-  - more photos (back, nutrition);
+  - more photos (back, nutrition; moved to step 1 with every other photo on 2026-11-04, see PRODUCT_MASTER §06);
   - variant details;
   - other foods it replaces.
 - **No canvas boards for milestone 6 screens.** They follow the milestone 5 design patterns. Phone and desktop screenshots in both themes are reviewed by the owner at each UI checkpoint before work continues; they are never committed.
@@ -91,7 +91,7 @@ Multi-country catalogs keep one shared category list with localized names and pe
 | Ingredient evidence | "Nothing animal-derived" ticked | Manufacturer label        | Result                      | Decision |
 | ------------------- | ------------------------------- | ------------------------- | --------------------------- | -------- |
 | none                | any                             | any                       | Ingredients not checked yet | READY    |
-| given               | yes                             | any                       | Appears vegan               | READY    |
+| given               | yes                             | any                       | Appears plant-based               | READY    |
 | given               | no                              | plant-based               | Plant-based                 | READY    |
 | given               | no                              | vegan, neither or unknown | Ingredients not checked yet | READY    |
 
@@ -100,7 +100,7 @@ Multi-country catalogs keep one shared category list with localized names and pe
   - An ingredients photo the automated check cannot read downgrades the result to "Ingredients not checked yet" instead of holding the submission.
   - A declaration that the product contains milk, egg, fish, crustacean or mollusc holds the submission for review.
   - Near-duplicate candidates, variant relationships, specialty flavors and follow-ups still hold for review, as before.
-- **How it is stored.** "Ingredients not checked yet" is a flag on the formula's classification, not a fifth stored status. The stored status of an unchecked formula is a placeholder (`appears_vegan`) that one shared read helper always replaces with the public value `unchecked`.
+- **How it is stored.** "Ingredients not checked yet" is a flag on the formula's classification, not a fifth stored status. The stored status of an unchecked formula is a placeholder (`appears_plant_based`) that one shared read helper always replaces with the public value `unchecked`.
 
 ### Countries and browsing
 
@@ -136,7 +136,7 @@ Multi-country catalogs keep one shared category list with localized names and pe
 
 ### Later ingredient check
 
-On a product whose ingredients are not checked, a contributor can cite its accepted ingredients or nutrition photo and choose Appears vegan or Plant-based. That change is tier 2: community-confirmable and automatically acceptable under the milestone 4 rule. Choosing Vegan, or citing no photo, stays tier 3.
+On a product whose ingredients are not checked, a contributor can cite its accepted ingredients or nutrition photo and choose Appears plant-based or Plant-based. That change is tier 2: community-confirmable and automatically acceptable under the milestone 4 rule. Choosing Vegan, or citing no photo, stays tier 3.
 
 ## Implementation sequence
 
@@ -192,7 +192,7 @@ On a product whose ingredients are not checked, a contributor can cite its accep
   - the version 1 baseline producing exactly the schema of the folded history, and an emptied database migrating back to it;
   - foreign-key checks;
   - proof that Top order and scores are unchanged on the seeded catalog;
-  - a sweep proving "Ingredients not checked yet" never reads as "Appears vegan";
+  - a sweep proving "Ingredients not checked yet" never reads as "Appears plant-based";
   - axe at 390 px and desktop in both themes.
 - **The running-app pass**:
   1. adds a front-photo-only product in the United Kingdom;

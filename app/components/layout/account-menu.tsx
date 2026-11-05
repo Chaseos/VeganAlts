@@ -8,6 +8,7 @@ import { useCountryCode } from "../../lib/site-chrome";
 // Add a product starts in the country being browsed.
 export const accountLinks = (country: string) => [
   { to: "/my-ratings", label: "My ratings" },
+  { to: "/saved", label: "Saved products" },
   { to: "/my-contributions", label: "My contributions" },
   { to: `/add-product?country=${country}`, label: "Add a product" },
   { to: "/account", label: "Account settings" },
@@ -16,7 +17,7 @@ export const accountLinks = (country: string) => [
 export const OPERATOR_LINKS = [
   { to: "/admin/moderation", label: "Moderation inbox" },
   { to: "/admin/taxonomy", label: "Taxonomy" },
-  { to: "/admin/media", label: "Media" },
+  { to: "/admin/analytics", label: "Product analytics" },
 ];
 
 export function useSignInHref() {

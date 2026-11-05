@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import type { ImageSlot } from "@server/media/domain/media";
 import type { ContributorProduct } from "@server/community/domain/moderation";
 import type { CommunityAction } from "../lib/community";
+import { shrinkPhoto } from "../lib/shrink-photo";
 import { PhotoPicker } from "./community-form";
 import { SLOT_LABELS } from "./photo-slots";
 
@@ -18,10 +19,13 @@ export function PhotoProposalForm({
   product,
   initialSlot,
   action,
+  administrator,
 }: {
   product: ContributorProduct;
   initialSlot: ImageSlot;
   action: CommunityAction;
+  // An administrator's photo applies at once instead of waiting for review.
+  administrator: boolean;
 }) {
   const navigate = useNavigate();
   const [slot, setSlot] = useState<ImageSlot>(initialSlot),
@@ -55,7 +59,7 @@ export function PhotoProposalForm({
       if (!uploaded.current) {
         const photo = new FormData();
         photo.set("slot", slot);
-        photo.set("image", file);
+        photo.set("image", await shrinkPhoto(file));
         uploaded.current = (
           await action.request<{ imageId: string }>(
             `submissions/${receipt}/uploads`,
@@ -65,7 +69,7 @@ export function PhotoProposalForm({
         ).imageId;
       }
       const saved = await action.request<{ id: string; duplicateOf?: boolean }>(
-        "proposals",
+        administrator ? "proposals/apply" : "proposals",
         {
           kind: "photo",
           productId: product.id,
@@ -74,7 +78,8 @@ export function PhotoProposalForm({
           reason: current ? form.get("reason") : "missing",
           evidenceReceiptId: receipt,
           evidence: {
-            note: String(form.get("note")),
+            // The slot already says what the photo is.
+            note: `${SLOT_LABELS[slot]} photo added.`,
             urls: [],
             imageIds: [uploaded.current],
           },
@@ -84,9 +89,11 @@ export function PhotoProposalForm({
       // The same photo is already proposed by someone else: the submission
       // was recorded as a confirmation of that open proposal.
       await navigate(
-        saved.duplicateOf
-          ? `/${product.countryCode}/products/${product.slug}#suggested-changes`
-          : `/my-contributions/proposal/${saved.id}`,
+        administrator
+          ? `/admin/moderation/products/${product.id}`
+          : saved.duplicateOf
+            ? `/${product.countryCode}/products/${product.slug}#suggested-changes`
+            : `/my-contributions/proposal/${saved.id}`,
       );
     });
   }
@@ -132,24 +139,21 @@ export function PhotoProposalForm({
       <fieldset disabled={Boolean(receiptId)}>
         <PhotoPicker slot={slot} file={file} onChange={setFile} required />
       </fieldset>
-      <label htmlFor="photo-note">What does the photo show?</label>
-      <textarea
-        id="photo-note"
-        name="note"
-        required
-        minLength={8}
-        maxLength={2000}
-        rows={3}
-      />
-      <p className="small muted">
-        The current photo stays until the new one is accepted, and earlier
-        photos remain with the formula they document.
-        {current && (slot === "ingredients" || slot === "nutrition")
-          ? " Replacing an ingredient or nutrition photo is reviewed by a moderator."
-          : ""}
-      </p>
+      {!administrator && (
+        <p className="small muted">
+          The current photo stays until the new one is accepted, and earlier
+          photos remain with the formula they document.
+          {current && (slot === "ingredients" || slot === "nutrition")
+            ? " Replacing an ingredient or nutrition photo is reviewed by a moderator."
+            : ""}
+        </p>
+      )}
       <button className="button" disabled={action.busy || !file}>
-        {action.busy ? "Uploading…" : "Submit photo"}
+        {action.busy
+          ? "Uploading…"
+          : administrator
+            ? "Save photo"
+            : "Submit photo"}
       </button>
     </form>
   );

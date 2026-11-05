@@ -65,9 +65,9 @@ export async function createBrowserSession(
         const retained =
           options.administrator ||
           (await cleanup.env.DB.prepare(
-            "SELECT user_id FROM contribution_receipts WHERE user_id=? UNION SELECT user_id FROM submission_receipts WHERE user_id=? LIMIT 1",
+            "SELECT user_id FROM contribution_receipts WHERE user_id=? UNION SELECT user_id FROM submission_receipts WHERE user_id=? UNION SELECT user_id FROM moderation_decisions WHERE user_id=? UNION SELECT user_id FROM moderation_jobs WHERE user_id=? LIMIT 1",
           )
-            .bind(user.id, user.id)
+            .bind(user.id, user.id, user.id, user.id)
             .first());
         if (retained) {
           await cleanup.env.DB.prepare("DELETE FROM session WHERE user_id=?")

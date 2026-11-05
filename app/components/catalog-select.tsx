@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { communityRequest, type CommunityOptions } from "../lib/community";
 
-type Option = { id: string; name: string };
+type Option = {
+  id: string;
+  name: string;
+  brand?: string | null;
+  country?: string;
+};
 export function CatalogSelect({
   id,
   name,
@@ -57,9 +62,7 @@ export function CatalogSelect({
             setFound(
               kind === "products" && country
                 ? value.products.filter(
-                    (p) =>
-                      (p as { country?: string }).country?.toUpperCase() ===
-                      country.toUpperCase(),
+                    (p) => p.country.toUpperCase() === country.toUpperCase(),
                   )
                 : value[kind],
             );
@@ -107,7 +110,9 @@ export function CatalogSelect({
         </option>
         {choices.map((o) => (
           <option key={o.id} value={o.id}>
-            {o.name}
+            {kind === "products"
+              ? [o.brand, o.name, o.country].filter(Boolean).join(" · ")
+              : o.name}
           </option>
         ))}
       </select>

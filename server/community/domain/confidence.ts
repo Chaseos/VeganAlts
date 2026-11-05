@@ -47,7 +47,7 @@ export const established = (
  */
 /**
  * Checking a formula whose ingredients no one has confirmed against its own
- * accepted ingredients or nutrition photo, as Appears vegan or Plant-based
+ * accepted ingredients or nutrition photo, as Appears plant-based or Plant-based
  * (MODERATION, milestone 6), changing nothing else. Vegan and Under Review
  * stay operator decisions.
  */
@@ -58,7 +58,7 @@ export function checksIngredients(
   return (
     change.kind === "classification" &&
     snapshot.classification?.ingredientsChecked === false &&
-    (change.veganStatus === "appears_vegan" ||
+    (change.veganStatus === "appears_plant_based" ||
       change.veganStatus === "plant_based") &&
     citedEvidence(snapshot).some((i) => i.id === change.citedImageId) &&
     // The manufacturer label and certifications stay operator decisions.
@@ -79,6 +79,8 @@ export function riskTier(
     case "classification":
       return checksIngredients(change, snapshot) ? 2 : 3;
     case "reformulation":
+    case "foods":
+    case "brand":
       return 3;
     case "relationships":
       // Moving a product to another line changes which scores its ratings

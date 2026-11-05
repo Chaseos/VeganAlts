@@ -5,17 +5,17 @@ import { getPlatformProxy } from "wrangler";
 import { parse } from "jsonc-parser";
 
 export async function withCatalogPlatform<T>(
-  environment: "local" | "staging",
+  environment: "local" | "staging" | "production",
   work: (
     env: Pick<Cloudflare.Env, "DB" | "MEDIA_BUCKET" | "IMAGES">,
   ) => Promise<T>,
 ) {
   const source = parse(await readFile("wrangler.jsonc", "utf8"));
-  const target = environment === "local" ? source : source.env.staging;
+  const target = environment === "local" ? source : source.env[environment];
   const directory = await mkdtemp(join(tmpdir(), "veganalts-catalog-"));
   try {
     const configPath = join(directory, "wrangler.json");
-    const remote = environment === "staging";
+    const remote = environment !== "local";
     await writeFile(
       configPath,
       JSON.stringify({

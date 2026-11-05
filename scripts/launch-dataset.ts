@@ -1,11 +1,21 @@
 import { taxonomyShape } from "../server/taxonomy/domain/shape";
+import {
+  hasIngredientEvidence,
+  type IngredientEvidenceRow,
+} from "./ingredient-evidence";
 
 // Only an explicit unchecked classification may omit ingredient evidence.
 // A missing classification still has to meet the evidence requirement.
-const missingIngredientEvidence = `SELECT p.id,(SELECT iso2 FROM countries WHERE id=p.country_id) AS country FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
+const missingIngredientEvidence = `SELECT p.id,(SELECT iso2 FROM countries WHERE id=p.country_id) AS country,
+    COALESCE(json_extract(f.evidence_data,'$.urls'),'[]') AS evidenceUrls,
+    t.package_ingredients AS packageIngredients,t.verification,t.online_ingredients AS onlineIngredients,
+    t.online_url AS onlineUrl,t.online_accessed_at AS onlineAccessedAt,t.online_product_match AS onlineProductMatch,
+    (SELECT COUNT(*) FROM json_each(COALESCE(t.source_image_ids,'[]')) source
+      JOIN product_images image ON image.id=source.value AND image.product_version_id=v.id AND image.state='accepted') AS acceptedSourcePhotos
+    FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
     LEFT JOIN formula_classifications f ON f.product_version_id=v.id
-    WHERE p.lifecycle_status<>'hidden' AND NOT EXISTS(SELECT 1 FROM product_images i WHERE i.product_version_id=v.id AND i.slot='ingredients' AND i.state='accepted')
-    AND COALESCE(json_array_length(f.evidence_data,'$.urls'),0)=0`;
+    LEFT JOIN product_version_ingredient_transcriptions t ON t.product_version_id=v.id
+    WHERE p.lifecycle_status<>'hidden' AND NOT EXISTS(SELECT 1 FROM product_images i WHERE i.product_version_id=v.id AND i.slot='ingredients' AND i.state='accepted')`;
 
 const checks: Record<string, string> = {
   developmentProducts:
@@ -43,8 +53,17 @@ export async function auditLaunchDataset(db: D1Database) {
     { count: number; sample: string[]; byCountry?: Record<string, number> }
   > = {};
   for (const [name, sql] of Object.entries(checks)) {
-    const rows = (await db.prepare(sql).all<{ id: string; country?: string }>())
-      .results;
+    const result = (
+      await db
+        .prepare(sql)
+        .all<{ id: string; country?: string } & IngredientEvidenceRow>()
+    ).results;
+    const rows = [
+      "productsWithoutIngredientEvidence",
+      "uncheckedProductsWithoutIngredientEvidence",
+    ].includes(name)
+      ? result.filter((row) => !hasIngredientEvidence(row))
+      : result;
     const byCountry: Record<string, number> = {};
     for (const row of rows)
       if (row.country)

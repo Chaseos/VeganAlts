@@ -30,6 +30,8 @@
     "PUBLIC_LAUNCH": "false",
     "SUPPORT_CONTACT": "chaseosapps@gmail.com",
     "WEB_ANALYTICS_TOKEN": "",
+    "CONTENT_SAFETY_PROVIDER": "fake",
+    "CONTENT_SAFETY_POLICY": "{}",
   },
   "d1_databases": [
     {
@@ -126,6 +128,38 @@
         "period": 60,
       },
     },
+    {
+      "name": "WRITE_IP_RATE_LIMIT",
+      "namespace_id": "1791141101",
+      "simple": {
+        "limit": 60,
+        "period": 60,
+      },
+    },
+    {
+      "name": "PROFILE_RATE_LIMIT",
+      "namespace_id": "1791141111",
+      "simple": {
+        "limit": 5,
+        "period": 60,
+      },
+    },
+    {
+      "name": "AI_ACCOUNT_RATE_LIMIT",
+      "namespace_id": "1791141121",
+      "simple": {
+        "limit": 10,
+        "period": 60,
+      },
+    },
+    {
+      "name": "AI_IP_RATE_LIMIT",
+      "namespace_id": "1791141131",
+      "simple": {
+        "limit": 30,
+        "period": 60,
+      },
+    },
   ],
   "env": {
     "staging": {
@@ -217,6 +251,38 @@
             "period": 60,
           },
         },
+        {
+          "name": "WRITE_IP_RATE_LIMIT",
+          "namespace_id": "1791141102",
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
+        {
+          "name": "PROFILE_RATE_LIMIT",
+          "namespace_id": "1791141112",
+          "simple": {
+            "limit": 5,
+            "period": 60,
+          },
+        },
+        {
+          "name": "AI_ACCOUNT_RATE_LIMIT",
+          "namespace_id": "1791141122",
+          "simple": {
+            "limit": 10,
+            "period": 60,
+          },
+        },
+        {
+          "name": "AI_IP_RATE_LIMIT",
+          "namespace_id": "1791141132",
+          "simple": {
+            "limit": 30,
+            "period": 60,
+          },
+        },
       ],
       "vars": {
         "APP_ENV": "staging",
@@ -234,6 +300,8 @@
         "PUBLIC_LAUNCH": "false",
         "SUPPORT_CONTACT": "chaseosapps@gmail.com",
         "WEB_ANALYTICS_TOKEN": "e7dbbaef8ad448a6bc2cb6e9ff38f8b3",
+        "CONTENT_SAFETY_PROVIDER": "openai",
+        "CONTENT_SAFETY_POLICY": "{}",
       },
       "d1_databases": [
         {
@@ -382,6 +450,38 @@
             "period": 60,
           },
         },
+        {
+          "name": "WRITE_IP_RATE_LIMIT",
+          "namespace_id": "1791141103",
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
+        {
+          "name": "PROFILE_RATE_LIMIT",
+          "namespace_id": "1791141113",
+          "simple": {
+            "limit": 5,
+            "period": 60,
+          },
+        },
+        {
+          "name": "AI_ACCOUNT_RATE_LIMIT",
+          "namespace_id": "1791141123",
+          "simple": {
+            "limit": 10,
+            "period": 60,
+          },
+        },
+        {
+          "name": "AI_IP_RATE_LIMIT",
+          "namespace_id": "1791141133",
+          "simple": {
+            "limit": 30,
+            "period": 60,
+          },
+        },
       ],
       "vars": {
         "APP_ENV": "production",
@@ -399,6 +499,8 @@
         "PUBLIC_LAUNCH": "false",
         "SUPPORT_CONTACT": "chaseosapps@gmail.com",
         "WEB_ANALYTICS_TOKEN": "",
+        "CONTENT_SAFETY_PROVIDER": "disabled",
+        "CONTENT_SAFETY_POLICY": "{}",
       },
       "d1_databases": [
         {

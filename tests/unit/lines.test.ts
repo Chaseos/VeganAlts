@@ -179,6 +179,17 @@ describe("recipe lines", () => {
     ).toBe("z");
   });
 
+  it("leads with the line's original, however its flavors are rated", () => {
+    const original = { ...flavor("original", 9), original: true };
+    expect(
+      leadFlavor(
+        [flavor("spicy", 1), original],
+        [rating("spicy", "u1", 5), rating("spicy", "u2", 5)],
+        INITIAL_SCORING,
+      ).productId,
+    ).toBe("original");
+  });
+
   it("chooses the most reviewed flavor across either question, counting both answers once", () => {
     const line = aggregateLine(
       [
