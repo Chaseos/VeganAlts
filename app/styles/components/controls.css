@@ -377,3 +377,32 @@ legend {
   outline: 3px solid var(--va-ring);
   outline-offset: 1px;
 }
+
+/* The icon and its message sit directly in the parent's layout, so a message
+   can wrap beneath the row without moving the icon. */
+.va-save {
+  display: contents;
+}
+
+.va-save__button {
+  display: inline-flex;
+  flex: none;
+  color: var(--va-ink);
+}
+
+.va-save__button:hover:not(:disabled) {
+  background: var(--va-hover);
+}
+
+.va-save__button:disabled {
+  opacity: 0.55;
+}
+
+.va-save__button[aria-pressed="true"] svg {
+  fill: currentColor;
+}
+
+/* Out of flow while empty, but still present so screen readers announce it. */
+.va-save__status:empty {
+  position: absolute;
+}

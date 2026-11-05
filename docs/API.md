@@ -120,6 +120,8 @@ The atomic write upserts one canonical user/formula/category rating, marks that 
 ```text
 GET /api/v1/me/rating-state?versionIds=id1,id2
 GET /api/v1/me/ratings?cursor=...
+PUT /api/v1/me/saved-products/:productId
+DELETE /api/v1/me/saved-products/:productId
 ```
 
 Batched state accepts up to 40 unique formula IDs and returns `{user: {handle, displayName} | null, ratings, triedVersionIds, turnstileSiteKey}`. Anonymous state is neutral. All responses are private/no-store. My Ratings requires an active session, returns 20 records per page in `data`, and a nullable `meta.nextCursor`. Cursors encode the last `(updatedAt,id)` pair with descending stable ordering. Every row includes product/category, personal score/date and current or historical formula context; no other user's records are returned.
@@ -621,3 +623,5 @@ An identical in-flight operation/key is leased before provider work and returns 
 - `POST /admin/moderation/comments/:id/hide` accepts `{expectedUpdatedAt, note}`. It hides a visible, nondeleted comment on a visible product and records `comment_hide`. An intervening edit/state change returns 409 `STALE_DECISION`; deleted comments or hidden products return 404. Comment text and votes remain. Public comment objects add `updatedAt`, the revision used by this control.
 
 Both direct endpoints require an active administrator, same-origin POST, an `Idempotency-Key` and a reason of 8–2,000 trimmed characters. They return the standard private/no-store `{data: {actionId, productId}}`. Safe retries return the original receipt; they do not reapply a removal after reversal. Restore through the existing `/admin/moderation/actions/:id/reverse` endpoint with the current product revision and reason. Public loaders never read operator identity.
+
+**Saved products (owner request, 2026-11-05).** `PUT` and `DELETE /me/saved-products/:productId` are idempotent, same-origin and signed-in only, and return `{ productId, saved }`. `GET /me/rating-state` also takes `productIds` (up to 40) and returns the subset the person saved as `savedProductIds`, so public product pages stay cacheable. A visitor who taps save is sent to sign-in, and the save finishes on return.

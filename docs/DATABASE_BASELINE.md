@@ -543,7 +543,6 @@ Not required in the initial baseline unless implementation makes them immediatel
 - recipe-specific structured data;
 - restaurant chain/location integrations;
 - notification subscriptions;
-- saved/favorite lists;
 - barcode identifiers;
 - native-device tokens;
 - business/brand claim records.
@@ -686,3 +685,7 @@ Folded into the pre-release version 1 baseline under the owner's reset rule:
 No remote schema operation is part of adding the code. Existing pre-release databases need the documented reset before enabling the updated Worker.
 
 `moderation_request_leases` holds a five-minute lease for an in-flight account/operation/idempotency key. It prevents duplicate provider calls even if surrounding comments or evidence context changes while the first request runs. Successful and rejected requests release their lease; hourly cleanup removes abandoned leases. It stores only the input hash, not a second payload.
+
+## Saved products
+
+`saved_products` (owner request, 2026-11-05) holds one private row per person and product, at product level rather than formula level, so a save survives a formula change. It is personal state only: nothing about it feeds ranking, trending or public profiles. Rows for hidden products stay stored but leave the list; an archived duplicate shows its surviving product.

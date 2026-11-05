@@ -19,6 +19,8 @@ export const UI_ICONS = {
   trend: "M4 17l6-6 4 4 6-6M14 9h6v6",
   filter: "M4 6h16M7 12h10M10 18h4",
   bag: "M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2",
+  // Lucide bookmark; see THIRD_PARTY.md for artwork and license.
+  bookmark: "M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z",
   clock: "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 7v5l3 2",
   package: "M6 6h12v15H6zM8 2.5h8V6H8zM9.5 16c0-4 5-5.5 5-5.5s1 5-5 5.5",
   sun: "M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",

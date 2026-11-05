@@ -36,6 +36,11 @@ export const POLICIES: Record<string, Policy> = {
             public profile shows only the handle and display name you choose.
           </li>
           <li>
+            <strong>Saved products:</strong> the products you save, kept private
+            to your account until you remove them or ask us to close your
+            account.
+          </li>
+          <li>
             <strong>Contributions:</strong> ratings, comments and votes,
             reports, proposed changes, food suggestions and the photos and
             sources you submit. Your individual ratings stay private; profiles

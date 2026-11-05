@@ -32,6 +32,7 @@ import { RatingControl, SCORE_MEANINGS } from "../components/rating-control";
 import { CommentSection } from "../components/comments/comment-section";
 import { usePersonalState } from "../components/personal-state";
 import { ProposalResponses } from "../components/proposal-responses";
+import { SaveButton } from "../components/save-button";
 import { commentServices } from "@server/comments/infrastructure/composition";
 import { breadcrumbs, publicMetadata } from "../lib/metadata";
 import {
@@ -230,7 +231,10 @@ export default function Product({
                 {p.seasonal === 1 && <SeasonalBadge />}
                 {!!p.developmentOnly && <Badge>Demo product</Badge>}
               </p>
-              <h1 className="va-product__name">{title}</h1>
+              <div className="va-product__title-row">
+                <h1 className="va-product__name">{title}</h1>
+                <SaveButton productId={p.id} productName={title} showListLink />
+              </div>
               {p.flavor && (
                 <p className="va-product__flavor va-muted">
                   Flavor: {p.flavor}

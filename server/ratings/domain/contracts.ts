@@ -59,6 +59,7 @@ export interface RatingState {
   } | null;
   ratings: PersonalRating[];
   triedVersionIds: string[];
+  savedProductIds: string[];
   turnstileSiteKey: string | null;
 }
 

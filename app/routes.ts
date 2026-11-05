@@ -23,6 +23,7 @@ export default [
   route("about/:page", "routes/policy.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),
   route("my-ratings", "routes/my-ratings.tsx"),
+  route("saved", "routes/saved.tsx"),
   route("add-product", "routes/add-product.tsx"),
   route("propose-category", "routes/propose-category.tsx"),
   route("admin/taxonomy", "routes/admin-taxonomy.tsx"),

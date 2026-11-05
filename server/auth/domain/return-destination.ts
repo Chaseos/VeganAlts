@@ -11,6 +11,7 @@ const APPLICATION_PAGE = new RegExp(
     [
       ...PUBLIC_PATHS,
       "my-ratings",
+      "saved",
       "account",
       "add-product",
       "propose-category",

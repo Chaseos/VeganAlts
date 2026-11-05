@@ -272,6 +272,17 @@ CREATE TABLE `product_trials` (
 	FOREIGN KEY (`product_version_id`) REFERENCES `product_versions`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE TABLE `saved_products` (
+	`user_id` text NOT NULL,
+	`product_id` text NOT NULL,
+	`created_at` integer NOT NULL,
+	PRIMARY KEY(`user_id`, `product_id`),
+	FOREIGN KEY (`user_id`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `ix_saved_products_user_created` ON `saved_products` (`user_id`,"created_at" desc,"product_id" desc);
+--> statement-breakpoint
 CREATE TABLE `product_versions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`product_id` text NOT NULL,

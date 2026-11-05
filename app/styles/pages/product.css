@@ -40,6 +40,20 @@
   letter-spacing: -0.025em;
   overflow-wrap: anywhere;
 }
+.va-product__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  column-gap: 12px;
+}
+.va-product__title-row .va-product__name {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.va-product__title-row .va-save__status {
+  flex-basis: 100%;
+}
 .va-product__flavor {
   margin: 8px 0 0;
 }

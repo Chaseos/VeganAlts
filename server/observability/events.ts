@@ -27,6 +27,7 @@ export function routeLabel(path: string) {
   if (value === "/api/v1/ratings") return "rating";
   if (value.includes("media")) return "media";
   if (value === "/my-ratings") return "my-ratings";
+  if (value === "/saved") return "saved";
   if (value === "/account") return "account";
   return "other";
 }

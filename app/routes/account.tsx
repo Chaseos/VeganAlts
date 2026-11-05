@@ -128,6 +128,9 @@ export default function Account({
             <Link to="/my-ratings">My ratings</Link>
           </li>
           <li>
+            <Link to="/saved">Saved products</Link>
+          </li>
+          <li>
             <Link to="/my-contributions">My contributions</Link>
           </li>
           {loaderData.administrator && (

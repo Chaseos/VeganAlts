@@ -433,6 +433,31 @@ export const productTrials = sqliteTable(
   ],
 );
 
+export const savedProducts = sqliteTable(
+  "saved_products",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references((): AnySQLiteColumn => profiles.userId, {
+        onDelete: "cascade",
+      }),
+    productId: text("product_id")
+      .notNull()
+      .references((): AnySQLiteColumn => products.id, {
+        onDelete: "cascade",
+      }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.productId] }),
+    index("ix_saved_products_user_created").on(
+      table.userId,
+      desc(table.createdAt),
+      desc(table.productId),
+    ),
+  ],
+);
+
 export const ratings = sqliteTable(
   "ratings",
   {

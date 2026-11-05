@@ -96,6 +96,9 @@ export function SiteFooter({
                 <Link to="/my-ratings">My ratings</Link>
               </li>
               <li>
+                <Link to="/saved">Saved products</Link>
+              </li>
+              <li>
                 <Link to="/account">Account</Link>
               </li>
             </ul>

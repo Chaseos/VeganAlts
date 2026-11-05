@@ -112,7 +112,8 @@ export default function SignIn({
         <h1>Sign in to VeganAlts</h1>
         <p>
           Keep track of what you’ve tried and help others find a closer
-          alternative. If you just chose a score, we’ll save it when you return.
+          alternative. If you just chose a score or saved a product, we’ll keep
+          it when you return.
         </p>
       </header>
       <section className="va-card va-sign-in" aria-label="Sign-in options">

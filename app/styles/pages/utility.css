@@ -178,6 +178,14 @@
   }
 }
 
+.va-saved-list > li {
+  grid-template-columns: 64px 1fr auto;
+}
+
+.va-saved-list .va-save__status {
+  grid-column: 2 / -1;
+}
+
 .section-space-sm {
   margin-top: var(--va-space-5);
 }
