@@ -568,3 +568,51 @@ it("leaves no proposal waiting when an administrator's edit can't apply", async 
       .first(),
   ).toEqual({ n: 0 });
 });
+it("moves a product to another brand and line together, reversibly", async () => {
+  const w = await world();
+  const a = await w.publish({ name: `Orchard Yogurt ${tag()}` });
+  const other = await w.publish({
+    brand: `Grove ${tag()}`,
+    name: `Grove Yogurt ${tag()}`,
+  });
+  const brandOf = async (productId: string) =>
+    (await w.services.repository.snapshot(productId)).brandId!;
+  const [startBrand, startLine] = [
+    await brandOf(a.productId),
+    (await w.product(a.productId)).lineId,
+  ];
+  const groveBrand = await brandOf(other.productId);
+  const change = (fields: object) =>
+    w.revision(a.productId).then((expectedRevision) =>
+      changeInput.parse({
+        kind: "brand",
+        productId: a.productId,
+        expectedRevision,
+        brandId: groveBrand,
+        evidence: reason,
+        ...fields,
+      }),
+    );
+  // A line of the old brand can't come with the new brand.
+  await expect(
+    w.services.contributions.apply(
+      w.operator,
+      id(),
+      await change({ lineId: startLine }),
+    ),
+  ).rejects.toThrow("Choose a line of this brand");
+  const applied = (await w.services.contributions.apply(
+    w.operator,
+    id(),
+    await change({ newLineName: "Grove Cups" }),
+  )) as { actionId: string };
+  expect(await brandOf(a.productId)).toBe(groveBrand);
+  expect((await w.product(a.productId)).lineName).toBe("Grove Cups");
+
+  await w.services.moderation.reverse(w.operator, id(), applied.actionId, {
+    expectedRevision: await w.revision(a.productId),
+    note: "It was the original brand after all.",
+  });
+  expect(await brandOf(a.productId)).toBe(startBrand);
+  expect((await w.product(a.productId)).lineId).toBe(startLine);
+});

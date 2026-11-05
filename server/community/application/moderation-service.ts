@@ -687,12 +687,20 @@ export class ModerationService {
     // An accepted declaration remembers the proposal it came from.
     if (plan.after.allergens?.value)
       plan.after.allergens.value.proposalId = proposal.id;
-    if (change.kind === "rename") {
-      // A new display name must not collide with another product's identity.
+    if (change.kind === "brand") {
+      if (!(await this.repository.brandName(change.brandId)))
+        throw new ApplicationError("NOT_FOUND", "Brand not found.", 404);
+      if (change.lineId)
+        await this.catalog.assertLine(snapshot, change.lineId, change.brandId);
+    }
+    if (change.kind === "rename" || change.kind === "brand") {
+      // A new name or brand must not collide with another product's identity.
       const key = identityKey(
         snapshot.countryId,
-        (await this.repository.brandName(snapshot.brandId)) ?? "",
-        change.name,
+        (await this.repository.brandName(
+          change.kind === "brand" ? change.brandId : snapshot.brandId,
+        )) ?? "",
+        change.kind === "rename" ? change.name : snapshot.name,
       );
       const owner = await this.repository.identityOwner(key);
       if (owner && owner !== snapshot.id)

@@ -7,6 +7,7 @@ const labels: Partial<Record<keyof CatalogPatch, string>> = {
   classification: "Ingredient classification",
   ingredientTranscription: "Ingredient evidence",
   familyId: "Recipe line",
+  brandId: "Brand",
   lineName: "Line name",
   categories: "Food ranking eligibility",
   name: "Product name",

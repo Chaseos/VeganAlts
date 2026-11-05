@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "./fixtures";
 import { accessible } from "./a11y";
+import { chooseBrand } from "./site";
 import { createBrowserSession } from "./session-fixture";
 
 async function reverse(page: Page, note: string) {
@@ -252,6 +253,51 @@ test("an administrator edits a product from the same form, applied at once", asy
     await expect(page).toHaveURL(/\/admin\/moderation\/products\//);
     await expect(page.getByRole("main")).toContainText(
       "Listed under the wrong food during import.",
+    );
+  } finally {
+    await operator.dispose();
+  }
+});
+
+test("an administrator moves a product to another brand", async ({
+  page,
+  context,
+}) => {
+  test.skip(
+    !!process.env.TEST_BASE_URL,
+    "Catalog mutations are confined to the local test database.",
+  );
+  const operator = await createBrowserSession({ administrator: true });
+  try {
+    await context.addCookies([operator.cookie]);
+    await page.goto("/us/products/beyond-nuggets");
+    await page
+      .getByRole("link", { name: "Manage product", exact: true })
+      .click();
+    await page.getByRole("link", { name: "Edit product", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Change brand", exact: true })
+      .click();
+    // Change moves focus to the edit, a frame later.
+    await expect(page.getByLabel("What do you want to change?")).toBeFocused();
+    await chooseBrand(page, "Oatly");
+    await page.getByLabel("New line’s name").fill(`Moved ${Date.now()}`);
+    await page
+      .getByLabel("Reason for this change (optional)")
+      .fill("Wrong brand.");
+    await page
+      .getByRole("button", { name: "Save change", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/admin\/moderation\/products\//);
+    await expect(page.getByRole("main")).toContainText("Wrong brand.");
+    // The move can be undone, which also leaves the shared catalog as it was.
+    await page.getByRole("button", { name: "Review reversal" }).first().click();
+    await page
+      .getByLabel("Reason for reversal")
+      .fill("Restoring the original brand.");
+    await page.getByRole("button", { name: "Confirm reversal" }).click();
+    await expect(page.getByRole("main")).toContainText(
+      "Restoring the original brand.",
     );
   } finally {
     await operator.dispose();

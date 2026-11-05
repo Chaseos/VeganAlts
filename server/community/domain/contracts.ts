@@ -355,6 +355,17 @@ export const changeInput = z.discriminatedUnion("kind", [
   z
     .object({ ...changeBase, kind: z.literal("category_add"), categoryId: id })
     .strict(),
+  // The product's brand. A line belongs to one brand, so it moves to one of
+  // the new brand's lines, or a new one, at the same time.
+  z
+    .object({
+      ...changeBase,
+      kind: z.literal("brand"),
+      brandId: id,
+      lineId: id.optional(),
+      newLineName: shortText.optional(),
+    })
+    .strict(),
   // Every food the product is listed under, so it can move between foods.
   z
     .object({

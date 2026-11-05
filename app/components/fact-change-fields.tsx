@@ -1,9 +1,11 @@
 import { useState } from "react";
 import type { ProductChange } from "@server/community/domain/contracts";
 import type { CommunityOptions } from "../lib/community";
+import { BrandChangeField } from "./brand-change-field";
 
 export const factKinds = [
   "rename",
+  "brand",
   "alias",
   "source_url",
   "category_add",
@@ -13,6 +15,7 @@ export const factKinds = [
 export type FactKind = (typeof factKinds)[number];
 export const factLabels: Record<FactKind, string> = {
   rename: "Product name on the package",
+  brand: "Brand",
   alias: "Another name people search for",
   source_url: "Manufacturer product page",
   category_add: "Another food it replaces",
@@ -30,6 +33,10 @@ export function FactChangeFields({
   seasonal,
   categories,
   existing,
+  country,
+  countryName,
+  currentBrandId,
+  lineName,
 }: {
   kind: FactKind;
   currentName: string;
@@ -37,8 +44,21 @@ export function FactChangeFields({
   seasonal: boolean;
   categories: CommunityOptions["categories"];
   existing: string[];
+  country: string;
+  countryName: string;
+  currentBrandId: string | null;
+  lineName: string;
 }) {
   switch (kind) {
+    case "brand":
+      return (
+        <BrandChangeField
+          country={country}
+          countryName={countryName}
+          currentBrandId={currentBrandId}
+          lineName={lineName}
+        />
+      );
     case "rename":
       return (
         <>
@@ -203,6 +223,10 @@ function FoodsField({
 }
 export function factChangeDetails(kind: FactKind, form: FormData) {
   switch (kind) {
+    case "brand":
+      return form.get("brandLine") === "new" || !form.get("brandLine")
+        ? { brandId: form.get("brandId"), newLineName: form.get("newLineName") }
+        : { brandId: form.get("brandId"), lineId: form.get("brandLine") };
     case "rename": {
       const flavor = String(form.get("flavor") ?? "").trim();
       return { name: form.get("name"), flavor: flavor || null };

@@ -59,12 +59,16 @@ export class CatalogDecisionRepository {
     }
   }
   /** A line a product may join: its own brand's, in its own country. */
-  async assertLine(snapshot: ProductSnapshot, lineId: string) {
+  async assertLine(
+    snapshot: ProductSnapshot,
+    lineId: string,
+    brandId = snapshot.brandId,
+  ) {
     const line = await this.db
       .prepare(
         "SELECT id FROM product_families WHERE id=? AND country_id=? AND brand_id IS ?",
       )
-      .bind(lineId, snapshot.countryId, snapshot.brandId)
+      .bind(lineId, snapshot.countryId, brandId)
       .first();
     if (!line)
       throw new ApplicationError(
@@ -110,13 +114,17 @@ export class CatalogDecisionRepository {
         snapshot.revision,
       ],
     };
-    if (plan.after.familyId) {
+    // A line this change creates doesn't exist yet; any other must be the
+    // brand the product ends up with.
+    if (plan.after.familyId && !plan.after.newLine) {
       guard.sql +=
         " AND EXISTS(SELECT 1 FROM product_families WHERE id=? AND country_id=? AND brand_id IS ?)";
       guard.values.push(
         plan.after.familyId,
         snapshot.countryId,
-        snapshot.brandId,
+        plan.after.brandId === undefined
+          ? snapshot.brandId
+          : plan.after.brandId,
       );
     }
     // Only newly linked products must be visible. Existing links to a later
@@ -364,7 +372,7 @@ export class CatalogDecisionRepository {
           )
           .bind(
             patch.newLine.id,
-            snapshot.brandId,
+            patch.brandId ?? snapshot.brandId,
             snapshot.countryId,
             patch.newLine.name,
             patch.newLine.slug,
@@ -373,13 +381,20 @@ export class CatalogDecisionRepository {
             ...values,
           ),
       );
+    // Together, because a product's line must be its brand's.
     if (patch.familyId !== undefined)
       statements.push(
         this.db
           .prepare(
-            `UPDATE products SET product_family_id=?,updated_at=? WHERE id=? AND ${sql}`,
+            `UPDATE products SET product_family_id=?,brand_id=?,updated_at=? WHERE id=? AND ${sql}`,
           )
-          .bind(patch.familyId, now, snapshot.id, ...values),
+          .bind(
+            patch.familyId,
+            patch.brandId === undefined ? snapshot.brandId : patch.brandId,
+            now,
+            snapshot.id,
+            ...values,
+          ),
       );
     // Renaming the product's line touches only the line, so the product's
     // revision moves explicitly.
@@ -699,6 +714,7 @@ export class CatalogDecisionRepository {
     if (
       patch.lifecycleStatus !== undefined ||
       patch.name !== undefined ||
+      patch.brandId !== undefined ||
       patch.aliases ||
       patch.addedCategories?.length ||
       patch.removedCategories?.length

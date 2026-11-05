@@ -15,13 +15,14 @@ export function ProductEditSummary({
   categoryNames,
   onChange,
 }: {
-  product: ContributorProduct;
+  product: ContributorProduct & { brandName: string | null };
   categoryNames: Record<string, string>;
   onChange: (kind: Kind) => void;
 }) {
   const discontinued = product.lifecycleStatus === "discontinued";
   const rows: [label: string, value: string, kind: Kind][] = [
     ["Name", product.name, "rename"],
+    ["Brand", product.brandName ?? "None", "brand"],
     ["Flavor", product.flavor ?? "Original", "rename"],
     [
       "Food",

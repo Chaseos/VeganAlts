@@ -823,6 +823,10 @@ export default function Contribute({
                   currentFlavor={product.flavor}
                   seasonal={product.seasonal}
                   categories={options.categories}
+                  country={product.countryCode.toUpperCase()}
+                  countryName={countryName}
+                  currentBrandId={product.brandId}
+                  lineName={product.lineName ?? product.name}
                   existing={product.categories
                     .filter((c) => kind !== "foods" || c.eligible)
                     .map((c) => c.categoryId)}

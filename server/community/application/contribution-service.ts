@@ -73,6 +73,7 @@ export class ContributionService {
     const names = await this.lookup.categoryNames(ids);
     return {
       ...product,
+      brandName: await this.catalog.brandName(product.brandId),
       categoryNames: Object.fromEntries(
         ids.map((id, index) => [id, names[index]!]),
       ),

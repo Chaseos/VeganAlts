@@ -107,6 +107,8 @@ export interface CatalogPatch {
     value: IngredientTranscriptionSnapshot | null;
   };
   familyId?: string | null;
+  // Always changes with `familyId`: a product's line is its brand's.
+  brandId?: string | null;
   // A line an operator move created, inserted before the product joins it.
   // Reversal leaves it in place, empty.
   newLine?: { id: string; name: string; slug: string };
