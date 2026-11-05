@@ -28,6 +28,7 @@ export function MoreStep({
   photos,
   foods,
   countryName,
+  countryCode,
   allergenList,
   options,
   errors,
@@ -41,6 +42,7 @@ export function MoreStep({
   photos: Photos;
   foods: readonly FoodChoice[];
   countryName: string;
+  countryCode: string;
   allergenList: { key: string; label: string }[];
   options: CommunityOptions;
   errors: DraftErrors;
@@ -203,6 +205,13 @@ export function MoreStep({
             <option value="plant_based">Labeled plant-based</option>
             <option value="neither">Neither wording</option>
           </select>
+          {countryCode === "in" && (
+            <p className="small">
+              India’s green vegetarian mark isn’t a vegan label, because
+              vegetarian food can contain dairy. Choose Labeled vegan only if
+              the package says vegan or has the vegan logo.
+            </p>
+          )}
           <label htmlFor="ingredient-note">
             Anything a reviewer should know? (optional)
           </label>

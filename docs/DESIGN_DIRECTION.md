@@ -178,7 +178,7 @@ Agreed on 2026-10-10 for the [milestone 6 specification](MILESTONE_6_PLAN.md). T
 - **Results.** A published product opens its page with "Your product is live" and a rate prompt. A held submission explains what happens next and names a suggested food it is waiting on.
 - **Silent shelves.** A shelf that only repeats its aisle or food is not shown as a level: breadcrumbs read "All foods / Eggs aisle / Eggs", menus and Browse lists merge it, and an aisle with one visible shelf hides the shelf rail.
 - **Not in [country] yet.** A food page in a country where the food is not on shows an empty state with "Add a product" and links to the countries that have it. Sort and filters are hidden.
-- **Empty countries.** The home lists the shared aisles and foods with "Be the first to add one".
+- **Empty countries.** The home lists the shared aisles, with only the foods switched on there, each with "Be the first to add one" (owner, 2026-11-05). Aisle pages without foods link to Add a product.
 - **Status chip.** "Ingredients not checked yet" uses the neutral tone with a text label and a prompt to add an ingredients photo on the product page.
 
 ## 11. Milestone 7 additions

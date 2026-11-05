@@ -313,7 +313,7 @@ function BrowseAisles({
         </h2>
         <p className="va-muted">
           {empty
-            ? "Open a food to add the first product people can rate here."
+            ? "Add a product you buy to start its ranking here."
             : "Each food shows its closest swap."}
         </p>
       </div>
@@ -324,18 +324,27 @@ function BrowseAisles({
       <ul className="va-browse va-browse--phone">
         {aisles.slice(0, POPULAR_AISLE_COUNT).map((aisle) => (
           <li key={aisle.slug} className="va-browse__aisle">
-            <details className="va-browse__details">
-              <summary className="va-browse__summary">
+            {aisle.foodCount ? (
+              <details className="va-browse__details">
+                <summary className="va-browse__summary">
+                  <AisleTitle aisle={aisle} />
+                  <Icon
+                    name="chevronDown"
+                    size={14}
+                    strokeWidth={3}
+                    className="va-browse__chevron"
+                  />
+                </summary>
+                <AisleFoods country={country} aisle={aisle} empty={empty} />
+              </details>
+            ) : (
+              <Link
+                className="va-browse__summary"
+                to={foodPath(country, aisle.slug)}
+              >
                 <AisleTitle aisle={aisle} />
-                <Icon
-                  name="chevronDown"
-                  size={14}
-                  strokeWidth={3}
-                  className="va-browse__chevron"
-                />
-              </summary>
-              <AisleFoods country={country} aisle={aisle} empty={empty} />
-            </details>
+              </Link>
+            )}
           </li>
         ))}
       </ul>
@@ -369,9 +378,11 @@ function AisleTitle({ aisle }: { aisle: Aisle }) {
         <FoodIcon slug={aisle.slug} size={22} />
       </span>
       <span className="va-browse__name">{aisle.name}</span>
-      <span className="va-browse__count">
-        {plural(aisle.foodCount, "food")}
-      </span>
+      {aisle.foodCount > 0 && (
+        <span className="va-browse__count">
+          {plural(aisle.foodCount, "food")}
+        </span>
+      )}
     </>
   );
 }
@@ -387,6 +398,7 @@ function AisleFoods({
   // Each card shows the aisle's three most popular foods, then "See all"
   // (owner decision, 2026-10-12).
   const shown = aisle.foods.slice(0, BROWSE_AISLE_FOODS);
+  if (!shown.length) return null;
   return (
     <div className="va-browse__foods">
       <ul className="va-divided">

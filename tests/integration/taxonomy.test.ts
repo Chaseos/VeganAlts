@@ -944,6 +944,28 @@ it("seeds the two-level launch tree, countries, allergen lists, display names an
     "sesame",
   ]);
   expect(await allergens("GB")).toHaveLength(14);
+  expect((await allergens("SG")).map((a) => a.k)).toEqual([
+    "gluten",
+    "crustacean",
+    "egg",
+    "fish",
+    "mollusc",
+    "peanut",
+    "soy",
+    "milk",
+    "tree_nuts",
+    "sulphites",
+  ]);
+  // South Africa's list has no sulphites, and India's no molluscs.
+  expect((await allergens("ZA")).map((a) => a.k)).not.toContain("sulphites");
+  expect((await allergens("IN")).map((a) => a.k)).not.toContain("mollusc");
+  // Later countries start with the shared aisles and no foods or features.
+  const later = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM countries co WHERE co.iso2 IN ('SG','ZA','IN') AND (
+      EXISTS(SELECT 1 FROM category_countries x WHERE x.country_id=co.id)
+      OR EXISTS(SELECT 1 FROM category_features x WHERE x.country_id=co.id))`,
+  ).first<{ n: number }>();
+  expect(later!.n).toBe(0);
   expect((await allergens("GB")).find((a) => a.k === "soy")!.label).toBe(
     "Soya",
   );

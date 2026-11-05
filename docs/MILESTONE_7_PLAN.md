@@ -803,6 +803,8 @@ The countries are:
 - **Americas:** Brazil, Mexico, Argentina.
 - **Africa:** South Africa.
 
+Singapore, South Africa and India opened first, in English ([plan](ENGLISH_COUNTRIES_PLAN.md)).
+
 Indonesia, Malaysia, the Philippines, Vietnam, Turkey, Portugal, Norway, Finland, Czechia and Chile are candidates for a second wave. Israel is excluded at the owner's request.
 
 **Work per country:**

@@ -181,9 +181,21 @@ export function AislePanel({
                   ? `No ${aisleName} foods match “${query.trim()}”`
                   : `No foods in this category yet`}
               </p>
-              <p className="va-muted">
-                Try the search bar above, or suggest it as a new food.
-              </p>
+              {lower ? (
+                <p className="va-muted">
+                  Try the search bar above, or suggest it as a new food.
+                </p>
+              ) : (
+                <p className="va-muted">
+                  <Link
+                    className="va-link"
+                    to={`/add-product?country=${country}`}
+                  >
+                    Add a product
+                  </Link>{" "}
+                  to bring its food here.
+                </p>
+              )}
             </div>
           )}
           <SuggestFood country={country} aisle={data.aisle.slug} />

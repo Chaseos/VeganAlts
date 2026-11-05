@@ -194,7 +194,10 @@ export class CatalogService {
         hasRankings: row.hasRankings,
       })),
       hasRankings: found.hasRankings,
-      aisles: aisleTree(taxonomy.categories, counts),
+      // A country without products lists the shared aisles, as its home does.
+      aisles: aisleTree(taxonomy.categories, counts, {
+        withEmpty: !taxonomy.counts.some((row) => row.productCount > 0),
+      }),
     };
   }
 
@@ -256,12 +259,7 @@ export class CatalogService {
   // deeper group, such as a retired shelf from the three-level shape (its
   // aisle).
   async aisle(market: Market, slug: string) {
-    const [taxonomy, productCount] = await Promise.all([
-      this.repository.taxonomy(market.id),
-      this.repository.productCount(market.id),
-    ]);
-    // Like its home, a country without products shows the shared foods.
-    const shared = !productCount;
+    const taxonomy = await this.repository.taxonomy(market.id);
     const shape = taxonomyShape(taxonomy.categories);
     const node = [...shape.values()].find((item) => item.slug === slug);
     if (!node || node.isRankable)
@@ -278,7 +276,7 @@ export class CatalogService {
           item.parentId === aisle.id &&
           item.isRankable &&
           !item.outsideDepth &&
-          (shared || item.available !== 0),
+          item.available !== 0,
       )
       .map((item) => aisleFood(item, counts))
       .sort(byPopularity);
@@ -327,13 +325,10 @@ export class CatalogService {
       ]);
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
     // A country without products lists the shared aisles, so people can add
-    // the first products there, even if some foods are already switched on.
-    const aisles = productCount
-      ? aisleTree(taxonomy.categories, counts)
-      : aisleTree(
-          taxonomy.categories.map((node) => ({ ...node, available: 1 })),
-          counts,
-        );
+    // the first products there. Its foods are only the ones switched on.
+    const aisles = aisleTree(taxonomy.categories, counts, {
+      withEmpty: !productCount,
+    });
     const foods = aisles.flatMap((aisle) => aisle.foods);
     const leaders = await this.repository.topProducts(
       market.id,

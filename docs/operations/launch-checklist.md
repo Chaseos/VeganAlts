@@ -28,7 +28,7 @@ Production last applied the pre-release migrations through `0004`, which no long
 - [ ] Time Travel bookmark recorded; production export stored privately.
 - [ ] Production D1 is on version 1: `npm run db:migrate:production` applies only `0001_initial.sql` (a database with the pre-release history is first reset with `npm run db:reset:production -- --confirm-reset=veganalts-production`).
 - [ ] `PRAGMA foreign_key_check` returns no rows.
-- [ ] `npm run taxonomy:seed:production -- --confirm-taxonomy-only` after reviewing `db/seed/taxonomy.ts`. It creates the full launch shape (aisles, shelves, foods, questions, per-country display names, allergen lists and homepage features for six countries), so production needs no reshape; the reshape script refuses production. Never run the development seed in production.
+- [ ] `npm run taxonomy:seed:production -- --confirm-taxonomy-only` after reviewing `db/seed/taxonomy.ts`. It creates the full launch shape (aisles, shelves, foods, questions, per-country display names, allergen lists and homepage features for nine countries), so production needs no reshape; the reshape script refuses production. Never run the development seed in production.
 - [ ] `npm run rankings:rebuild:production`.
 
 ## 4. Launch catalog

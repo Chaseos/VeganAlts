@@ -1236,7 +1236,61 @@ export const TAXONOMY_COUNTRIES: {
       ["sulphites", "Sulphur dioxide and sulphites"],
     ],
   },
+  // Molluscs are part of the fish group in Singapore's list and are kept apart
+  // here so a label naming them can be recorded.
+  {
+    iso2: "SG",
+    name: "Singapore",
+    allergens: [
+      ["gluten", "Cereals containing gluten"],
+      ["crustacean", "Crustaceans"],
+      "egg",
+      "fish",
+      "mollusc",
+      "peanut",
+      ["soy", "Soybeans"],
+      "milk",
+      "tree_nuts",
+      ["sulphites", "Sulphites (10 mg/kg or more)"],
+    ],
+  },
+  {
+    iso2: "ZA",
+    name: "South Africa",
+    allergens: [
+      "egg",
+      ["milk", "Cow's milk"],
+      ["crustacean", "Crustaceans"],
+      "mollusc",
+      "fish",
+      "peanut",
+      ["soy", "Soybeans"],
+      "tree_nuts",
+      ["gluten", "Wheat, rye, barley and oats"],
+    ],
+  },
+  // Packages declare peanuts and tree nuts together as "Nut"; they stay two
+  // entries so a specific nut in the ingredient list can be recorded.
+  {
+    iso2: "IN",
+    name: "India",
+    allergens: [
+      ["gluten", "Cereals containing gluten"],
+      ["crustacean", "Crustaceans"],
+      "milk",
+      "egg",
+      "fish",
+      "peanut",
+      "tree_nuts",
+      "soy",
+      ["sulphites", "Sulphites (10 mg/kg or more)"],
+    ],
+  },
 ];
+// Launch foods and homepage features are for these countries only. Every other
+// country starts with the shared aisles; a food switches on there when someone
+// adds its first product.
+const LAUNCH_COUNTRIES = ["US", "CA", "GB", "AU", "NZ", "IE"] as const;
 export const TAXONOMY_FEATURES = [
   "ground-beef",
   "beef-burgers",
@@ -1266,10 +1320,10 @@ export function taxonomySeedStatements(
       selectedFoods.length !== onlyFoods.length ||
       new Set(onlyFoods).size !== onlyFoods.length)
   )
-    throw new Error("The targeted taxonomy seed must name known food slugs once.");
-  const selectedSlugs = new Set<string>(
-    selectedFoods.map((leaf) => leaf.slug),
-  );
+    throw new Error(
+      "The targeted taxonomy seed must name known food slugs once.",
+    );
+  const selectedSlugs = new Set<string>(selectedFoods.map((leaf) => leaf.slug));
   const statements: string[] = [];
   for (const country of TAXONOMY_COUNTRIES) {
     statements.push(
@@ -1355,10 +1409,10 @@ export function taxonomySeedStatements(
   // unless it names its own. A food whose countries an operator has ever
   // changed is skipped, so their choices are never undone.
   const launch = selectedFoods.flatMap((leaf) =>
-    ("countries" in leaf
-      ? leaf.countries
-      : TAXONOMY_COUNTRIES.map((c) => c.iso2)
-    ).map((iso2) => [leaf.slug, iso2]),
+    ("countries" in leaf ? leaf.countries : LAUNCH_COUNTRIES).map((iso2) => [
+      leaf.slug,
+      iso2,
+    ]),
   );
   statements.push(
     `INSERT INTO category_countries(category_id,country_id,source,created_at)
@@ -1373,7 +1427,7 @@ export function taxonomySeedStatements(
     statements.push(
       `INSERT INTO category_features(country_id,category_id,position,updated_at)
       SELECT co.id,c.id,j.key+1,${now} FROM json_each(${quote(JSON.stringify(TAXONOMY_FEATURES))}) j
-      JOIN categories c ON c.slug=j.value AND c.is_active=1 CROSS JOIN countries co WHERE co.iso2 IN (${TAXONOMY_COUNTRIES.map((c) => quote(c.iso2)).join(",")})
+      JOIN categories c ON c.slug=j.value AND c.is_active=1 CROSS JOIN countries co WHERE co.iso2 IN (${LAUNCH_COUNTRIES.map((iso2) => quote(iso2)).join(",")})
       AND NOT EXISTS(SELECT 1 FROM category_features f WHERE f.country_id=co.id)
       ON CONFLICT DO NOTHING;`,
     );

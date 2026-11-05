@@ -184,8 +184,7 @@ it("shows a newly opened country the shared aisles to start from", async () => {
   const catalog = catalogService(env);
   const de = await catalog.market("de");
   expect(await foodsIn("de")).toEqual([]);
-  // An operator switching one food on doesn't hide the rest before any
-  // product arrives.
+  // It lists the shared aisles, with only the foods switched on there.
   await env.DB.prepare(
     "INSERT INTO category_countries(category_id,country_id,source,created_at) SELECT id,?,'operator',1 FROM categories WHERE slug='bacon'",
   )
@@ -196,18 +195,15 @@ it("shows a newly opened country the shared aisles to start from", async () => {
   expect(home.aisles.map((a) => a.slug)).toEqual(
     expect.arrayContaining(["beef", "cheese"]),
   );
-  expect(home.aisles.flatMap((a) => a.foods)).toContainEqual(
-    expect.objectContaining({
-      slug: "ground-beef",
-      best: null,
-      productCount: 0,
-    }),
+  expect(home.aisles.flatMap((a) => a.foods.map((f) => f.slug))).toEqual([
+    "bacon",
+  ]);
+  expect((await catalog.page("de")).aisles.map((a) => a.slug)).toContain(
+    "beef",
   );
-  // Its aisle pages list the same shared foods.
+  // Its aisle pages show the same: nothing until a food is on there.
   const beefAisle = await catalog.aisle(de, "beef");
-  expect(beefAisle.kind === "aisle" && beefAisle.foods.length).toBeGreaterThan(
-    1,
-  );
+  expect(beefAisle.kind === "aisle" && beefAisle.foods).toEqual([]);
   // A first product without a rating switches its food on and counts.
   const beef = (await env.DB.prepare(
     "SELECT id FROM categories WHERE slug='ground-beef'",
@@ -381,8 +377,7 @@ it("skips an aisle that only repeats its one food", async () => {
   );
   const catalog = catalogService(env);
   const gb = await catalog.market("gb");
-  // The country's own aisle tree (the home page of a country without
-  // products lists every shared food instead).
+  // A country without products lists every aisle, with only its own foods.
   const { aisles } = await catalog.page("gb");
   const aisle = (slug: string) => aisles.find((a) => a.slug === slug);
   // The United States launch foods are not on in the United Kingdom.
@@ -390,23 +385,18 @@ it("skips an aisle that only repeats its one food", async () => {
   expect(beef).toContain("beef-burgers");
   expect(beef).not.toContain("meatballs");
   expect(beef).not.toContain("hot-dogs");
-  expect(aisle("condiments")).toBeUndefined();
-  expect(aisle("dips-and-spreads")).toBeUndefined();
-  expect(aisle("candy")).toBeUndefined();
-  // Empty aisles stay out of browsing but are offered for suggestions.
-  expect(aisle("lamb-aisle")).toBeUndefined();
+  expect(aisle("condiments")!.foods).toEqual([]);
+  expect(aisle("candy")!.foods).toEqual([]);
   expect((await catalog.aisles(gb)).map((a) => a.slug)).toContain("lamb-aisle");
   // Eggs › Eggs drops the repeated aisle from the crumbs; Beef does not.
   expect((await catalog.category(gb, "eggs")).place).toEqual({ aisle: null });
   expect((await catalog.category(gb, "ground-beef")).place).toEqual({
     aisle: { slug: "beef", name: "Beef" },
   });
-  // A country without products shows every shared food on its aisle pages,
-  // so its Eggs aisle lists Eggs for Baking too and repeats nothing.
+  // Eggs for Baking isn't on here, so the Eggs aisle holds only Eggs.
   const eggs = await catalog.aisle(gb, "eggs-aisle");
   expect(eggs.kind === "aisle" && eggs.foods.map((f) => f.slug)).toEqual([
     "eggs",
-    "eggs-for-baking",
   ]);
-  expect(eggs.kind === "aisle" && eggs.aisle.silent).toBe(false);
+  expect(eggs.kind === "aisle" && eggs.aisle.silent).toBe(true);
 });

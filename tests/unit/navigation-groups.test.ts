@@ -93,6 +93,14 @@ describe("shared food navigation groups", () => {
       "Cream Cheese",
     );
     expect(navigationSections(group, "no match")).toEqual([]);
+    const emptyAisle = {
+      ...group,
+      categories: [{ ...group.categories[0]!, foods: [] }],
+    };
+    expect(navigationSections(emptyAisle)).toEqual([
+      { category: emptyAisle.categories[0], foods: [] },
+    ]);
+    expect(navigationSections(emptyAisle, "no match")).toEqual([]);
     expect(navigationSections(group, "   ")[0]?.foods).toHaveLength(3);
   });
 
