@@ -222,8 +222,22 @@ The documentation specifies product-level technology choices, not exact npm vers
 
 **Why.** They are decision models: a request supplies state, up to four images and up to 64 typed finite questions, and receives a probability for every allowed answer rather than prose. That fits VeganAlts' requirement for narrow, auditable, schema-validated questions. They run inside the existing Cloudflare account through a Worker binding, so no new vendor, credential or network boundary is introduced.
 
-**Cost.** At launch pricing, Clef is $0.24 and Clef-flash $0.09 per million input tokens; output is not billed. A configurable daily evaluation budget per environment and per account, hash-based decision reuse and deterministic checks before every call keep usage within the project's $10/month early-cost target.
+**Cost.** Clef is $0.24 and Clef-flash $0.038 per million input tokens (cut from $0.09 on 2026-10-09, when Clef-flash's hosted context fell to about 24,000 tokens); output is not billed. A configurable daily evaluation budget per environment and per account, hash-based decision reuse and deterministic checks before every call keep usage within the project's $10/month early-cost target.
 
 **Privacy.** Contribution text and staged image derivatives are sent to Workers AI for evaluation. Only structured answers, probabilities and usage metadata are stored. The privacy policy discloses this processing.
 
 **Fallback.** A per-environment kill switch disables the provider, restoring deterministic/manual moderation. Errors, timeouts, rate limits and exhausted budgets route to review. The provider-neutral interface allows later benchmarking (#28) without redesigning workflows.
+
+## ADR: Claude API for milestone 8 text (proposed, 2026-11-05)
+
+**Status.** Proposed. Calibration decides it, and only the staging key exists so far.
+
+**Decision.** Use Claude Haiku 5.5 to write the English name, gloss, slug, readings and translations for suggested foods and aisles, with Sonnet 5.5 as the step up. Clef keeps making the decisions. Claude is also a calibration challenger for those decisions.
+
+**Why.** Clef returns only probabilities, so it can't write text. Workers AI text models need no new vendor and are compared in the same calibration, but only Claude and Kimi K2.7 Code have documented structured output.
+
+**Cost.** Haiku 5.5 is $0.10 / $0.50 per million input and output tokens, about $0.16 per 1,000 reviews. Sonnet 5.5 is $2 / $10, about $3.20 per 1,000 reviews.
+
+**Boundaries.** A new outbound dependency and secret, `ANTHROPIC_API_KEY`, one key per environment with a spend limit. It stays a Wrangler secret, because Workers have no identity token for workload federation. The model is reached through a provider-neutral interface, and a failure or refusal sends the item to the existing retries or the review queue.
+
+**Still to confirm before production.** Data retention terms, account rate limits, whether monthly credits cover production use, and the privacy policy wording for sending contributed text to Anthropic.

@@ -783,7 +783,7 @@ These shared, English-labelled presentation groups add no taxonomy level, databa
 
 ## Next: milestone 8, countries
 
-This section is a proposal to plan after milestone 7.
+This section is a proposal to plan after milestone 7. [Milestone 8](MILESTONE_8_PLAN.md) now covers languages, local foods and aisles, and AI review, and it replaces what this section says about those. The list of 25 new countries stays a separate proposal.
 
 The site supports six English-speaking countries today. The owner wants the main countries where vegan shoppers are, judged by plant-based market, vegan share and population, so people anywhere can add what their stores sell. English is used everywhere for now, and country and language become separate settings, with translations later.
 

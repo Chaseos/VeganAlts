@@ -1,9 +1,5 @@
-import { readFile, writeFile, mkdtemp, rm, mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { writeFile, mkdir } from "node:fs/promises";
 import sharp from "sharp";
-import { getPlatformProxy } from "wrangler";
-import { parse } from "jsonc-parser";
 import { ClefDecisionProvider } from "../server/moderation/infrastructure/clef-provider";
 import {
   MODEL_TIER,
@@ -17,6 +13,7 @@ import {
   evaluatePolicy,
   type PolicyContext,
 } from "../server/moderation/domain/policy";
+import { withRemoteAi } from "./lib/remote-ai";
 
 // Calibrates provisional thresholds against a small labeled set of synthetic
 // cases. It calls the real Workers AI models and is billed, so it requires an
@@ -322,98 +319,70 @@ const cases: Case[] = [
   },
 ];
 
-const source = parse(await readFile("wrangler.jsonc", "utf8"));
-const directory = await mkdtemp(join(tmpdir(), "veganalts-clef-"));
-try {
-  const configPath = join(directory, "wrangler.json");
-  await writeFile(
-    configPath,
-    JSON.stringify({
-      name: "veganalts-clef-calibration",
-      account_id: source.account_id,
-      compatibility_date: source.compatibility_date,
-      ai: { binding: "AI", remote: true },
-    }),
-  );
-  const proxy = await getPlatformProxy<{
-    AI: { run(model: string, input: unknown): Promise<unknown> };
-  }>({
-    configPath,
-    remoteBindings: true,
-  });
-  try {
-    const provider = new ClefDecisionProvider(proxy.env.AI);
-    const results = [];
-    let tokens = 0;
-    for (const c of cases) {
-      const images = c.images ?? [];
-      const started = Date.now();
-      const result = await provider.decide({
-        tier: MODEL_TIER[c.kind],
-        state: c.state,
-        questions: questionsFor(c.kind, images.length),
-        images,
-      });
-      const policy = evaluatePolicy(
-        c.kind,
-        result.answers,
-        c.context ?? {},
-        DEFAULT_MODERATION_POLICY,
-      );
-      tokens += result.usage.inputTokens;
-      const row = {
-        case: c.name,
-        kind: c.kind,
-        model: result.model,
-        expected: c.expected,
-        outcome: policy.outcome,
-        match: c.expected.includes(policy.outcome),
-        flags: policy.flags,
-        latencyMs: Date.now() - started,
-        inputTokens: result.usage.inputTokens,
-        answers: Object.fromEntries(
-          Object.entries(result.answers).map(([q, a]) => [
-            q,
-            Object.fromEntries(
-              Object.entries(a.probabilities).map(([o, p]) => [
-                o,
-                Math.round(p * 1000) / 1000,
-              ]),
-            ),
-          ]),
-        ),
-      };
-      results.push(row);
-      console.log(
-        JSON.stringify({
-          case: row.case,
-          expected: row.expected,
-          outcome: row.outcome,
-          match: row.match,
-          flags: row.flags,
-          latencyMs: row.latencyMs,
-        }),
-      );
-    }
-    await mkdir("test-results/milestone-4", { recursive: true });
-    await writeFile(
-      "test-results/milestone-4/clef-calibration.json",
-      JSON.stringify(
-        { at: new Date().toISOString(), tokens, results },
-        null,
-        2,
-      ),
+await withRemoteAi(async (ai) => {
+  const provider = new ClefDecisionProvider(ai);
+  const results = [];
+  let tokens = 0;
+  for (const c of cases) {
+    const images = c.images ?? [];
+    const started = Date.now();
+    const result = await provider.decide({
+      tier: MODEL_TIER[c.kind],
+      state: c.state,
+      questions: questionsFor(c.kind, images.length),
+      images,
+    });
+    const policy = evaluatePolicy(
+      c.kind,
+      result.answers,
+      c.context ?? {},
+      DEFAULT_MODERATION_POLICY,
     );
+    tokens += result.usage.inputTokens;
+    const row = {
+      case: c.name,
+      kind: c.kind,
+      model: result.model,
+      expected: c.expected,
+      outcome: policy.outcome,
+      match: c.expected.includes(policy.outcome),
+      flags: policy.flags,
+      latencyMs: Date.now() - started,
+      inputTokens: result.usage.inputTokens,
+      answers: Object.fromEntries(
+        Object.entries(result.answers).map(([q, a]) => [
+          q,
+          Object.fromEntries(
+            Object.entries(a.probabilities).map(([o, p]) => [
+              o,
+              Math.round(p * 1000) / 1000,
+            ]),
+          ),
+        ]),
+      ),
+    };
+    results.push(row);
     console.log(
       JSON.stringify({
-        cases: results.length,
-        matched: results.filter((r) => r.match).length,
-        inputTokens: tokens,
+        case: row.case,
+        expected: row.expected,
+        outcome: row.outcome,
+        match: row.match,
+        flags: row.flags,
+        latencyMs: row.latencyMs,
       }),
     );
-  } finally {
-    await proxy.dispose();
   }
-} finally {
-  await rm(directory, { recursive: true, force: true });
-}
+  await mkdir("test-results/milestone-4", { recursive: true });
+  await writeFile(
+    "test-results/milestone-4/clef-calibration.json",
+    JSON.stringify({ at: new Date().toISOString(), tokens, results }, null, 2),
+  );
+  console.log(
+    JSON.stringify({
+      cases: results.length,
+      matched: results.filter((r) => r.match).length,
+      inputTokens: tokens,
+    }),
+  );
+});
