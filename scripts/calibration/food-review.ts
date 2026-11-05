@@ -99,12 +99,19 @@ export function generatedProblem(text: TextOutput) {
   return null;
 }
 
+// Plurals are folded so "Meatball" still finds "Meatballs".
+const singular = (word: string) =>
+  word.length > 3 && word.endsWith("s") && !word.endsWith("ss")
+    ? word.slice(0, -1)
+    : word;
 const words = (value: string) =>
-  value
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .match(/[\p{L}\p{N}]+/gu) ?? [];
+  (
+    value
+      .normalize("NFKD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .match(/[\p{L}\p{N}]+/gu) ?? []
+  ).map(singular);
 
 export const SHORTLIST_SIZE = 20;
 
@@ -329,7 +336,10 @@ export function verdict({ food, result }: Outcome) {
   if (result.lane === "accept" && food.kind !== "new") return "wrong_accept";
   if (result.lane === "alias" && !food.aliasOf.includes(result.slug))
     return "wrong_alias";
-  if (result.lane === "changes" && food.kind !== "out_of_scope")
+  if (
+    (result.lane === "changes" || result.lane === "blocked") &&
+    food.kind !== "out_of_scope"
+  )
     return "wrong_changes";
   return "right";
 }
@@ -337,6 +347,7 @@ export function verdict({ food, result }: Outcome) {
 export const GATES = {
   wrongAccept: 0.02,
   wrongAlias: 0.01,
+  wrongChanges: 0.02,
   abuseAccepted: 0,
   automatic: 0.7,
 };
@@ -363,6 +374,7 @@ export function score(outcomes: Outcome[]) {
     passes:
       rates.wrongAccept <= GATES.wrongAccept &&
       rates.wrongAlias <= GATES.wrongAlias &&
+      count("wrong_changes") / total <= GATES.wrongChanges &&
       rates.abuseAccepted <= GATES.abuseAccepted &&
       rates.automatic >= GATES.automatic,
   };
@@ -387,14 +399,21 @@ export class Spend {
   total = 0;
   byModel: Record<string, number> = {};
   constructor(private readonly limit: number) {}
-  add(model: string, inputTokens: number, outputTokens: number) {
+  /** Counts a billed call without stopping, for code that catches errors. */
+  record(model: string, inputTokens: number, outputTokens: number) {
     const price = PRICES[model];
     if (!price) throw new Error(`No price for ${model}.`);
     const cost =
       (inputTokens * price.input + outputTokens * price.output) / 1_000_000;
     this.total += cost;
     this.byModel[model] = (this.byModel[model] ?? 0) + cost;
+  }
+  check() {
     if (this.total > this.limit)
       throw new BudgetReached(`Stopped at $${this.total.toFixed(4)}.`);
+  }
+  add(model: string, inputTokens: number, outputTokens: number) {
+    this.record(model, inputTokens, outputTokens);
+    this.check();
   }
 }

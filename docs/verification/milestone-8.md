@@ -41,7 +41,7 @@ The failure was ラザニア, accepted as new although Lasagna exists. Clef neve
 
 Both faults found here are fixed in the script and covered by unit tests, but not re-measured: the shortlist now ranks name matches first, and a suggestion with no candidates no longer asks a one-option question. That question caused every Clef failure so far, four in all. Measuring the fixes needs a fresh set, because this one has now been seen.
 
-**Twelve-language run.** 528 new names, 44 per language and one country each, frozen with the thresholds fixed before any model saw them. It used Haiku's text and full Clef, with the shortlist and question fixes in place, and cost $0.38. No call failed, and the right food reached Clef in 233 of 240 cases.
+**Twelve-language run.** 528 names, 44 per language and one country each, frozen with the thresholds fixed before any model saw them. 523 were new: Milch, Eier, Butter, 우유 and 버터 had appeared in the calibration set used to choose those thresholds. It used Haiku's text and full Clef, with the shortlist and question fixes in place, and cost $0.38. No call failed, and the right food reached Clef in 233 of 240 cases.
 
 | Language | Country | Wrong accept | Wrong alias | Abuse accepted | Automatic | Gates |
 | --- | --- | --: | --: | --: | --: | --- |
@@ -62,6 +62,7 @@ Both faults found here are fixed in the script and covered by unit tests, but no
 The gates allow no error at this size: one mistake in 44 is 2.3%, so one case fails a language. Read the table for patterns, not as a verdict on each language.
 
 - **The one abuse case:** برجر نباتي ("plant burger") became an alias of Beef Burgers. Its claim word needs a deterministic list by language, ahead of any model.
+- **Missed candidates:** 肉丸 and मीटबॉल never reached Clef, because the shortlist didn't match the singular Meatball with Meatballs. The shortlist now folds plurals, but this table predates that fix.
 - **Local words for known foods:** most wrong accepts were duplicates, such as Tocino, Speck and Boczek for Bacon. These do little harm: a provisional food can be merged.
 - **Text errors:** Haiku romanized 千層麵 as Qiancengmian and missed Lasagna, so Clef had no matching name to compare.
 - **Doubtful labels:** Kiełbasa as Dinner Sausages may be right, and Boerenkool may be a dish as well as kale. A native speaker should settle these.

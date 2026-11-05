@@ -72,6 +72,22 @@ describe("food review calibration", () => {
       expect(seen).not.toContain(`${row.country}:${row.name}`);
   });
 
+  it("records the panel names the calibration set had already used", () => {
+    const seen = new Set(FOOD_CASES.map((r) => `${r.language}:${r.name}`));
+    const heldOut = new Set(
+      HELD_OUT_CASES.map((r) => `${r.language}:${r.name}`),
+    );
+    const reused = PANEL_CASES.map((r) => `${r.language}:${r.name}`);
+    expect(reused.filter((name) => seen.has(name)).sort()).toEqual([
+      "de:Butter",
+      "de:Eier",
+      "de:Milch",
+      "ko:버터",
+      "ko:우유",
+    ]);
+    expect(reused.filter((name) => heldOut.has(name))).toEqual([]);
+  });
+
   it("gives each panel language a full set of names", () => {
     const counts = new Map<string, number>();
     for (const row of PANEL_CASES) {
@@ -169,6 +185,8 @@ describe("food review calibration", () => {
       result: Parameters<typeof verdict>[0]["result"],
     ) => verdict({ food: row, result, targetShown: true });
     expect(check(kase("existing", ["milk"]), { lane: "queue" })).toBe("right");
+    expect(check(kase("new"), { lane: "blocked" })).toBe("wrong_changes");
+    expect(check(kase("out_of_scope"), { lane: "blocked" })).toBe("right");
     expect(check(kase("existing", ["milk"]), { lane: "accept" })).toBe(
       "wrong_accept",
     );
@@ -189,6 +207,27 @@ describe("food review calibration", () => {
     expect(score([right, { ...right, food: kase("abuse") }]).passes).toBe(
       false,
     );
+  });
+
+  it("fails the gates on real foods turned away", () => {
+    const rows = Array.from({ length: 10 }, () => ({
+      food: kase("new"),
+      result: { lane: "changes" as const },
+      targetShown: false,
+    }));
+    expect(score(rows).automatic).toBe(1);
+    expect(score(rows).passes).toBe(false);
+  });
+
+  it("matches singular and plural names", () => {
+    const meatballs = food("meatballs", "Meatballs");
+    const milk = { ...food("milk", "Milk"), aisle: "milk-aisle" };
+    const shown = shortlist([milk, meatballs], "肉丸", {
+      ...text,
+      englishName: "Meatball",
+      gloss: "",
+    });
+    expect(shown).toEqual([meatballs]);
   });
 
   it("shows a matching food and its aisle neighbours", () => {
@@ -240,6 +279,13 @@ describe("food review calibration", () => {
     expect(
       generatedProblem({ ...text, gloss: "See https://example.com" }),
     ).toBe("link");
+  });
+
+  it("counts spending without stopping until checked", () => {
+    const spend = new Spend(0.0001);
+    spend.record("claude-haiku-5-5", 10_000, 0);
+    expect(spend.total).toBeGreaterThan(0.0001);
+    expect(() => spend.check()).toThrow(BudgetReached);
   });
 
   it("stops at the spending cap", () => {

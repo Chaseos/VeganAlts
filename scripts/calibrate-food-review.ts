@@ -202,7 +202,8 @@ async function claudeJson<T extends z.ZodType>(
   system: string,
   content: Anthropic.MessageParam["content"],
 ): Promise<z.infer<T> | null> {
-  const response = await client.messages.parse({
+  // Not messages.parse: it throws on a bad reply before usage can be counted.
+  const response = await client.messages.create({
     model,
     max_tokens: 1500,
     thinking: CLAUDE_THINKING[model],
@@ -211,17 +212,18 @@ async function claudeJson<T extends z.ZodType>(
     messages: [{ role: "user", content }],
   });
   spend.add(model, response.usage.input_tokens, response.usage.output_tokens);
-  return response.stop_reason === "refusal"
-    ? null
-    : (response.parsed_output ?? null);
+  if (response.stop_reason === "refusal") return null;
+  const block = response.content.find((part) => part.type === "text");
+  try {
+    const parsed = schema.safeParse(JSON.parse(block?.text ?? ""));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
 }
 
-async function workersText(
-  ai: RemoteAi,
-  model: string,
-  spend: Spend,
-  food: FoodCase,
-) {
+async function workersText(ai: RemoteAi, model: string, food: FoodCase) {
+  spend.check();
   const request = textRequest(food);
   const raw = (await ai.run(model, {
     max_tokens: 1200,
@@ -232,18 +234,12 @@ async function workersText(
   })) as {
     response?: unknown;
     choices?: { message?: { content?: string } }[];
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
   const reply =
     raw.choices?.[0]?.message?.content ??
     (typeof raw.response === "string"
       ? raw.response
       : JSON.stringify(raw.response ?? ""));
-  spend.add(
-    model,
-    raw.usage?.prompt_tokens ?? estimate(TEXT_INSTRUCTIONS + request),
-    raw.usage?.completion_tokens ?? estimate(reply),
-  );
   return parseTextReply(reply);
 }
 
@@ -328,7 +324,7 @@ const counts = {
       ALL_CASES.filter((c) => c.language === language).length,
     ]),
   ),
-  photos: PHOTO_CASES.length,
+  photos: photos.length,
 };
 // Tokens per call as measured in the first smoke run, reasoning included, so a
 // run's cost is known before it starts.
@@ -337,11 +333,13 @@ const costOf = (model: string, input: number, output: number) =>
 const estimateUsd =
   cases.length *
     (costOf("claude-haiku-5-5", 400, 120) +
-      costOf("claude-sonnet-5-5", 400, 130) +
-      costOf("@cf/google/gemma-4-26b-a4b-it", 400, 700) +
       costOf("@cf/cloudflare/clef", 2600, 0) +
-      costOf("@cf/cloudflare/clef-flash", 2600, 0) +
-      costOf("claude-haiku-5-5", 2800, 150)) +
+      (heldOut
+        ? 0
+        : costOf("claude-sonnet-5-5", 400, 130) +
+          costOf("@cf/google/gemma-4-26b-a4b-it", 400, 700) +
+          costOf("@cf/cloudflare/clef-flash", 2600, 0) +
+          costOf("claude-haiku-5-5", 2800, 150))) +
   photos.length *
     (costOf("@cf/cloudflare/clef", 3000, 0) +
       costOf("claude-sonnet-5-5", 2000, 150));
@@ -374,11 +372,51 @@ if (dryRun) {
 for (const file of [".dev.vars", ".dev.vars.staging"])
   try {
     process.loadEnvFile(file);
+    // An env file can't replace a value that's set, even to a blank one.
+    if (!process.env.ANTHROPIC_API_KEY) delete process.env.ANTHROPIC_API_KEY;
   } catch {
     // Neither file is required.
   }
-const client = new Anthropic();
+const CALL_TIMEOUT_MS = 120_000;
+const client = new Anthropic({ timeout: CALL_TIMEOUT_MS });
 const spend = new Spend(maxUsd);
+
+/**
+ * Every Workers AI call gets a timeout and is counted here, before any reply
+ * parsing can fail. It only records: the Clef provider turns errors thrown
+ * inside a call into provider errors, which would hide a budget stop.
+ */
+const metered = (ai: RemoteAi): RemoteAi => ({
+  async run(model, input) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const raw = (await Promise.race([
+      ai.run(model, input),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${model} timed out.`)),
+          CALL_TIMEOUT_MS,
+        );
+      }),
+    ]).finally(() => clearTimeout(timer))) as {
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        prompt_tokens?: number;
+        completion_tokens?: number;
+      };
+    };
+    spend.record(
+      model,
+      raw.usage?.input_tokens ??
+        raw.usage?.prompt_tokens ??
+        estimate(JSON.stringify(input)),
+      raw.usage?.output_tokens ??
+        raw.usage?.completion_tokens ??
+        estimate(JSON.stringify(raw)),
+    );
+    return raw;
+  },
+});
 const report: Record<string, unknown> = {
   at: new Date().toISOString(),
   counts,
@@ -401,9 +439,63 @@ const failed = (name: string) => {
   failures[name] = (failures[name] ?? 0) + 1;
 };
 const isBudget = (error: unknown) => error instanceof BudgetReached;
+const stem = panel ? "panel" : heldOut ? "held-out" : "food-review";
+
+async function save(name: string) {
+  const summary = Object.fromEntries(
+    [...decisionOutcomes].map(([model, outcomes]) => [
+      model,
+      Object.fromEntries(
+        [...new Set(outcomes.map((o) => o.food.language))].map((language) => [
+          language,
+          score(outcomes.filter((o) => o.food.language === language)),
+        ]),
+      ),
+    ]),
+  );
+  // A person marks each gloss usable or not: this gate can't be automated.
+  const glossRows = [...generated].flatMap(([model, rows]) =>
+    [...rows].map(([food, output]) =>
+      [
+        model,
+        food.language,
+        food.name,
+        output?.englishName ?? "",
+        output?.gloss ?? "",
+        output?.readings.join(" / ") ?? "",
+        output ? (generatedProblem(output) ?? "") : "no_output",
+        "",
+      ].join("\t"),
+    ),
+  );
+  await mkdir("test-results/milestone-8", { recursive: true });
+  await writeFile(
+    `test-results/milestone-8/${name}.json`,
+    JSON.stringify(
+      {
+        ...report,
+        spentUsd: spend.total,
+        spentByModel: spend.byModel,
+        summary,
+        failures,
+        decisions,
+        photos: photoRows,
+      },
+      null,
+      2,
+    ),
+  );
+  await writeFile(
+    `test-results/milestone-8/${name}-gloss-review.tsv`,
+    [
+      "model\tlanguage\tname\tenglish\tgloss\treadings\tproblem\tusable (y/n)",
+      ...glossRows,
+    ].join("\n"),
+  );
+  return summary;
+}
 
 async function decide(
-  ai: RemoteAi,
   provider: ClefDecisionProvider,
   model: Decider,
   questions: Question[],
@@ -412,14 +504,14 @@ async function decide(
 ) {
   if (isClaude(model))
     return claudeDecide(client, model, spend, questions, state, images);
+  spend.check();
   const tier = model === "clef" ? "full" : "flash";
-  const result = await provider.decide({ tier, state, questions, images });
-  spend.add(provider.model(tier), result.usage.inputTokens, 0);
-  return result.answers;
+  return (await provider.decide({ tier, state, questions, images })).answers;
 }
 
 try {
-  await withRemoteAi(async (ai) => {
+  await withRemoteAi(async (remote) => {
+    const ai = metered(remote);
     const provider = new ClefDecisionProvider(ai);
     const writeText = async (model: string) => {
       const rows = new Map<FoodCase, TextOutput | null>();
@@ -436,7 +528,7 @@ try {
                 TEXT_INSTRUCTIONS,
                 textRequest(food),
               )
-            : await workersText(ai, model, spend, food);
+            : await workersText(ai, model, food);
         } catch (error) {
           if (isBudget(error)) throw error;
           failed(`text:${model}`);
@@ -446,6 +538,7 @@ try {
         if (rows.size % 50 === 0)
           console.error(JSON.stringify({ model, done: rows.size }));
       }
+      await save(`${stem}-partial`);
     };
     await writeText("claude-haiku-5-5");
     if (!heldOut) await writeText("@cf/google/gemma-4-26b-a4b-it");
@@ -464,7 +557,6 @@ try {
         let answers: Answers | null = null;
         try {
           answers = await decide(
-            ai,
             provider,
             model,
             questionsFrom(candidates),
@@ -498,6 +590,7 @@ try {
           answers,
         });
       }
+      await save(`${stem}-partial`);
     }
     for (const model of PHOTO_MODELS)
       for (const photo of photos) {
@@ -505,7 +598,6 @@ try {
         let answer: string | null = null;
         try {
           const answers = await decide(
-            ai,
             provider,
             model,
             questions,
@@ -525,72 +617,29 @@ try {
           right: answer === photo.expected,
         });
       }
+    await save(`${stem}-partial`);
     // Sonnet costs the most, so a budget stop only shortens this comparison.
     if (!heldOut) await writeText("claude-sonnet-5-5");
   });
 } catch (error) {
-  if (!isBudget(error)) throw error;
-  report.stopped = (error as Error).message;
+  if (isBudget(error)) report.stopped = (error as Error).message;
+  else report.error = String(error);
 }
 
-const summary = Object.fromEntries(
-  [...decisionOutcomes].map(([model, outcomes]) => [
-    model,
-    Object.fromEntries(
-      [...new Set(outcomes.map((o) => o.food.language))].map((language) => [
-        language,
-        score(outcomes.filter((o) => o.food.language === language)),
-      ]),
-    ),
-  ]),
-);
-// A person marks each gloss usable or not: this gate can't be automated.
-const glossRows = [...generated].flatMap(([model, rows]) =>
-  [...rows].map(([food, output]) =>
-    [
-      model,
-      food.language,
-      food.name,
-      output?.englishName ?? "",
-      output?.gloss ?? "",
-      output?.readings.join(" / ") ?? "",
-      output ? (generatedProblem(output) ?? "") : "no_output",
-      "",
-    ].join("\t"),
-  ),
-);
-const stem = panel ? "panel" : heldOut ? "held-out" : "food-review";
-await mkdir("test-results/milestone-8", { recursive: true });
-await writeFile(
-  `test-results/milestone-8/${stem}.json`,
-  JSON.stringify(
-    {
-      ...report,
-      spentUsd: spend.total,
-      spentByModel: spend.byModel,
-      summary,
-      failures,
-      decisions,
-      photos: photoRows,
-    },
-    null,
-    2,
-  ),
-);
-await writeFile(
-  `test-results/milestone-8/${stem}-gloss-review.tsv`,
-  [
-    "model\tlanguage\tname\tenglish\tgloss\treadings\tproblem\tusable (y/n)",
-    ...glossRows,
-  ].join("\n"),
-);
+// Only a whole, uninterrupted run replaces earlier results of its kind.
+const complete =
+  !report.stopped && !report.error && cases.length === ALL_CASES.length;
+const summary = await save(complete ? stem : `${stem}-partial`);
 console.log(
   JSON.stringify({
     spentUsd: Number(spend.total.toFixed(4)),
     stopped: report.stopped,
+    error: report.error,
+    complete,
     summary,
     failures,
     photosRight: photoRows.filter((row) => row.right).length,
     photos: photoRows.length,
   }),
 );
+if (report.error) process.exitCode = 1;

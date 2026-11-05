@@ -217,7 +217,8 @@ New decision kind `food_review` replaces `category_proposal` for foods, and `ais
 Clef questions for a food:
 
 - `food_reference`: is this a conventional food or drink with an animal-based original that shoppers replace, in this country?
-- `duplicate_of`: `NEW` or candidates `C1`…`C20`. Names stay in `state` and options carry only IDs, keeping contributor text out of the question text.
+- `same_food`: `NEW`, `SAME` or `UNCLEAR`. One choice among 21 options spread Clef's probability too thinly, so this stays a separate question.
+- `closest_candidate`: `NONE` or candidates `C1`…`C20`, asked only when there are candidates. Names stay in `state` and options carry only IDs, keeping contributor text out of the question text.
 - `aisle_fit`: `FITS`, or the nearest of the country's aisles by ID.
 - `name_claim`: does the name make a vegan, allergen, health, price or brand claim? `ヴィーガン唐揚げ` is a product, not a food.
 - `spam`: the existing abuse question.
@@ -228,8 +229,8 @@ Starting thresholds, replaced by 0.60 for Accept and Alias and 0.70 for Changes 
 
 | Lane | Rule |
 |---|---|
-| Accept | `food_reference` YES ≥ 0.85, `NEW` ≥ 0.85, `name_claim` NONE ≥ 0.85, `spam` low, all generated text valid |
-| Alias | one candidate ≥ 0.90 |
+| Accept | `food_reference` YES ≥ 0.85, `same_food` NEW ≥ 0.85, `name_claim` NONE ≥ 0.85, `spam` low, all generated text valid |
+| Alias | `same_food` SAME ≥ 0.90, and the top `closest_candidate` ≥ 0.50 |
 | Changes | `food_reference` NO ≥ 0.90, or a claim ≥ 0.90 |
 | Queue | anything else |
 
