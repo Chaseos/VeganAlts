@@ -205,7 +205,7 @@ function parseStores<T extends { matchedStores?: unknown }>(rows: T[]) {
 }
 
 export class D1CatalogRepository implements CatalogRepository {
-  constructor(private readonly db: D1Database) {}
+  constructor(private readonly db: Pick<D1Database, "prepare" | "batch">) {}
 
   async markets() {
     return (

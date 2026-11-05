@@ -681,26 +681,33 @@ export class CatalogService {
         [query.section === "ranked" ? "page" : "unrankedPage"]: cursor.batch,
       };
     }
-    const listing = await this.categoryListing(market, slug, query);
-    const [taxonomy, storeOptions, countries] = await Promise.all([
-      this.repository.taxonomy(market.id),
-      listing.availability.here
-        ? this.repository.storeOptions(
-            market.id,
-            listing.category.id,
-            listing.filters.freeFrom,
-            listing.view === "tastiest" ? "tastiest" : "closest",
-          )
-        : [],
-      listing.category.isRankable
-        ? this.repository.foodCountries(listing.category.id)
-        : ([] as string[]),
-    ]);
+    // Everything beyond the listing needs only the category, so it runs
+    // alongside the listing rather than after it.
+    const category = await this.summary(market, slug);
+    const here = !category.isRankable || category.available === 1;
+    const reading = this.repository.taxonomy(market.id);
+    const [listing, taxonomy, storeOptions, countries, sidebar] =
+      await Promise.all([
+        this.categoryListing(market, slug, query),
+        reading,
+        here
+          ? this.repository.storeOptions(
+              market.id,
+              category.id,
+              (query.filters ?? NO_FILTERS).freeFrom,
+              query.view === "tastiest" ? "tastiest" : "closest",
+            )
+          : [],
+        category.isRankable
+          ? this.repository.foodCountries(category.id)
+          : ([] as string[]),
+        reading.then((tree) => this.sidebar(market, tree, category.id)),
+      ]);
     return {
       ...listing,
       availability: { ...listing.availability, countries },
       place: this.placeOf(taxonomy, listing.category.id),
-      sidebar: await this.sidebar(market, taxonomy, listing.category.id),
+      sidebar,
       storeOptions,
       batches: this.categoryBatches(market, slug, listing),
     };

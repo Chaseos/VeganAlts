@@ -162,6 +162,7 @@ function ExpandableFlavors({
                   <Link
                     className="va-flavors__name"
                     to={productPath(country, flavor.slug, food)}
+                    prefetch="intent"
                   >
                     {flavor.label}
                     <span className="sr-only">: {flavor.name}</span>
@@ -284,7 +285,9 @@ export function FeaturedSwap({
         <div className="va-featured__head">
           <div className="va-featured__title">
             <h2 id={titleId} className="va-featured__name">
-              <Link to={href}>{productName(line.name, line.brand)}</Link>
+              <Link to={href} prefetch="intent">
+                {productName(line.name, line.brand)}
+              </Link>
             </h2>
             <p className="va-muted">
               {[
@@ -407,13 +410,13 @@ export function RankedRow({
   // link.
   if (line.flavorCount < 2)
     return (
-      <Link className="va-rank-row" to={href}>
+      <Link className="va-rank-row" to={href} prefetch="intent">
         {parts}
       </Link>
     );
   return (
     <div className="va-rank-row va-rank-row--line">
-      <Link className="va-rank-row__link" to={href}>
+      <Link className="va-rank-row__link" to={href} prefetch="intent">
         {parts}
       </Link>
       <FlavorList country={country} food={food} line={line} labels={labels} />
@@ -459,7 +462,7 @@ export function UnratedRow({
         <ProductThumbnail imageId={line.leadProduct.imageId} food={food} />
       </Link>
       <span className="va-unrated__main">
-        <Link className="va-unrated__name" to={href}>
+        <Link className="va-unrated__name" to={href} prefetch="intent">
           {productName(line.name, line.brand)}
         </Link>
         <span className="va-small va-muted">

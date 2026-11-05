@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { Link } from "react-router";
-import { catalogService } from "@server/catalog/infrastructure/composition";
+import { publicCatalogService } from "@server/catalog/infrastructure/composition";
 import { flavorLabel } from "@server/catalog/domain/flavor-label";
 import { isEarly } from "@server/ranking/domain/display";
 import {
@@ -27,7 +27,7 @@ import type { Route } from "./+types/brand";
 
 export async function loader({ params }: Route.LoaderArgs) {
   requireCatalogPreview(env);
-  const catalog = catalogService(env);
+  const catalog = publicCatalogService(env);
   return publicLoader(async () => {
     const market = await catalog.market(params.country);
     return {

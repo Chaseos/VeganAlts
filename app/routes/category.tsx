@@ -2,7 +2,7 @@ import { ApplicationError } from "@server/shared/domain/errors";
 import { env } from "cloudflare:workers";
 import { batchSection } from "@server/catalog/domain/batches";
 import { Link, redirect, useLocation } from "react-router";
-import { catalogService } from "@server/catalog/infrastructure/composition";
+import { publicCatalogService } from "@server/catalog/infrastructure/composition";
 import {
   catalogPage,
   categoryView,
@@ -70,8 +70,14 @@ import type { Route } from "./+types/category";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env);
-  const catalog = catalogService(env);
+  const catalog = publicCatalogService(env);
   const country = parseCountryCode(params.country);
+  // Read alongside the redirect check; a moved slug's failure is never seen.
+  const place = catalog.market(country).then(async (market) => ({
+    market,
+    summary: await catalog.summary(market, params.categorySlug),
+  }));
+  place.catch(() => {});
   // A renamed or merged category redirects (uncached) to its current slug.
   const moved = await catalog.categoryRedirect(params.categorySlug);
   if (moved)
@@ -87,20 +93,20 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         "Choose a results section before continuing.",
       );
     const url = new URL(request.url);
-    const market = await catalog.market(country);
+    const { market, summary } = await place;
     // Aisles are groups with their own page; a deeper group (a retired shelf
     // from the three-level shape) opens its aisle, and Food itself is the
     // home page. The public boundary drops the old `?shelf=` parameter.
-    if (!(await catalog.summary(market, params.categorySlug)).isRankable) {
-      const place = await catalog.aisle(market, params.categorySlug);
-      if (place.kind === "root") throw redirect(homePath(country));
-      if (place.kind === "group")
-        throw redirect(foodPath(country, place.aisleSlug), {
+    if (!summary.isRankable) {
+      const aisle = await catalog.aisle(market, params.categorySlug);
+      if (aisle.kind === "root") throw redirect(homePath(country));
+      if (aisle.kind === "group")
+        throw redirect(foodPath(country, aisle.aisleSlug), {
           status: 302,
           headers: { "Cache-Control": "private, no-store" },
         });
       return {
-        ...place,
+        ...aisle,
         market,
         origin: env.APP_URL,
         staging: env.APP_ENV !== "production",

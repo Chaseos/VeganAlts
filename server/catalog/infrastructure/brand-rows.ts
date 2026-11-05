@@ -75,7 +75,7 @@ const initialRanges = (initials: string[]) =>
  * `everyBrand` includes brands with nothing in the country yet.
  */
 export async function matchingBrandResults(
-  db: D1Database,
+  db: Pick<D1Database, "prepare">,
   countryId: string,
   query: string,
   limit: number,

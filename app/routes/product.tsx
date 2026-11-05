@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { useEffect, useState } from "react";
 import { Link, redirect, useLocation, useNavigate } from "react-router";
-import { catalogService } from "@server/catalog/infrastructure/composition";
+import { publicCatalogService } from "@server/catalog/infrastructure/composition";
 import {
   publicLoader,
   requireCatalogPreview,
@@ -47,9 +47,27 @@ import { dateLabel, friendly } from "../lib/community";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env);
-  const catalog = catalogService(env);
+  const catalog = publicCatalogService(env);
   return publicLoader(async () => {
     const market = await catalog.market(params.country);
+    // Read alongside the redirect check; a moved slug's failures are never seen.
+    const page = Promise.all([
+      catalog.product(
+        market,
+        params.productSlug,
+        new URL(request.url).searchParams.get("version"),
+        new URL(request.url).searchParams.get("food"),
+      ),
+      // The first Best page is crawler-visible and shares the product cache.
+      commentServices(env).page(
+        market.id,
+        params.productSlug,
+        "best",
+        "current",
+        null,
+      ),
+    ]);
+    page.catch(() => {});
     const canonical = await catalog.canonicalRedirect(
       market,
       params.productSlug,
@@ -59,22 +77,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         status: 302,
         headers: { "Cache-Control": "private, no-store" },
       });
+    const [product, comments] = await page;
     return {
       market,
-      product: await catalog.product(
-        market,
-        params.productSlug,
-        new URL(request.url).searchParams.get("version"),
-        new URL(request.url).searchParams.get("food"),
-      ),
-      // The first Best page is crawler-visible and shares the product cache.
-      comments: await commentServices(env).page(
-        market.id,
-        params.productSlug,
-        "best",
-        "current",
-        null,
-      ),
+      product,
+      comments,
       origin: env.APP_URL,
       staging: env.APP_ENV !== "production",
     };

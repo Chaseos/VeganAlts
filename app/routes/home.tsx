@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { useCallback, useState } from "react";
 import { Link, redirect } from "react-router";
-import { catalogService } from "@server/catalog/infrastructure/composition";
+import { publicCatalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader } from "@server/catalog/http/loader";
 import { catalogIsPublic } from "@server/shared/domain/launch";
 import { ComingSoon } from "../components/coming-soon";
@@ -40,7 +40,7 @@ export async function loader({ params }: Route.LoaderArgs) {
   const base = { staging: env.APP_ENV !== "production", origin: env.APP_URL };
   if (!catalogIsPublic(env)) return { ...base, market: null, catalog: null };
   return publicLoader(async () => {
-    const catalog = catalogService(env);
+    const catalog = publicCatalogService(env);
     const market = await catalog.market(params.country ?? "us");
     return { ...base, market, catalog: await catalog.home(market) };
   });

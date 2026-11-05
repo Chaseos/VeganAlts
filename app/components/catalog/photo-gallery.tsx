@@ -23,6 +23,9 @@ export function PhotoGallery({
   const id = useId();
   const hydrated = useHydrated();
   const [active, setActive] = useState(0);
+  // Slides not yet shown use their thumbnail, so an unopened photo costs about
+  // 30 KB rather than 300 KB, and it stays visible when selected without JS.
+  const [shown, setShown] = useState<ReadonlySet<number>>(new Set([0]));
   const radios = useRef<(HTMLInputElement | null)[]>([]);
   const photos = SLOTS.flatMap((slot) => {
     const image = images.find((image) => image.slot === slot);
@@ -72,11 +75,12 @@ export function PhotoGallery({
                 }}
               >
                 <img
-                  src={`/media/${image.id}/full`}
+                  src={`/media/${image.id}/${shown.has(index) ? "full" : "thumbnail"}`}
                   alt={`${productName}: ${SLOT_LABELS[image.slot]}`}
                   width={420}
                   height={420}
                   loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : undefined}
                   draggable={false}
                 />
               </a>
@@ -121,7 +125,10 @@ export function PhotoGallery({
               name={`gallery-${id}`}
               value={image.slot}
               defaultChecked={index === 0}
-              onChange={() => setActive(index)}
+              onChange={() => {
+                setActive(index);
+                setShown((seen) => new Set(seen).add(index));
+              }}
             />
             <ProductThumbnail imageId={image.id} food={food} size="small" />
             <span className="sr-only">{SLOT_LABELS[image.slot]}</span>

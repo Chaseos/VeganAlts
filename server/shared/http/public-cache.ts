@@ -227,8 +227,10 @@ export function normalizedPublicRequest(
   });
 }
 
+// After `ttl` the old copy is served at once while a fresh one renders, so a
+// page nobody opened lately still opens instantly. Purges remove it outright.
 export const edgeCacheControl = (ttl: number) =>
-  `public, max-age=${ttl}, stale-while-revalidate=60, stale-if-error=86400`;
+  `public, max-age=${ttl}, stale-while-revalidate=86400, stale-if-error=86400`;
 export function publicCacheTags(route: PublicRoute) {
   const country = route.country;
   const tags = country

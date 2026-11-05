@@ -8,7 +8,7 @@ import {
   SeeMore,
   useBatches,
 } from "../components/catalog/see-more";
-import { catalogService } from "@server/catalog/infrastructure/composition";
+import { publicCatalogService } from "@server/catalog/infrastructure/composition";
 import {
   publicLoader,
   requireCatalogPreview,
@@ -43,7 +43,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         "INVALID_CURSOR",
         "Choose a results section before continuing.",
       );
-    const catalog = catalogService(env);
+    const catalog = publicCatalogService(env);
     const market = await catalog.market(params.country);
     return {
       ...(await catalog.searchResults(

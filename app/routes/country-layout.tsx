@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { Outlet, type ShouldRevalidateFunctionArgs } from "react-router";
-import { catalogService } from "@server/catalog/infrastructure/composition";
+import { publicCatalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader } from "@server/catalog/http/loader";
 import { catalogIsPublic } from "@server/shared/domain/launch";
 import type { SiteChrome } from "../lib/site-chrome";
@@ -12,7 +12,7 @@ export async function loader({ params }: Route.LoaderArgs) {
   // Before launch only the coming-soon home is reachable, without D1 reads.
   if (!catalogIsPublic(env)) return { chrome: null, market: null };
   const page = await publicLoader(() =>
-    catalogService(env).page(params.country ?? "us"),
+    publicCatalogService(env).page(params.country ?? "us"),
   );
   const chrome: SiteChrome = {
     country: {

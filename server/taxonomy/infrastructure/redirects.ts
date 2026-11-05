@@ -4,7 +4,10 @@
  * malformed chain can never loop. Public loaders call it only on a miss and
  * return the redirect uncached.
  */
-export async function resolveCategoryRedirect(db: D1Database, slug: string) {
+export async function resolveCategoryRedirect(
+  db: Pick<D1Database, "prepare">,
+  slug: string,
+) {
   let current = slug;
   for (let hop = 0; hop < 8; hop++) {
     const row = await db

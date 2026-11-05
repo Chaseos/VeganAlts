@@ -237,7 +237,9 @@ Reasons:
 - one schema/migration history is easier to operate;
 - cross-market admin reporting remains possible.
 
-D1 global read replication may be enabled later when useful. Current Cloudflare behavior requires the D1 Sessions API to use read replicas correctly. Do not introduce read replication until query patterns are understood and tested.
+Public page loaders use `publicCatalogService`, which reads through a D1 session (`first-unconstrained`), so they use read replicas once replication is enabled on the database (owner, 2026-11-05). Their output is shared-cacheable and may be minutes stale, so replica lag is acceptable. A render straight after a purge can briefly recache older data; route freshness bounds that. Writes, and reads that decide or validate a write, stay on the primary through `catalogService`.
+
+That service also keeps markets, the taxonomy and filter options in a 60-second memo per Worker instance, because every cache miss needs them. Other instances see a change within that minute. Local environments skip the memo.
 
 ## 11. Authentication architecture
 
@@ -462,7 +464,7 @@ These can be reconsidered only when a real requirement appears.
 
 The uncached Worker gateway normalizes public requests and calls the dedicated `PublicCatalog` entrypoint in the same Worker. Native Workers Cache owns request collapsing, freshness, background refresh and stale-on-error behavior. Identity includes deployment version, country, route, meaningful query parameters and document/data/API representation. Cookies, authorization, origin and client nonce headers never enter the public renderer. SSR loaders call application services directly and read aggregates, never raw ratings or sessions.
 
-Catalog responses use browser `Cache-Control: public, max-age=0`; the inner entrypoint uses `Cloudflare-CDN-Cache-Control` with its route TTL, `stale-while-revalidate=60` and `stale-if-error=86400`. Immutable accepted/archived image variants use the same normalized public boundary with one-day edge freshness and use browser `max-age=0` so operator removals take effect on revalidation. The gateway evaluates their conditional ETags after cache delivery; pending/rejected/missing media is never stored. Do not add `s-maxage`, `must-revalidate` or `proxy-revalidate`: those disable native stale behavior. The gateway replaces the cached template nonce with a fresh nonce in authorized framework scripts at every delivery. Errors, redirects, private data, writes and Set-Cookie responses are excluded.
+Catalog responses use browser `Cache-Control: public, max-age=0`; the inner entrypoint uses `Cloudflare-CDN-Cache-Control` with its route TTL, `stale-while-revalidate=86400` and `stale-if-error=86400`. The long revalidation window (owner, 2026-11-05) means a page nobody opened lately still opens instantly and refreshes behind the visitor, so the first visitor after a quiet stretch can see scores up to a day old. Material edits still purge. Immutable accepted/archived image variants use the same normalized public boundary with one-day edge freshness and use browser `max-age=0` so operator removals take effect on revalidation. The gateway evaluates their conditional ETags after cache delivery; pending/rejected/missing media is never stored. Do not add `s-maxage`, `must-revalidate` or `proxy-revalidate`: those disable native stale behavior. The gateway replaces the cached template nonce with a fresh nonce in authorized framework scripts at every delivery. Errors, redirects, private data, writes and Set-Cookie responses are excluded.
 
 ## Milestone 3 contribution boundaries
 

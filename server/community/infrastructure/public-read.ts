@@ -21,7 +21,7 @@ const STALE_AFTER = 180 * 86400000;
 // Statements for the public product batch; callers append them to their own
 // D1 batch so a product page costs one round trip.
 export function communityProductStatements(
-  db: D1Database,
+  db: Pick<D1Database, "prepare">,
   productId: string,
   versionId: string,
   now = Date.now(),
@@ -116,7 +116,7 @@ export function communityProductDetails(
   };
 }
 export function readCanonicalRedirect(
-  db: D1Database,
+  db: Pick<D1Database, "prepare">,
   countryId: string,
   slug: string,
 ) {
