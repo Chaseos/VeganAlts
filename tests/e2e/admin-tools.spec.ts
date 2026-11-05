@@ -226,9 +226,13 @@ test("an administrator edits a product from the same form, applied at once", asy
     ).toBeVisible();
     await expect(page.getByText("apply immediately")).toBeVisible();
     await accessible(page);
+    // What can change is on show, each with its own way in.
     await page
-      .getByLabel("What do you want to change?")
-      .selectOption({ label: "Move it to a different food" });
+      .getByRole("button", { name: "Change food", exact: true })
+      .click();
+    await expect(page.getByLabel("What do you want to change?")).toHaveValue(
+      "foods",
+    );
     const current = page
       .getByRole("group", { name: "Listed under" })
       .getByRole("checkbox")

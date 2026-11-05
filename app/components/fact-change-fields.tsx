@@ -16,7 +16,7 @@ export const factLabels: Record<FactKind, string> = {
   alias: "Another name people search for",
   source_url: "Manufacturer product page",
   category_add: "Another food it replaces",
-  foods: "Move it to a different food",
+  foods: "Food it’s listed under",
   seasonal: "Sold only part of the year",
 };
 export const isFactKind = (kind: ProductChange["kind"]): kind is FactKind =>

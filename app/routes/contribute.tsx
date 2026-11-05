@@ -40,6 +40,7 @@ import {
   reportReasonLabel,
 } from "../lib/community";
 import { PhotoProposalForm } from "../components/photo-proposal-form";
+import { ProductEditSummary } from "../components/product-edit-summary";
 import { shrinkPhoto } from "../lib/shrink-photo";
 import { SLOT_LABELS } from "../components/photo-slots";
 import type { Route } from "./+types/contribute";
@@ -580,6 +581,18 @@ export default function Contribute({
                   Saved changes apply immediately, with no review. Each one is
                   recorded in Decision history and can be reversed.
                 </p>
+              )}
+              {administrator && (
+                <ProductEditSummary
+                  product={product}
+                  categoryNames={product.categoryNames}
+                  onChange={(next) => {
+                    setKind(next);
+                    requestAnimationFrame(() =>
+                      document.getElementById("change-kind")?.focus(),
+                    );
+                  }}
+                />
               )}
               <label htmlFor="change-kind">
                 {administrator
