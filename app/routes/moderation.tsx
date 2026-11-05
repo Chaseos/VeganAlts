@@ -21,6 +21,7 @@ import {
 import { CatalogSelect } from "../components/catalog-select";
 import { CatalogReversalPreview } from "../components/catalog-reversal-preview";
 import { ProductRemovalControls } from "../components/product-removal-controls";
+import { FoodDigest } from "../components/food-digest";
 import {
   NO_NOTE,
   useCommunityAction,
@@ -68,6 +69,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       donor: url.searchParams.get("donor") ?? "",
     };
   }
+  if (kind === "digest")
+    return {
+      ...common,
+      view: "digest" as const,
+      digest: await taxonomyServices(env).digest(actor),
+    };
   if (kind === "category" && id) {
     const taxonomy = taxonomyServices(env);
     return {
@@ -244,6 +251,11 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
               current: data.view === "inbox",
             },
             {
+              to: "/admin/moderation/digest",
+              label: "Food review digest",
+              current: data.view === "digest",
+            },
+            {
               to: "/admin/moderation/consolidate",
               label: "Consolidate duplicates",
               current: data.view === "consolidate",
@@ -265,13 +277,21 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
                 ? data.product.name
                 : data.view === "consolidate"
                   ? "Consolidate duplicate products"
-                  : "Review contribution"}
+                  : data.view === "digest"
+                    ? "Food review digest"
+                    : "Review contribution"}
           </h1>
           <p>
             Inspect the evidence, preserve history, and note why for every
             decision.
           </p>
         </header>
+        {data.view === "digest" && (
+          <>
+            <FoodDigest rows={data.digest} action={action} />
+            <CommunityFeedback action={action} siteKey={data.siteKey} />
+          </>
+        )}
         {data.view === "inbox" && (
           <>
             <nav className="contribution-tabs" aria-label="Inbox filter">

@@ -71,7 +71,7 @@ function parseAllergens<T extends { allergens?: unknown }>(row: T) {
 const onHere = (category: string) =>
   `(${category}.is_rankable=0 OR EXISTS(SELECT 1 FROM category_countries cc WHERE cc.category_id=${category}.id AND cc.country_id=?))`;
 // Binds the country ID three times: display name, product count, availability.
-const categoryFields = `c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,c.season_start AS seasonStart,c.season_end AS seasonEnd,
+const categoryFields = `c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,c.season_start AS seasonStart,c.season_end AS seasonEnd,c.provisional_until AS provisionalUntil,
  (SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=c.id AND p.country_id=? AND ${visible}) AS productCount,
  ${onHere("c")} AS available`;
 

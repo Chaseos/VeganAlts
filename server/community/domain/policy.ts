@@ -1,4 +1,4 @@
-import { latinSlug } from "../../shared/domain/text";
+import { foldForMatch, latinSlug } from "../../shared/domain/text";
 import {
   ApplicationError,
   assertActiveAccount,
@@ -98,8 +98,49 @@ export function productSlug(name: string, foodSlug?: string | null) {
 }
 /** A name's words of three or more letters; an apostrophe never splits one. */
 export function nameWords(value: string) {
-  const words = comparableName(value).match(/[\p{L}\p{N}]+/gu) ?? [];
-  return [...new Set(words.filter((word) => word.length > 2))];
+  const words = comparableName(value).match(/[\p{L}\p{M}\p{N}]+/gu) ?? [];
+  return [
+    ...new Set(
+      words.flatMap((word) =>
+        SPACELESS.test(word) ? pairs(word) : word.length > 2 ? [word] : [],
+      ),
+    ),
+  ];
+}
+// Scripts written without spaces between words, compared by character pairs.
+const SPACELESS =
+  /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}\p{Script=Hangul}\p{Script=Thai}]/u;
+const pairs = (value: string) => {
+  const letters = Array.from(value);
+  return letters.length < 2
+    ? letters
+    : letters.slice(1).map((letter, i) => `${letters[i]}${letter}`);
+};
+const SPACELESS_GENERIC = [
+  "ヴィーガン",
+  "ビーガン",
+  "プラントベース",
+  "植物性",
+  "大豆",
+  "비건",
+  "素食",
+  "纯素",
+  "純素",
+  "วีแกน",
+].map(foldForMatch);
+const distinctivePairs = (value: string) => {
+  let name = foldForMatch(value);
+  for (const word of SPACELESS_GENERIC) name = name.replaceAll(word, " ");
+  return new Set((name.match(/[\p{L}\p{M}\p{N}]+/gu) ?? []).flatMap(pairs));
+};
+export const isSpaceless = (value: string) => SPACELESS.test(value);
+/** Spaceless names share at least 70% of the shorter one's pairs. */
+export function nearDuplicateNames(a: string, b: string) {
+  const [first, second] = [distinctivePairs(a), distinctivePairs(b)];
+  const smaller = Math.min(first.size, second.size);
+  if (!smaller) return false;
+  const shared = [...first].filter((pair) => second.has(pair)).length;
+  return shared / smaller >= 0.7;
 }
 export function comparableName(value: string) {
   return value.normalize("NFKC").toLowerCase().replace(/['’]/g, "");
@@ -117,6 +158,11 @@ const GENERIC_NAME_WORDS = new Set([
   "the",
   "vegan",
   "with",
+  "végétalien",
+  "végétalienne",
+  "végétal",
+  "végétale",
+  "plantes",
 ]);
 /** The words that can make two products near-duplicates. */
 export function distinctiveNameWords(value: string) {

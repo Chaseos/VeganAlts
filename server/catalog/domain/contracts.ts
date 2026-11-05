@@ -13,6 +13,8 @@ export interface CategorySummary {
   // A seasonal food's months (milestone 7); null otherwise.
   seasonStart: number | null;
   seasonEnd: number | null;
+  // Set for a while on a food accepted by automated review.
+  provisionalUntil?: number | null;
   productCount: number;
   // 1 when the category is a group or a food switched on in the country.
   available: number;

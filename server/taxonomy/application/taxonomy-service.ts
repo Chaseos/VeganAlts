@@ -355,6 +355,58 @@ export class TaxonomyService {
       expectedRevision: proposal.updated_at,
     });
   }
+  /**
+   * Reverses an automatic decision. An accepted food with no products is
+   * retired and an alias removed, through the ordinary audited paths. A food
+   * with products keeps them until an operator merges it into another food.
+   */
+  async undoAutomatic(actor: Actor, key: string, id: string, note: string) {
+    administrator(actor);
+    const proposal = await this.repository.proposal(id);
+    if (
+      !proposal?.resolved_category_id ||
+      proposal.resolved_by !== SYSTEM_ACTOR.id ||
+      !["accepted", "aliased"].includes(proposal.status)
+    )
+      throw new ApplicationError(
+        "NOT_UNDOABLE",
+        "This decision can no longer be undone here.",
+        409,
+      );
+    const foodId = proposal.resolved_category_id;
+    if (proposal.status === "aliased") {
+      const action = await this.repository.automaticAliasAction(
+        foodId,
+        proposal.resolution_note ?? "",
+      );
+      if (!action)
+        throw new ApplicationError(
+          "NOT_UNDOABLE",
+          "This decision can no longer be undone here.",
+          409,
+        );
+      await this.reverseUpdate(actor, key, action, note);
+    } else {
+      if (await this.repository.foodHasProducts(foodId))
+        throw new ApplicationError(
+          "FOOD_HAS_PRODUCTS",
+          "This food has products. Merge it into another food in Taxonomy.",
+          409,
+        );
+      const food = await this.existing(foodId);
+      await this.update(actor, key, foodId, {
+        expectedRevision: food.revision,
+        isActive: false,
+        note,
+      });
+    }
+    await this.repository.markUndone(id, actor.id, note, this.clock());
+    return { undone: true };
+  }
+  digest(actor: Actor, days = 7) {
+    administrator(actor);
+    return this.repository.foodDigest(this.clock() - days * 86_400_000);
+  }
   private async decide(actor: Actor, key: string, id: string, raw: unknown) {
     const input = categoryDecision.parse(raw);
     const now = this.clock(),

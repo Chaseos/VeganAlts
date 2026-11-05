@@ -21,7 +21,7 @@ import {
   useBatches,
 } from "../components/catalog/see-more";
 import { ButtonLink } from "../components/ui/button";
-import { CheckThePackage, SeasonalBadge } from "../components/ui/badges";
+import { Badge, CheckThePackage, SeasonalBadge } from "../components/ui/badges";
 import { seasonOf } from "@server/taxonomy/domain/season";
 import { FoodIcon } from "../components/icons/food-icons";
 import {
@@ -565,6 +565,11 @@ function FoodRankingList({
             <h1 className="va-ranking__title">
               Vegan alternatives to {food.toLowerCase()}
             </h1>
+            {(data.category.provisionalUntil ?? 0) > Date.now() && (
+              <p className="va-ranking__season">
+                <Badge tone="new">New</Badge>
+              </p>
+            )}
             {season && (
               <p className="va-ranking__season">
                 <SeasonalBadge />

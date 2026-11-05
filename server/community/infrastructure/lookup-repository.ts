@@ -9,6 +9,8 @@ import type {
 import {
   comparableName,
   distinctiveNameWords,
+  isSpaceless,
+  nearDuplicateNames,
   identityKey,
   nameWords,
   normalizeName,
@@ -391,10 +393,11 @@ export class CommunityLookupRepository {
           .length;
       const similar =
         !row.inLine &&
-        names.some(
-          (name) =>
-            shared(name) >=
-            (loose ? 1 : Math.min(2, Math.max(1, significant.length))),
+        names.some((name) =>
+          !loose && isSpaceless(input.name)
+            ? nearDuplicateNames(input.name, name)
+            : shared(name) >=
+              (loose ? 1 : Math.min(2, Math.max(1, significant.length))),
         );
       return same || similar
         ? [

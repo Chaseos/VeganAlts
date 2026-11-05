@@ -833,6 +833,7 @@ export class D1TaxonomyRepository {
         status: string;
         resolution_note: string | null;
         resolved_category_id: string | null;
+        resolved_by: string | null;
         review: string | null;
         updated_at: number;
         created_at: number;
@@ -903,6 +904,62 @@ export class D1TaxonomyRepository {
       .prepare("SELECT id FROM categories WHERE slug=? AND is_rankable=1")
       .bind(slug)
       .first<string>("id");
+  }
+  automaticAliasAction(foodId: string, note: string) {
+    return this.db
+      .prepare(
+        "SELECT id FROM moderation_actions WHERE kind='category_update' AND target_id=? AND actor_id=? AND note=? AND reversed_by IS NULL ORDER BY created_at DESC LIMIT 1",
+      )
+      .bind(foodId, SYSTEM_ACTOR_ID, note)
+      .first<string>("id");
+  }
+  async foodHasProducts(foodId: string) {
+    return Boolean(
+      await this.db
+        .prepare(
+          "SELECT 1 FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=? AND p.lifecycle_status<>'hidden' LIMIT 1",
+        )
+        .bind(foodId)
+        .first(),
+    );
+  }
+  markUndone(id: string, actorId: string, note: string, now: number) {
+    return this.db
+      .prepare(
+        "UPDATE category_proposals SET status='rejected',resolved_by=?,resolution_note=?,resolved_at=?,updated_at=? WHERE id=?",
+      )
+      .bind(actorId, note, now, now, id)
+      .run();
+  }
+  /** The automatic decisions and open reviews an operator can check. */
+  async foodDigest(since: number) {
+    const rows = await this.db
+      .prepare(
+        `SELECT p.id,p.name,p.status,p.review,p.resolution_note AS note,p.resolved_at AS resolvedAt,p.created_at AS createdAt,
+        co.iso2 AS country,c.slug AS foodSlug,c.name AS foodName,
+        EXISTS(SELECT 1 FROM product_categories pc JOIN products pr ON pr.id=pc.product_id WHERE pc.category_id=c.id AND pr.lifecycle_status<>'hidden') AS hasProducts
+        FROM category_proposals p LEFT JOIN countries co ON co.id=p.country_id LEFT JOIN categories c ON c.id=p.resolved_category_id
+        WHERE (p.resolved_by=?1 AND p.resolved_at>=?2) OR (p.status='pending' AND p.review IS NOT NULL)
+        ORDER BY COALESCE(p.resolved_at,p.created_at) DESC LIMIT 200`,
+      )
+      .bind(SYSTEM_ACTOR_ID, since)
+      .all<{
+        id: string;
+        name: string;
+        status: string;
+        review: string | null;
+        note: string | null;
+        resolvedAt: number | null;
+        createdAt: number;
+        country: string | null;
+        foodSlug: string | null;
+        foodName: string | null;
+        hasProducts: number;
+      }>();
+    return rows.results.map(({ review, ...row }) => ({
+      ...row,
+      review: review ? (JSON.parse(review) as FoodReview) : null,
+    }));
   }
   provisionalStatement(id: string, until: number, fence: DecisionGuard) {
     return this.db

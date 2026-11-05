@@ -266,3 +266,80 @@ it("retries a review that failed", async () => {
   expect((await w.row(proposal))!.review).toBeNull();
   expect(await w.service.sweep()).toBe(1);
 });
+
+const operator = { id: "", accountState: "active", administrator: true };
+async function operatorId() {
+  const user = `operator-${id()}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO user(id,name,email,created_at,updated_at) VALUES(?,?,?,1,1)",
+    ).bind(user, "Operator", `${user}@example.invalid`),
+    env.DB.prepare(
+      "INSERT INTO profiles(user_id,handle,created_at,updated_at) VALUES(?,?,1,1)",
+    ).bind(user, user),
+  ]);
+  return { ...operator, id: user };
+}
+const NOTE = "Not a real food on review.";
+
+it("undoes an accepted food with no products", async () => {
+  const food = dish();
+  const w = await world(newFood, '{"default":"auto"}', food.known);
+  const proposal = await w.suggest(food.name);
+  await w.service.sweep();
+  const accepted = await w.row(proposal);
+  const actor = await operatorId();
+  const taxonomy = taxonomyServices(testEnv, id);
+  expect(
+    (await taxonomy.digest(actor)).find((row) => row.id === proposal),
+  ).toMatchObject({ status: "accepted", country: "JP" });
+  await taxonomy.undoAutomatic(actor, id(), proposal, NOTE);
+  expect((await w.row(proposal))!.status).toBe("rejected");
+  const retired = await env.DB.prepare(
+    "SELECT is_active AS active FROM categories WHERE id=?",
+  )
+    .bind(accepted!.food)
+    .first<{ active: number }>();
+  expect(retired!.active).toBe(0);
+  await expect(
+    taxonomy.undoAutomatic(actor, id(), proposal, NOTE),
+  ).rejects.toThrow("no longer");
+});
+
+it("undoes an automatic alias", async () => {
+  const name = `牛乳${id().slice(0, 6)}`;
+  const answers: Answers = {
+    ...newFood,
+    same_food: answer({ SAME: 0.9 }),
+    closest_candidate: answer({ C1: 0.9 }),
+  };
+  const w = await world(answers, '{"default":"auto"}', {
+    [name]: {
+      englishName: "Milk",
+      gloss: "Cow's milk.",
+      slug: "milk",
+      readings: [],
+      frenchName: "",
+      japaneseName: name,
+    },
+  });
+  const proposal = await w.suggest(name);
+  await w.service.sweep();
+  const aliased = await w.row(proposal);
+  expect(aliased!.status).toBe("aliased");
+  const held = () =>
+    env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM category_aliases WHERE category_id=? AND alias=?",
+    )
+      .bind(aliased!.food, name)
+      .first<number>("n");
+  expect(await held()).toBe(1);
+  await taxonomyServices(testEnv, id).undoAutomatic(
+    await operatorId(),
+    id(),
+    proposal,
+    NOTE,
+  );
+  expect(await held()).toBe(0);
+  expect((await w.row(proposal))!.status).toBe("rejected");
+});

@@ -54,6 +54,15 @@ export async function taxonomyApi(
         body,
       ),
     );
+  if (parts[2] === "category" && parts[3] && parts[4] === "undo")
+    return respond(
+      await services.undoAutomatic(
+        actor,
+        requestKey,
+        parse(id, parts[3]),
+        parse(reason, body).note,
+      ),
+    );
   const [, , family, target, operation] = parts;
   if (family === "categories" && !target)
     return respond(await services.create(actor, requestKey, body));

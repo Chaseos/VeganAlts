@@ -318,9 +318,9 @@ Labels should come from a Japanese speaker where possible. Otherwise, confirm th
 
 - **Provisional:** `categories.provisional_until`, 30 days after acceptance. Shows a small "New" label, stays out of home features, and scores normally.
 - **Audit:** every decision goes through the existing fenced path as `SYSTEM_ACTOR`, with before and after state, input hashes and model IDs. `decideProposal` is split into an `administrator()` entry point and a shared `applyDecision`.
-- **Undo for an accepted food:** add `category_create` to reversal. With no products, it retires the food and restores the proposal. With products, it asks for a survivor and uses the existing reversible merge.
+- **Undo for an accepted food:** with no products, it retires the food through the ordinary update and marks the proposal rejected. With products, the digest links to the existing reversible merge in Taxonomy.
 - **Undo for an alias:** removes the alias. Any products placed through it stay in that food, listed for the operator, because moving them is a `foods` edit.
-- **Reports:** `reports` gain a `category` target with reasons `not_a_food`, `duplicate_food`, `wrong_name`, `wrong_aisle` and `other`. Food pages get a report link. A report on a provisional food goes to the queue.
+- **Reports:** `reports` gain a `category` target with reasons `not_a_food`, `duplicate_food`, `wrong_name`, `wrong_aisle` and `other`. Food pages get a report link. A report on a provisional food goes to the queue. Not built yet: the target-type `CHECK` on `reports` can't be altered in place, so this waits for the next staging reset or a table rebuild.
 - **Digest:** `/admin/moderation/digest` shows the last seven days, in English: the name as typed, English name, gloss, lane, confidence, and a one-click **Undo**. It also lists timed defaults, aisles opened, proposals nearing the threshold, and counts by country.
 - **Queue item:** shows the same English context, and the two choices are the existing Accept, Alias and Reject.
 

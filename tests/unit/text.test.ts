@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { TAXONOMY_GROUPS, TAXONOMY_LEAVES } from "../../db/seed/taxonomy";
-import { productSlug, slug } from "../../server/community/domain/policy";
+import {
+  nameWords,
+  nearDuplicateNames,
+  productSlug,
+  slug,
+} from "../../server/community/domain/policy";
 import { catalogProductSlug } from "../../server/community/infrastructure/catalog-entry";
 import {
   foldForMatch,
@@ -84,5 +89,18 @@ describe("text in any script", () => {
     expect(
       catalogProductSlug("みどり", "大豆ミート", "abc12345678", "karaage"),
     ).toBe("karaage-12345678");
+  });
+
+  it("compares names without spaces by character pairs", () => {
+    expect(nameWords("豆腐")).toEqual(["豆腐"]);
+    expect(nameWords("Tofu 豆腐")).toEqual(["tofu", "豆腐"]);
+    expect(nearDuplicateNames("大豆ミートの唐揚げ", "大豆ミート唐揚げ")).toBe(
+      true,
+    );
+    expect(nearDuplicateNames("大豆ミートハンバーグ", "大豆ミートボール")).toBe(
+      false,
+    );
+    expect(nearDuplicateNames("ヴィーガンハム", "ハム")).toBe(true);
+    expect(nearDuplicateNames("カラアゲ", "からあげ")).toBe(true);
   });
 });
