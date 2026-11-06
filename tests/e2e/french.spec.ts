@@ -37,5 +37,5 @@ test("English pages don't load the French dictionary", async ({ page }) => {
   page.on("response", (response) => chunks.push(response.url()));
   await page.goto("/us/en/milk");
   await page.waitForLoadState("networkidle");
-  expect(chunks.filter((url) => /i18n\/fr/.test(url))).toEqual([]);
+  expect(chunks.filter((url) => /i18n\/(?:fr|ja)/.test(url))).toEqual([]);
 });

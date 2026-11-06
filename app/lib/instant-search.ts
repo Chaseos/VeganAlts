@@ -1,3 +1,4 @@
+import { searchable } from "@server/shared/domain/text";
 import { useEffect, useRef, useState } from "react";
 import type { CatalogService } from "@server/catalog/application/service";
 
@@ -14,8 +15,7 @@ export interface InstantSearchState {
 export const DEBOUNCE_MS = 150;
 const CACHE_SIZE = 20;
 // Instant answers start at three letters or digits, like the server.
-export const suggestable = (query: string) =>
-  (query.match(/[\p{L}\p{N}]/gu)?.length ?? 0) >= 3;
+export const suggestable = searchable;
 
 /**
  * Turns keystrokes into at most one request per pause: waits briefly, aborts

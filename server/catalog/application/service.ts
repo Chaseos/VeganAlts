@@ -1,3 +1,4 @@
+import { searchable } from "../../shared/domain/text";
 import { countryName } from "../domain/local-names";
 import { foldForMatch } from "../../shared/domain/text";
 import { ApplicationError } from "../../shared/domain/errors";
@@ -453,8 +454,7 @@ export class CatalogService {
         "Refresh the results and try again.",
       );
     const size = SEARCH_SIZES[section];
-    const valid =
-      expression && (query.match(/[\p{L}\p{N}]/gu)?.length ?? 0) >= 3;
+    const valid = expression && searchable(query);
     const rows =
       valid && section !== "brands"
         ? await this.repository.searchPage(
@@ -536,9 +536,8 @@ export class CatalogService {
     },
   ) {
     const { query, expression } = searchExpression(input);
-    const letters = query.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
     // Instant answers start at three letters or digits (docs/API.md).
-    if (!expression || letters < 3)
+    if (!expression || !searchable(query))
       return { query, foods: [], products: [], brands: [] };
     const [results, taxonomy, brands] = await Promise.all([
       supplied

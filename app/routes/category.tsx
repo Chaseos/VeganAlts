@@ -466,7 +466,7 @@ function FoodRankingList({
     .map((key) =>
       t("filters.free", { name: (labels[key] ?? key).toLowerCase() }),
     )
-    .join(", ");
+    .join(t("list.separator"));
   const flag =
     featured && rankOf(featured) === 1
       ? tastiestView
@@ -772,7 +772,8 @@ function FoodRankingList({
             >
               {t("menu.addProduct")}
             </Link>
-            . {t("category.replacing")}{" "}
+            {t("text.stop")}
+            {t("category.replacing")}{" "}
             <Link className="va-link" to={`/propose-category?country=${code}`}>
               {t("nav.suggestFood")}
             </Link>

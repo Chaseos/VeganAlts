@@ -11,6 +11,7 @@ import {
   foldForMatch,
   latinSlug,
   matchKey,
+  searchable,
 } from "../../server/shared/domain/text";
 import { silentAisle } from "../../server/taxonomy/domain/display";
 import {
@@ -103,4 +104,12 @@ describe("text in any script", () => {
     expect(nearDuplicateNames("ヴィーガンハム", "ハム")).toBe(true);
     expect(nearDuplicateNames("カラアゲ", "からあげ")).toBe(true);
   });
+});
+
+it("searches one character in a script without spaces, and three otherwise", () => {
+  expect(searchable("卵")).toBe(true);
+  expect(searchable("ハム")).toBe(true);
+  expect(searchable("ab")).toBe(false);
+  expect(searchable("egg")).toBe(true);
+  expect(searchable("  ")).toBe(false);
 });

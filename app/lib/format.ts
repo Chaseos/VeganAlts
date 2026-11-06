@@ -34,7 +34,7 @@ export function plural(count: number, one: string, many = `${one}s`) {
 
 // "Target", "Target, Kroger", "Target + 2 more"
 export function summarizeNames(names: string[], max = 2) {
-  if (names.length <= max) return names.join(", ");
+  if (names.length <= max) return names.join(t("list.separator"));
   return t("list.more", { name: names[0]!, count: names.length - 1 });
 }
 
@@ -42,7 +42,7 @@ export function summarizeNames(names: string[], max = 2) {
 export function joinList(items: string[]) {
   if (items.length <= 1) return items.join("");
   return t("list.and", {
-    items: items.slice(0, -1).join(", "),
+    items: items.slice(0, -1).join(t("list.separator")),
     last: items[items.length - 1]!,
   });
 }

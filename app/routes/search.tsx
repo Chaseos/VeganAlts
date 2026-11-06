@@ -1,3 +1,4 @@
+import { searchable } from "@server/shared/domain/text";
 import { ApplicationError } from "@server/shared/domain/errors";
 import { env } from "cloudflare:workers";
 import { batchSection } from "@server/catalog/domain/batches";
@@ -322,9 +323,9 @@ function SearchList({
           {!found && !brands.control.limitReached && (
             <EmptyState
               title={
-                (data.query.match(/[\p{L}\p{N}]/gu)?.length ?? 0) < 3
-                  ? t("searchPage.enterThree")
-                  : t("searchPage.noMatch", { query: data.query })
+                searchable(data.query)
+                  ? t("searchPage.noMatch", { query: data.query })
+                  : t("searchPage.enterThree")
               }
               actions={
                 <>

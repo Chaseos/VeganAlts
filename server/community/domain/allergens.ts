@@ -34,6 +34,18 @@ export const REVIEW_ALLERGENS = [
   "fish",
   "crustacean",
   "mollusc",
+  // Japan's list names animal foods one by one.
+  "abalone",
+  "beef",
+  "chicken",
+  "crab",
+  "gelatin",
+  "mackerel",
+  "pork",
+  "salmon",
+  "salmon_roe",
+  "shrimp",
+  "squid",
 ] as const;
 export function needsClassificationReview(declaration: AllergenDeclaration) {
   return (

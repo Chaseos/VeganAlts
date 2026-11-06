@@ -46,3 +46,45 @@ Keys starting `safety.` or `allergen.`, and any key naming a vegan status, an al
 `{country}` is a bare name, so a sentence can't give it a preposition. Write `dans ce pays ({country})`.
 
 Sources: [OQLF, spacing](https://vitrinelinguistique.oqlf.gouv.qc.ca/22039/la-typographie/espacement/espacement-avant-et-apres-les-signes-de-ponctuation-et-les-symboles), [OQLF, végane](https://vitrinelinguistique.oqlf.gouv.qc.ca/fiche-gdt/fiche/26570818/vegane), [CFIA, allergen labelling](https://inspection.canada.ca/fr/etiquetage-aliment/etiquetage/industrie/comment-etiqueter-allergenes).
+
+## Japanese (ja-JP)
+
+| English | Japanese | Why |
+|---|---|---|
+| vegan | ヴィーガン | The word in JAS and on packaging |
+| swap | 代替品 | Same word everywhere |
+| alternative | 代替品 | |
+| plant-based | プラントベース | Reads as a marketing term, not a guarantee |
+| Closest to the original | 本物に近い順 | A ranking name, never reworded |
+| Tastiest | おいしい順 | A ranking name, never reworded |
+| food | 食品 | |
+| aisle, category | カテゴリー | |
+| rating | 評価 | |
+| score | スコア | |
+| member | メンバー | |
+| review (staff) | 確認 | |
+| submission | 投稿 | |
+| flavor | フレーバー | |
+| recipe, formula | レシピ | |
+| retailer, store | 販売店、店舗 | |
+| allergen | アレルゲン | |
+| Contains | 含む | `〜を含む`, as on labels |
+| May contain | 含まれている可能性あり | Not the label's own wording; see below |
+| ingredients | 原材料 | |
+| email | メールアドレス | |
+| product | 商品 | |
+| product line | シリーズ | |
+| sign in | ログイン | |
+| operator | 運営 | |
+| moderator | モデレーター | |
+| Free from | アレルゲンで絞り込み | Never `〜を含まない`, which reads as our guarantee |
+
+- Use です・ます, and plain noun labels for buttons and headings. No exclamation marks.
+- `一部に〜を含む` and the 特定原材料 item names are official wording. Use the Consumer Affairs Agency's item names exactly: 乳 not 牛乳, 落花生 not ピーナッツ, えび, かに.
+- Japanese labels aren't allowed to say an allergen "may be in" a product (`入っているかもしれない`). They warn instead, in the form `同一の製造ラインで〜を含む製品を製造しています`. So our "May contain" text describes what a label warned about, and must never read as our own judgement.
+- A plant-based food isn't meat. The Consumer Affairs Agency treats 肉 and 卵 in a plant-based product's name as a labelling risk, so don't write 大豆肉 as if it were a kind of meat in our own copy.
+- No spaces between Japanese and numbers or placeholders, except Latin words where it reads better.
+- Japanese has no plural. Plural entries keep `one` and `other` with the same text.
+- Sentence order differs from English. When a string joins around a link, write the joined sentence first, then split it, and leave a piece empty if it has no words.
+
+Sources: [Consumer Affairs Agency, allergen labelling](https://www.caa.go.jp/policies/policy/food_labeling/food_sanitation/allergy/), [Kyoto Prefecture, current 9 + 20 items](https://www.pref.kyoto.jp/shoku-kawaraban/allergie01.html), [Consumer Affairs Agency, plant-based labelling Q&A](https://www.caa.go.jp/notice/other/plant_based/).

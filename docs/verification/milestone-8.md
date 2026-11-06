@@ -105,3 +105,21 @@ The first score is low because the rubric deducts per root cause. No score has b
 Not reviewed by a second agent: the country names in `server/catalog/domain/local-names.ts`, and the last wording of `filters.freeLabelAny` and `language.label`.
 
 The French chunk is 84 KB, or 24 KB compressed, and English pages don't load it.
+
+## Japanese (2026-11-06)
+
+About 1,290 interface strings, 152 food and aisle names, Japan's 29 allergen items and 10 country names. Same process as French. English pages don't load the Japanese chunk, which is 89 KB, or 24 KB compressed.
+
+| Check | Result |
+|---|---|
+| First independent review, 1,281 strings | 3 critical, 10 high, 102 medium and 50 low entries; reported score 0.75/30 |
+| Second review after fixes, 239 strings | 0 critical, 0 high, 1 medium, 8 low; applied |
+| Back-translations of high-stakes strings | 144 recorded blind |
+
+The critical findings were "free from" reading as the site's own guarantee, and "may contain" reading as the site's own judgement. Japanese labels can't say an allergen may be present, so the wording now names the label's warning. Most medium findings came from four batches choosing different words for terms the glossary lacked, now added.
+
+The score is low for the same reason as French, and hasn't been recalculated since the fixes. There has been no native review, so Japanese stays preview-only.
+
+Found in code by this work: a label with only "may contain" showed "No major allergens on the label" in every language; search refused 卵 and other one- or two-character words; and Japan's animal allergens had to join the list that opens a classification review.
+
+Japan's list is the Consumer Affairs Agency's 9 required and 20 recommended items, as of April 2026. It has no store list yet.

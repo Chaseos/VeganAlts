@@ -1,4 +1,5 @@
 import { FRENCH_NAMES } from "./french-names";
+import { JAPANESE_NAMES } from "./japanese-names";
 import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
 import { DEFAULT_DIMENSIONS } from "../../server/ratings/domain/details";
 
@@ -1273,6 +1274,42 @@ export const TAXONOMY_COUNTRIES: {
   // Packages declare peanuts and tree nuts together as "Nut"; they stay two
   // entries so a specific nut in the ingredient list can be recorded.
   {
+    // Consumer Affairs Agency: the 9 required items, then the 20 recommended.
+    iso2: "JP",
+    name: "Japan",
+    allergens: [
+      "shrimp",
+      "cashew",
+      "crab",
+      "walnut",
+      "wheat",
+      "buckwheat",
+      "egg",
+      "milk",
+      "peanut",
+      "almond",
+      "abalone",
+      "squid",
+      "salmon_roe",
+      "orange",
+      "kiwi",
+      "beef",
+      "sesame",
+      "salmon",
+      "mackerel",
+      "soy",
+      "chicken",
+      "banana",
+      "pistachio",
+      "pork",
+      "macadamia",
+      "peach",
+      "yam",
+      "apple",
+      "gelatin",
+    ],
+  },
+  {
     iso2: "IN",
     name: "India",
     allergens: [
@@ -1384,18 +1421,22 @@ export function taxonomySeedStatements(
           ON CONFLICT DO NOTHING;`,
         );
   // A language's names show on its pages; the English stays searchable.
-  for (const [slug, name] of Object.entries(FRENCH_NAMES))
+  const names = [
+    ...Object.entries(FRENCH_NAMES).map((entry) => ["fr", ...entry]),
+    ...Object.entries(JAPANESE_NAMES).map((entry) => ["ja", ...entry]),
+  ] as [string, string, string][];
+  for (const [language, slug, name] of names)
     if (!onlyFoods || selectedSlugs.has(slug))
       statements.push(
         `INSERT INTO category_aliases(id,category_id,country_id,alias,is_display_name,language,created_at)
-        SELECT ${quote(newId())},c.id,NULL,${quote(name)},1,'fr',${now} FROM categories c
+        SELECT ${quote(newId())},c.id,NULL,${quote(name)},1,${quote(language)},${now} FROM categories c
         WHERE c.slug=${quote(slug)} AND c.name<>${quote(name)}
         ON CONFLICT DO NOTHING;`,
         // The same word may already be a search term, as Lasagne is.
-        `UPDATE category_aliases SET is_display_name=1,language='fr'
+        `UPDATE category_aliases SET is_display_name=1,language=${quote(language)}
         WHERE alias=${quote(name)} COLLATE NOCASE AND country_id IS NULL AND is_display_name=0
         AND category_id=(SELECT id FROM categories WHERE slug=${quote(slug)})
-        AND NOT EXISTS(SELECT 1 FROM category_aliases d WHERE d.category_id=category_aliases.category_id AND d.country_id IS NULL AND d.language='fr' AND d.is_display_name=1);`,
+        AND NOT EXISTS(SELECT 1 FROM category_aliases d WHERE d.category_id=category_aliases.category_id AND d.country_id IS NULL AND d.language=${quote(language)} AND d.is_display_name=1);`,
       );
   // Questions are seeded only for foods that have none, so an operator's
   // list is never overwritten. SQLite reads the whole SELECT before inserting.

@@ -29,7 +29,7 @@ it("empties a populated database so the migrations recreate it", async () => {
   expect(await schema()).toEqual(shape);
   expect(
     await env.DB.prepare("SELECT COUNT(*) AS n FROM allergens").first("n"),
-  ).toBe(15);
+  ).toBe(38);
   expect(
     (await env.DB.prepare("PRAGMA foreign_key_check").all()).results,
   ).toEqual([]);

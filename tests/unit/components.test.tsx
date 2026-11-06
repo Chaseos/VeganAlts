@@ -89,6 +89,17 @@ describe("shared presentation components", () => {
 
   it("states allergens only from a confirmed declaration", () => {
     expect(html(<AllergenLabel allergens={null} />)).toBe("");
+    const warned = html(
+      <AllergenLabel
+        allergens={{
+          status: "declared",
+          contains: [],
+          mayContain: [{ key: "soy", label: "Soy" }],
+        }}
+      />,
+    );
+    expect(warned).toContain("May contain soy");
+    expect(warned).not.toContain("No major allergens");
     expect(
       html(
         <AllergenLabel

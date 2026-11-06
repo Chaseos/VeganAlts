@@ -81,11 +81,18 @@ export function AllergenLabel({
 }) {
   if (!allergens) return null;
   const contains = allergens.contains.map((a) => a.label.toLowerCase());
-  const text =
-    allergens.status === "none_declared" || !contains.length
+  const mayContain = joinList(
+    allergens.mayContain.map((a) => a.label.toLowerCase()),
+  );
+  // "May contain" alone is still a warning, never "no major allergens".
+  const warnOnly = !contains.length && allergens.mayContain.length > 0;
+  const text = warnOnly
+    ? t("allergen.mayContainOnly", { list: mayContain })
+    : allergens.status === "none_declared" || !contains.length
       ? t("allergen.none")
-      : t("allergen.contains", { list: contains.join(", ") });
-  const warn = allergens.status === "declared" && contains.length > 0;
+      : t("allergen.contains", { list: contains.join(t("list.separator")) });
+  const warn =
+    allergens.status === "declared" && (contains.length > 0 || warnOnly);
   return (
     <span
       className={
@@ -95,12 +102,8 @@ export function AllergenLabel({
       }
     >
       {text}
-      {allergens.mayContain.length > 0 && variant === "line"
-        ? t("allergen.mayContain", {
-            list: joinList(
-              allergens.mayContain.map((a) => a.label.toLowerCase()),
-            ),
-          })
+      {!warnOnly && allergens.mayContain.length > 0 && variant === "line"
+        ? t("allergen.mayContain", { list: mayContain })
         : null}
     </span>
   );

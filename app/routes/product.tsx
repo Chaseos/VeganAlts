@@ -588,7 +588,7 @@ export default function Product({
               ) : (
                 t("safety.notConfirmed")
               )}
-              .{" "}
+              {t("text.stop")}
               <span className="va-muted">
                 {p.allergens && p.allergenConfirmations
                   ? `${t("safety.confirmedBy", { members: counted("product.members", p.allergenConfirmations) })} `
@@ -611,7 +611,7 @@ export default function Product({
               {p.categories
                 .filter((c) => c.isActive)
                 .map((c) => c.name.toLowerCase())
-                .join(", ") || "—"}
+                .join(t("list.separator")) || "—"}
             </dd>
             <dt>{t("product.recipe")}</dt>
             <dd>
@@ -1060,8 +1060,10 @@ function RatingBreakdown({ food }: { food: FoodView }) {
       {food.recentEaters && (
         <p className="va-small va-muted">
           {t("product.recentEaters", { food: food.name.toLowerCase() })}{" "}
-          <strong>{formatScore(food.recentEaters.average)}/5</strong> (
-          {counted("product.people", food.recentEaters.count)}).
+          <strong>{formatScore(food.recentEaters.average)}/5</strong>
+          {t("text.open")}
+          {counted("product.people", food.recentEaters.count)}
+          {t("text.close")}
         </p>
       )}
     </section>

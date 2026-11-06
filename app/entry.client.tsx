@@ -8,8 +8,9 @@ const nonce = document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce;
 
 // The dictionary must be here first, or hydration wouldn't match the page.
 async function hydrate() {
-  if (document.documentElement.lang === "fr")
-    addDictionary("fr", (await import("./i18n/fr")).fr);
+  const language = document.documentElement.lang;
+  if (language === "fr") addDictionary("fr", (await import("./i18n/fr")).fr);
+  if (language === "ja") addDictionary("ja", (await import("./i18n/ja")).ja);
   startTransition(() => {
     hydrateRoot(
       document,

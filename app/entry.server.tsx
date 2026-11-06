@@ -3,10 +3,12 @@ import { ServerRouter } from "react-router";
 import { renderToReadableStream } from "react-dom/server";
 import { addDictionary } from "./i18n";
 import { fr } from "./i18n/fr";
+import { ja } from "./i18n/ja";
 import { NonceContext } from "./lib/nonce";
 import { failureKind, routeLabel } from "@server/observability/events";
 
 addDictionary("fr", fr);
+addDictionary("ja", ja);
 export const streamTimeout = 5_000;
 
 export default async function handleRequest(

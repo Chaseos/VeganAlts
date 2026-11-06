@@ -44,3 +44,11 @@ export function latinSlug(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 }
+
+// Search needs three letters, but one character can be a whole word in a script
+// written without spaces: 卵 is egg.
+const SPACELESS_LETTER =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}]/u;
+export const searchable = (query: string) =>
+  SPACELESS_LETTER.test(query) ||
+  (query.match(/[\p{L}\p{N}]/gu)?.length ?? 0) >= 3;

@@ -115,7 +115,7 @@ export function InstantSearch({
         ? t("search.found", {
             foods: counted("count.food", foods.length),
             brands: result!.brands.length
-              ? `, ${counted("count.brand", result!.brands.length)}`
+              ? `${t("list.separator")}${counted("count.brand", result!.brands.length)}`
               : "",
             products: counted("count.product", result!.products.length),
           })

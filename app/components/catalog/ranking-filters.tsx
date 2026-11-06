@@ -123,7 +123,7 @@ export function StoreChecklist({
       className={`va-store-menu${chosen.size ? " va-store-menu--active" : ""}`}
       summaryLabel={t(
         names.length > 2 ? "filters.storeLabelSelected" : "filters.storeLabel",
-        { summary, names: names.join(", ") },
+        { summary, names: names.join(t("list.separator")) },
       )}
       panelLabel={t("filters.storesPanel")}
       summary={
@@ -243,7 +243,7 @@ export function FreeFromChecklist({
       className={`va-free-menu va-store-menu${chosen.size ? " va-store-menu--active" : ""}`}
       summaryLabel={t(
         names.length ? "filters.freeLabelChosen" : "filters.freeLabelAny",
-        { summary, names: names.join(", ") },
+        { summary, names: names.join(t("list.separator")) },
       )}
       panelLabel={t("filters.allergensPanel")}
       summary={
@@ -329,7 +329,7 @@ export function StoreLine({
   return (
     <span className="va-store-line">
       <Icon name="check" size={14} strokeWidth={2.8} />
-      {t("filters.storeLine", { names: names.join(", ") })}
+      {t("filters.storeLine", { names: names.join(t("list.separator")) })}
     </span>
   );
 }
@@ -349,7 +349,8 @@ export function RankingResultCount({
       className={`va-filter-bar__count${count === 0 ? " va-filter-bar__count--empty" : ""}`}
       role="status"
     >
-      <strong>{formatCount(count)}</strong>{" "}
+      <strong>{formatCount(count)}</strong>
+      {t("text.gap")}
       <span>
         {filtered
           ? counted("filters.ofMatch", total)
