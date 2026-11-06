@@ -1,3 +1,4 @@
+import { foldForMatch } from "../../shared/domain/text";
 import { ApplicationError } from "../../shared/domain/errors";
 import {
   catalogBatch,
@@ -60,13 +61,27 @@ import {
 
 export const CATALOG_PAGE_SIZE = 20;
 
+const SPACELESS_RUN =
+  /^[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}\p{Script=Hangul}\p{Script=Thai}ー]/u;
+const SCRIPT_RUN =
+  /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}\p{Script=Hangul}\p{Script=Thai}ー]+|[^\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}\p{Script=Hangul}\p{Script=Thai}ー]+/gu;
+
 export function searchExpression(input: string) {
   const query = input.normalize("NFKC").trim().slice(0, 80);
-  const tokens = query.match(/[\p{L}\p{N}]+/gu)?.slice(0, 8) ?? [];
-  // Only quoted literal tokens enter MATCH. FTS operators and punctuation are data.
+  const tokens = query.match(/[\p{L}\p{M}\p{N}]+/gu)?.slice(0, 8) ?? [];
+  // Only quoted literal tokens enter MATCH. FTS operators and punctuation are
+  // data. A run of a script without spaces is a phrase of single characters,
+  // as the index stores it in `segmented`.
   return {
     query,
-    expression: tokens.map((token) => `"${token}"*`).join(" AND "),
+    expression: tokens
+      .flatMap((token) => token.match(SCRIPT_RUN) ?? [])
+      .map((run) =>
+        SPACELESS_RUN.test(run)
+          ? `segmented : "${Array.from(foldForMatch(run)).join(" ")}"*`
+          : `"${run.replace(/[œŒ]/g, "oe").replace(/[æÆ]/g, "ae")}"*`,
+      )
+      .join(" AND "),
   };
 }
 

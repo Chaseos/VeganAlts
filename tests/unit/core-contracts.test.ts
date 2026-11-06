@@ -24,6 +24,11 @@ it("treats malformed search and FTS syntax as bounded literal tokens", () => {
     '"beef"* AND "OR"* AND "title"* AND "cheese"*',
   );
   expect(searchExpression('" * () -').expression).toBe("");
+  expect(searchExpression("唐揚げ").expression).toBe('segmented : "唐 揚 げ"*');
+  expect(searchExpression("Beyond 唐揚げ").expression).toBe(
+    '"Beyond"* AND segmented : "唐 揚 げ"*',
+  );
+  expect(searchExpression("Œufs").expression).toBe('"oeufs"*');
   expect(searchExpression("x".repeat(200)).query.length).toBe(80);
   expect(() => catalogPage("1 OR 1")).toThrow();
   expect(() => catalogPage("101")).toThrow();

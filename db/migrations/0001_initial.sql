@@ -477,7 +477,7 @@ CREATE TABLE `media_uploads` (
 --> statement-breakpoint
 CREATE VIRTUAL TABLE search_index USING fts5(
   entity_type UNINDEXED, entity_id UNINDEXED, country_code UNINDEXED,
-  title, subtitle, aliases, body,
+  title, subtitle, aliases, body, segmented,
   tokenize = 'unicode61 remove_diacritics 2'
 );
 --> statement-breakpoint

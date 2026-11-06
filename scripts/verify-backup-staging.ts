@@ -153,7 +153,7 @@ try {
     }
     // Derived search documents are rebuilt from the restored canonical rows.
     await scratch.env.DB.exec(
-      "CREATE VIRTUAL TABLE search_index USING fts5(entity_type UNINDEXED, entity_id UNINDEXED, country_code UNINDEXED, title, subtitle, aliases, body, tokenize = 'unicode61 remove_diacritics 2')",
+      "CREATE VIRTUAL TABLE search_index USING fts5(entity_type UNINDEXED, entity_id UNINDEXED, country_code UNINDEXED, title, subtitle, aliases, body, segmented, tokenize = 'unicode61 remove_diacritics 2')",
     );
     await scratch.env.DB.batch(
       SEARCH_INDEX_STATEMENTS.map((sql) => scratch.env.DB.prepare(sql)),
