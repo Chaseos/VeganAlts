@@ -41,7 +41,13 @@ export interface FoodChecks {
   readonly perDay: number;
   check(
     actor: Actor,
-    food: { name: string; aisleId: string; country: string; aliases: string[] },
+    food: {
+      name: string;
+      aisleId: string;
+      country: string;
+      aliases: string[];
+      newAisle?: string | undefined;
+    },
   ): Promise<void>;
 }
 
@@ -100,6 +106,7 @@ export class SubmissionService {
         aisleId: food.aisleId,
         country: input.country,
         aliases: food.aliases ?? [],
+        newAisle: food.newAisle?.name,
       });
       return { problem: null, carry: null };
     } catch (error) {

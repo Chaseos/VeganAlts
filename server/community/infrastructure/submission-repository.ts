@@ -205,6 +205,9 @@ export class SubmissionRepository {
                   aliases: input.newFood.aliases ?? [],
                   exampleProducts: [`${input.brand} ${input.name}`],
                   submissionId: receipt.id,
+                  ...(input.newFood.newAisle
+                    ? { newAisle: input.newFood.newAisle }
+                    : {}),
                 }),
                 now,
                 now,

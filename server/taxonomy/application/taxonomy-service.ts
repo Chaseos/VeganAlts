@@ -273,6 +273,7 @@ export class TaxonomyService {
       aisleId: input.aisleId,
       country: input.country,
       aliases: input.aliases,
+      newAisle: input.newAisle?.name,
     });
     const id = this.newId();
     const automated = await this.decisions.evaluate({
@@ -286,6 +287,7 @@ export class TaxonomyService {
           explanation: input.explanation ?? "",
           aliases: input.aliases,
           exampleProducts: input.exampleProducts,
+          ...(input.newAisle ? { newAisle: input.newAisle.name } : {}),
         },
       },
     });
@@ -406,6 +408,10 @@ export class TaxonomyService {
   digest(actor: Actor, days = 7) {
     administrator(actor);
     return this.repository.foodDigest(this.clock() - days * 86_400_000);
+  }
+  aisleSuggestions(actor: Actor) {
+    administrator(actor);
+    return this.repository.aisleSuggestions();
   }
   private async decide(actor: Actor, key: string, id: string, raw: unknown) {
     const input = categoryDecision.parse(raw);
@@ -665,6 +671,9 @@ export class TaxonomyService {
   // ---- Operator taxonomy management --------------------------------------
   async create(actor: Actor, key: string, raw: unknown) {
     administrator(actor);
+    return this.createNow(actor, key, raw);
+  }
+  private async createNow(actor: Actor, key: string, raw: unknown) {
     const input = createCategoryInput.parse(raw);
     const now = this.clock(),
       receipt = await receiptWrite(
@@ -727,8 +736,42 @@ export class TaxonomyService {
       slug: category.slug,
     };
   }
+  /**
+   * Opens a local aisle and moves the foods that asked for it, each through
+   * the ordinary audited path. Retrying finishes what a failure left undone.
+   */
+  async openLocalAisle(
+    key: string,
+    aisle: { name: string; slug: string; country: string },
+    foodIds: string[],
+    note: string,
+    actor: Actor = SYSTEM_ACTOR,
+  ) {
+    const root = await this.repository.aisleRoot();
+    const { categoryId } = await this.createNow(actor, `${key}-create`, {
+      name: aisle.name,
+      slug: aisle.slug,
+      parentId: root,
+      isRankable: false,
+      countries: [aisle.country],
+      note,
+    });
+    for (const foodId of foodIds) {
+      const food = await this.existing(foodId);
+      if (food.parentId === categoryId) continue;
+      await this.updateNow(actor, `${key}-move-${foodId}`, foodId, {
+        expectedRevision: food.revision,
+        parentId: categoryId,
+        note,
+      });
+    }
+    return categoryId;
+  }
   async update(actor: Actor, key: string, id: string, raw: unknown) {
     administrator(actor);
+    return this.updateNow(actor, key, id, raw);
+  }
+  private async updateNow(actor: Actor, key: string, id: string, raw: unknown) {
     const input = updateCategoryInput.parse(raw);
     const now = this.clock(),
       receipt = await receiptWrite(

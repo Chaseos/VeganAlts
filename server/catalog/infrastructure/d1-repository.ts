@@ -78,7 +78,7 @@ const onHere = (category: string) =>
 // Binds the country ID three times: display name, product count, availability.
 const categoryFieldsIn = (
   language: Language,
-) => `c.id,c.slug,${displayName(language)("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,c.season_start AS seasonStart,c.season_end AS seasonEnd,c.provisional_until AS provisionalUntil,
+) => `c.id,c.slug,${displayName(language)("c")} AS name,c.parent_id AS parentId,c.origin_country_id AS originCountryId,c.is_rankable AS isRankable,c.season_start AS seasonStart,c.season_end AS seasonEnd,c.provisional_until AS provisionalUntil,
  (SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=c.id AND p.country_id=? AND ${visible}) AS productCount,
  ${onHere("c")} AS available`;
 

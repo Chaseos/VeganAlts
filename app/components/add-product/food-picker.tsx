@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Badge } from "../ui/badges";
 import { FoodIcon } from "../icons/food-icons";
-import { AisleSelect, type AisleOption } from "../aisle-select";
+import { AisleSelect, NewAisleField, type AisleOption } from "../aisle-select";
 import {
   exactFood,
   matchFoods,
@@ -166,6 +166,11 @@ export function FoodPicker({
           required
           error={aisleError}
           onChange={(aisleId) => onChange({ ...value, aisleId })}
+        />
+        <NewAisleField
+          id={`${id}-new-aisle`}
+          value={value.newAisle ?? ""}
+          onChange={(newAisle) => onChange({ ...value, newAisle })}
         />
         <label htmlFor={`${id}-other`}>
           Other names (optional, separated by commas)

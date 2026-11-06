@@ -13,6 +13,7 @@ import { trendingService } from "../../ranking/infrastructure/trending-compositi
 import { scheduleCatalogInvalidation } from "../../catalog/infrastructure/invalidation";
 import { communityServices } from "../../community/infrastructure/composition";
 import { invalidateCommunityProduct } from "../../community/infrastructure/invalidation";
+import { AisleDemandService } from "../application/aisle-demand";
 import { FoodReviewService } from "../application/food-review";
 import { TaxonomyService } from "../application/taxonomy-service";
 import { D1TaxonomyRepository } from "./d1-taxonomy-repository";
@@ -94,6 +95,25 @@ export function foodReview(
     () => foodTextProvider(env),
     (id, decision) => taxonomy.decideAutomatically(id, decision),
     (env as { FOOD_REVIEW?: string }).FOOD_REVIEW,
+    clock,
+  );
+}
+
+/** Local aisles gather demand and open on the hourly schedule. */
+export function aisleDemand(
+  env: Cloudflare.Env,
+  newId: () => string = uuid,
+  clock = Date.now,
+) {
+  const taxonomy = taxonomyServices(env, newId, clock);
+  return new AisleDemandService(
+    new D1TaxonomyRepository(new ModerationRepository(env.DB), newId),
+    moderationDecisions(env, newId, clock),
+    () => foodTextProvider(env),
+    (key, aisle, foods, note, actor) =>
+      taxonomy.openLocalAisle(key, aisle, foods, note, actor),
+    (env as { FOOD_REVIEW?: string }).FOOD_REVIEW,
+    newId,
     clock,
   );
 }

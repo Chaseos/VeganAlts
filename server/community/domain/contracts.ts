@@ -67,6 +67,8 @@ export const newFood = z
       .string()
       .regex(/^[a-z]{2}(?:-[A-Z][a-z]{3})?$/)
       .optional(),
+    // The aisle it would rather be in. The food goes in `aisleId` meanwhile.
+    newAisle: z.object({ name: shortText }).strict().optional(),
   })
   .strict();
 const unique = <T>(a: T[]) => new Set(a).size === a.length;

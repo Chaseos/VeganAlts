@@ -5,6 +5,7 @@ import { commentServices } from "../comments/infrastructure/composition";
 import { communityServices } from "../community/infrastructure/composition";
 import { invalidateCommunityProduct } from "../community/infrastructure/invalidation";
 import {
+  aisleDemand,
   foodReview,
   taxonomyServices,
 } from "../taxonomy/infrastructure/composition";
@@ -54,6 +55,7 @@ export async function runAutomation(env: Cloudflare.Env) {
   const foods = foodReview(env);
   await step("reviewedFoods", () => foods.sweep());
   await step("expiredFoods", () => foods.expire());
+  await step("gatheredAisles", () => aisleDemand(env).sweep());
   await step("continuedFoodSubmissions", async () => {
     const published =
       await communityServices(env).moderation.sweepFoodDecisions();

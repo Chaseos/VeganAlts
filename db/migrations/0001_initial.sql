@@ -85,7 +85,7 @@ CREATE TABLE `categories` (
 	`is_rankable` integer DEFAULT 0 NOT NULL,
 	`is_active` integer DEFAULT 1 NOT NULL,
 	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL, `revision` integer DEFAULT 0 NOT NULL, `position` integer, `season_start` integer, `season_end` integer, `provisional_until` integer,
+	`updated_at` integer NOT NULL, `revision` integer DEFAULT 0 NOT NULL, `position` integer, `season_start` integer, `season_end` integer, `provisional_until` integer, `origin_country_id` text REFERENCES `countries`(`id`) ON DELETE SET NULL,
 	FOREIGN KEY (`parent_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE restrict,
 	CONSTRAINT "ck_categories_1" CHECK(is_rankable IN (0, 1)),
 	CONSTRAINT "ck_categories_2" CHECK(is_active IN (0, 1))
@@ -789,6 +789,38 @@ CREATE TABLE `category_proposals` (
 	CONSTRAINT "ck_category_proposals_data" CHECK(json_valid("category_proposals"."proposed_data")),
 	CONSTRAINT "ck_category_proposals_review" CHECK("category_proposals"."review" IS NULL OR json_valid("category_proposals"."review"))
 );
+--> statement-breakpoint
+CREATE TABLE `aisle_proposals` (
+	`id` text PRIMARY KEY NOT NULL,
+	`country_id` text NOT NULL,
+	`name` text NOT NULL,
+	`name_key` text NOT NULL,
+	`language` text DEFAULT 'en' NOT NULL,
+	`status` text DEFAULT 'gathering' NOT NULL,
+	`review` text,
+	`resolution_note` text,
+	`opened_category_id` text,
+	`last_support_at` integer NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`country_id`) REFERENCES `countries`(`id`) ON UPDATE no action ON DELETE restrict,
+	FOREIGN KEY (`opened_category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE set null,
+	CONSTRAINT "ck_aisle_proposals_status" CHECK("aisle_proposals"."status" IN ('gathering','queued','opened','closed')),
+	CONSTRAINT "ck_aisle_proposals_review" CHECK("aisle_proposals"."review" IS NULL OR json_valid("aisle_proposals"."review"))
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `ux_aisle_proposals_open` ON `aisle_proposals` (`country_id`,`name_key`) WHERE status IN ('gathering','queued');
+--> statement-breakpoint
+CREATE TABLE `aisle_proposal_foods` (
+	`food_proposal_id` text PRIMARY KEY NOT NULL,
+	`aisle_proposal_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`food_proposal_id`) REFERENCES `category_proposals`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`aisle_proposal_id`) REFERENCES `aisle_proposals`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `ix_aisle_proposal_foods` ON `aisle_proposal_foods` (`aisle_proposal_id`);
 --> statement-breakpoint
 CREATE TABLE `category_slug_history` (
 	`old_slug` text PRIMARY KEY NOT NULL,

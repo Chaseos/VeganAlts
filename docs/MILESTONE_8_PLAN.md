@@ -245,14 +245,14 @@ The state sent to the models is built by a single function with an explicit fiel
 
 ### 6.4 Aisle suggestions
 
-`AisleSelect` gains "None of these fit", used in both `propose-category.tsx` and the Add a product food picker. It asks for the aisle name. In the contracts, `aisleId` becomes optional beside a new `newAisle: { name }`, and exactly one must be set.
+Built at checkpoint 5. Beneath the aisle choice, in both `propose-category.tsx` and the Add a product food picker, "None of these really fit" asks for the missing aisle's name. `aisleId` stays required, as the closest aisle, and an optional `newAisle: { name }` sits beside it. This is simpler than the first design, where Clef chose the aisle: it needs no new path for a food without one, and it still works when review is off.
 
-1. Clef chooses the nearest existing aisle. The food goes through §6.3 and lands there, so **no food or product ever waits on an aisle.**
-2. The aisle becomes a `category_proposals` row of `kind='aisle'`, status `gathering`, linked to its foods.
-3. Clef checks it against the aisles and other gathering proposals. A match counts as support for the existing proposal, and it uses the milestone 7 test that an aisle names a kind of product.
+1. The food goes through §6.3 in the closest aisle, so **no food or product ever waits on an aisle.**
+2. The hourly sweep turns each suggestion into demand on an `aisle_proposals` row, status `gathering`, joined to its foods through `aisle_proposal_foods`. These are new tables, because `category_proposals` can't take a new status without rebuilding it on staging. The same name in the same country is the same proposal.
+3. Clef checks a proposal with enough demand against the aisles and the milestone 7 test that an aisle names a kind of product. A clear no, or a clear match with an existing aisle, closes it. Anything uncertain goes to the queue.
 4. **It opens** when at least 3 distinct active accounts support it, or at least 5 visible products sit in its foods from at least 2 accounts. Accounts must be over 24 hours old. Clef must also rate it sensible at ≥ 0.85.
-5. **Cap:** 6 local aisles per country and one new one per week. A proposal over the cap goes to the queue.
-6. **On opening:** the system account creates the aisle and moves its foods, using the audited re-parent path.
+5. **Cap:** 6 local aisles per country and one new one per week. A proposal over the cap goes to the queue. A queue-only country queues every proposal with demand.
+6. **On opening:** the system account creates the aisle and moves the foods created for it, using the audited re-parent path. A name added to an older food leaves that food where it is, and a food still undecided stays in the closest aisle. An operator can open or close any proposal from the digest. A local aisle's name is English until language names are added for it.
 7. **Expiry:** after 180 days with no new support the proposal closes. The foods stay where they are.
 
 ### 6.5 Model choice and calibration
@@ -464,8 +464,9 @@ All of this folds into `db/migrations/0001_initial.sql`, per the version 1 rule.
 |---|---|
 | `category_aliases` | Add `language`; new display index; amended triggers |
 | `categories` | Add `origin_country_id`, `provisional_until` |
-| `category_proposals` | Add `kind`, `language`, `aisle_proposal_id`, `review` (JSON), `decide_by`; add status `gathering`; add queue index on `decide_by` |
-| `category_proposal_supports` | New: `(proposal_id, user_id, created_at)` |
+| `category_proposals` | Add `review` (JSON) |
+| `aisle_proposals` | New: one row per asked-for aisle in a country |
+| `aisle_proposal_foods` | New: the foods, and so the accounts, behind each proposal |
 | `profiles` | Add `preferred_language` |
 | `products` | Add `name_language` |
 | `product_name_translations` | New, in the last checkpoint |

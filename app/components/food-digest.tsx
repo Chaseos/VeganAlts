@@ -4,6 +4,9 @@ import type { TaxonomyService } from "@server/taxonomy/application/taxonomy-serv
 import { dateLabel, type CommunityAction } from "../lib/community";
 
 type Row = Awaited<ReturnType<TaxonomyService["digest"]>>[number];
+type AisleRow = Awaited<
+  ReturnType<TaxonomyService["aisleSuggestions"]>
+>[number];
 
 const STATUS: Record<string, string> = {
   accepted: "Accepted",
@@ -28,6 +31,101 @@ export function FoodDigest({
         <DigestRow key={row.id} row={row} action={action} />
       ))}
     </>
+  );
+}
+
+/** Aisles people asked for. Foods sit in the closest aisle meanwhile. */
+export function AisleSuggestions({
+  rows,
+  action,
+}: {
+  rows: AisleRow[];
+  action: CommunityAction;
+}) {
+  if (!rows.length) return null;
+  return (
+    <section>
+      <h2>Aisle suggestions</h2>
+      {rows.map((row) => (
+        <AisleSuggestion key={row.id} row={row} action={action} />
+      ))}
+    </section>
+  );
+}
+
+function AisleSuggestion({
+  row,
+  action,
+}: {
+  row: AisleRow;
+  action: CommunityAction;
+}) {
+  const revalidator = useRevalidator();
+  async function decide(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const form = new FormData(event.currentTarget);
+    const decision = submitter?.getAttribute("value") ?? "close";
+    await action.run(async () => {
+      await action.request(`admin/moderation/aisle/${row.id}/decide`, {
+        decision,
+        note: form.get("note"),
+        ...(decision === "open" ? { name: form.get("name") } : {}),
+      });
+      await revalidator.revalidate();
+    });
+  }
+  return (
+    <article className="community-panel">
+      <p>
+        <strong>{row.name}</strong>
+        {row.englishName && ` · ${row.englishName}`}
+        {` · ${row.country}`}
+      </p>
+      <p className="small muted">
+        {row.status === "queued" ? "Needs a decision" : "Gathering demand"}
+        {` · ${row.people} ${row.people === 1 ? "person" : "people"}`}
+        {row.note && ` · ${row.note}`}
+      </p>
+      {row.foods && <p className="small">Foods: {row.foods}</p>}
+      <form className="community-form" onSubmit={decide}>
+        <label htmlFor={`aisle-name-${row.id}`}>English name</label>
+        <input
+          id={`aisle-name-${row.id}`}
+          name="name"
+          required
+          minLength={2}
+          maxLength={160}
+          defaultValue={row.englishName ?? row.name}
+        />
+        <label htmlFor={`aisle-note-${row.id}`}>Why?</label>
+        <input
+          id={`aisle-note-${row.id}`}
+          name="note"
+          required
+          minLength={8}
+          maxLength={2000}
+        />
+        <div className="button-row">
+          <button
+            className="button small-button"
+            name="decision"
+            value="open"
+            disabled={action.busy}
+          >
+            Open aisle
+          </button>
+          <button
+            className="button secondary small-button"
+            name="decision"
+            value="close"
+            disabled={action.busy}
+          >
+            Close suggestion
+          </button>
+        </div>
+      </form>
+    </article>
   );
 }
 

@@ -8,6 +8,11 @@ import type { ReceiptWrite } from "../../community/infrastructure/receipts";
 import { SYSTEM_ACTOR_ID } from "../../community/domain/policy";
 import type { FoodReview } from "../../moderation/domain/food-review";
 import type { ReviewRow } from "../application/food-review";
+import type {
+  AisleReview,
+  AisleRow,
+  AisleSuggestion,
+} from "../application/aisle-demand";
 import {
   invalidCountry,
   type CategoryPatch,
@@ -16,6 +21,11 @@ import {
 } from "../domain/taxonomy";
 import { DEFAULT_DIMENSIONS } from "../../ratings/domain/details";
 import { resolveCategoryRedirect } from "./redirects";
+
+// MODERATION, Milestone 8 policy: what opens a local aisle.
+const AISLE_SUPPORTERS = 3;
+const AISLE_PRODUCTS = 5;
+const AISLE_PRODUCT_ACCOUNTS = 2;
 
 export interface CategoryRecord extends CategoryState {
   id: string;
@@ -891,6 +901,201 @@ export class D1TaxonomyRepository {
     return rows.results.map((row) => ({
       ...row,
       aliases: JSON.parse(row.aliases) as string[],
+    }));
+  }
+  async aisleRoot() {
+    return (await this.db
+      .prepare(
+        "SELECT id FROM categories WHERE parent_id IS NULL AND is_rankable=0 LIMIT 1",
+      )
+      .first<string>("id"))!;
+  }
+  // A local aisle's demand comes from the foods suggested for it.
+  async unlinkedAisleSuggestions(limit: number) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT p.id AS foodProposalId,p.submitted_by AS userId,p.country_id AS countryId,
+          json_extract(p.proposed_data,'$.newAisle.name') AS name,
+          json_extract(p.proposed_data,'$.language') AS language,p.created_at AS createdAt
+          FROM category_proposals p
+          WHERE json_extract(p.proposed_data,'$.newAisle.name') IS NOT NULL
+          AND p.status<>'rejected' AND p.country_id IS NOT NULL
+          AND NOT EXISTS(SELECT 1 FROM aisle_proposal_foods f WHERE f.food_proposal_id=p.id)
+          ORDER BY p.created_at LIMIT ?`,
+        )
+        .bind(limit)
+        .all<AisleSuggestion>()
+    ).results;
+  }
+  linkAisleSuggestion(
+    suggestion: AisleSuggestion,
+    proposal: { id: string; key: string; status: "gathering" | "closed" },
+    now: number,
+  ) {
+    return this.db.batch([
+      this.db
+        .prepare(
+          `INSERT INTO aisle_proposals(id,country_id,name,name_key,language,status,last_support_at,created_at,updated_at)
+          VALUES(?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(country_id,name_key) WHERE status IN ('gathering','queued')
+          DO UPDATE SET last_support_at=excluded.last_support_at,updated_at=excluded.updated_at`,
+        )
+        .bind(
+          proposal.id,
+          suggestion.countryId,
+          suggestion.name,
+          proposal.key,
+          suggestion.language ?? "en",
+          proposal.status,
+          now,
+          now,
+          now,
+        ),
+      this.db
+        .prepare(
+          `INSERT OR IGNORE INTO aisle_proposal_foods(food_proposal_id,aisle_proposal_id,user_id,created_at)
+          SELECT ?,id,?,? FROM aisle_proposals
+          WHERE id=? OR (country_id=? AND name_key=? AND status IN ('gathering','queued')) LIMIT 1`,
+        )
+        .bind(
+          suggestion.foodProposalId,
+          suggestion.userId,
+          now,
+          proposal.id,
+          suggestion.countryId,
+          proposal.key,
+        ),
+    ]);
+  }
+  closeIdleAisles(before: number, now: number) {
+    return this.db
+      .prepare(
+        "UPDATE aisle_proposals SET status='closed',resolution_note='No new support for 180 days.',updated_at=? WHERE status IN ('gathering','queued') AND last_support_at<?",
+      )
+      .bind(now, before)
+      .run();
+  }
+  async aislesWithDemand(accountsBefore: number, limit: number) {
+    const foods = `FROM aisle_proposal_foods f JOIN category_proposals p ON p.id=f.food_proposal_id`;
+    const grown = (column: string) =>
+      `JOIN profiles u ON u.user_id=${column} AND u.account_state='active' AND u.created_at<=?1`;
+    return (
+      await this.db
+        .prepare(
+          `SELECT a.id,a.name,a.language,co.iso2 AS country,a.country_id AS countryId,
+          (SELECT f.user_id FROM aisle_proposal_foods f WHERE f.aisle_proposal_id=a.id ORDER BY f.created_at LIMIT 1) AS userId
+          FROM aisle_proposals a JOIN countries co ON co.id=a.country_id
+          WHERE a.status='gathering' AND (
+            (SELECT COUNT(DISTINCT f.user_id) ${foods} ${grown("f.user_id")}
+             WHERE f.aisle_proposal_id=a.id AND p.status<>'rejected')>=${AISLE_SUPPORTERS}
+            OR (SELECT COUNT(DISTINCT pr.id)>=${AISLE_PRODUCTS} AND COUNT(DISTINCT pr.created_by)>=${AISLE_PRODUCT_ACCOUNTS}
+             ${foods} JOIN product_categories pc ON pc.category_id=p.resolved_category_id
+             JOIN products pr ON pr.id=pc.product_id AND pr.lifecycle_status<>'hidden' ${grown("pr.created_by")}
+             WHERE f.aisle_proposal_id=a.id AND p.status='accepted')
+          ) ORDER BY a.created_at LIMIT ?2`,
+        )
+        .bind(accountsBefore, limit)
+        .all<AisleRow>()
+    ).results;
+  }
+  aisleProposal(id: string) {
+    return this.db
+      .prepare(
+        `SELECT a.id,a.name,a.language,a.status,a.review,co.iso2 AS country,a.country_id AS countryId,
+        (SELECT f.user_id FROM aisle_proposal_foods f WHERE f.aisle_proposal_id=a.id ORDER BY f.created_at LIMIT 1) AS userId
+        FROM aisle_proposals a JOIN countries co ON co.id=a.country_id WHERE a.id=?`,
+      )
+      .bind(id)
+      .first<AisleRow & { status: string; review: string | null }>();
+  }
+  settleAisle(
+    id: string,
+    status: "queued" | "closed",
+    review: AisleReview | null,
+    note: string,
+    now: number,
+  ) {
+    return this.db
+      .prepare(
+        "UPDATE aisle_proposals SET status=?,review=COALESCE(?,review),resolution_note=?,updated_at=? WHERE id=? AND status IN ('gathering','queued')",
+      )
+      .bind(status, review ? JSON.stringify(review) : null, note, now, id)
+      .run();
+  }
+  async localAisleCount(countryId: string) {
+    return (await this.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM categories WHERE origin_country_id=? AND is_active=1 AND is_rankable=0",
+      )
+      .bind(countryId)
+      .first<number>("n"))!;
+  }
+  async aislesOpenedSince(countryId: string, since: number) {
+    return (await this.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM aisle_proposals WHERE country_id=? AND status='opened' AND updated_at>=?",
+      )
+      .bind(countryId, since)
+      .first<number>("n"))!;
+  }
+  /** Foods created for this aisle. A name added to an old food stays put. */
+  async aisleFoods(id: string) {
+    return (
+      await this.db
+        .prepare(
+          `SELECT p.resolved_category_id AS id FROM aisle_proposal_foods f
+          JOIN category_proposals p ON p.id=f.food_proposal_id
+          WHERE f.aisle_proposal_id=? AND p.status='accepted' AND p.resolved_category_id IS NOT NULL`,
+        )
+        .bind(id)
+        .all<{ id: string }>()
+    ).results.map((row) => row.id);
+  }
+  finishAisle(
+    id: string,
+    categoryId: string,
+    countryId: string,
+    note: string,
+    now: number,
+  ) {
+    return this.db.batch([
+      this.db
+        .prepare("UPDATE categories SET origin_country_id=? WHERE id=?")
+        .bind(countryId, categoryId),
+      this.db
+        .prepare(
+          "UPDATE aisle_proposals SET status='opened',opened_category_id=?,resolution_note=?,updated_at=? WHERE id=?",
+        )
+        .bind(categoryId, note, now, id),
+    ]);
+  }
+  async aisleSuggestions() {
+    return (
+      await this.db
+        .prepare(
+          `SELECT a.id,a.name,a.status,a.review,a.resolution_note AS note,co.iso2 AS country,
+          (SELECT COUNT(DISTINCT f.user_id) FROM aisle_proposal_foods f WHERE f.aisle_proposal_id=a.id) AS people,
+          (SELECT group_concat(p.name,', ') FROM aisle_proposal_foods f JOIN category_proposals p ON p.id=f.food_proposal_id WHERE f.aisle_proposal_id=a.id) AS foods
+          FROM aisle_proposals a JOIN countries co ON co.id=a.country_id
+          WHERE a.status IN ('gathering','queued')
+          ORDER BY a.status='queued' DESC,a.last_support_at DESC LIMIT 100`,
+        )
+        .all<{
+          id: string;
+          name: string;
+          status: string;
+          review: string | null;
+          note: string | null;
+          country: string;
+          people: number;
+          foods: string | null;
+        }>()
+    ).results.map(({ review, ...row }) => ({
+      ...row,
+      englishName: review
+        ? ((JSON.parse(review) as AisleReview).text?.englishName ?? null)
+        : null,
     }));
   }
   async aisleOptions() {

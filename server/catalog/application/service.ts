@@ -235,9 +235,10 @@ export class CatalogService {
   async aisles(market: Market) {
     const taxonomy = await this.repository.taxonomy(market.id);
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
-    return aisleTree(taxonomy.categories, counts, { withEmpty: true }).map(
-      (aisle) => ({ id: aisle.id, slug: aisle.slug, name: aisle.name }),
-    );
+    return aisleTree(taxonomy.categories, counts, {
+      withEmpty: true,
+      country: market.id,
+    }).map((aisle) => ({ id: aisle.id, slug: aisle.slug, name: aisle.name }));
   }
 
   /**

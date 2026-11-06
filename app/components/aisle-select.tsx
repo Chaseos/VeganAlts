@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { groupCategories } from "../lib/navigation-groups";
 
 export interface AisleOption {
@@ -18,7 +19,7 @@ export function AisleSelect({
   name,
   required = false,
   error,
-  hint = "Choose the broad category this food belongs to.",
+  hint = "Choose the closest broad category for this food.",
 }: {
   id: string;
   aisles: AisleOption[];
@@ -63,6 +64,49 @@ export function AisleSelect({
           {error}
         </p>
       )}
+    </>
+  );
+}
+
+/** Lets a contributor name the aisle they wish existed. Nothing waits on it. */
+export function NewAisleField({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  onChange: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(value !== "");
+  const hintId = `${id}-hint`;
+  if (!open)
+    return (
+      <p>
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => setOpen(true)}
+        >
+          None of these really fit
+        </button>
+      </p>
+    );
+  return (
+    <>
+      <label htmlFor={id}>What category is missing? (optional)</label>
+      <input
+        id={id}
+        value={value}
+        minLength={2}
+        maxLength={160}
+        aria-describedby={hintId}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <p id={hintId} className="small muted">
+        Your food goes in the closest category for now. A new one opens once
+        enough people ask for it.
+      </p>
     </>
   );
 }

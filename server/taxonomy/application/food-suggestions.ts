@@ -68,6 +68,7 @@ export interface SuggestedFood {
   aisleId: string;
   country: string;
   aliases: string[];
+  newAisle?: string | undefined;
 }
 
 /**
@@ -99,6 +100,20 @@ export class FoodSuggestions {
       rankable: true,
     });
     await assertAisle(this.repository, food.aisleId);
+    if (food.newAisle) {
+      const wanted = categoryKey(food.newAisle);
+      const taken = (await this.repository.names()).some(
+        (n) =>
+          n.isAlias === 0 &&
+          n.rankable === 0 &&
+          categoryKey(n.value) === wanted,
+      );
+      if (taken)
+        throw new ApplicationError(
+          "AISLE_EXISTS",
+          `“${food.newAisle}” is already a category. Choose it from the list.`,
+        );
+    }
     // Every suggestion belongs to a country people can browse.
     if (!(await this.repository.countryActive(food.country)))
       throw invalidCountry();

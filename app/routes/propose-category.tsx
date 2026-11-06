@@ -5,7 +5,7 @@ import { communityPageActor } from "@server/community/http/page";
 import { catalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader } from "@server/catalog/http/loader";
 import { PageShell } from "../components/layout/page-shell";
-import { AisleSelect } from "../components/aisle-select";
+import { AisleSelect, NewAisleField } from "../components/aisle-select";
 import {
   CommunityControls,
   CommunityFeedback,
@@ -51,6 +51,7 @@ export default function ProposeCategory({
   const [aisleId, setAisleId] = useState(
     aisles.find((a) => a.slug === aisle || a.id === aisle)?.id ?? "",
   );
+  const [newAisle, setNewAisle] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -60,6 +61,7 @@ export default function ProposeCategory({
         name,
         aisleId,
         country: market.code,
+        ...(newAisle.trim() ? { newAisle: { name: newAisle.trim() } } : {}),
         ...(explanation ? { explanation } : {}),
         aliases: list(form.get("aliases")).slice(0, 10),
       }),
@@ -110,6 +112,11 @@ export default function ProposeCategory({
               value={aisleId}
               onChange={setAisleId}
               required
+            />
+            <NewAisleField
+              id="new-aisle"
+              value={newAisle}
+              onChange={setNewAisle}
             />
             <label htmlFor="category-aliases">
               Other names (optional, separated by commas)

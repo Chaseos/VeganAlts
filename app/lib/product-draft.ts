@@ -42,6 +42,7 @@ const foodPick = z.discriminatedUnion("kind", [
     name: z.string(),
     aisleId: z.string(),
     otherNames: z.array(z.string()),
+    newAisle: z.string().optional(),
   }),
 ]);
 const draftSchema = z.object({
@@ -311,6 +312,9 @@ export function toSubmission(
             name: food.name.trim(),
             aisleId: food.aisleId,
             ...(food.otherNames.length ? { aliases: food.otherNames } : {}),
+            ...(food.newAisle?.trim()
+              ? { newAisle: { name: food.newAisle.trim() } }
+              : {}),
           },
         }
       : {}),
@@ -382,6 +386,9 @@ export function fromSubmission(
           name: input.newFood.name,
           aisleId: input.newFood.aisleId,
           otherNames: input.newFood.aliases ?? [],
+          ...(input.newFood.newAisle
+            ? { newAisle: input.newFood.newAisle.name }
+            : {}),
         }
       : first
         ? { kind: "existing", id: first }

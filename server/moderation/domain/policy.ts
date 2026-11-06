@@ -115,6 +115,7 @@ export function evaluatePolicy(
   switch (kind) {
     // Food review's lanes live in food-review.ts, over the raw answers.
     case "food_review":
+    case "aisle_review":
     case "content_safety":
       return { outcome: "READY", reasons: [], flags: [] };
     case "comment": {

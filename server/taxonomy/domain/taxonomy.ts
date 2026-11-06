@@ -79,6 +79,8 @@ export const categoryProposalInput = z
     explanation: z.string().trim().max(2000).optional(),
     exampleProducts: z.array(shortText).max(5).default([]),
     aliases: aliasList,
+    // The aisle it would rather be in. The food goes in `aisleId` meanwhile.
+    newAisle: z.object({ name: shortText }).strict().optional(),
   })
   .strict();
 // Proposals stored before milestone 5 named an optional parent instead.

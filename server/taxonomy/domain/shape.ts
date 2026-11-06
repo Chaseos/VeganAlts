@@ -16,6 +16,8 @@ export interface TaxonomyNode {
   // A seasonal food's months.
   seasonStart?: number | null;
   seasonEnd?: number | null;
+  // A local aisle's home country; null for the shared aisles.
+  originCountryId?: string | null;
 }
 
 export interface ShapedNode extends TaxonomyNode {
@@ -122,10 +124,15 @@ export function aisleFood(
 // Foods not on in the country are left out. An aisle appears once it holds a
 // product (owner, 2026-11-05), unless `withEmpty`: Suggest a food can place the
 // first one, and those take their default place among aisles without ratings.
+// `country` leaves out other countries' local aisles until one of their foods
+// is on here.
 export function aisleTree(
   nodes: TaxonomyNode[],
   counts: Map<string, FoodCounts>,
-  { withEmpty = false }: { withEmpty?: boolean } = {},
+  {
+    withEmpty = false,
+    country,
+  }: { withEmpty?: boolean; country?: string } = {},
 ): Aisle[] {
   const shaped = taxonomyShape(nodes);
   return [...shaped.values()]
@@ -145,6 +152,10 @@ export function aisleTree(
         id: aisle.id,
         slug: aisle.slug,
         name: aisle.name,
+        foreign:
+          !!country &&
+          !!aisle.originCountryId &&
+          aisle.originCountryId !== country,
         position: aisle.position ?? null,
         silent: silentAisle(aisle, foods),
         foods,
@@ -152,7 +163,11 @@ export function aisleTree(
         productCount: foods.reduce((n, f) => n + f.productCount, 0),
       };
     })
-    .filter((aisle) => withEmpty || aisle.productCount > 0)
+    .filter((aisle) =>
+      withEmpty
+        ? !aisle.foreign || aisle.foods.length > 0
+        : aisle.productCount > 0,
+    )
     .sort(byPopularity)
     .map(({ id, slug, name, silent, foods }) => ({
       id,

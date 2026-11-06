@@ -5,7 +5,8 @@ import { limitedJson, success } from "../../shared/http/json";
 import { protectContribution, protectAiAdmission } from "../../abuse/service";
 import { communityActor, parse } from "../../community/http/handlers";
 import { id, note } from "../../community/domain/contracts";
-import { taxonomyServices } from "../infrastructure/composition";
+import { administrator } from "../../community/domain/policy";
+import { aisleDemand, taxonomyServices } from "../infrastructure/composition";
 
 const key = z.string().regex(/^[A-Za-z0-9_-]{16,100}$/);
 const reason = z.object({ note }).strict();
@@ -19,7 +20,8 @@ export async function taxonomyApi(
   const parts = path.split("/");
   const operator =
     path.startsWith("admin/taxonomy") ||
-    path.startsWith("admin/moderation/category/");
+    path.startsWith("admin/moderation/category/") ||
+    path.startsWith("admin/moderation/aisle/");
   if (!operator && path !== "category-proposals") return null;
   const actor = await communityActor(request, env, operator),
     services = taxonomyServices(env);
@@ -54,6 +56,12 @@ export async function taxonomyApi(
         body,
       ),
     );
+  if (parts[2] === "aisle" && parts[3] && parts[4] === "decide") {
+    administrator(actor);
+    return respond(
+      await aisleDemand(env).decide(actor, parse(id, parts[3]), body),
+    );
+  }
   if (parts[2] === "category" && parts[3] && parts[4] === "undo")
     return respond(
       await services.undoAutomatic(
