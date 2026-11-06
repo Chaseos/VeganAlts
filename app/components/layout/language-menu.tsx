@@ -62,7 +62,10 @@ export function LanguageMenu() {
       align="end"
       tone="kale"
       className="va-country-menu"
-      summaryLabel={t("language.label", { language: LANGUAGE_NAMES[language] })}
+      summaryLabel={t("language.label", {
+        language: LANGUAGE_NAMES[language],
+        code: language.toUpperCase(),
+      })}
       panelLabel={t("language.choose")}
       summary={<span>{language.toUpperCase()}</span>}
     >

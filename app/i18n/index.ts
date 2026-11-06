@@ -10,6 +10,11 @@ export type Dictionary = Record<MessageKey, Message>;
 // shows English, so a preview page always renders.
 const DICTIONARIES: Partial<Record<Language, Dictionary>> = { en };
 
+/** Adds a language. The browser loads its chunk before hydrating. */
+export function addDictionary(language: Language, dictionary: Dictionary) {
+  DICTIONARIES[language] = dictionary;
+}
+
 const LOCALES: Record<Language, string> = {
   en: "en-US",
   fr: "fr-CA",

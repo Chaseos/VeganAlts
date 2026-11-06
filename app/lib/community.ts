@@ -1,4 +1,5 @@
 import { pageLocale, t, type MessageKey } from "../i18n";
+import { en } from "../i18n/en";
 import { useRef, useState } from "react";
 
 /** Stands in for a note someone was allowed to leave blank. */
@@ -173,8 +174,10 @@ export interface CommunityOptions {
   retailers: { id: string; name: string; websiteUrl: string | null }[];
 }
 export type CommunityAction = ReturnType<typeof useCommunityAction>;
+/** A coded value as a word, such as a status. An unlisted code is spelled out. */
 export function friendly(value: string) {
-  return value.replaceAll("_", " ");
+  const key = `code.${value}`;
+  return key in en ? t(key as MessageKey) : value.replaceAll("_", " ");
 }
 // Report reasons whose code doesn't read well on its own (milestone 7).
 const REPORT_REASONS: Record<string, MessageKey> = {

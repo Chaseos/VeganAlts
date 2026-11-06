@@ -8,7 +8,6 @@ import {
   seasonLabel,
   seasonOf,
 } from "../../server/taxonomy/domain/season";
-import { withArticle } from "../../app/lib/format";
 
 const node = (
   id: string,
@@ -98,10 +97,3 @@ describe("seasons", () => {
   });
 });
 
-describe("articles", () => {
-  it("uses an before a vowel", () => {
-    expect(withArticle("eggnog")).toBe("an eggnog");
-    expect(withArticle("italian sausage")).toBe("an italian sausage");
-    expect(withArticle("cheddar")).toBe("a cheddar");
-  });
-});

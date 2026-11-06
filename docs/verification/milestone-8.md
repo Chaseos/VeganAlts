@@ -86,3 +86,22 @@ The gates allow no error at this size: one mistake in 44 is 2.3%, so one case fa
 **Photos.** Sonnet 5.5 got 6 of 6. Clef got 5 of 6, answering UNCLEAR on a matching front photo, which would hold that product for review.
 
 **Cost.** All runs together cost about $1.14 by the script's own token count: $0.60 for the full run, $0.38 for the twelve-language run, $0.04 for the held-out run and about $0.12 for test runs. Haiku text with full Clef comes to about $0.0008 per review.
+
+## Canadian French (2026-11-06)
+
+About 1,280 interface strings, 152 food and aisle names, 15 allergen names and 10 country names. Translated in four batches with the `product-multilingual` skill, then checked twice by separate agents that didn't write the text.
+
+| Check | Result |
+|---|---|
+| First independent review, 1,222 strings | 1 critical, 47 high, 32 medium and 27 low findings; reported score 3.75/30 |
+| Second review after fixes, 197 strings | 0 critical, 0 high, 5 medium, 17 low; applied, except `code.discontinued` and one fix that wasn't a translation |
+| Back-translations of high-stakes strings | 143 recorded |
+| `check_catalog.py` | Passes, with identical strings such as "." and "Menu" allowed |
+
+The first review's critical finding was `filters.freeLabelAny`: the screen-reader label read as if the list was allergen-free when no filter was on. The English had the same ambiguity, so both changed.
+
+The first score is low because the rubric deducts per root cause. No score has been calculated since the fixes, and there has been no native review, so French stays preview-only. Regional food names, `soya`, and the OQLF claims made by the reviewers still need a person.
+
+Not reviewed by a second agent: the country names in `server/catalog/domain/local-names.ts`, and the last wording of `filters.freeLabelAny` and `language.label`.
+
+The French chunk is 84 KB, or 24 KB compressed, and English pages don't load it.

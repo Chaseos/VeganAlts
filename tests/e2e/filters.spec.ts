@@ -219,7 +219,7 @@ test("Free from shows only confirmed labels without the allergen and counts the 
     await expect(
       page.locator(".va-featured").getByText("Contains soy"),
     ).toBeVisible();
-    await page.getByLabel(/^Free from: any allergens/).click();
+    await page.getByLabel(/^Free from: Any/).click();
     const panel = page.getByRole("group", { name: "Allergens to avoid" });
     await panel.getByLabel("Soy", { exact: true }).check();
     await panel.getByRole("button", { name: "Done" }).click();

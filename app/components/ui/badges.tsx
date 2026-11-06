@@ -1,3 +1,4 @@
+import { friendly } from "../../lib/community";
 import type { ReactNode } from "react";
 import { Icon } from "../icons/icon";
 import { counted } from "../../lib/counted";
@@ -47,9 +48,7 @@ const VEGAN_STATUS: Record<string, { label: MessageKey; tone: string }> = {
 };
 
 export const veganStatusLabel = (status: string) =>
-  VEGAN_STATUS[status]
-    ? t(VEGAN_STATUS[status].label)
-    : status.replaceAll("_", " ");
+  VEGAN_STATUS[status] ? t(VEGAN_STATUS[status].label) : friendly(status);
 
 export function VeganStatusChip({ status }: { status: string }) {
   const known = VEGAN_STATUS[status];

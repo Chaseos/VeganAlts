@@ -47,11 +47,6 @@ export function joinList(items: string[]) {
   });
 }
 
-/** "an eggnog", "a cheddar": the indefinite article by the first letter. */
-export function withArticle(noun: string) {
-  return `${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`;
-}
-
 export function lowerFirst(value: string) {
   return value.charAt(0).toLowerCase() + value.slice(1);
 }

@@ -1,3 +1,4 @@
+import { FRENCH_NAMES } from "./french-names";
 import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
 import { DEFAULT_DIMENSIONS } from "../../server/ratings/domain/details";
 
@@ -1382,6 +1383,15 @@ export function taxonomySeedStatements(
           AND NOT EXISTS(SELECT 1 FROM category_aliases a WHERE a.category_id=c.id AND a.country_id=co.id AND a.is_display_name=1)
           ON CONFLICT DO NOTHING;`,
         );
+  // A language's names show on its pages; the English stays searchable.
+  for (const [slug, name] of Object.entries(FRENCH_NAMES))
+    if (!onlyFoods || selectedSlugs.has(slug))
+      statements.push(
+        `INSERT INTO category_aliases(id,category_id,country_id,alias,is_display_name,language,created_at)
+        SELECT ${quote(newId())},c.id,NULL,${quote(name)},1,'fr',${now} FROM categories c
+        WHERE c.slug=${quote(slug)} AND c.name<>${quote(name)}
+        ON CONFLICT DO NOTHING;`,
+      );
   // Questions are seeded only for foods that have none, so an operator's
   // list is never overwritten. SQLite reads the whole SELECT before inserting.
   const questions = (

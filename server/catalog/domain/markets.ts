@@ -1,5 +1,6 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import {
+  chosenLanguage,
   defaultLanguage,
   languagesOf,
   splitLanguage,
@@ -44,10 +45,11 @@ export function parseCountryCode(value: string | null | undefined) {
 // The language of the page being rendered, so a link stays in it without every
 // caller passing it along. The browser reads its own address; the Worker sets
 // this per request in workers/app.ts, because it serves many at once.
-let currentLanguage = (): Language | null =>
-  typeof location === "undefined"
-    ? null
-    : splitLanguage(location.pathname.toLowerCase()).language;
+let currentLanguage = (): Language | null => {
+  if (typeof location === "undefined") return null;
+  const path = location.pathname.toLowerCase();
+  return splitLanguage(path).language ?? chosenLanguage(path, document.cookie);
+};
 export const pageLanguage = () => currentLanguage();
 export function readPageLanguageFrom(source: () => Language | null) {
   currentLanguage = source;

@@ -34,7 +34,7 @@ import {
 import { categorySummary } from "../lib/summaries";
 import { counted } from "../lib/counted";
 import { t } from "../i18n";
-import { formatScore, joinList, withArticle, productName } from "../lib/format";
+import { formatScore, joinList, productName } from "../lib/format";
 import {
   breadcrumbs,
   countryAlternates,
@@ -764,7 +764,7 @@ function FoodRankingList({
           )}
           <p className="va-ranking__add">
             {t("category.knowSwap", {
-              article: withArticle(food.toLowerCase()),
+              food: food.toLowerCase(),
             })}{" "}
             <Link
               className="va-link"

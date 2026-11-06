@@ -183,8 +183,15 @@ export class TaxonomyService {
     return assertNamesAvailable(this.repository, names, scope, except);
   }
   // Aisles are navigation, not search targets: no aliases.
-  private assertGroupAliases(isRankable: boolean, aliases: unknown[]) {
-    if (!isRankable && aliases.length)
+  // An aisle can have a display name in another language, but no search terms.
+  private assertGroupAliases(
+    isRankable: boolean,
+    aliases: (string | { displayName?: boolean })[],
+  ) {
+    if (
+      !isRankable &&
+      aliases.some((alias) => typeof alias === "string" || !alias.displayName)
+    )
       throw new ApplicationError(
         "GROUP_ALIASES",
         "Aisles take no aliases or search terms. Add them to a food.",

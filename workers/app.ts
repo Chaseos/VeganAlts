@@ -9,6 +9,7 @@ import {
 } from "../server/shared/http/response-policy";
 import { errorResponse } from "../server/shared/http/security";
 import {
+  chosenLanguage,
   splitLanguage,
   type Language,
 } from "../server/catalog/domain/languages";
@@ -232,7 +233,14 @@ export default {
             url.searchParams.get("q")
           )
             recordEvent(env, "search", "search", route.representation);
-        } else response = await requestHandler(request);
+        } else
+          response = await pageLanguage.run(
+            chosenLanguage(
+              url.pathname.toLowerCase(),
+              request.headers.get("Cookie"),
+            ),
+            () => requestHandler(request),
+          );
       }
     } catch (error) {
       if (!(error instanceof ApplicationError))

@@ -1,3 +1,4 @@
+import { countryName } from "../domain/local-names";
 import { foldForMatch } from "../../shared/domain/text";
 import { ApplicationError } from "../../shared/domain/errors";
 import {
@@ -166,7 +167,7 @@ export class CatalogService {
         id: row.id,
         code: row.iso2.toLowerCase(),
         iso2: row.iso2,
-        name: row.name,
+        name: countryName(row.iso2, row.name),
       } satisfies Market,
       hasRankings: !!row.hasRankings,
     }));

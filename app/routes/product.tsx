@@ -338,7 +338,7 @@ export default function Product({
               {p.lifecycleStatus !== "active" && (
                 <Notice>
                   {t("product.lifecycle", {
-                    status: p.lifecycleStatus.replaceAll("_", " "),
+                    status: friendly(p.lifecycleStatus),
                   })}
                 </Notice>
               )}
@@ -667,11 +667,9 @@ export default function Product({
                   : p.ingredientTranscription.verification === "no_source"
                     ? t("product.verifiedNoSource")
                     : t("product.verifiedFromLabel", {
-                        status:
-                          p.ingredientTranscription.verification.replaceAll(
-                            "_",
-                            " ",
-                          ),
+                        status: friendly(
+                          p.ingredientTranscription.verification,
+                        ),
                       })}
               </p>
               {p.ingredientTranscription.ingredients ? (
@@ -852,7 +850,7 @@ export default function Product({
                         ? t("product.current")
                         : t("product.historical")}
                       {v.effectiveDate
-                        ? ` · ${t("product.effective", { date: v.effectiveDate, precision: v.effectiveDatePrecision })}`
+                        ? ` · ${t("product.effective", { date: v.effectiveDate, precision: friendly(v.effectiveDatePrecision) })}`
                         : ""}
                     </span>
                   </li>

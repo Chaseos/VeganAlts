@@ -895,6 +895,11 @@ it("names a food by language, falling back through the country to English", asyn
     )
       .bind(id(), food, country, alias, language)
       .run();
+  await env.DB.prepare(
+    "DELETE FROM category_aliases WHERE category_id=? AND language='fr'",
+  )
+    .bind(food)
+    .run();
   // No French name yet: the country's English name, then the base name.
   expect(await name("gb", "fr")).toBe("Beef mince");
   expect(await name("ca", "fr")).toBe("Ground Beef");

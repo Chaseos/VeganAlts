@@ -1,3 +1,4 @@
+import { allergenName } from "../../catalog/domain/local-names";
 import {
   normalizeDeclaration,
   type AllergenDeclaration,
@@ -188,7 +189,10 @@ export class ModerationRepository {
             proposalId: rows[7]!.results[0].proposalId ?? null,
           }
         : null,
-      allergenList: rows[8]!.results,
+      allergenList: rows[8]!.results.map((allergen) => ({
+        ...allergen,
+        label: allergenName(String(allergen.key), String(allergen.label)),
+      })),
     } as unknown as ProductSnapshot;
   }
   proposal(id: string) {

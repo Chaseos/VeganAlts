@@ -1,7 +1,7 @@
 // The site's frame: header, menus, footer and error pages.
 export const chrome = {
   "chrome.skipToContent": "Skip to content",
-  "language.label": "Language: {language}. Change language",
+  "language.label": "Language: {language} ({code}). Change language",
   "language.choose": "Choose a language",
   "language.heading": "Language",
   "language.prompt": "View this page in {language}?",

@@ -52,6 +52,21 @@ export function languageFor(
   );
 }
 
+const SHARED_PAGES = /^\/(?:$|about(?:\/|$)|users\/|api\/)/;
+
+/**
+ * A page with no language in its address follows the visitor's choice. Pages
+ * cached for everyone, such as `/` and `/about`, never do.
+ */
+export function chosenLanguage(
+  path: string,
+  cookies: string | null | undefined,
+) {
+  if (SHARED_PAGES.test(path)) return null;
+  const chosen = cookies?.match(/(?:^|;\s*)va_lang=([a-z]{2})/)?.[1];
+  return isLanguage(chosen) ? (chosen as Language) : null;
+}
+
 /** Separates a language segment from a lowercase path: /ca/fr/beef. */
 export function splitLanguage(path: string) {
   const match = path.match(/^\/([a-z]{2})\/([a-z]{2})(?=\/|$)(.*)$/);

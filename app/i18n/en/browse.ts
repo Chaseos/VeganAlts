@@ -109,7 +109,7 @@ export const browse = {
   "category.longTerm": "Closest match shows the long-term ranking.",
   "category.unratedNote":
     "These have no ratings, so they aren’t ranked. Tried one?",
-  "category.knowSwap": "Know {article} swap that isn’t here?",
+  "category.knowSwap": "Know a swap for {food} that isn’t here?",
   "category.replacing": "Replacing something else?",
   "category.wrong": "Something wrong here?",
   "category.report": "Report this food",
@@ -198,7 +198,7 @@ export const browse = {
   "filters.free": "{name}-free",
   "filters.any": "Any",
   "filters.freeLabelChosen": "Free from: {summary}. Allergens: {names}",
-  "filters.freeLabelAny": "Free from: any allergens",
+  "filters.freeLabelAny": "Free from: Any. No allergen chosen",
   "filters.allergensPanel": "Allergens to avoid",
   "filters.freeFrom": "Free from:",
   "filters.avoid": "Avoid products whose label lists",

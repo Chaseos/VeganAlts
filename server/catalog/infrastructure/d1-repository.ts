@@ -25,6 +25,7 @@ import type {
 } from "../domain/contracts";
 import type { RankingFilters } from "../domain/filters";
 import type { AllergenDeclaration } from "../../community/domain/allergens";
+import { allergenName } from "../domain/local-names";
 import type { TaxonomyNode } from "../../taxonomy/domain/shape";
 import { eligibleProductSql as eligible } from "../../ranking/infrastructure/read-policy";
 import {
@@ -740,7 +741,13 @@ export class D1CatalogRepository implements CatalogRepository {
         )
         .bind(countryId),
     ]);
-    return { stores: stores!.results, allergens: allergens!.results };
+    return {
+      stores: stores!.results,
+      allergens: allergens!.results.map((allergen) => ({
+        ...allergen,
+        label: allergenName(allergen.key, allergen.label),
+      })),
+    };
   }
 
   async product(

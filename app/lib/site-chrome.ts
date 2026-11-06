@@ -1,5 +1,6 @@
 import { useRouteLoaderData } from "react-router";
 import type { Language } from "@server/catalog/domain/languages";
+import { pageLanguage } from "@server/catalog/domain/markets";
 
 export interface ChromeCountry {
   code: string;
@@ -51,7 +52,7 @@ export const COUNTRY_LAYOUT_ID = "routes/country-layout";
 export function useSiteChrome(): SiteChrome {
   const data = useRouteLoaderData(COUNTRY_LAYOUT_ID) as
     { chrome?: SiteChrome } | undefined;
-  return data?.chrome ?? FALLBACK;
+  return data?.chrome ?? { ...FALLBACK, language: pageLanguage() ?? "en" };
 }
 
 export function useCountryCode() {
