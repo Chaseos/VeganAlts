@@ -1,4 +1,6 @@
 import type { Dictionary } from "..";
+
+export { errors } from "./errors";
 import { codes } from "./codes";
 
 // Canadian French. Terms and rules: docs/operations/translation-glossary.md
@@ -336,7 +338,7 @@ export const fr: Dictionary = {
     "Les allergènes proviennent des étiquettes d’emballage, confirmées par des membres à l’aide de la photo de l’étiquette.",
   "category.categoryName": "Catégorie {name}",
   "category.clearFilters": "Effacer les filtres",
-  "category.closestMatch": "Correspondance la plus proche",
+  "category.closestMatch": "Le plus proche de l’original",
   "category.closestOriginal": "Le plus proche de l’original",
   "category.fallbackFood": "Aliment",
   "category.fewAnswers":

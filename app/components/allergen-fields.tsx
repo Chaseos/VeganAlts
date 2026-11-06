@@ -1,8 +1,6 @@
 import { useState } from "react";
-import {
-  describeDeclaration,
-  type AllergenDeclaration,
-} from "@server/community/domain/allergens";
+import type { AllergenDeclaration } from "@server/community/domain/allergens";
+import { joinList } from "../lib/format";
 import type { ContributorProduct } from "@server/community/domain/moderation";
 import { CheckThePackage } from "./ui/badges";
 import { t } from "../i18n";
@@ -13,6 +11,26 @@ type Product = Pick<
 >;
 export const allergenLabels = (product: Pick<Product, "allergenList">) =>
   Object.fromEntries(product.allergenList.map((a) => [a.key, a.label]));
+
+/** "Contains soy · may contain sesame", in the page's language. */
+function declarationText(
+  declaration: AllergenDeclaration,
+  labels: Record<string, string>,
+) {
+  if (declaration.status === "none_declared") return t("allergen.noneDeclared");
+  const names = (keys: string[]) =>
+    joinList(keys.map((key) => (labels[key] ?? key).toLowerCase()));
+  if (!declaration.contains.length)
+    return t("allergen.mayContainOnly", {
+      list: names(declaration.mayContain),
+    });
+  return (
+    t("allergen.contains", { list: names(declaration.contains) }) +
+    (declaration.mayContain.length
+      ? t("allergen.mayContain", { list: names(declaration.mayContain) })
+      : "")
+  );
+}
 
 /** What the package says, in this country's allergen list. */
 export function AllergenFields({ product }: { product: Product }) {
@@ -39,7 +57,7 @@ export function AllergenFields({ product }: { product: Product }) {
       <p>
         <strong>{t("allergen.onFile")}</strong>{" "}
         {current
-          ? describeDeclaration(current, allergenLabels(product))
+          ? declarationText(current, allergenLabels(product))
           : t("allergen.notConfirmed")}
       </p>
       <AllergenChecklist

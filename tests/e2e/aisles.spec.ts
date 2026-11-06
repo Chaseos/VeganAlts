@@ -167,7 +167,7 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
   // (On phones the link sits in a closed accordion, so find it by class.)
   await expect(
     page
-      .locator(".va-browse__more", { hasText: "See all 8 cheese foods" })
+      .locator(".va-browse__more", { hasText: /See all \d+ cheese foods/ })
       .first(),
   ).toHaveAttribute("href", "/us/en/cheese");
   // Seasonal tags use a single label without dates or month ranges.

@@ -439,7 +439,7 @@ Non-JSX strings (meta titles, label arrays, Zod messages, date and number format
 
 **French built at checkpoint 7.** The dictionary is `app/i18n/fr/`, and `market-sensitive.json` lists what to check when France launches. A second market of a language adds an override file with only its differences, not a second translation. Pages with no language in their address follow the `va_lang` cookie, except pages cached for everyone. Canada's `offered` list doesn't include `fr` until a person reviews the safety wording. Results are in `docs/verification/milestone-8.md`.
 
-**Japanese built at checkpoint 8.** The dictionary is `app/i18n/ja/`. Japan's `offered` list stays English until a person reviews the safety wording, and the country needs a store list. Results are in `docs/verification/milestone-8.md`.
+**Japanese built at checkpoint 8.** The dictionary is `app/i18n/ja/`. Japan's `offered` list stays English until a person reviews the safety wording. Stores come from contributors, with none seeded (owner, 2026-11-06). Results are in `docs/verification/milestone-8.md`.
 
 **Mechanics, with no new dependency:** `app/i18n/en.ts`, `fr.ts` and `ja.ts`, typed so a missing key fails `tsc`, plus about 40 lines of `t()` using `Intl.PluralRules`. English stays in the main bundle. Other languages are one chunk loaded before hydration, chosen from `<html lang>`. API errors keep `message` and gain a client map from `code` to text, so `/api/v1` doesn't change. Dates and numbers use the page language.
 
@@ -496,7 +496,7 @@ Each checkpoint runs `npm run check` and the affected Playwright specs. Per the 
 | 5 | **Aisle suggestions.** UI, contracts, gathering, opening, cap. | A product never waits on an aisle, shown by test |
 | 6 | **Interface.** Extract S1 to S3 to English dictionaries, add font stack, switcher, cookie and prompt. | Visual tests unchanged in English; bundle growth recorded |
 | 7 | **French.** `fr.ts`, names, person review. Add `fr` to Canada's `offered`. | `/ca/fr` live on staging; hreflang and axe pass |
-| 8 | **Japan.** `ja.ts`, names, person review, allergens, stores, country activation. | `/jp` in Japanese, `/jp/en` in English, a Japanese food suggested through to a published product |
+| 8 | **Japan.** `ja.ts`, names, person review, allergens, country activation. | `/jp` in Japanese, `/jp/en` in English, a Japanese food suggested through to a published product |
 | 9 | **Product name translations.** Optional. | Gloss shown on `/jp/en` |
 
 Checkpoints 3, 4 and 5 can run beside 6. AI review (4) is useful even before any new language, because it removes the operator wait in English countries.

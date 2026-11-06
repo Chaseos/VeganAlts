@@ -115,7 +115,7 @@ test("an administrator's photo needs no note and applies at once", async ({
   const operator = await createBrowserSession({ administrator: true });
   try {
     await context.addCookies([operator.cookie]);
-    await page.goto("/us/en/products/oatly-full-fat");
+    await page.goto("/us/en/products/miyokos-salted-butter");
     await page
       .getByRole("link", { name: "Manage product", exact: true })
       .click();

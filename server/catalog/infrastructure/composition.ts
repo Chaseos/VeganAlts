@@ -19,8 +19,8 @@ const service = (env: CatalogEnv, repository: CatalogRepository) => {
   );
 };
 
-export const catalogService = (env: CatalogEnv) =>
-  service(env, new D1CatalogRepository(env.DB));
+export const catalogService = (env: CatalogEnv, language: Language = "en") =>
+  service(env, new D1CatalogRepository(env.DB, language));
 
 const sharedReads = new ReadMemo();
 

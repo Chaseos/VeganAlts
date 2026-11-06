@@ -1,4 +1,4 @@
-import { pageLocale, t, type MessageKey } from "../i18n";
+import { pageLocale, serverMessage, t, type MessageKey } from "../i18n";
 import { en } from "../i18n/en";
 import { useRef, useState } from "react";
 
@@ -135,7 +135,11 @@ export function useCommunityAction() {
         error.code === "CHALLENGE_REQUIRED"
       )
         setChallenge(true);
-      setError(error instanceof Error ? error.message : t("community.errSave"));
+      setError(
+        error instanceof Error
+          ? serverMessage(error.message)
+          : t("community.errSave"),
+      );
       requestAnimationFrame(() => errorRef.current?.focus());
     } finally {
       setBusy(false);

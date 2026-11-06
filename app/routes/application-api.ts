@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { z } from "zod";
-import { publicCatalogService } from "@server/catalog/infrastructure/composition";
+import { catalogService } from "@server/catalog/infrastructure/composition";
 import { pageLanguage } from "@server/catalog/domain/markets";
 import { catalogPage, categoryView } from "@server/catalog/application/service";
 import { batchSection } from "@server/catalog/domain/batches";
@@ -39,7 +39,7 @@ async function handle(request: Request, path: string) {
     if (request.method === "GET" || request.method === "HEAD") {
       if (path === "me/rating-state") return await ratingState(request, env);
       if (path === "me/ratings") return await myRatings(request, env);
-      const catalog = publicCatalogService(env, pageLanguage() ?? "en");
+      const catalog = catalogService(env, pageLanguage() ?? "en");
       const [family, slug, extra] = path.split("/");
       if (family === "products" && slug && extra === "comments")
         return await publicComments(request, slug, env);

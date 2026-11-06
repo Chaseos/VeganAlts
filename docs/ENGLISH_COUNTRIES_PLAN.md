@@ -69,7 +69,7 @@ No starter stores are seeded today: stores are added through the retailer propos
 2. Run `npm run taxonomy:seed:staging`. It adds the rows and rebuilds search.
 3. Deploy staging. A deploy changes the cache identity, so the country menu updates everywhere at once.
 4. Check on staging: `/sg`, `/za` and `/in` open and invite first products, each country's allergen list appears in Add a product, and `hreflang` shows `en-SG`, `en-ZA` and `en-IN`.
-5. Add the stores.
+5. Leave stores to contributors, with none seeded (owner, 2026-11-06).
 
 Production follows the unconfirmed items above and the launch checklist, with `npm run taxonomy:seed:production -- --confirm-taxonomy-only`, when the owner approves it.
 

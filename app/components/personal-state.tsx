@@ -30,7 +30,7 @@ import {
   readPendingSave,
   storePendingSave,
 } from "../lib/pending-save";
-import { t } from "../i18n";
+import { serverMessage, t } from "../i18n";
 
 type User = RatingState["user"];
 interface PersonalContext {
@@ -377,7 +377,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
           if (!controller.signal.aborted)
             setError(
               reason instanceof Error
-                ? reason.message
+                ? serverMessage(reason.message)
                 : t("personal.loadFailedShort"),
             );
         });

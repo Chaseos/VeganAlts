@@ -1,5 +1,7 @@
 import type { Dictionary } from "..";
 
+export { errors } from "./errors";
+
 // Japanese. Terms and rules: docs/operations/translation-glossary.md
 export const ja: Dictionary = {
   "account.activityLabel": "あなたのアクティビティ",

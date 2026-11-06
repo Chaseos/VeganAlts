@@ -217,7 +217,7 @@ test("an administrator edits a product from the same form, applied at once", asy
   const operator = await createBrowserSession({ administrator: true });
   try {
     await context.addCookies([operator.cookie]);
-    await page.goto("/us/en/products/oatly-full-fat");
+    await page.goto("/us/en/products/silk-unsweet-soymilk");
     await page
       .getByRole("link", { name: "Manage product", exact: true })
       .click();

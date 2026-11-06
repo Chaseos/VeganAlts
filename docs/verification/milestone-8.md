@@ -122,4 +122,11 @@ The score is low for the same reason as French, and hasn't been recalculated sin
 
 Found in code by this work: a label with only "may contain" showed "No major allergens on the label" in every language; search refused 卵 and other one- or two-character words; and Japan's animal allergens had to join the list that opens a classification review.
 
-Japan's list is the Consumer Affairs Agency's 9 required and 20 recommended items, as of April 2026. It has no store list yet.
+Japan's list is the Consumer Affairs Agency's 9 required and 20 recommended items, as of April 2026.
+
+## Server messages (2026-11-06)
+
+260 static `ApplicationError` messages are translated in `app/i18n/fr/errors.ts` and `app/i18n/ja/errors.ts`, keyed by their English text. The API stays in English, and the browser swaps the text with `serverMessage`. A message that names data shows in English. An independent review found 0 critical and 1 high finding across both languages, and all 23 findings were fixed.
+
+Each language's chunk is now about 32 KB compressed. English pages don't load either one.
+

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { communityPageActor } from "@server/community/http/page";
 import { communityServices } from "@server/community/infrastructure/composition";
-import { publicCatalogService } from "@server/catalog/infrastructure/composition";
+import { catalogService } from "@server/catalog/infrastructure/composition";
 import { pageLanguage } from "@server/catalog/domain/markets";
 import type { Candidate } from "@server/community/domain/contracts";
 import { PageShell } from "../components/layout/page-shell";
@@ -60,7 +60,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     ? await services.submissions.revisionSource(actor, followUpId)
     : null;
   // A product belongs to the country of the page it was added from.
-  const catalog = publicCatalogService(env, pageLanguage() ?? "en");
+  const catalog = catalogService(env, pageLanguage() ?? "en");
   const markets = (await catalog.markets()).map((row) => row.market);
   const wanted = (followUp?.input.country ?? query.get("country") ?? "")
     .toLowerCase()

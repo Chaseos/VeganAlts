@@ -1,4 +1,4 @@
-import { t } from "../i18n";
+import { serverMessage, t } from "../i18n";
 import { counted } from "./counted";
 import type {
   PersonalRating,
@@ -155,7 +155,9 @@ export class RatingQueue {
                   ? "challenge"
                   : "error",
             message:
-              error instanceof Error ? error.message : t("rating.queueFailed"),
+              error instanceof Error
+                ? serverMessage(error.message)
+                : t("rating.queueFailed"),
           });
         }
       }
