@@ -4,6 +4,13 @@ import {
   filtersAreNormalized,
   readFilters,
 } from "../../catalog/domain/filters";
+import {
+  defaultLanguage,
+  isLanguage,
+  languagesOf,
+  splitLanguage,
+  type Language,
+} from "../../catalog/domain/languages";
 
 export interface PublicRoute {
   kind:
@@ -25,6 +32,7 @@ export interface PublicRoute {
   // Lowercase ISO code of the catalog a read belongs to. Documents carry it in
   // the path; public API reads take a `country` query parameter (default us).
   country?: string;
+  language?: Language;
 }
 
 const COUNTRY = "[a-z]{2}";
@@ -59,15 +67,15 @@ export function publicRoute(url: URL): PublicRoute | null {
       slug: media[1],
     };
   path = path.toLowerCase();
+  const pagePath = path;
+  // A language segment changes what renders, never which page this is.
+  const split = splitLanguage(path);
+  path = split.path;
   const representation = data
     ? "data"
     : path.startsWith("/api/")
       ? "api"
       : "document";
-  const canonical: Pick<PublicRoute, "representation" | "pathname"> = {
-    representation,
-    pathname: data ? (path === "/" ? "/_root.data" : `${path}.data`) : path,
-  };
   const apiCountry =
     representation === "api"
       ? (url.searchParams.get("country") ?? "us").toLowerCase()
@@ -75,6 +83,25 @@ export function publicRoute(url: URL): PublicRoute | null {
   if (apiCountry !== null && !/^[a-z]{2}$/.test(apiCountry)) return null;
   const pathCountry = path.match(ROUTE_COUNTRY)?.[1];
   const country = apiCountry ?? pathCountry ?? "us";
+  const apiLanguage = url.searchParams.get("language");
+  if (representation === "api" && apiLanguage && !isLanguage(apiLanguage))
+    return null;
+  const canonical: Pick<
+    PublicRoute,
+    "representation" | "pathname" | "language"
+  > = {
+    representation,
+    pathname: data
+      ? pagePath === "/"
+        ? "/_root.data"
+        : `${pagePath}.data`
+      : pagePath,
+    language:
+      split.language ??
+      (representation === "api" && apiLanguage
+        ? (apiLanguage as Language)
+        : defaultLanguage(country)),
+  };
   if (path === "/" || path === "/api/v1/categories")
     return { ...canonical, kind: "home", ttl: 1800, country };
   if (path === "/sitemap.xml")
@@ -129,9 +156,20 @@ export function publicRoute(url: URL): PublicRoute | null {
 // Permanent redirects decided from the URL alone, before any cache lookup or
 // D1 read: the United States home lives at "/", and filter parameters have one
 // normalized form so each filter combination is cached once.
-export function publicRedirect(url: URL, route: PublicRoute) {
+export function publicRedirect(url: URL, route: PublicRoute, preview = false) {
   if (route.representation !== "document") return null;
   if (route.kind === "home" && route.pathname === "/us") return "/";
+  const split = splitLanguage(route.pathname);
+  if (split.language) {
+    const country = route.country ?? "us";
+    // The default language has no segment; one the country doesn't offer
+    // falls back to it.
+    if (
+      split.language === defaultLanguage(country) ||
+      !languagesOf(country, preview).includes(split.language)
+    )
+      return `${country === "us" && split.path === "/us" ? "/" : split.path}${url.search}`;
+  }
   if (route.kind === "category" && !filtersAreNormalized(url.searchParams)) {
     const target = new URL(url);
     const params = applyFilters(
@@ -178,8 +216,11 @@ export function normalizedPublicRequest(
     if (filters.freeFrom.length)
       url.searchParams.set("freeFrom", filters.freeFrom.join(","));
   }
-  if (route.representation === "api" && route.country)
+  if (route.representation === "api" && route.country) {
     url.searchParams.set("country", route.country);
+    if (route.language && route.language !== defaultLanguage(route.country))
+      url.searchParams.set("language", route.language);
+  }
   if (route.representation === "data") keys.push("_routes");
   for (const key of keys) {
     const values = incoming.searchParams.getAll(key);
@@ -209,6 +250,7 @@ export function normalizedPublicRequest(
     if (value) url.searchParams.set(key, value);
   }
   if (route.country) url.searchParams.set("__country", route.country);
+  if (route.language) url.searchParams.set("__language", route.language);
   url.searchParams.set("__representation", route.representation);
   url.searchParams.set("__deployment", version);
   url.searchParams.sort();

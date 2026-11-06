@@ -1,4 +1,5 @@
 import { useRouteLoaderData } from "react-router";
+import type { Language } from "@server/catalog/domain/languages";
 
 export interface ChromeCountry {
   code: string;
@@ -20,6 +21,8 @@ export interface ChromeAisle {
 
 // Header, footer and menu data shared by every page in a country.
 export interface SiteChrome {
+  // What this page renders in; only the URL decides it.
+  language: Language;
   country: ChromeCountry;
   countries: ChromeCountry[];
   aisles: ChromeAisle[];
@@ -32,6 +35,7 @@ export const DEFAULT_COUNTRY: ChromeCountry = {
 };
 
 const FALLBACK: SiteChrome = {
+  language: "en",
   country: DEFAULT_COUNTRY,
   countries: [DEFAULT_COUNTRY],
   aisles: [],

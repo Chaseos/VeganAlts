@@ -6,6 +6,7 @@ import { isEarly } from "@server/ranking/domain/display";
 import {
   publicLoader,
   requireCatalogPreview,
+  pageLanguage,
 } from "@server/catalog/http/loader";
 import {
   brandPath,
@@ -25,9 +26,9 @@ import { plural, productName } from "../lib/format";
 import { publicMetadata } from "../lib/metadata";
 import type { Route } from "./+types/brand";
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   requireCatalogPreview(env);
-  const catalog = publicCatalogService(env);
+  const catalog = publicCatalogService(env, pageLanguage(request));
   return publicLoader(async () => {
     const market = await catalog.market(params.country);
     return {

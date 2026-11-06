@@ -12,7 +12,7 @@ const ancestry = `WITH RECURSIVE ancestry(leaf,id,name,parent_id) AS (
 const categoryDocuments = (where: string) =>
   `${ancestry} INSERT INTO search_index(entity_type,entity_id,country_code,title,subtitle,aliases,body)
     SELECT 'category',c.id,country.iso2,
-      COALESCE((SELECT alias FROM category_aliases d WHERE d.category_id=c.id AND d.country_id=country.id AND d.is_display_name=1),c.name),'Category',
+      COALESCE((SELECT alias FROM category_aliases d WHERE d.category_id=c.id AND d.country_id=country.id AND d.is_display_name=1 AND d.language='en'),c.name),'Category',
       c.name || ' ' || COALESCE((SELECT group_concat(alias,' ') FROM category_aliases ca WHERE ca.category_id=c.id AND (ca.country_id IS NULL OR ca.country_id=country.id)),''),
       (SELECT group_concat(name,' ') FROM ancestry a WHERE a.leaf=c.id)
     FROM categories c JOIN category_countries cc ON cc.category_id=c.id

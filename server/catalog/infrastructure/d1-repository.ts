@@ -1,4 +1,5 @@
 import { resolveCategoryRedirect } from "../../taxonomy/infrastructure/redirects";
+import type { Language } from "../domain/languages";
 import type {
   BrandLineRow,
   BrandRow,
@@ -48,9 +49,13 @@ const identity = identityOf("p.name", "p.published_at");
 // Every catalog read is scoped to one active country, bound as its ID.
 const productJoins = `JOIN products p ON p.id=v.product_id AND p.country_id=? JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id`;
 const visible = `p.lifecycle_status <> 'hidden'`;
-// A food's name in a country: its display-name alias there, else its name.
-const displayName = (category: string, country = "?") =>
-  `COALESCE((SELECT d.alias FROM category_aliases d WHERE d.category_id=${category}.id AND d.country_id=${country} AND d.is_display_name=1),${category}.name)`;
+// A food's name in a country and language: that language's own name here, then
+// its name for every country, then the country's English name, then its
+// English base name. `language` comes from a closed list, so it's safe inline.
+const displayName =
+  (language: Language) =>
+  (category: string, country = "?") =>
+    `COALESCE((SELECT d.alias FROM category_aliases d WHERE d.category_id=${category}.id AND d.is_display_name=1 AND (d.country_id=${country} OR d.country_id IS NULL) AND d.language IN ('${language}','en') ORDER BY d.language='${language}' DESC,d.country_id IS NULL LIMIT 1),${category}.name)`;
 // A formula's allergen declaration as JSON, or NULL when none is confirmed.
 const allergensSql = (version = "v") =>
   `(SELECT json_object('status',d.status,
@@ -71,7 +76,9 @@ function parseAllergens<T extends { allergens?: unknown }>(row: T) {
 const onHere = (category: string) =>
   `(${category}.is_rankable=0 OR EXISTS(SELECT 1 FROM category_countries cc WHERE cc.category_id=${category}.id AND cc.country_id=?))`;
 // Binds the country ID three times: display name, product count, availability.
-const categoryFields = `c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,c.season_start AS seasonStart,c.season_end AS seasonEnd,c.provisional_until AS provisionalUntil,
+const categoryFieldsIn = (
+  language: Language,
+) => `c.id,c.slug,${displayName(language)("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,c.season_start AS seasonStart,c.season_end AS seasonEnd,c.provisional_until AS provisionalUntil,
  (SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=c.id AND p.country_id=? AND ${visible}) AS productCount,
  ${onHere("c")} AS available`;
 
@@ -205,7 +212,15 @@ function parseStores<T extends { matchedStores?: unknown }>(rows: T[]) {
 }
 
 export class D1CatalogRepository implements CatalogRepository {
-  constructor(private readonly db: Pick<D1Database, "prepare" | "batch">) {}
+  private readonly displayName: ReturnType<typeof displayName>;
+  private readonly categoryFields: string;
+  constructor(
+    private readonly db: Pick<D1Database, "prepare" | "batch">,
+    language: Language = "en",
+  ) {
+    this.displayName = displayName(language);
+    this.categoryFields = categoryFieldsIn(language);
+  }
 
   async markets() {
     return (
@@ -227,7 +242,7 @@ export class D1CatalogRepository implements CatalogRepository {
     const [categories, counts] = await this.db.batch([
       this.db
         .prepare(
-          `SELECT c.id,c.slug,${displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,${onHere("c")} AS available,
+          `SELECT c.id,c.slug,${this.displayName("c")} AS name,c.parent_id AS parentId,c.is_rankable AS isRankable,${onHere("c")} AS available,
           c.position,c.season_start AS seasonStart,c.season_end AS seasonEnd FROM categories c WHERE c.is_active=1 ORDER BY name LIMIT 2000`,
         )
         .bind(countryId, countryId),
@@ -260,7 +275,7 @@ export class D1CatalogRepository implements CatalogRepository {
     return (
       await this.db
         .prepare(
-          `SELECT ${categoryFields} FROM categories c WHERE c.is_active=1 AND ${onHere("c")} AND ${parentId ? "c.parent_id=?" : "c.is_rankable=1"} ORDER BY c.name LIMIT 100`,
+          `SELECT ${this.categoryFields} FROM categories c WHERE c.is_active=1 AND ${onHere("c")} AND ${parentId ? "c.parent_id=?" : "c.is_rankable=1"} ORDER BY c.name LIMIT 100`,
         )
         .bind(
           countryId,
@@ -317,7 +332,7 @@ export class D1CatalogRepository implements CatalogRepository {
     return (
       await this.db
         .prepare(
-          `SELECT ${categoryFields} FROM category_features f
+          `SELECT ${this.categoryFields} FROM category_features f
           JOIN categories c ON c.id=f.category_id AND c.is_active=1 WHERE f.country_id=? AND ${onHere("c")} ORDER BY f.position LIMIT 12`,
         )
         .bind(countryId, countryId, countryId, countryId, countryId)
@@ -332,7 +347,7 @@ export class D1CatalogRepository implements CatalogRepository {
   category(countryId: string, slug: string) {
     return this.db
       .prepare(
-        `SELECT ${categoryFields} FROM categories c WHERE c.slug=? AND c.is_active=1`,
+        `SELECT ${this.categoryFields} FROM categories c WHERE c.slug=? AND c.is_active=1`,
       )
       .bind(countryId, countryId, countryId, slug)
       .first<CategorySummary>();
@@ -595,7 +610,7 @@ export class D1CatalogRepository implements CatalogRepository {
             FROM family_category_trends t
             JOIN product_families fam ON fam.id=t.product_family_id AND fam.country_id=?
             JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1)
-          SELECT ${lineIdentity()},c.slug AS foodSlug,${displayName("c", "p.country_id")} AS foodName,s.bayesian_score AS bayesianScore,
+          SELECT ${lineIdentity()},c.slug AS foodSlug,${this.displayName("c", "p.country_id")} AS foodName,s.bayesian_score AS bayesianScore,
             s.people_count AS ratingCount,s.recent_count AS recentRatingCount
           FROM best JOIN family_category_stats s ON s.product_family_id=best.familyId AND s.category_id=best.categoryId
           ${lineJoins}
@@ -620,7 +635,7 @@ export class D1CatalogRepository implements CatalogRepository {
             ROW_NUMBER() OVER (PARTITION BY fresh.familyId ORDER BY s.people_count DESC,c.name,c.id) AS n
             FROM fresh JOIN family_category_stats s ON s.product_family_id=fresh.familyId
             JOIN categories c ON c.id=s.category_id AND c.is_active=1 AND c.is_rankable=1)
-          SELECT ${lineIdentity("placed.firstPublished")},c.slug AS foodSlug,${displayName("c", "p.country_id")} AS foodName,
+          SELECT ${lineIdentity("placed.firstPublished")},c.slug AS foodSlug,${this.displayName("c", "p.country_id")} AS foodName,
             s.bayesian_score AS bayesianScore,s.people_count AS ratingCount,0 AS recentRatingCount
           FROM placed JOIN family_category_stats s ON s.product_family_id=placed.familyId AND s.category_id=placed.categoryId
           ${lineJoins}
@@ -654,7 +669,7 @@ export class D1CatalogRepository implements CatalogRepository {
             ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${lineOrderSql}) AS rank
             FROM family_category_stats s ${lineJoins}
             WHERE s.category_id IN (SELECT x.category_id FROM product_categories x WHERE x.product_id IN (SELECT value FROM json_each(?))) AND ${lineSampleSql})
-          SELECT x.id AS productId,r.rank,r.bayesianScore,r.ratingCount,c.slug AS foodSlug,${displayName("c")} AS foodName
+          SELECT x.id AS productId,r.rank,r.bayesianScore,r.ratingCount,c.slug AS foodSlug,${this.displayName("c")} AS foodName
           FROM products x JOIN ranked r ON r.lineId=x.product_family_id
           JOIN product_categories xpc ON xpc.product_id=x.id AND xpc.category_id=r.categoryId AND xpc.ranking_eligible=1
           JOIN categories c ON c.id=r.categoryId
@@ -663,7 +678,7 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(countryId, ids, countryId, ids),
       this.db
         .prepare(
-          `SELECT pc.product_id AS productId,NULL AS rank,NULL AS bayesianScore,0 AS ratingCount,c.slug AS foodSlug,${displayName("c")} AS foodName
+          `SELECT pc.product_id AS productId,NULL AS rank,NULL AS bayesianScore,0 AS ratingCount,c.slug AS foodSlug,${this.displayName("c")} AS foodName
           FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 AND c.is_rankable=1
           WHERE pc.product_id IN (SELECT value FROM json_each(?)) AND pc.ranking_eligible=1 ORDER BY pc.product_id,c.name`,
         )
@@ -749,7 +764,7 @@ export class D1CatalogRepository implements CatalogRepository {
         .bind(row.id),
       this.db
         .prepare(
-          `SELECT c.id,c.slug,${displayName("c", "p.country_id")} AS name,c.is_active AS isActive,CASE WHEN pc.ranking_eligible=1 AND c.is_active=1 AND c.is_rankable=1 AND ${eligible} AND v.is_current=1 THEN 1 ELSE 0 END AS canRate,s.bayesian_score AS bayesianScore,COALESCE(s.rating_count,0) AS ratingCount,
+          `SELECT c.id,c.slug,${this.displayName("c", "p.country_id")} AS name,c.is_active AS isActive,CASE WHEN pc.ranking_eligible=1 AND c.is_active=1 AND c.is_rankable=1 AND ${eligible} AND v.is_current=1 THEN 1 ELSE 0 END AS canRate,s.bayesian_score AS bayesianScore,COALESCE(s.rating_count,0) AS ratingCount,
           s.enjoyment_score AS tastiestScore,COALESCE(s.enjoyment_count,0) AS tastiestCount,
         (SELECT json_group_array(json_object('key',d.key,'label',d.label)) FROM (SELECT key,label FROM category_rating_dimensions WHERE category_id=c.id AND is_active=1 ORDER BY sort_order,key) d) AS dimensions
         FROM product_categories pc JOIN categories c ON c.id=pc.category_id JOIN products p ON p.id=pc.product_id JOIN product_versions v ON v.product_id=p.id AND v.id=? LEFT JOIN product_category_stats s ON s.product_version_id=v.id AND s.category_id=c.id WHERE pc.product_id=? AND (c.is_active=1 OR v.is_current=0) ORDER BY c.name LIMIT 50`,
@@ -989,7 +1004,7 @@ export class D1CatalogRepository implements CatalogRepository {
       : `SELECT p.id,p.name AS searchName,search_index.rank AS searchRank FROM search_index JOIN products p ON p.id=entity_id JOIN countries co ON co.id=p.country_id WHERE search_index MATCH ? AND entity_type='product' AND country_code=? AND p.country_id=? AND co.is_active=1 AND p.lifecycle_status NOT IN ('hidden','discontinued') AND EXISTS(SELECT 1 FROM product_versions v WHERE v.product_id=p.id AND v.is_current=1) AND EXISTS(SELECT 1 FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 WHERE pc.product_id=p.id)`;
     const prefix = `WITH matched AS MATERIALIZED (${candidates}), selected AS (SELECT * FROM matched ${after ? "WHERE (searchRank,searchName,id)>(?,?,?)" : ""} ORDER BY searchRank,searchName,id LIMIT ?) `;
     const tail = food
-      ? `SELECT ${categoryFields},s.searchRank,s.searchName FROM selected s JOIN categories c ON c.id=s.id ORDER BY s.searchRank,s.searchName,s.id`
+      ? `SELECT ${this.categoryFields},s.searchRank,s.searchName FROM selected s JOIN categories c ON c.id=s.id ORDER BY s.searchRank,s.searchName,s.id`
       : `SELECT ${identity},s.searchRank,s.searchName FROM selected s JOIN product_versions v ON v.product_id=s.id AND v.is_current=1 ${productJoins} ORDER BY s.searchRank,s.searchName,s.id`;
     const rows = await this.db
       .prepare(prefix + tail)
@@ -1022,7 +1037,7 @@ export class D1CatalogRepository implements CatalogRepository {
     const [categories, products] = await this.db.batch([
       this.db
         .prepare(
-          `SELECT ${categoryFields} FROM search_index JOIN categories c ON c.id=search_index.entity_id AND c.is_active=1 WHERE search_index MATCH ? AND entity_type='category' AND country_code=? ORDER BY rank,c.name LIMIT 12`,
+          `SELECT ${this.categoryFields} FROM search_index JOIN categories c ON c.id=search_index.entity_id AND c.is_active=1 WHERE search_index MATCH ? AND entity_type='category' AND country_code=? ORDER BY rank,c.name LIMIT 12`,
         )
         .bind(countryId, countryId, countryId, expression, iso2),
       this.db

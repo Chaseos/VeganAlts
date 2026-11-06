@@ -68,6 +68,13 @@ interface PageRating {
 }
 
 const PAGE = 400;
+// An alias row names its language only when it isn't the English default, so
+// audit snapshots keep their shape.
+const withoutEnglish = <T extends { language?: string }>(aliases: T[]) =>
+  aliases.map(({ language, ...alias }) =>
+    language && language !== "en" ? { ...alias, language } : alias,
+  ) as T[];
+
 export class D1TaxonomyRepository {
   constructor(
     private readonly moderation: ModerationRepository,
@@ -96,7 +103,7 @@ export class D1TaxonomyRepository {
         `SELECT c.id,c.name,c.slug,c.parent_id AS parentId,c.is_rankable AS isRankable,c.is_active AS isActive,c.revision,
         c.position,c.season_start AS seasonStart,c.season_end AS seasonEnd,
         (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id=c.id) AS productCount,
-        (SELECT json_group_array(json_object('alias',a.alias,'countryId',a.country_id,'displayName',json(CASE WHEN a.is_display_name=1 THEN 'true' ELSE 'false' END))) FROM category_aliases a WHERE a.category_id=c.id) AS aliases
+        (SELECT json_group_array(json_object('alias',a.alias,'countryId',a.country_id,'language',a.language,'displayName',json(CASE WHEN a.is_display_name=1 THEN 'true' ELSE 'false' END))) FROM category_aliases a WHERE a.category_id=c.id) AS aliases
         FROM categories c WHERE c.id=?`,
       )
       .bind(id)
@@ -112,7 +119,7 @@ export class D1TaxonomyRepository {
       ...row,
       isRankable: row.isRankable === 1,
       isActive: row.isActive === 1,
-      aliases: JSON.parse(row.aliases) as CategoryState["aliases"],
+      aliases: withoutEnglish(JSON.parse(row.aliases)),
     };
   }
   async tree() {
@@ -122,7 +129,7 @@ export class D1TaxonomyRepository {
           `SELECT c.id,c.name,c.slug,c.parent_id AS parentId,c.is_rankable AS isRankable,c.is_active AS isActive,c.revision,
         c.position,c.season_start AS seasonStart,c.season_end AS seasonEnd,
         (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id=c.id) AS productCount,
-        (SELECT json_group_array(json_object('alias',a.alias,'country',co.iso2,'displayName',json(CASE WHEN a.is_display_name=1 THEN 'true' ELSE 'false' END))) FROM category_aliases a LEFT JOIN countries co ON co.id=a.country_id WHERE a.category_id=c.id) AS aliases,
+        (SELECT json_group_array(json_object('alias',a.alias,'country',co.iso2,'language',a.language,'displayName',json(CASE WHEN a.is_display_name=1 THEN 'true' ELSE 'false' END))) FROM category_aliases a LEFT JOIN countries co ON co.id=a.country_id WHERE a.category_id=c.id) AS aliases,
         (SELECT json_group_array(json_object('key',d.key,'label',d.label,'description',d.description,'active',json(CASE WHEN d.is_active=1 THEN 'true' ELSE 'false' END))) FROM (SELECT * FROM category_rating_dimensions WHERE category_id=c.id ORDER BY sort_order,key) d) AS dimensions,
         (SELECT json_group_array(co.iso2) FROM (SELECT co.iso2 FROM category_countries cc JOIN countries co ON co.id=cc.country_id WHERE cc.category_id=c.id ORDER BY co.iso2) co) AS countries
         FROM categories c ORDER BY c.is_active DESC,c.name LIMIT 1000`,
@@ -164,11 +171,14 @@ export class D1TaxonomyRepository {
         // Countries where a food is switched on (groups have none).
         countries: JSON.parse(c.countries) as string[],
         // Scope travels with each alias so an edit can preserve it.
-        aliases: JSON.parse(c.aliases) as {
-          alias: string;
-          country: string | null;
-          displayName: boolean;
-        }[],
+        aliases: withoutEnglish(
+          JSON.parse(c.aliases) as {
+            alias: string;
+            country: string | null;
+            displayName: boolean;
+            language?: string;
+          }[],
+        ),
       })),
       features: features!.results as {
         categoryId: string;
@@ -296,14 +306,17 @@ export class D1TaxonomyRepository {
         ...patch.aliases.map((a) =>
           this.db
             .prepare(
-              `INSERT INTO category_aliases(id,category_id,country_id,alias,is_display_name,created_at) SELECT ?,?,?,?,?,? WHERE ${sql}`,
+              `INSERT INTO category_aliases(id,category_id,country_id,alias,is_display_name,language,created_at) SELECT ?,?,?,?,?,?,? WHERE ${sql}`,
             )
             .bind(
               this.newId(),
               id,
               a.countryId,
               a.alias,
-              a.displayName && a.countryId ? 1 : 0,
+              a.displayName && (a.countryId || (a.language ?? "en") !== "en")
+                ? 1
+                : 0,
+              a.language ?? "en",
               now,
               ...values,
             ),

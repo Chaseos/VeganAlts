@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { useCallback, useState } from "react";
 import { Link, redirect } from "react-router";
 import { publicCatalogService } from "@server/catalog/infrastructure/composition";
-import { publicLoader } from "@server/catalog/http/loader";
+import { publicLoader, pageLanguage } from "@server/catalog/http/loader";
 import { catalogIsPublic } from "@server/shared/domain/launch";
 import { ComingSoon } from "../components/coming-soon";
 import { PageShell } from "../components/layout/page-shell";
@@ -34,13 +34,13 @@ import { useFoodHref } from "../lib/ranking-filters";
 import { useRememberedCountry } from "../lib/country-memory";
 import type { Route } from "./+types/home";
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   // The United States home lives at "/".
   if (params.country?.toLowerCase() === "us") throw redirect("/", 301);
   const base = { staging: env.APP_ENV !== "production", origin: env.APP_URL };
   if (!catalogIsPublic(env)) return { ...base, market: null, catalog: null };
   return publicLoader(async () => {
-    const catalog = publicCatalogService(env);
+    const catalog = publicCatalogService(env, pageLanguage(request));
     const market = await catalog.market(params.country ?? "us");
     return { ...base, market, catalog: await catalog.home(market) };
   });

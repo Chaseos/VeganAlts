@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { requireCatalogPreview } from "@server/catalog/http/loader";
 import { catalogService } from "@server/catalog/infrastructure/composition";
+import { languagesOf, type Language } from "@server/catalog/domain/languages";
 import { POLICIES } from "../content/policies";
 import {
   brandPath,
@@ -20,25 +21,39 @@ export async function loader() {
   // Foods are listed in the countries where they are on, and aisles in the
   // countries that hold one of their foods.
   const open = new Set(entries.countries);
-  const urls = [
-    ...entries.countries.map((code) => ({
-      path: homePath(code),
-      updatedAt: null as number | null,
-    })),
-    ...entries.categories
-      .filter((c) => open.has(c.country))
-      .map((c) => ({
-        path: foodPath(c.country, c.slug),
-        updatedAt: c.updatedAt,
+  // Each page once per language its country offers.
+  const pages = <T extends { country: string }>(
+    rows: T[],
+    path: (row: T, language: Language) => string,
+    updatedAt: (row: T) => number | null,
+  ) =>
+    rows.flatMap((row) =>
+      languagesOf(row.country).map((language) => ({
+        path: path(row, language),
+        updatedAt: updatedAt(row),
       })),
-    ...entries.products.map((p) => ({
-      path: productPath(p.country, p.slug),
-      updatedAt: p.updatedAt,
-    })),
-    ...entries.brands.map((b) => ({
-      path: brandPath(b.country, b.slug),
-      updatedAt: b.updatedAt,
-    })),
+    );
+  const urls = [
+    ...pages(
+      entries.countries.map((country) => ({ country })),
+      (row, language) => homePath(row.country, language),
+      () => null,
+    ),
+    ...pages(
+      entries.categories.filter((c) => open.has(c.country)),
+      (c, language) => foodPath(c.country, c.slug, language),
+      (c) => c.updatedAt,
+    ),
+    ...pages(
+      entries.products,
+      (p, language) => productPath(p.country, p.slug, null, language),
+      (p) => p.updatedAt,
+    ),
+    ...pages(
+      entries.brands,
+      (b, language) => brandPath(b.country, b.slug, language),
+      (b) => b.updatedAt,
+    ),
     ...Object.keys(POLICIES).map((slug) => ({
       path: `/about/${slug}`,
       updatedAt: null,

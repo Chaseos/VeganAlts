@@ -5,6 +5,7 @@ import { publicCatalogService } from "@server/catalog/infrastructure/composition
 import {
   publicLoader,
   requireCatalogPreview,
+  pageLanguage,
 } from "@server/catalog/http/loader";
 import { PageShell } from "../components/layout/page-shell";
 import { ProductPhotos } from "../components/catalog/product-photos";
@@ -47,7 +48,7 @@ import { dateLabel, friendly } from "../lib/community";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env);
-  const catalog = publicCatalogService(env);
+  const catalog = publicCatalogService(env, pageLanguage(request));
   return publicLoader(async () => {
     const market = await catalog.market(params.country);
     // Read alongside the redirect check; a moved slug's failures are never seen.

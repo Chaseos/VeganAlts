@@ -1,5 +1,10 @@
 import { catalogIsPublic } from "../../shared/domain/launch";
 import { ApplicationError } from "../../shared/domain/errors";
+import { publicRoute } from "../../shared/http/public-cache";
+
+/** The language a public page renders in, which only its URL decides. */
+export const pageLanguage = (request: Request) =>
+  publicRoute(new URL(request.url))?.language ?? "en";
 
 export async function publicLoader<T>(work: () => Promise<T>) {
   try {

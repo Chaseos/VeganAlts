@@ -183,7 +183,10 @@ export default function AdminTaxonomy({
                       const plain = rankable
                         ? list(form.get("aliases")).map((alias) => {
                             const known = c.aliases.find(
-                              (a) => a.alias === alias && !a.displayName,
+                              (a) =>
+                                a.alias === alias &&
+                                !a.displayName &&
+                                !a.language,
                             );
                             return known?.country
                               ? { alias, country: known.country }
@@ -215,7 +218,12 @@ export default function AdminTaxonomy({
                           parentId: form.get("parent") || null,
                           isRankable: rankable,
                           isActive: form.get("active") === "on",
-                          aliases: [...plain, ...display],
+                          // Names in other languages aren't edited here.
+                          aliases: [
+                            ...plain,
+                            ...display,
+                            ...c.aliases.filter((a) => a.language),
+                          ],
                           ...seasonAndPosition(form),
                           note: form.get("note"),
                         },
@@ -308,7 +316,7 @@ export default function AdminTaxonomy({
                         id={`aliases-${c.id}`}
                         name="aliases"
                         defaultValue={c.aliases
-                          .filter((a) => !a.displayName)
+                          .filter((a) => !a.displayName && !a.language)
                           .map((a) => a.alias)
                           .join(", ")}
                       />
@@ -326,7 +334,9 @@ export default function AdminTaxonomy({
                             defaultValue={
                               c.aliases.find(
                                 (a) =>
-                                  a.displayName && a.country === country.iso2,
+                                  a.displayName &&
+                                  !a.language &&
+                                  a.country === country.iso2,
                               )?.alias ?? ""
                             }
                           />

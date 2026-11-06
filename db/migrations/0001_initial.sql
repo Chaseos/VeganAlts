@@ -96,7 +96,7 @@ CREATE TABLE `category_aliases` (
 	`category_id` text NOT NULL,
 	`country_id` text,
 	`alias` text NOT NULL,
-	`created_at` integer NOT NULL, `is_display_name` integer DEFAULT 0 NOT NULL,
+	`created_at` integer NOT NULL, `is_display_name` integer DEFAULT 0 NOT NULL, `language` text DEFAULT 'en' NOT NULL,
 	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`country_id`) REFERENCES `countries`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -1075,7 +1075,7 @@ CREATE INDEX `ix_product_version_allergens_key` ON `product_version_allergens` (
 --> statement-breakpoint
 CREATE INDEX `ix_retailer_markets_country` ON `retailer_markets` (`country_id`,`is_active`,`retailer_id`);
 --> statement-breakpoint
-CREATE UNIQUE INDEX `ux_category_aliases_display` ON `category_aliases` (`category_id`,`country_id`) WHERE "category_aliases"."is_display_name" = 1;
+CREATE UNIQUE INDEX `ux_category_aliases_display` ON `category_aliases` (`category_id`,COALESCE(`country_id`,''),`language`) WHERE "category_aliases"."is_display_name" = 1;
 --> statement-breakpoint
 CREATE INDEX `ix_product_category_dimension_stats_category` ON `product_category_dimension_stats` (`category_id`,`dimension_id`);
 --> statement-breakpoint
@@ -1208,12 +1208,12 @@ CREATE TRIGGER catalog_version_allergens_insert AFTER INSERT ON product_version_
 --> statement-breakpoint
 CREATE TRIGGER catalog_version_allergens_delete AFTER DELETE ON product_version_allergens BEGIN UPDATE catalog_revisions SET revision=revision+1 WHERE product_id=(SELECT product_id FROM product_versions WHERE id=OLD.product_version_id); END;
 --> statement-breakpoint
-CREATE TRIGGER category_aliases_display_insert BEFORE INSERT ON category_aliases WHEN NEW.is_display_name NOT IN (0,1) OR (NEW.is_display_name=1 AND NEW.country_id IS NULL) BEGIN
-  SELECT RAISE(ABORT,'a display name must be a country-scoped alias');
+CREATE TRIGGER category_aliases_display_insert BEFORE INSERT ON category_aliases WHEN NEW.is_display_name NOT IN (0,1) OR (NEW.is_display_name=1 AND NEW.country_id IS NULL AND NEW.language='en') BEGIN
+  SELECT RAISE(ABORT,'an English display name must be a country-scoped alias');
 END;
 --> statement-breakpoint
-CREATE TRIGGER category_aliases_display_update BEFORE UPDATE OF is_display_name,country_id ON category_aliases WHEN NEW.is_display_name NOT IN (0,1) OR (NEW.is_display_name=1 AND NEW.country_id IS NULL) BEGIN
-  SELECT RAISE(ABORT,'a display name must be a country-scoped alias');
+CREATE TRIGGER category_aliases_display_update BEFORE UPDATE OF is_display_name,country_id,language ON category_aliases WHEN NEW.is_display_name NOT IN (0,1) OR (NEW.is_display_name=1 AND NEW.country_id IS NULL AND NEW.language='en') BEGIN
+  SELECT RAISE(ABORT,'an English display name must be a country-scoped alias');
 END;
 --> statement-breakpoint
 CREATE TRIGGER category_rating_dimensions_fixed BEFORE UPDATE OF key,category_id ON category_rating_dimensions

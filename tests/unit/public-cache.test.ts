@@ -1,9 +1,10 @@
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   cachePublicResponse,
   edgeCacheControl,
   invalidationTags,
   normalizedPublicRequest,
+  publicCacheTags,
   publicRedirect,
   publicRoute,
 } from "../../server/shared/http/public-cache";
@@ -403,4 +404,75 @@ it("keeps each continuation context separate in the shared cache", () => {
     if (input !== "country")
       expect(key(url.pathname + url.search)).not.toBe(key(category));
   }
+});
+
+describe("languages in public URLs", () => {
+  const origin = "https://staging.veganalts.com";
+  const route = (path: string) => publicRoute(new URL(path, origin))!;
+
+  it("reads a language segment without changing the page", () => {
+    expect(route("/ca/fr/ground-beef")).toMatchObject({
+      kind: "category",
+      slug: "ground-beef",
+      country: "ca",
+      language: "fr",
+      pathname: "/ca/fr/ground-beef",
+    });
+    expect(route("/ca/fr")).toMatchObject({ kind: "home", language: "fr" });
+    expect(route("/ca/fr/search")).toMatchObject({ kind: "search" });
+    expect(route("/ca/fr/products/beyond")).toMatchObject({
+      kind: "product",
+      slug: "beyond",
+    });
+    expect(route("/ca/fr/brand/beyond")).toMatchObject({ kind: "brand" });
+    expect(route("/ca/fr/ground-beef.data")).toMatchObject({
+      representation: "data",
+      language: "fr",
+    });
+    // Two letters that aren't a language stay a food.
+    expect(route("/ca/xx")).toMatchObject({ kind: "category", slug: "xx" });
+  });
+
+  it("defaults to the country's language", () => {
+    expect(route("/ca/ground-beef").language).toBe("en");
+    expect(route("/jp/karaage").language).toBe("ja");
+    expect(route("/").language).toBe("en");
+  });
+
+  it("redirects from the URL alone", () => {
+    const moved = (path: string, preview = false) => {
+      const url = new URL(path, origin);
+      return publicRedirect(url, publicRoute(url)!, preview);
+    };
+    expect(moved("/ca/en/ground-beef")).toBe("/ca/ground-beef");
+    expect(moved("/ca/en")).toBe("/ca");
+    expect(moved("/us/en")).toBe("/");
+    expect(moved("/us/fr/milk?view=new")).toBe("/us/milk?view=new");
+    // French is on previews only until its translations are reviewed.
+    expect(moved("/ca/fr/ground-beef")).toBe("/ca/ground-beef");
+    expect(moved("/ca/fr/ground-beef", true)).toBeNull();
+  });
+
+  it("caches each language apart, with no cookie reaching the render", () => {
+    const key = (path: string) =>
+      normalizedPublicRequest(
+        new Request(new URL(path, origin), {
+          headers: { Cookie: "va_lang=fr" },
+        }),
+        origin,
+        "v1",
+      );
+    expect(key("/ca/fr/milk").url).not.toBe(key("/ca/milk").url);
+    expect(key("/ca/fr/milk").url).toContain("__language=fr");
+    expect(key("/ca/milk").headers.has("Cookie")).toBe(false);
+    expect(key("/api/v1/suggest?country=ca&language=fr&q=lait").url).toContain(
+      "language=fr",
+    );
+  });
+
+  it("shares purge tags across languages", () => {
+    expect(publicCacheTags(route("/ca/fr/milk"))).toEqual(
+      publicCacheTags(route("/ca/milk")),
+    );
+  });
 });

@@ -778,6 +778,7 @@ export class TaxonomyService {
               alias: a.alias,
               countryId: a.country ?? null,
               displayName: a.displayName ?? false,
+              ...(a.language ? { language: a.language } : {}),
             })),
           }
         : {}),

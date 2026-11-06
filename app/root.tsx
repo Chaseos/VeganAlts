@@ -22,9 +22,10 @@ import { searchPath, useSiteChrome } from "./lib/site-chrome";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const nonce = useContext(NonceContext);
+  const { language } = useSiteChrome();
   return (
     // The pre-paint script may set data-theme before React hydrates.
-    <html lang="en" suppressHydrationWarning>
+    <html lang={language} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />

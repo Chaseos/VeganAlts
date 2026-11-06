@@ -12,6 +12,7 @@ import {
 import {
   publicLoader,
   requireCatalogPreview,
+  pageLanguage,
 } from "@server/catalog/http/loader";
 import { EmptyState } from "../components/ui/feedback";
 import { useCallback, useMemo } from "react";
@@ -70,7 +71,7 @@ import type { Route } from "./+types/category";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   requireCatalogPreview(env);
-  const catalog = publicCatalogService(env);
+  const catalog = publicCatalogService(env, pageLanguage(request));
   const country = parseCountryCode(params.country);
   // Read alongside the redirect check; a moved slug's failure is never seen.
   const place = catalog.market(country).then(async (market) => ({
@@ -202,7 +203,7 @@ export function meta({ loaderData, matches }: Route.MetaArgs) {
     ? countryAlternates(
         loaderData?.origin ?? "https://veganalts.com",
         versions,
-        (code) => foodPath(code, slug),
+        (code, language) => foodPath(code, slug, language),
       )
     : [];
   // A food that is not on here invites the first product but isn't indexed.

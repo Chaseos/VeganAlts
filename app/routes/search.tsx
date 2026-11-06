@@ -12,6 +12,7 @@ import { publicCatalogService } from "@server/catalog/infrastructure/composition
 import {
   publicLoader,
   requireCatalogPreview,
+  pageLanguage,
 } from "@server/catalog/http/loader";
 import { PageShell } from "../components/layout/page-shell";
 import { InstantSearch } from "../components/catalog/instant-search";
@@ -43,7 +44,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         "INVALID_CURSOR",
         "Choose a results section before continuing.",
       );
-    const catalog = publicCatalogService(env);
+    const catalog = publicCatalogService(env, pageLanguage(request));
     const market = await catalog.market(params.country);
     return {
       ...(await catalog.searchResults(

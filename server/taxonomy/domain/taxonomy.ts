@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApplicationError } from "../../shared/domain/errors";
+import { LANGUAGES } from "../../catalog/domain/languages";
 import { latinSlug, matchKey } from "../../shared/domain/text";
 import {
   countryCode,
@@ -41,6 +42,8 @@ export const RESERVED_SLUGS = new Set([
   "propose-category",
   // Brand pages live at /{country}/brand/{slug} (milestone 7).
   "brand",
+  // Language pages live at /{country}/{language}.
+  ...LANGUAGES,
 ]);
 export function categorySlug(value: string) {
   return latinSlug(value).slice(0, 60);
@@ -129,6 +132,7 @@ export const updateCategoryInput = z
             country: countryCode.optional(),
             // Marks a country-scoped alias as that country's name for the food.
             displayName: z.boolean().optional(),
+            language: languageCode.optional(),
           })
           .strict(),
       )
@@ -206,6 +210,8 @@ export interface CategoryState {
     countryId: string | null;
     // Absent in actions recorded before milestone 5.
     displayName?: boolean;
+    // Absent in actions recorded before milestone 8: English.
+    language?: string;
   }[];
   // Absent in actions recorded before milestone 7.
   position?: number | null;
@@ -220,6 +226,7 @@ export const sortAliases = (aliases: CategoryState["aliases"]) =>
       alias: a.alias,
       countryId: a.countryId,
       displayName: !!a.displayName,
+      ...(a.language && a.language !== "en" ? { language: a.language } : {}),
     }))
     .sort(
       (a, b) =>

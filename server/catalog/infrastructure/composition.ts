@@ -1,5 +1,6 @@
 import { CatalogService } from "../application/service";
 import type { CatalogRepository } from "../domain/contracts";
+import type { Language } from "../domain/languages";
 import { trendingParameters } from "../../ranking/domain/trending";
 import { D1CatalogRepository } from "./d1-repository";
 import { PublicCatalogRepository } from "./public-repository";
@@ -28,12 +29,16 @@ const sharedReads = new ReadMemo();
  * minutes stale, so they can use any read replica and the shared reads. Writes,
  * and reads that decide or validate a write, use `catalogService`.
  */
-export const publicCatalogService = (env: CatalogEnv & { APP_ENV: string }) =>
+export const publicCatalogService = (
+  env: CatalogEnv & { APP_ENV: string },
+  language: Language = "en",
+) =>
   service(
     env,
     new PublicCatalogRepository(
       env.DB.withSession("first-unconstrained"),
       // Local databases are reset and reseeded under running tests.
       env.APP_ENV === "local" ? null : sharedReads,
+      language,
     ),
   );

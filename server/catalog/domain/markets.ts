@@ -1,4 +1,5 @@
 import { ApplicationError } from "../../shared/domain/errors";
+import { defaultLanguage, type Language } from "./languages";
 
 // A country's catalog. Routes use the lowercase ISO code; the database stores
 // the uppercase ISO 3166-1 alpha-2 code.
@@ -35,28 +36,40 @@ export function parseCountryCode(value: string | null | undefined) {
   return code;
 }
 
-export function homePath(code: string) {
-  return code === DEFAULT_COUNTRY ? "/" : `/${code}`;
+// The default language has no path segment, so every older address keeps working.
+const prefix = (code: string, language?: Language) =>
+  language && language !== defaultLanguage(code)
+    ? `/${code}/${language}`
+    : `/${code}`;
+
+export function homePath(code: string, language?: Language) {
+  const path = prefix(code, language);
+  return path === `/${DEFAULT_COUNTRY}` ? "/" : path;
 }
 
-export function searchPath(code: string) {
-  return `/${code}/search`;
+export function searchPath(code: string, language?: Language) {
+  return `${prefix(code, language)}/search`;
 }
 
-export function foodPath(code: string, slug: string) {
-  return `/${code}/${slug}`;
+export function foodPath(code: string, slug: string, language?: Language) {
+  return `${prefix(code, language)}/${slug}`;
 }
 
 // A product page, optionally about one of its foods (`?food=`).
-export function productPath(code: string, slug: string, food?: string | null) {
-  return `/${code}/products/${slug}${food ? `?food=${food}` : ""}`;
+export function productPath(
+  code: string,
+  slug: string,
+  food?: string | null,
+  language?: Language,
+) {
+  return `${prefix(code, language)}/products/${slug}${food ? `?food=${food}` : ""}`;
 }
 
 // A brand's page in a country (milestone 7).
-export function brandPath(code: string, slug: string) {
-  return `/${code}/brand/${slug}`;
+export function brandPath(code: string, slug: string, language?: Language) {
+  return `${prefix(code, language)}/brand/${slug}`;
 }
 
-export function hreflang(code: string) {
-  return `en-${code.toUpperCase()}`;
+export function hreflang(code: string, language: Language = "en") {
+  return `${language}-${code.toUpperCase()}`;
 }

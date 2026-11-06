@@ -5,19 +5,34 @@ import {
   prefix,
   route,
 } from "@react-router/dev/routes";
+import { LANGUAGES } from "../server/catalog/domain/languages";
+
+// One country's pages. The default language has no path segment.
+const countryPages = (path: string, language = "") => {
+  const id = (file: string) => (language ? `${file}-${language}` : file);
+  return prefix(path, [
+    index("routes/home.tsx", { id: id("routes/country-home") }),
+    route("search", "routes/search.tsx", { id: id("routes/search") }),
+    route("products/:productSlug", "routes/product.tsx", {
+      id: id("routes/product"),
+    }),
+    route("brand/:brandSlug", "routes/brand.tsx", { id: id("routes/brand") }),
+    route(":categorySlug", "routes/category.tsx", {
+      id: id("routes/category"),
+    }),
+  ]);
+};
 
 export default [
   // Every country's catalog shares one layout (header, aisles, footer). "/" is
   // the United States home; static first segments below outrank ":country".
   layout("routes/country-layout.tsx", [
     index("routes/home.tsx"),
-    ...prefix(":country", [
-      index("routes/home.tsx", { id: "routes/country-home" }),
-      route("search", "routes/search.tsx"),
-      route("products/:productSlug", "routes/product.tsx"),
-      route("brand/:brandSlug", "routes/brand.tsx"),
-      route(":categorySlug", "routes/category.tsx"),
-    ]),
+    ...countryPages(":country"),
+    // Static segments outrank ":categorySlug", so /ca/fr is never a food.
+    ...LANGUAGES.flatMap((language) =>
+      countryPages(`:country/${language}`, language),
+    ),
   ]),
   route("users/:handle", "routes/profile.tsx"),
   route("about/:page", "routes/policy.tsx"),

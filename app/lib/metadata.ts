@@ -1,3 +1,4 @@
+import { languagesOf, type Language } from "@server/catalog/domain/languages";
 import { hreflang } from "@server/catalog/domain/markets";
 export function publicMetadata(
   title: string,
@@ -70,15 +71,21 @@ export function itemList(
 export function countryAlternates(
   origin: string,
   countries: { code: string }[],
-  path: (code: string) => string,
+  path: (code: string, language?: Language) => string,
 ) {
-  if (countries.length < 2) return [];
+  const versions = countries.flatMap((country) =>
+    languagesOf(country.code).map((language) => ({
+      code: country.code,
+      language,
+    })),
+  );
+  if (versions.length < 2) return [];
   return [
-    ...countries.map((country) => ({
+    ...versions.map(({ code, language }) => ({
       tagName: "link",
       rel: "alternate",
-      hrefLang: hreflang(country.code),
-      href: new URL(path(country.code), origin).href,
+      hrefLang: hreflang(code, language),
+      href: new URL(path(code, language), origin).href,
     })),
     {
       tagName: "link",

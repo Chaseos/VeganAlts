@@ -2,7 +2,10 @@ import { env } from "cloudflare:workers";
 import { expect, it } from "vitest";
 import { catalogFixture, productRows } from "./fixtures";
 import { taxonomyServices } from "../../server/taxonomy/infrastructure/composition";
-import { catalogService } from "../../server/catalog/infrastructure/composition";
+import {
+  catalogService,
+  publicCatalogService,
+} from "../../server/catalog/infrastructure/composition";
 import { communityServices } from "../../server/community/infrastructure/composition";
 import { TaxonomyService } from "../../server/taxonomy/application/taxonomy-service";
 import { D1TaxonomyRepository } from "../../server/taxonomy/infrastructure/d1-taxonomy-repository";
@@ -871,6 +874,42 @@ it("seeds the production-safe taxonomy idempotently without catalog data", async
     ).first("n"),
   ).toBe(1);
   expect(await products()).toBe(before);
+});
+
+it("names a food by language, falling back through the country to English", async () => {
+  await env.DB.batch(
+    taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
+  );
+  const food = (await env.DB.prepare(
+    "SELECT id FROM categories WHERE slug='ground-beef'",
+  ).first("id")) as string;
+  const name = async (code: string, language: "en" | "fr") => {
+    const catalog = publicCatalogService(env as never, language);
+    const market = await catalog.market(code);
+    return (await catalog.category(market, "ground-beef")).category.name;
+  };
+  const add = (country: string | null, language: string, alias: string) =>
+    env.DB.prepare(
+      `INSERT INTO category_aliases(id,category_id,country_id,alias,is_display_name,language,created_at)
+      VALUES(?,?,(SELECT id FROM countries WHERE iso2=?),?,1,?,1)`,
+    )
+      .bind(id(), food, country, alias, language)
+      .run();
+  // No French name yet: the country's English name, then the base name.
+  expect(await name("gb", "fr")).toBe("Beef mince");
+  expect(await name("ca", "fr")).toBe("Ground Beef");
+  await add(null, "fr", "Bœuf haché");
+  expect(await name("ca", "fr")).toBe("Bœuf haché");
+  expect(await name("ca", "en")).toBe("Ground Beef");
+  await add("CA", "fr", "Bœuf haché maigre");
+  expect(await name("ca", "fr")).toBe("Bœuf haché maigre");
+  // English display names still belong to one country.
+  await expect(add(null, "en", "Mince everywhere")).rejects.toThrow();
+  await env.DB.prepare(
+    "DELETE FROM category_aliases WHERE category_id=? AND language='fr'",
+  )
+    .bind(food)
+    .run();
 });
 
 it("seeds the two-level launch tree, countries, allergen lists, display names and features", async () => {

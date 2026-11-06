@@ -51,7 +51,12 @@ export class PublicCatalog extends WorkerEntrypoint<Cloudflare.Env> {
     const headers = new Headers(incoming.headers);
     headers.set("X-Render-Nonce", crypto.randomUUID().replaceAll("-", ""));
     const renderUrl = new URL(incoming.url);
-    for (const key of ["__country", "__representation", "__deployment"])
+    for (const key of [
+      "__country",
+      "__language",
+      "__representation",
+      "__deployment",
+    ])
       renderUrl.searchParams.delete(key);
     const request = new Request(renderUrl, { headers });
     try {
@@ -153,7 +158,11 @@ export default {
           if (route.kind === "suggest")
             await enforceLimit(env.SUGGEST_RATE_LIMIT, clientKey(request));
           // URL-only redirects (/us, non-normalized filters) need no D1 read.
-          const moved = publicRedirect(url, route);
+          const moved = publicRedirect(
+            url,
+            route,
+            env.APP_ENV !== "production",
+          );
           // Redirect lookup belongs to the public loaders on a cache miss.
           // Material changes purge product tags; redirect responses are no-store.
           response = moved

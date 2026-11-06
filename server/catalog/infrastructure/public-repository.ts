@@ -1,3 +1,4 @@
+import type { Language } from "../domain/languages";
 import { D1CatalogRepository } from "./d1-repository";
 import type { ReadMemo } from "./read-memo";
 
@@ -15,8 +16,9 @@ export class PublicCatalogRepository extends D1CatalogRepository {
   constructor(
     db: ConstructorParameters<typeof D1CatalogRepository>[0],
     private readonly shared: ReadMemo | null,
+    private readonly language: Language = "en",
   ) {
-    super(db);
+    super(db, language);
   }
   private memo<T>(key: string, load: () => Promise<T>) {
     return this.shared ? this.shared.read(key, load) : load();
@@ -25,7 +27,9 @@ export class PublicCatalogRepository extends D1CatalogRepository {
     return this.memo("markets", () => super.markets());
   }
   override taxonomy(countryId: string) {
-    return this.memo(`taxonomy:${countryId}`, () => super.taxonomy(countryId));
+    return this.memo(`taxonomy:${countryId}:${this.language}`, () =>
+      super.taxonomy(countryId),
+    );
   }
   override filterOptions(countryId: string) {
     return this.memo(`filters:${countryId}`, () =>
