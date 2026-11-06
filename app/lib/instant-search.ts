@@ -1,3 +1,4 @@
+import { pageLanguage } from "@server/catalog/domain/markets";
 import { searchable } from "@server/shared/domain/text";
 import { useEffect, useRef, useState } from "react";
 import type { CatalogService } from "@server/catalog/application/service";
@@ -92,7 +93,7 @@ export function useInstantSearch(country: string) {
   useEffect(() => {
     const current = new InstantSearchController(async (query, signal) => {
       const response = await fetch(
-        `/api/v1/suggest?country=${country}&q=${encodeURIComponent(query)}`,
+        `/api/v1/suggest?country=${country}&language=${pageLanguage() ?? "en"}&q=${encodeURIComponent(query)}`,
         { signal },
       );
       if (!response.ok) throw new Error("Suggestions are unavailable.");

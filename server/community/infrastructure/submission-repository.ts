@@ -203,6 +203,9 @@ export class SubmissionRepository {
                   aisleId: input.newFood.aisleId,
                   country: input.country,
                   aliases: input.newFood.aliases ?? [],
+                  ...(input.newFood.language
+                    ? { language: input.newFood.language }
+                    : {}),
                   exampleProducts: [`${input.brand} ${input.name}`],
                   submissionId: receipt.id,
                   ...(input.newFood.newAisle

@@ -1269,6 +1269,20 @@ export class D1TaxonomyRepository {
       review: review ? (JSON.parse(review) as FoodReview) : null,
     }));
   }
+  // The name a food was suggested in becomes its name in that language.
+  displayLanguageStatement(
+    id: string,
+    alias: string,
+    language: string,
+    fence: DecisionGuard,
+  ) {
+    return this.db
+      .prepare(
+        `UPDATE category_aliases SET is_display_name=1,language=?
+        WHERE category_id=? AND alias=? AND country_id IS NULL AND ${fence.sql}`,
+      )
+      .bind(language, id, alias, ...fence.values);
+  }
   provisionalStatement(id: string, until: number, fence: DecisionGuard) {
     return this.db
       .prepare(

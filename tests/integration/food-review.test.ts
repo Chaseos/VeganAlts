@@ -451,3 +451,17 @@ it("leaves a new food with no products out of the sitemap", async () => {
   ).run();
   expect(await listed()).toBe(true);
 });
+
+it("shows a food in the language it was suggested in", async () => {
+  const food = dish();
+  const w = await world(newFood, '{"default":"auto"}', food.known);
+  const proposal = await w.suggest(food.name);
+  await w.service.sweep();
+  const accepted = await w.row(proposal);
+  const name = await env.DB.prepare(
+    "SELECT alias,language FROM category_aliases WHERE category_id=? AND is_display_name=1",
+  )
+    .bind(accepted!.food)
+    .first();
+  expect(name).toEqual({ alias: food.name, language: "ja" });
+});

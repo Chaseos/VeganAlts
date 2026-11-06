@@ -1,3 +1,4 @@
+import { pageLanguage } from "@server/catalog/domain/markets";
 import { z } from "zod";
 import { hasIngredientEvidence as hasEvidence } from "@server/community/domain/policy";
 import { t } from "../i18n";
@@ -304,6 +305,7 @@ export function toSubmission(
           newFood: {
             name: food.name.trim(),
             aisleId: food.aisleId,
+            language: pageLanguage() ?? "en",
             ...(food.otherNames.length ? { aliases: food.otherNames } : {}),
             ...(food.newAisle?.trim()
               ? { newAisle: { name: food.newAisle.trim() } }

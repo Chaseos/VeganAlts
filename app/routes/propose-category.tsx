@@ -2,7 +2,8 @@ import { env } from "cloudflare:workers";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { communityPageActor } from "@server/community/http/page";
-import { catalogService } from "@server/catalog/infrastructure/composition";
+import { pageLanguage } from "@server/catalog/domain/markets";
+import { publicCatalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader } from "@server/catalog/http/loader";
 import { PageShell } from "../components/layout/page-shell";
 import { AisleSelect, NewAisleField } from "../components/aisle-select";
@@ -19,7 +20,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   await communityPageActor(request, env);
   const url = new URL(request.url);
   // A food is proposed for the country the visitor came from.
-  const catalog = catalogService(env);
+  const catalog = publicCatalogService(env, pageLanguage() ?? "en");
   const market = await publicLoader(() =>
     catalog.market(url.searchParams.get("country") ?? "us"),
   );
@@ -62,6 +63,7 @@ export default function ProposeCategory({
         name,
         aisleId,
         country: market.code,
+        language: pageLanguage() ?? "en",
         ...(newAisle.trim() ? { newAisle: { name: newAisle.trim() } } : {}),
         ...(explanation ? { explanation } : {}),
         aliases: list(form.get("aliases")).slice(0, 10),

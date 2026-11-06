@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { z } from "zod";
-import { catalogService } from "@server/catalog/infrastructure/composition";
+import { publicCatalogService } from "@server/catalog/infrastructure/composition";
+import { isLanguage, type Language } from "@server/catalog/domain/languages";
 import { catalogPage, categoryView } from "@server/catalog/application/service";
 import { batchSection } from "@server/catalog/domain/batches";
 import { readFilters } from "@server/catalog/domain/filters";
@@ -38,7 +39,12 @@ async function handle(request: Request, path: string) {
     if (request.method === "GET" || request.method === "HEAD") {
       if (path === "me/rating-state") return await ratingState(request, env);
       if (path === "me/ratings") return await myRatings(request, env);
-      const catalog = catalogService(env);
+      // `normalizedPublicRequest` has already refused an unknown language.
+      const language = new URL(request.url).searchParams.get("language");
+      const catalog = publicCatalogService(
+        env,
+        isLanguage(language) ? (language as Language) : "en",
+      );
       const [family, slug, extra] = path.split("/");
       if (family === "products" && slug && extra === "comments")
         return await publicComments(request, slug, env);

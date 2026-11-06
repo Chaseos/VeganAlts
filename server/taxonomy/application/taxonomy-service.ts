@@ -55,6 +55,19 @@ import {
 
 const storedReview = (value: string | null) =>
   value ? (JSON.parse(value) as FoodReview) : null;
+/** The language a food was suggested in, or the review's reading of it. */
+function suggestedLanguage(
+  proposed: string,
+  name: string,
+  review: FoodReview | null,
+) {
+  const { language } = JSON.parse(proposed) as { language?: string };
+  if (language) return language.slice(0, 2);
+  if (review?.text?.japaneseName === name) return "ja";
+  if (review?.text?.frenchName === name) return "fr";
+  return "en";
+}
+
 function reviewedFood(
   data: { name: string; aliases: string[] },
   review: FoodReview | null,
@@ -640,6 +653,11 @@ export class TaxonomyService {
       );
     // A reviewed food is named in English, with what was typed kept beside it.
     const food = reviewedFood(data, review);
+    const language = suggestedLanguage(
+      proposal.proposed_data,
+      data.name,
+      review,
+    );
     const slug = input.slug
       ? categorySlug(input.slug)
       : (review?.text?.slug ?? categorySlug(data.name));
@@ -688,6 +706,16 @@ export class TaxonomyService {
               }
             : undefined,
         ),
+        ...(language !== "en" && food.aliases.includes(data.name)
+          ? [
+              this.repository.displayLanguageStatement(
+                categoryId,
+                data.name,
+                language,
+                fence,
+              ),
+            ]
+          : []),
         ...(actor.id === SYSTEM_ACTOR.id
           ? [
               this.repository.provisionalStatement(
