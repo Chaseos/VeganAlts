@@ -21,8 +21,10 @@ export async function taxonomyApi(
   const operator =
     path.startsWith("admin/taxonomy") ||
     path.startsWith("admin/moderation/category/") ||
-    path.startsWith("admin/moderation/aisle/");
-  if (!operator && path !== "category-proposals") return null;
+    path.startsWith("admin/moderation/aisle/") ||
+    path.startsWith("admin/moderation/food-report/");
+  if (!operator && path !== "category-proposals" && path !== "food-reports")
+    return null;
   const actor = await communityActor(request, env, operator),
     services = taxonomyServices(env);
   const respond = (value: unknown) => success(value, {}, true);
@@ -55,6 +57,12 @@ export async function taxonomyApi(
         parse(id, parts[3]),
         body,
       ),
+    );
+  if (path === "food-reports")
+    return respond(await services.reportFood(actor, body));
+  if (parts[2] === "food-report" && parts[3] && parts[4] === "resolve")
+    return respond(
+      await services.resolveFoodReport(actor, parse(id, parts[3]), body),
     );
   if (parts[2] === "aisle" && parts[3] && parts[4] === "decide") {
     administrator(actor);

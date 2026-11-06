@@ -418,7 +418,7 @@ test("suggests a missing food inline and publishes the product once a moderator 
       page.getByRole("heading", { name: "Thanks, your product is in review" }),
     ).toBeVisible();
     await expect(page.getByRole("main")).toContainText(
-      `checks your new food “${food}” together with your product`,
+      `check your new food “${food}” together with your product`,
     );
     await page.getByRole("link", { name: "View your submission" }).click();
     await expect(page).toHaveURL(/\/my-contributions\/submission\//);

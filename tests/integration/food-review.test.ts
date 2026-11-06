@@ -5,6 +5,7 @@ import type { Answers } from "../../server/moderation/domain/decisions";
 import type { DecisionRequest } from "../../server/moderation/application/decision-service";
 import type { TextOutput } from "../../server/moderation/domain/food-review";
 import { FakeTextProvider } from "../../server/moderation/infrastructure/fake-text-provider";
+import { D1CatalogRepository } from "../../server/catalog/infrastructure/d1-repository";
 import { FoodReviewService } from "../../server/taxonomy/application/food-review";
 import { taxonomyServices } from "../../server/taxonomy/infrastructure/composition";
 import { D1TaxonomyRepository } from "../../server/taxonomy/infrastructure/d1-taxonomy-repository";
@@ -342,4 +343,93 @@ it("undoes an automatic alias", async () => {
   );
   expect(await held()).toBe(0);
   expect((await w.row(proposal))!.status).toBe("rejected");
+});
+
+it("reviews one food straight away, and leaves a reviewed one alone", async () => {
+  const { name, text, known } = dish();
+  const w = await world(newFood, '{"default":"queue"}', known);
+  const proposal = await w.suggest(name);
+  await w.service.reviewNow(proposal);
+  expect(w.requests).toHaveLength(1);
+  const row = await env.DB.prepare(
+    "SELECT status,review FROM category_proposals WHERE id=?",
+  )
+    .bind(proposal)
+    .first<{ status: string; review: string }>();
+  expect(row?.status).toBe("pending");
+  expect(JSON.parse(row!.review).text.englishName).toBe(text.englishName);
+  await w.service.reviewNow(proposal);
+  expect(w.requests).toHaveLength(1);
+});
+
+it("keeps one open report per person, and an operator closes it", async () => {
+  await env.DB.batch(
+    taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
+  );
+  const user = `reporter-${id()}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO user(id,name,email,created_at,updated_at) VALUES(?,?,?,1,1)",
+    ).bind(user, "Test identity", `${user}@example.invalid`),
+    env.DB.prepare(
+      "INSERT INTO profiles(user_id,handle,created_at,updated_at) VALUES(?,?,1,1)",
+    ).bind(user, user),
+  ]);
+  const taxonomy = taxonomyServices(testEnv, id);
+  const actor = { id: user, administrator: false, accountState: "active" } as never;
+  const report = (reason: string) =>
+    taxonomy.reportFood(actor, {
+      food: "ground-beef",
+      country: "us",
+      reason,
+    });
+  await report("wrong_name");
+  await report("duplicate_food");
+  const admin = { id: user, administrator: true, accountState: "active" } as never;
+  const open = (await taxonomy.foodReports(admin)).filter(
+    (row) => row.reason === "duplicate_food",
+  );
+  expect(open).toHaveLength(1);
+  await taxonomy.resolveFoodReport(admin, open[0]!.id, {
+    status: "dismissed",
+    note: "The name is the usual one here.",
+  });
+  await expect(
+    taxonomy.resolveFoodReport(admin, open[0]!.id, {
+      status: "dismissed",
+      note: "The name is the usual one here.",
+    }),
+  ).rejects.toMatchObject({ code: "STALE_DECISION" });
+  await expect(
+    taxonomy.reportFood(actor, {
+      food: "no-such-food",
+      country: "us",
+      reason: "other",
+    }),
+  ).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+it("leaves a new food with no products out of the sitemap", async () => {
+  await env.DB.batch(
+    taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
+  );
+  const repository = new D1CatalogRepository(env.DB);
+  const listed = async () =>
+    (await repository.sitemap()).categories.some(
+      (row) => row.slug === "karaage-listed" && row.country === "us",
+    );
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO categories(id,name,slug,parent_id,is_rankable,is_active,created_at,updated_at,provisional_until)
+      VALUES('listed-food','Karaage listed','karaage-listed',(SELECT id FROM categories WHERE slug='chicken'),1,1,1,1,?)`,
+    ).bind(Date.now() + 86_400_000),
+    env.DB.prepare(
+      "INSERT INTO category_countries(category_id,country_id,source,created_at) SELECT 'listed-food',id,'operator',1 FROM countries WHERE iso2='US'",
+    ),
+  ]);
+  expect(await listed()).toBe(false);
+  await env.DB.prepare(
+    "UPDATE categories SET provisional_until=1 WHERE id='listed-food'",
+  ).run();
+  expect(await listed()).toBe(true);
 });

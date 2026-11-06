@@ -300,6 +300,9 @@ export class D1CatalogRepository implements CatalogRepository {
         `SELECT c.slug,c.updated_at AS updatedAt,lower(co.iso2) AS country FROM categories c
         JOIN category_countries cc ON cc.category_id=c.id JOIN countries co ON co.id=cc.country_id AND co.is_active=1
         WHERE c.is_active=1 AND c.is_rankable=1
+        AND (COALESCE(c.provisional_until,0)<=unixepoch()*1000
+          OR EXISTS(SELECT 1 FROM product_categories pc JOIN products p ON p.id=pc.product_id
+            WHERE pc.category_id=c.id AND p.country_id=co.id AND p.lifecycle_status<>'hidden'))
         UNION
         SELECT a.slug,a.updated_at,lower(co.iso2) FROM categories a
         JOIN categories food ON food.parent_id=a.id AND food.is_active=1 AND food.is_rankable=1

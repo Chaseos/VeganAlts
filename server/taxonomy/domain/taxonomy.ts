@@ -40,6 +40,7 @@ export const RESERVED_SLUGS = new Set([
   "my-contributions",
   "auth",
   "propose-category",
+  "report-food",
   // Brand pages live at /{country}/brand/{slug} (milestone 7).
   "brand",
   // Language pages live at /{country}/{language}.
@@ -89,6 +90,27 @@ export const storedCategoryProposal = z.object({
   aliases: aliasList,
 });
 export type CategoryProposalInput = z.infer<typeof categoryProposalInput>;
+export const FOOD_REPORT_REASONS = [
+  "not_a_food",
+  "duplicate_food",
+  "wrong_name",
+  "wrong_aisle",
+  "other",
+] as const;
+export const foodReportInput = z
+  .object({
+    food: z.string().max(80),
+    country: countryCode,
+    reason: z.enum(FOOD_REPORT_REASONS),
+    note: z.string().trim().max(2000).default(""),
+  })
+  .strict();
+export const foodReportDecision = z
+  .object({
+    status: z.enum(["resolved", "dismissed"]),
+    note,
+  })
+  .strict();
 // An aisle's default position, and a food's season months (milestone 7).
 const position = z.number().int().min(0).max(999).nullable();
 const month = z.number().int().min(1).max(12);

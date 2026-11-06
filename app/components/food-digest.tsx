@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Link, useRevalidator } from "react-router";
 import type { TaxonomyService } from "@server/taxonomy/application/taxonomy-service";
-import { dateLabel, type CommunityAction } from "../lib/community";
+import { dateLabel, friendly, type CommunityAction } from "../lib/community";
 
 type Row = Awaited<ReturnType<TaxonomyService["digest"]>>[number];
+type ReportRow = Awaited<ReturnType<TaxonomyService["foodReports"]>>[number];
 type AisleRow = Awaited<
   ReturnType<TaxonomyService["aisleSuggestions"]>
 >[number];
@@ -31,6 +32,90 @@ export function FoodDigest({
         <DigestRow key={row.id} row={row} action={action} />
       ))}
     </>
+  );
+}
+
+/** What people flagged about a food. New foods come first. */
+export function FoodReports({
+  rows,
+  action,
+}: {
+  rows: ReportRow[];
+  action: CommunityAction;
+}) {
+  if (!rows.length) return null;
+  return (
+    <section>
+      <h2>Food reports</h2>
+      {rows.map((row) => (
+        <FoodReport key={row.id} row={row} action={action} />
+      ))}
+    </section>
+  );
+}
+
+function FoodReport({
+  row,
+  action,
+}: {
+  row: ReportRow;
+  action: CommunityAction;
+}) {
+  const revalidator = useRevalidator();
+  async function decide(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const form = new FormData(event.currentTarget);
+    await action.run(async () => {
+      await action.request(`admin/moderation/food-report/${row.id}/resolve`, {
+        status: submitter?.getAttribute("value") ?? "dismissed",
+        note: form.get("note"),
+      });
+      await revalidator.revalidate();
+    });
+  }
+  return (
+    <article className="community-panel">
+      <p>
+        <strong>{row.food}</strong>
+        {` · ${row.country} · ${friendly(row.reason)}`}
+        {(row.provisionalUntil ?? 0) > Date.now() && " · New food"}
+      </p>
+      {row.note && <p className="small">{row.note}</p>}
+      <p className="small">
+        <Link className="va-link" to="/admin/taxonomy">
+          Change it in Taxonomy
+        </Link>
+      </p>
+      <form className="community-form" onSubmit={decide}>
+        <label htmlFor={`report-note-${row.id}`}>What did you do?</label>
+        <input
+          id={`report-note-${row.id}`}
+          name="note"
+          required
+          minLength={8}
+          maxLength={2000}
+        />
+        <div className="button-row">
+          <button
+            className="button small-button"
+            name="status"
+            value="resolved"
+            disabled={action.busy}
+          >
+            Mark handled
+          </button>
+          <button
+            className="button secondary small-button"
+            name="status"
+            value="dismissed"
+            disabled={action.busy}
+          >
+            Dismiss
+          </button>
+        </div>
+      </form>
+    </article>
   );
 }
 

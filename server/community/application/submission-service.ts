@@ -66,6 +66,8 @@ export class SubmissionService {
     private readonly afterPublish:
       ((receiptId: string) => Promise<{ rating: RatingOutcome }>) | null = null,
     private readonly work?: ModerationWorkService,
+    // A food was suggested with this product: review it now.
+    private readonly foodSuggested?: (proposalId: string) => void,
   ) {}
   /**
    * Why a suggested food can't be added, as a contributor-facing reason, or
@@ -485,6 +487,7 @@ export class SubmissionService {
             }
           : undefined,
       );
+      if (input.newFood && !food.carry) this.foodSuggested?.(proposalId);
       return { ...decision, decision: outcome, reasons, receiptId };
     }
     return this.publish(actor, receipt, input, {

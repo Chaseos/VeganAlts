@@ -32,6 +32,7 @@ export interface ReviewRow {
 }
 export interface FoodReviewRepository {
   proposalsToReview(limit: number): Promise<ReviewRow[]>;
+  proposalToReview(id: string): Promise<ReviewRow | null>;
   expiredProposals(before: number, limit: number): Promise<ReviewRow[]>;
   saveReview(id: string, review: FoodReview): Promise<unknown>;
   foodCandidates(): Promise<FoodCandidate[]>;
@@ -70,6 +71,18 @@ export class FoodReviewService {
   ) {}
   private mode(country: string) {
     return foodReviewMode(this.modes, country);
+  }
+  /** Reviews a food as it's suggested. A failure waits for the next sweep. */
+  async reviewNow(id: string) {
+    try {
+      const row = await this.repository.proposalToReview(id);
+      if (row && this.mode(row.country) !== "off") await this.review(row);
+    } catch (error) {
+      if (!(error instanceof ProviderError))
+        console.error(
+          JSON.stringify({ event: "food_review_failed", proposal: id }),
+        );
+    }
   }
   /** Reviews waiting proposals. A failed call retries on the next pass. */
   async sweep(limit = 10) {

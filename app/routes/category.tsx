@@ -209,13 +209,15 @@ export function meta({ loaderData, matches }: Route.MetaArgs) {
         (code, language) => foodPath(code, slug, language),
       )
     : [];
-  // A food that is not on here invites the first product but isn't indexed.
-  const hidden =
+  // A food that is not on here invites the first product but isn't indexed,
+  // and neither is a new food with nothing to show yet.
+  const thin =
     loaderData?.kind === "food" &&
-    !loaderData.availability.here &&
-    !loaderData.staging
-      ? [{ name: "robots", content: "noindex" }]
-      : [];
+    (!loaderData.availability.here ||
+      ((loaderData.category.provisionalUntil ?? 0) > Date.now() &&
+        loaderData.category.productCount === 0));
+  const hidden =
+    thin && !loaderData.staging ? [{ name: "robots", content: "noindex" }] : [];
   return [...pageMeta(loaderData), ...alternates, ...hidden];
 }
 function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
@@ -759,6 +761,14 @@ function FoodRankingList({
             . Replacing something else?{" "}
             <Link className="va-link" to={`/propose-category?country=${code}`}>
               Suggest a food
+            </Link>
+            . Something wrong here?{" "}
+            <Link
+              className="va-link"
+              to={`/report-food?country=${code}&food=${data.category.slug}`}
+              rel="nofollow"
+            >
+              Report this food
             </Link>
           </p>
         </div>

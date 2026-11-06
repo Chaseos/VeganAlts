@@ -872,6 +872,13 @@ export class D1TaxonomyRepository {
       )
       .bind(...binds);
   }
+  async proposalToReview(id: string) {
+    return this.reviewRows(
+      "p.review IS NULL AND p.id=?",
+      id,
+      1,
+    ).first<ReviewRow>();
+  }
   async proposalsToReview(limit: number) {
     return (await this.reviewRows("p.review IS NULL", limit).all<ReviewRow>())
       .results;
@@ -902,6 +909,72 @@ export class D1TaxonomyRepository {
       ...row,
       aliases: JSON.parse(row.aliases) as string[],
     }));
+  }
+  foodOnIn(slug: string, country: string) {
+    return this.db
+      .prepare(
+        `SELECT c.id FROM categories c JOIN category_countries cc ON cc.category_id=c.id
+        JOIN countries co ON co.id=cc.country_id
+        WHERE c.slug=? AND co.iso2=? AND c.is_active=1 AND c.is_rankable=1`,
+      )
+      .bind(slug, country)
+      .first<string>("id");
+  }
+  // One open report per person and food; reporting again updates it.
+  saveFoodReport(
+    id: string,
+    userId: string,
+    categoryId: string,
+    country: string,
+    reason: string,
+    note: string,
+    now: number,
+  ) {
+    return this.db
+      .prepare(
+        `INSERT INTO food_reports(id,reporter_user_id,category_id,country_id,reason,note,created_at,updated_at)
+        VALUES(?,?,?,(SELECT id FROM countries WHERE iso2=?),?,?,?,?)
+        ON CONFLICT(reporter_user_id,category_id) WHERE status='open'
+        DO UPDATE SET reason=excluded.reason,note=excluded.note,updated_at=excluded.updated_at`,
+      )
+      .bind(id, userId, categoryId, country, reason, note, now, now)
+      .run();
+  }
+  async foodReports() {
+    return (
+      await this.db
+        .prepare(
+          `SELECT r.id,r.reason,r.note,r.created_at AS createdAt,c.name AS food,c.slug,co.iso2 AS country,
+          c.provisional_until AS provisionalUntil
+          FROM food_reports r JOIN categories c ON c.id=r.category_id JOIN countries co ON co.id=r.country_id
+          WHERE r.status='open' ORDER BY c.provisional_until IS NULL,r.created_at LIMIT 100`,
+        )
+        .all<{
+          id: string;
+          reason: string;
+          note: string;
+          createdAt: number;
+          food: string;
+          slug: string;
+          country: string;
+          provisionalUntil: number | null;
+        }>()
+    ).results;
+  }
+  async closeFoodReport(
+    id: string,
+    status: "resolved" | "dismissed",
+    actorId: string,
+    note: string,
+    now: number,
+  ) {
+    const result = await this.db
+      .prepare(
+        "UPDATE food_reports SET status=?,resolved_by=?,resolution_note=?,resolved_at=?,updated_at=? WHERE id=? AND status='open'",
+      )
+      .bind(status, actorId, note, now, now, id)
+      .run();
+    return result.meta.changes > 0;
   }
   async aisleRoot() {
     return (await this.db

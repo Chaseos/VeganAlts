@@ -90,8 +90,8 @@ export default function ProposeCategory({
           <div className="community-panel" role="status">
             <h2>Thanks, {saved} is in review.</h2>
             <p>
-              A moderator checks it for duplicates. Track it in{" "}
-              <Link to="/my-contributions">My contributions</Link>.
+              We check it for duplicates and decide within three days. Track it
+              in <Link to="/my-contributions">My contributions</Link>.
             </p>
           </div>
         ) : (

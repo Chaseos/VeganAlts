@@ -790,6 +790,28 @@ CREATE TABLE `category_proposals` (
 	CONSTRAINT "ck_category_proposals_review" CHECK("category_proposals"."review" IS NULL OR json_valid("category_proposals"."review"))
 );
 --> statement-breakpoint
+CREATE TABLE `food_reports` (
+	`id` text PRIMARY KEY NOT NULL,
+	`reporter_user_id` text NOT NULL,
+	`category_id` text NOT NULL,
+	`country_id` text NOT NULL,
+	`reason` text NOT NULL,
+	`note` text DEFAULT '' NOT NULL,
+	`status` text DEFAULT 'open' NOT NULL,
+	`resolved_by` text,
+	`resolution_note` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	`resolved_at` integer,
+	FOREIGN KEY (`reporter_user_id`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`country_id`) REFERENCES `countries`(`id`) ON UPDATE no action ON DELETE restrict,
+	FOREIGN KEY (`resolved_by`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE set null,
+	CONSTRAINT "ck_food_reports_status" CHECK("food_reports"."status" IN ('open','resolved','dismissed'))
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `ux_food_reports_open` ON `food_reports` (`reporter_user_id`,`category_id`) WHERE status='open';
+--> statement-breakpoint
 CREATE TABLE `aisle_proposals` (
 	`id` text PRIMARY KEY NOT NULL,
 	`country_id` text NOT NULL,

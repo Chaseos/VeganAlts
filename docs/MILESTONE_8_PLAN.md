@@ -321,7 +321,7 @@ Labels should come from a Japanese speaker where possible. Otherwise, confirm th
 - **Audit:** every decision goes through the existing fenced path as `SYSTEM_ACTOR`, with before and after state, input hashes and model IDs. `decideProposal` is split into an `administrator()` entry point and a shared `applyDecision`.
 - **Undo for an accepted food:** with no products, it retires the food through the ordinary update and marks the proposal rejected. With products, the digest links to the existing reversible merge in Taxonomy.
 - **Undo for an alias:** removes the alias. Any products placed through it stay in that food, listed for the operator, because moving them is a `foods` edit.
-- **Reports:** `reports` gain a `category` target with reasons `not_a_food`, `duplicate_food`, `wrong_name`, `wrong_aisle` and `other`. Food pages get a report link. A report on a provisional food goes to the queue. Not built yet: the target-type `CHECK` on `reports` can't be altered in place, so this waits for the next staging reset or a table rebuild.
+- **Reports:** a new `food_reports` table holds reasons `not_a_food`, `duplicate_food`, `wrong_name`, `wrong_aisle` and `other`, one open report per person and food. It's separate from `reports` because that flow is built around a product, and its table can't take a new target without a rebuild. Food pages link to `/report-food`. Open reports show in the digest, new foods first, where an operator marks them handled or dismisses them.
 - **Digest:** `/admin/moderation/digest` shows the last seven days, in English: the name as typed, English name, gloss, lane, confidence, and a one-click **Undo**. It also lists timed defaults, aisles opened, proposals nearing the threshold, and counts by country.
 - **Queue item:** shows the same English context, and the two choices are the existing Accept, Alias and Reject.
 
@@ -375,7 +375,7 @@ Labels should come from a Japanese speaker where possible. Otherwise, confirm th
 >
 > **What this path can never do.** It cannot change vegan status, classification, allergen declarations, formulas or any product fact. Those keep their existing rules. A name making a vegan, allergen or health claim is not accepted.
 >
-> **Audit and reversal.** Every decision uses the fenced, audited path as the system account. An operator can undo any of them from the digest: an accepted food with no products is retired, one with products is merged into a chosen food, and an alias is removed. Reports on a food reach the queue.
+> **Audit and reversal.** Every decision uses the fenced, audited path as the system account. An operator can undo any of them from the digest: an accepted food with no products is retired, one with products is merged into a chosen food, and an alias is removed. Reports on a food reach the digest.
 
 ## 7. Near-duplicate checks (item 4)
 
@@ -471,7 +471,7 @@ All of this folds into `db/migrations/0001_initial.sql`, per the version 1 rule.
 | `products` | Add `name_language` |
 | `product_name_translations` | New, in the last checkpoint |
 | `search_index` | Recreated with `segmented` |
-| `reports` | `category` target |
+| `food_reports` | New: reports on a food |
 | `moderation_decisions` | Schema version 3; `aisle_review` kind if the check needs it |
 
 **Japan activation needs:** a `countries` row, Japan's declared-allergen list (including new keys such as buckwheat), and a starter store list. Allergen terms are person-reviewed.

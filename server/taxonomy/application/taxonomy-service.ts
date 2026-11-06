@@ -28,6 +28,8 @@ import {
   storedCategoryProposal,
   categorySlug,
   createCategoryInput,
+  foodReportDecision,
+  foodReportInput,
   dimensionsInput,
   featuresInput,
   MAX_ACTIVE_DIMENSIONS,
@@ -80,6 +82,8 @@ export interface TaxonomyEffects {
   invalidate(categorySlugs: string[], productIds: string[]): Promise<void>;
   // A suggested food was decided: products waiting on it continue.
   foodDecided?(proposalId: string): Promise<void>;
+  // A food was suggested: review it now. The hourly sweep is the fallback.
+  foodSuggested?(proposalId: string): void;
 }
 // Every featured category is still active (bound: IDs as JSON, their count).
 // The insert skips inactive ones, so this keeps the audit equal to the rows.
@@ -304,7 +308,7 @@ export class TaxonomyService {
         automated.reasons.join(" ") || "Check the suggested food.",
         422,
       );
-    return this.repository.createProposal(
+    const created = await this.repository.createProposal(
       {
         id,
         userId: actor.id,
@@ -317,6 +321,8 @@ export class TaxonomyService {
       },
       receipt,
     );
+    this.effects.foodSuggested?.(id);
+    return created;
   }
   async proposalDetail(actor: Actor, id: string) {
     active(actor);
@@ -412,6 +418,47 @@ export class TaxonomyService {
   aisleSuggestions(actor: Actor) {
     administrator(actor);
     return this.repository.aisleSuggestions();
+  }
+  /** A report on a food reaches the digest. It changes nothing by itself. */
+  async reportFood(actor: Actor, raw: unknown) {
+    active(actor);
+    const input = foodReportInput.parse(raw);
+    const foodId = await this.repository.foodOnIn(input.food, input.country);
+    if (!foodId)
+      throw new ApplicationError("NOT_FOUND", "This food is unavailable.", 404);
+    await this.repository.saveFoodReport(
+      this.newId(),
+      actor.id,
+      foodId,
+      input.country,
+      input.reason,
+      input.note,
+      this.clock(),
+    );
+    return { reported: true };
+  }
+  foodReports(actor: Actor) {
+    administrator(actor);
+    return this.repository.foodReports();
+  }
+  async resolveFoodReport(actor: Actor, id: string, raw: unknown) {
+    administrator(actor);
+    const input = foodReportDecision.parse(raw);
+    if (
+      !(await this.repository.closeFoodReport(
+        id,
+        input.status,
+        actor.id,
+        input.note,
+        this.clock(),
+      ))
+    )
+      throw new ApplicationError(
+        "STALE_DECISION",
+        "This report changed. Refresh before deciding.",
+        409,
+      );
+    return { status: input.status };
   }
   private async decide(actor: Actor, key: string, id: string, raw: unknown) {
     const input = categoryDecision.parse(raw);

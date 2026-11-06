@@ -6,8 +6,14 @@ import { AutomatedChecks } from "./contribution-detail";
 
 type Detail = Awaited<ReturnType<TaxonomyService["proposalDetail"]>>;
 
+const fromSlug = (slug: string) => slug.replaceAll("-", " ");
+// These answer with a position in that review's shortlist, like "c14". The
+// summary above already says which food and aisle they meant.
+const SHORTLIST_ANSWERS = new Set(["closest_candidate", "aisle_fit"]);
+
 const reviewSummary = (review: NonNullable<Detail["review"]>) => {
-  if (review.lane === "alias") return `looks like ${review.aliasOf}`;
+  if (review.lane === "alias")
+    return `looks like ${fromSlug(review.aliasOf ?? "an existing food")}`;
   if (review.lane === "accept") return "looks like a new food";
   if (review.lane === "changes" || review.lane === "blocked")
     return "doesn’t look like a plain food name";
@@ -112,8 +118,10 @@ export function CategoryReview({
         )}
         {detail.review && (
           <p className="small muted">
-            Automated review: {reviewSummary(detail.review)}. A decision is made
-            automatically 72 hours after it was suggested.
+            Automated review: {reviewSummary(detail.review)}.
+            {detail.review.aisle &&
+              ` Closest aisle: ${fromSlug(detail.review.aisle)}.`}{" "}
+            A decision is made automatically 72 hours after it was suggested.
           </p>
         )}
         <p className="small muted">
@@ -121,7 +129,16 @@ export function CategoryReview({
           food in this country; adding it as another name keeps one food
           findable by both names and opens it here.
         </p>
-        {checks && <AutomatedChecks checks={checks} />}
+        {checks && (
+          <AutomatedChecks
+            checks={{
+              ...checks,
+              answers: checks.answers.filter(
+                (answer) => !SHORTLIST_ANSWERS.has(answer.question),
+              ),
+            }}
+          />
+        )}
       </article>
       <aside className="community-panel">
         <h2>Record a decision</h2>

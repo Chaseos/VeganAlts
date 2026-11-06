@@ -59,6 +59,8 @@ export function taxonomyServices(
           ),
         );
       },
+      foodSuggested: (proposalId) =>
+        waitUntil(foodReview(env, newId, clock).reviewNow(proposalId)),
       // Category changes purge category, home, search and product surfaces.
       invalidate: async (slugs) => {
         // Persistence already succeeded; a purge failure is bounded by TTLs.

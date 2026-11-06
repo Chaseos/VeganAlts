@@ -22,7 +22,11 @@ import {
 import { CatalogSelect } from "../components/catalog-select";
 import { CatalogReversalPreview } from "../components/catalog-reversal-preview";
 import { ProductRemovalControls } from "../components/product-removal-controls";
-import { AisleSuggestions, FoodDigest } from "../components/food-digest";
+import {
+  AisleSuggestions,
+  FoodDigest,
+  FoodReports,
+} from "../components/food-digest";
 import {
   NO_NOTE,
   useCommunityAction,
@@ -76,6 +80,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       view: "digest" as const,
       digest: await taxonomyServices(env).digest(actor),
       aisles: await taxonomyServices(env).aisleSuggestions(actor),
+      foodReports: await taxonomyServices(env).foodReports(actor),
     };
   if (kind === "category" && id) {
     const taxonomy = taxonomyServices(env);
@@ -290,6 +295,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         </header>
         {data.view === "digest" && (
           <>
+            <FoodReports rows={data.foodReports} action={action} />
             <AisleSuggestions rows={data.aisles} action={action} />
             <FoodDigest rows={data.digest} action={action} />
             <CommunityFeedback action={action} siteKey={data.siteKey} />

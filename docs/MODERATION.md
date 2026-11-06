@@ -623,7 +623,7 @@ The [milestone 8 specification](MILESTONE_8_PLAN.md) lets suggested foods and ai
 
 **What this path can never do.** It cannot change vegan status, classification, allergen declarations, formulas or any product fact. Those keep their existing rules. A name making a vegan, allergen or health claim is not accepted.
 
-**Audit and reversal.** Every decision uses the fenced, audited path as the system account. An operator can undo any of them from the digest: an accepted food with no products is retired, one with products is merged into a chosen food, and an alias is removed. Reports on a food reach the queue.
+**Audit and reversal.** Every decision uses the fenced, audited path as the system account. An operator can undo any of them from the digest: an accepted food with no products is retired, one with products is merged into a chosen food, and an alias is removed. Reports on a food reach the digest.
 
 ## Owner imports
 

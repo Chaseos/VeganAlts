@@ -185,8 +185,8 @@ export function FoodPicker({
           }}
         />
         <p className="small muted">
-          A moderator checks new foods for duplicates. Your product goes live
-          once the food is accepted.
+          We check new foods for duplicates within three days. Your product goes
+          live once the food is accepted.
         </p>
         <button
           type="button"

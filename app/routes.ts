@@ -37,6 +37,7 @@ export default [
   route("saved", "routes/saved.tsx"),
   route("add-product", "routes/add-product.tsx"),
   route("propose-category", "routes/propose-category.tsx"),
+  route("report-food", "routes/report-food.tsx"),
   route("admin/taxonomy", "routes/admin-taxonomy.tsx"),
   route("admin/analytics", "routes/admin-analytics.tsx"),
   route("contribute/:productId", "routes/contribute.tsx"),

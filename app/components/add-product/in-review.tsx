@@ -18,15 +18,15 @@ export function InReview({
   return (
     <div className="va-in-review">
       <p>
-        Thanks. A moderator looks at it before it goes live. Your photos stay
-        private until then.
+        Thanks. We check it before it goes live. Your photos stay private until
+        then.
       </p>
       <h3 className="va-heading-s">What happens next</h3>
       <ol className="va-in-review__steps">
         <li>
           {newFood
-            ? `A moderator checks your new food “${newFood}” together with your product.`
-            : "A moderator checks the details."}
+            ? `We check your new food “${newFood}” together with your product. That takes up to three days.`
+            : "We check the details."}
         </li>
         <li>
           When it’s accepted, it goes live in {countryName}

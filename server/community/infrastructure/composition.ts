@@ -99,6 +99,13 @@ export function communityServices(
       return { rating };
     },
     work,
+    (proposalId) =>
+      waitUntil(
+        import("../../taxonomy/infrastructure/composition").then(
+          ({ foodReview }) =>
+            foodReview(env as Cloudflare.Env, newId, clock).reviewNow(proposalId),
+        ),
+      ),
   );
   const contributionRepository = new ContributionRepository(env.DB, limits);
   const catalog = new CatalogDecisionRepository(repository, lines),
