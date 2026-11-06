@@ -18,6 +18,13 @@ const COUNTRY_LANGUAGES: Record<string, CountryLanguages> = {
   jp: { default: "ja", offered: ["en"], preview: ["ja"] },
 };
 
+// Each in its own name, whatever the page's language.
+export const LANGUAGE_NAMES: Record<Language, string> = {
+  en: "English",
+  fr: "Français",
+  ja: "日本語",
+};
+
 export const isLanguage = (value: string | null | undefined) =>
   LANGUAGES.includes(value as Language);
 
@@ -31,6 +38,18 @@ export function languagesOf(country: string, preview = false) {
   return [
     ...new Set([main, ...offered, ...(preview ? extra : [])]),
   ] as readonly Language[];
+}
+
+/** Where a visitor lands in a country: their choice if it's offered there. */
+export function languageFor(
+  country: string,
+  preference: string | null | undefined,
+  preview = false,
+) {
+  return (
+    languagesOf(country, preview).find((code) => code === preference) ??
+    defaultLanguage(country)
+  );
 }
 
 /** Separates a language segment from a lowercase path: /ca/fr/beef. */

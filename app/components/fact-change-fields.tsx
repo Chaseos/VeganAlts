@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ProductChange } from "@server/community/domain/contracts";
 import type { CommunityOptions } from "../lib/community";
 import { BrandChangeField } from "./brand-change-field";
+import { t } from "../i18n";
 
 export const factKinds = [
   "rename",
@@ -13,15 +14,15 @@ export const factKinds = [
   "seasonal",
 ] as const;
 export type FactKind = (typeof factKinds)[number];
-export const factLabels: Record<FactKind, string> = {
-  rename: "Product name on the package",
-  brand: "Brand",
-  alias: "Another name people search for",
-  source_url: "Manufacturer product page",
-  category_add: "Another food it replaces",
-  foods: "Food it’s listed under",
-  seasonal: "Sold only part of the year",
-};
+export const factLabels = (): Record<FactKind, string> => ({
+  rename: t("fact.rename"),
+  brand: t("fact.brand"),
+  alias: t("fact.alias"),
+  source_url: t("fact.sourceUrl"),
+  category_add: t("fact.categoryAdd"),
+  foods: t("fact.foods"),
+  seasonal: t("fact.seasonal"),
+});
 export const isFactKind = (kind: ProductChange["kind"]): kind is FactKind =>
   (factKinds as readonly string[]).includes(kind);
 
@@ -62,7 +63,7 @@ export function FactChangeFields({
     case "rename":
       return (
         <>
-          <label htmlFor="fact-name">Name as printed on the package</label>
+          <label htmlFor="fact-name">{t("fact.nameLabel")}</label>
           <input
             id="fact-name"
             name="name"
@@ -72,7 +73,8 @@ export function FactChangeFields({
             defaultValue={currentName}
           />
           <label htmlFor="fact-flavor">
-            Flavor <span className="va-optional__tag">Optional</span>
+            {t("fact.flavor")}{" "}
+            <span className="va-optional__tag">{t("fact.optionalTag")}</span>
           </label>
           <input
             id="fact-flavor"
@@ -82,16 +84,14 @@ export function FactChangeFields({
             aria-describedby="fact-flavor-hint"
           />
           <p id="fact-flavor-hint" className="small muted">
-            Leave blank for the line’s original or plain version. The product
-            keeps its address and ratings. Attach a front photo showing the new
-            name.
+            {t("fact.flavorHint")}
           </p>
         </>
       );
     case "seasonal":
       return (
         <fieldset>
-          <legend>Is it sold only part of the year?</legend>
+          <legend>{t("fact.seasonalLegend")}</legend>
           <label className="checkbox-label">
             <input
               type="radio"
@@ -99,7 +99,7 @@ export function FactChangeFields({
               value="yes"
               defaultChecked={!seasonal}
             />
-            Yes, it’s seasonal
+            {t("fact.seasonalYes")}
           </label>
           <label className="checkbox-label">
             <input
@@ -108,14 +108,14 @@ export function FactChangeFields({
               value="no"
               defaultChecked={seasonal}
             />
-            No, it’s sold all year
+            {t("fact.seasonalNo")}
           </label>
         </fieldset>
       );
     case "alias":
       return (
         <>
-          <label htmlFor="fact-alias">Other name</label>
+          <label htmlFor="fact-alias">{t("fact.otherName")}</label>
           <input
             id="fact-alias"
             name="alias"
@@ -128,7 +128,7 @@ export function FactChangeFields({
     case "source_url":
       return (
         <>
-          <label htmlFor="fact-url">Manufacturer product page</label>
+          <label htmlFor="fact-url">{t("fact.sourceUrl")}</label>
           <input
             id="fact-url"
             name="url"
@@ -142,9 +142,9 @@ export function FactChangeFields({
     case "category_add":
       return (
         <>
-          <label htmlFor="fact-category">It also replaces</label>
+          <label htmlFor="fact-category">{t("fact.alsoReplaces")}</label>
           <select id="fact-category" name="categoryId" required>
-            <option value="">Choose a food</option>
+            <option value="">{t("fact.chooseFood")}</option>
             {categories
               .filter((c) => !existing.includes(c.id))
               .map((c) => (
@@ -153,10 +153,7 @@ export function FactChangeFields({
                 </option>
               ))}
           </select>
-          <p className="small muted">
-            Ratings for each food are separate. The product starts unrated
-            there.
-          </p>
+          <p className="small muted">{t("fact.separateRatings")}</p>
         </>
       );
     case "foods":
@@ -175,7 +172,7 @@ function FoodsField({
   return (
     <>
       <fieldset className="va-choice-list">
-        <legend>Listed under</legend>
+        <legend>{t("fact.listedUnder")}</legend>
         {categories
           .filter((c) => existing.includes(c.id))
           .map((c) => (
@@ -197,14 +194,14 @@ function FoodsField({
             </label>
           ))}
       </fieldset>
-      <label htmlFor="fact-new-food">Move it to</label>
+      <label htmlFor="fact-new-food">{t("fact.moveTo")}</label>
       <select
         id="fact-new-food"
         name="categoryIds"
         defaultValue=""
         onChange={(e) => setKept(e.target.value ? [] : existing)}
       >
-        <option value="">Keep only the foods ticked above</option>
+        <option value="">{t("fact.keepTicked")}</option>
         {categories
           .filter((c) => !existing.includes(c.id))
           .map((c) => (
@@ -213,11 +210,7 @@ function FoodsField({
             </option>
           ))}
       </select>
-      <p className="small muted">
-        Moving unticks its current foods; tick one again to list it in both.
-        Ratings are never lost: a rated food keeps them, off its ranking, and
-        the product starts unrated in a new food.
-      </p>
+      <p className="small muted">{t("fact.moveNote")}</p>
     </>
   );
 }

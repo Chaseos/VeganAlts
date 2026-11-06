@@ -5,6 +5,7 @@ import {
 } from "@server/community/domain/allergens";
 import type { ContributorProduct } from "@server/community/domain/moderation";
 import { CheckThePackage } from "./ui/badges";
+import { t } from "../i18n";
 
 type Product = Pick<
   ContributorProduct,
@@ -32,17 +33,14 @@ export function AllergenFields({ product }: { product: Product }) {
   return (
     <>
       <div className="notice">
-        <p>
-          Record what this formula’s package says. Confirmations check that the
-          declaration matches the label, never that a product is safe.
-        </p>
+        <p>{t("allergen.record")}</p>
         <CheckThePackage />
       </div>
       <p>
-        <strong>On file now:</strong>{" "}
+        <strong>{t("allergen.onFile")}</strong>{" "}
         {current
           ? describeDeclaration(current, allergenLabels(product))
-          : "Not confirmed yet"}
+          : t("allergen.notConfirmed")}
       </p>
       <AllergenChecklist
         list={product.allergenList}
@@ -58,7 +56,7 @@ export function AllergenFields({ product }: { product: Product }) {
         }}
       />
       <fieldset className="va-choice-list">
-        <legend>Which photo shows it?</legend>
+        <legend>{t("allergen.whichPhoto")}</legend>
         {photos.map((photo) => (
           <label className="checkbox-label va-photo-choice" key={photo.id}>
             <input
@@ -73,8 +71,9 @@ export function AllergenFields({ product }: { product: Product }) {
               width={56}
               height={56}
             />
-            The {photo.slot === "ingredients" ? "ingredients" : "nutrition"}{" "}
-            photo
+            {photo.slot === "ingredients"
+              ? t("allergen.photoIngredients")
+              : t("allergen.photoNutrition")}
           </label>
         ))}
         <label className="checkbox-label">
@@ -84,15 +83,9 @@ export function AllergenFields({ product }: { product: Product }) {
             value=""
             defaultChecked={!photos.length}
           />
-          {photos.length
-            ? "None of these; I’ll explain in the note"
-            : "This formula has no label photo yet; I’ll explain in the note"}
+          {photos.length ? t("allergen.noneOfThese") : t("allergen.noPhoto")}
         </label>
-        <p className="small muted">
-          Citing the formula’s ingredients or nutrition photo lets other
-          contributors confirm the declaration. Otherwise an operator reviews
-          it.
-        </p>
+        <p className="small muted">{t("allergen.citeHint")}</p>
       </fieldset>
     </>
   );
@@ -149,7 +142,7 @@ export function AllergenChecklist({
   return (
     <>
       <fieldset className="va-choice-list">
-        <legend>What does the label say?</legend>
+        <legend>{t("allergen.labelSays")}</legend>
         <label className="checkbox-label">
           <input
             type="radio"
@@ -158,7 +151,7 @@ export function AllergenChecklist({
             checked={value.status === "declared"}
             onChange={() => onChange({ ...value, status: "declared" })}
           />
-          It lists allergens
+          {t("allergen.lists")}
         </label>
         <label className="checkbox-label">
           <input
@@ -174,15 +167,15 @@ export function AllergenChecklist({
               })
             }
           />
-          No allergens declared on the label
+          {t("allergen.noneDeclared")}
         </label>
       </fieldset>
       {value.status === "declared" && (
         <div className="va-allergen-grid">
           {(
             [
-              ["contains", "Contains"],
-              ["mayContain", "May contain"],
+              ["contains", t("safety.legendContains")],
+              ["mayContain", t("safety.legendMayContain")],
             ] as const
           ).map(([field, legend]) => (
             <fieldset className="va-choice-list" key={field}>

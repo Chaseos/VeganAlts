@@ -1,3 +1,4 @@
+import { pageLocale } from "../i18n";
 import { productPath } from "@server/catalog/domain/markets";
 import { env } from "cloudflare:workers";
 import { Link } from "react-router";
@@ -8,9 +9,10 @@ import { ProductImage } from "../components/catalog";
 import { PageShell } from "../components/layout/page-shell";
 import { EmptyState } from "../components/ui/feedback";
 import { ButtonLink } from "../components/ui/button";
-import { TASTE_MEANINGS } from "../components/rating-control";
+import { tasteMeanings } from "../components/rating-control";
 import { productName } from "../lib/format";
 import type { MyRating } from "@server/ratings/domain/contracts";
+import { t } from "../i18n";
 import type { Route } from "./+types/my-ratings";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -24,17 +26,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 export function meta() {
   return [
-    { title: "My ratings · VeganAlts" },
+    { title: t("myRatings.metaTitle") },
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
-const SCORE_WORDS = [
+const scoreWords = () => [
   "",
-  "not close",
-  "slightly similar",
-  "fairly close",
-  "very close",
-  "extremely close",
+  t("myRatings.close1"),
+  t("myRatings.close2"),
+  t("myRatings.close3"),
+  t("myRatings.close4"),
+  t("myRatings.close5"),
 ];
 
 function ratingHref(rating: MyRating, anchor: boolean) {
@@ -59,16 +61,16 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
   return (
     <PageShell width="narrow" aisles={false}>
       <header className="page-heading">
-        <p className="eyebrow">Your experience, remembered</p>
-        <h1>My ratings</h1>
-        <p>Only you can see this history. Most recently updated first.</p>
+        <p className="eyebrow">{t("myRatings.eyebrow")}</p>
+        <h1>{t("myRatings.title")}</h1>
+        <p>{t("myRatings.intro")}</p>
       </header>
       {!data.items.length ? (
         <EmptyState
-          title="Your next favorite is waiting."
-          actions={<ButtonLink to="/">Find an alternative</ButtonLink>}
+          title={t("myRatings.emptyTitle")}
+          actions={<ButtonLink to="/">{t("saved.find")}</ButtonLink>}
         >
-          Explore a food, try an alternative, and share how close it comes.
+          {t("myRatings.emptyBody")}
         </EmptyState>
       ) : (
         <ul className="va-divided va-my-ratings">
@@ -85,24 +87,26 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
                   </Link>
                 </h2>
                 <p className="small">
-                  As {rating.categoryName.toLowerCase()}
+                  {t("myRatings.as", {
+                    food: rating.categoryName.toLowerCase(),
+                  })}
                   {rating.overallSimilarity !== null && (
                     <>
                       {" "}
-                      · Closeness:{" "}
+                      · {t("myRatings.closeness")}{" "}
                       <strong>
                         {rating.overallSimilarity},{" "}
-                        {SCORE_WORDS[rating.overallSimilarity]}
+                        {scoreWords()[rating.overallSimilarity]}
                       </strong>
                     </>
                   )}
                   {rating.enjoyment !== null && (
                     <>
                       {" "}
-                      · Taste:{" "}
+                      · {t("myRatings.taste")}{" "}
                       <strong>
                         {rating.enjoyment},{" "}
-                        {TASTE_MEANINGS[rating.enjoyment - 1]}
+                        {tasteMeanings()[rating.enjoyment - 1]}
                       </strong>
                     </>
                   )}
@@ -110,16 +114,19 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
                 <p className="small muted">
                   {rating.versionLabel} ·{" "}
                   {rating.archivedDuplicate
-                    ? "Archived duplicate · Your rating is preserved here"
+                    ? t("myRatings.archived")
                     : rating.isCurrent
-                      ? "Current formula"
-                      : "Historical rating"}{" "}
+                      ? t("myRatings.current")
+                      : t("myRatings.historical")}{" "}
                   ·{" "}
                   <time dateTime={new Date(rating.updatedAt).toISOString()}>
-                    {new Date(rating.updatedAt).toLocaleDateString("en-US", {
-                      dateStyle: "medium",
-                      timeZone: "UTC",
-                    })}
+                    {new Date(rating.updatedAt).toLocaleDateString(
+                      pageLocale(),
+                      {
+                        dateStyle: "medium",
+                        timeZone: "UTC",
+                      },
+                    )}
                   </time>
                 </p>
               </div>
@@ -129,18 +136,18 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
                 to={ratingHref(rating, true)}
               >
                 {rating.archivedDuplicate
-                  ? "View canonical product"
+                  ? t("myRatings.viewCanonical")
                   : rating.canRate
-                    ? "Edit rating"
-                    : "View history"}
+                    ? t("myRatings.edit")
+                    : t("myRatings.viewHistory")}
               </ButtonLink>
             </li>
           ))}
         </ul>
       )}
-      <nav className="pagination" aria-label="My ratings pages">
+      <nav className="pagination" aria-label={t("myRatings.pages")}>
         <Link className="button secondary" to="/my-ratings">
-          Most recent
+          {t("saved.recent")}
         </Link>
         <span />
         {data.nextCursor ? (
@@ -149,7 +156,7 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
             to={`/my-ratings?cursor=${encodeURIComponent(data.nextCursor)}`}
             rel="next"
           >
-            Older ratings
+            {t("myRatings.older")}
           </Link>
         ) : (
           <span />

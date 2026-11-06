@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { Icon } from "./icons/icon";
 import { usePersonalState } from "./personal-state";
+import { t } from "../i18n";
 
 // Public pages are cached, so who is visiting and whether they saved this
 // product only arrive after the page loads. The icon waits for both, unless
@@ -35,7 +36,7 @@ export function SaveButton({
     if (busy.current) return;
     if (unavailable) {
       retryLoad();
-      setMessage({ error: "Checking your account. Please try again." });
+      setMessage({ error: t("save.checking") });
       return;
     }
     busy.current = true;
@@ -50,10 +51,7 @@ export function SaveButton({
       if (user) setMessage(isSaved ? "removed" : "saved");
     } catch (reason) {
       setMessage({
-        error:
-          reason instanceof Error
-            ? reason.message
-            : "Your saved list didn’t change. Please try again.",
+        error: reason instanceof Error ? reason.message : t("save.unchanged"),
       });
     } finally {
       busy.current = false;
@@ -66,10 +64,10 @@ export function SaveButton({
       <button
         type="button"
         className="va-icon-button va-save__button"
-        aria-label={`Save ${productName}`}
+        aria-label={t("save.label", { name: productName })}
         aria-pressed={isSaved}
         aria-busy={working}
-        title={isSaved ? "Saved" : "Save"}
+        title={isSaved ? t("save.titleSaved") : t("save.title")}
         disabled={!known && !error}
         onClick={() => void onClick()}
       >
@@ -79,12 +77,12 @@ export function SaveButton({
         {message === "saved" &&
           (showListLink ? (
             <>
-              Saved to <Link to="/saved">your list</Link>.
+              {t("save.savedTo")} <Link to="/saved">{t("save.yourList")}</Link>.
             </>
           ) : (
-            "Saved."
+            t("save.saved")
           ))}
-        {message === "removed" && "Removed from your list."}
+        {message === "removed" && t("save.removed")}
         {message && typeof message === "object" && message.error}
       </span>
     </span>

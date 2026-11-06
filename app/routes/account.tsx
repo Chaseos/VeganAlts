@@ -7,6 +7,7 @@ import { getAuth, profilesService } from "@server/auth/infrastructure/auth";
 import { ApplicationError } from "@server/shared/domain/errors";
 import { requireSameOrigin } from "@server/shared/http/security";
 import { limitedFormData } from "@server/shared/http/limited-form";
+import { t } from "../i18n";
 import type { Route } from "./+types/account";
 import { PageShell } from "../components/layout/page-shell";
 import { Link } from "react-router";
@@ -29,7 +30,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 export function meta() {
   return [
-    { title: "Your profile · VeganAlts" },
+    { title: t("account.metaTitle") },
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
@@ -46,7 +47,7 @@ export async function action({ request }: Route.ActionArgs) {
       return data(
         {
           saved: false,
-          error: "Sign-out failed. Please try again.",
+          error: t("account.signOutFailed"),
           challengeRequired: false,
           values: null,
         },
@@ -112,34 +113,40 @@ export default function Account({
   return (
     <PageShell width="narrow" aisles={false}>
       <header className="page-heading">
-        <p className="eyebrow">Account</p>
-        <h1>Your profile</h1>
-        <p>
-          Your chosen handle and display name are public. Your email and
-          individual rating history stay private.
-        </p>
+        <p className="eyebrow">{t("account.eyebrow")}</p>
+        <h1>{t("account.title")}</h1>
+        <p>{t("account.intro")}</p>
       </header>
-      <nav aria-label="Your activity" className="va-card va-link-list">
+      <nav
+        aria-label={t("account.activityLabel")}
+        className="va-card va-link-list"
+      >
         <ul className="va-divided">
           <li>
-            <Link to={`/users/${profile.handle}`}>View public profile</Link>
+            <Link to={`/users/${profile.handle}`}>
+              {t("account.viewProfile")}
+            </Link>
           </li>
           <li>
-            <Link to="/my-ratings">My ratings</Link>
+            <Link to="/my-ratings">{t("account.myRatings")}</Link>
           </li>
           <li>
-            <Link to="/saved">Saved products</Link>
+            <Link to="/saved">{t("account.savedProducts")}</Link>
           </li>
           <li>
-            <Link to="/my-contributions">My contributions</Link>
+            <Link to="/my-contributions">{t("account.myContributions")}</Link>
           </li>
           {loaderData.administrator && (
             <>
               <li>
-                <Link to="/admin/moderation">Moderation inbox</Link>
+                <Link to="/admin/moderation">
+                  {t("account.moderationInbox")}
+                </Link>
               </li>
               <li>
-                <Link to="/admin/analytics">Product analytics</Link>
+                <Link to="/admin/analytics">
+                  {t("account.productAnalytics")}
+                </Link>
               </li>
             </>
           )}
@@ -147,11 +154,11 @@ export default function Account({
       </nav>
       <section className="va-card section-space" aria-labelledby="profile-form">
         <h2 id="profile-form" className="va-heading-s">
-          Public profile
+          {t("account.publicProfile")}
         </h2>
         <Form method="post" reloadDocument>
           <div className="form-field">
-            <label htmlFor="handle">Public handle</label>
+            <label htmlFor="handle">{t("account.handleLabel")}</label>
             <input
               id="handle"
               name="handle"
@@ -164,11 +171,13 @@ export default function Account({
               aria-describedby="handle-help"
             />
             <p id="handle-help" className="field-hint">
-              3–30 letters, numbers or underscores. Start with a letter.
+              {t("account.handleHint")}
             </p>
           </div>
           <div className="form-field">
-            <label htmlFor="display-name">Display name (optional)</label>
+            <label htmlFor="display-name">
+              {t("account.displayNameLabel")}
+            </label>
             <input
               id="display-name"
               name="displayName"
@@ -186,7 +195,7 @@ export default function Account({
             />
           )}
           <button className="button" name="intent" value="save">
-            Save profile
+            {t("account.save")}
           </button>
           {actionData?.error && (
             <p className="notice error" role="alert">
@@ -195,14 +204,14 @@ export default function Account({
           )}
           {actionData?.saved && (
             <p className="notice success" role="status">
-              Profile saved.
+              {t("account.saved")}
             </p>
           )}
         </Form>
       </section>
       <Form method="post" reloadDocument className="section-space">
         <button className="button secondary" name="intent" value="sign-out">
-          Sign out
+          {t("account.signOut")}
         </button>
       </Form>
     </PageShell>

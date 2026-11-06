@@ -17,6 +17,7 @@ import { ApplicationError } from "../server/shared/domain/errors";
 import {
   cachePublicResponse,
   invalidationTags,
+  languageChoice,
   languageRedirect,
   normalizedPublicRequest,
   publicRedirect,
@@ -174,34 +175,47 @@ export default {
           if (route.kind === "suggest")
             await enforceLimit(env.SUGGEST_RATE_LIMIT, clientKey(request));
           // URL-only redirects (/us, non-normalized filters) need no D1 read.
-          const language = languageRedirect(
-            url,
-            route,
-            env.APP_ENV !== "production",
-          );
-          const moved = language ? null : publicRedirect(url, route);
+          const chosen = languageChoice(url);
+          const language = chosen
+            ? null
+            : languageRedirect(
+                url,
+                route,
+                env.APP_ENV !== "production",
+                request.headers.get("Cookie"),
+              );
+          const moved = chosen || language ? null : publicRedirect(url, route);
           // Redirect lookup belongs to the public loaders on a cache miss.
           // Material changes purge product tags; redirect responses are no-store.
-          response = language
+          response = chosen
             ? new Response(null, {
                 status: 302,
                 headers: {
-                  Location: language,
+                  Location: chosen.location,
+                  "Set-Cookie": chosen.cookie,
                   "Cache-Control": "private, no-store",
                 },
               })
-            : moved
+            : language
               ? new Response(null, {
-                  status: 301,
-                  headers: { Location: moved },
+                  status: 302,
+                  headers: {
+                    Location: language,
+                    "Cache-Control": "private, no-store",
+                  },
                 })
-              : await context.exports.PublicCatalog.fetch(
-                  normalizedPublicRequest(
-                    request,
-                    env.APP_URL,
-                    env.VERSION_METADATA.id,
-                  ),
-                );
+              : moved
+                ? new Response(null, {
+                    status: 301,
+                    headers: { Location: moved },
+                  })
+                : await context.exports.PublicCatalog.fetch(
+                    normalizedPublicRequest(
+                      request,
+                      env.APP_URL,
+                      env.VERSION_METADATA.id,
+                    ),
+                  );
           cacheOutcome =
             response.headers.get("CF-Cache-Status") ??
             (env.APP_ENV === "local" ? "LOCAL" : "UNKNOWN");

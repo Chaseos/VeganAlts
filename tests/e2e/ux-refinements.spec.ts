@@ -136,6 +136,7 @@ test("phone country selection is visible, keyboard accessible and before aisles"
   // Canada has no demo products, so it has no aisles to list yet.
   expect(headings.slice(0, 3).map((s) => s.trim())).toEqual([
     "Country",
+    "Language",
     "Account",
   ]);
   await page.keyboard.press("Escape");

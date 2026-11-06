@@ -6,14 +6,15 @@ import type { ContributorProduct } from "@server/community/domain/moderation";
 import type { CommunityAction } from "../lib/community";
 import { shrinkPhoto } from "../lib/shrink-photo";
 import { PhotoPicker } from "./community-form";
-import { SLOT_LABELS } from "./photo-slots";
+import { IMAGE_SLOTS, slotLabel, storedSlotLabel } from "./photo-slots";
+import { t } from "../i18n";
 
-const REASONS = {
-  outdated_packaging: "The packaging has changed",
-  blurry: "The current photo is blurry or unreadable",
-  wrong_market: "The current photo is from another country",
-  incorrect: "The current photo shows a different product",
-};
+const reasons = () => ({
+  outdated_packaging: t("photoProposal.outdated"),
+  blurry: t("photoProposal.blurry"),
+  wrong_market: t("photoProposal.wrongMarket"),
+  incorrect: t("photoProposal.incorrect"),
+});
 
 /** Propose the canonical photo for one slot through staged evidence. */
 export function PhotoProposalForm({
@@ -80,7 +81,7 @@ export function PhotoProposalForm({
           evidenceReceiptId: receipt,
           evidence: {
             // The slot already says what the photo is.
-            note: `${SLOT_LABELS[slot]} photo added.`,
+            note: `${storedSlotLabel(slot)} photo added.`,
             urls: [],
             imageIds: [uploaded.current],
           },
@@ -100,17 +101,19 @@ export function PhotoProposalForm({
   }
   return (
     <form className="community-form" onSubmit={submit}>
-      <h2>{current ? "Suggest a better photo" : "Add a photo"}</h2>
-      <label htmlFor="photo-slot">Photo</label>
+      <h2>
+        {current ? t("photoProposal.suggestBetter") : t("photoProposal.add")}
+      </h2>
+      <label htmlFor="photo-slot">{t("photoProposal.photo")}</label>
       <select
         id="photo-slot"
         value={slot}
         disabled={Boolean(receiptId)}
         onChange={(e) => setSlot(e.target.value as ImageSlot)}
       >
-        {Object.entries(SLOT_LABELS).map(([value, label]) => (
+        {IMAGE_SLOTS.map((value) => (
           <option key={value} value={value}>
-            {label}
+            {slotLabel(value)}
           </option>
         ))}
       </select>
@@ -119,42 +122,38 @@ export function PhotoProposalForm({
           <img
             className="upload-preview"
             src={`/media/${current.id}/thumbnail`}
-            alt="Current photo"
+            alt={t("photoProposal.currentAlt")}
           />
-          <label htmlFor="photo-reason">Why is a new photo better?</label>
+          <label htmlFor="photo-reason">{t("photoProposal.why")}</label>
           <select id="photo-reason" name="reason">
-            {Object.entries(REASONS).map(([value, label]) => (
+            {Object.entries(reasons()).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
           </select>
-          <p className="small muted">
-            If the ingredients changed, suggest a material reformulation instead
-            so earlier ratings stay with the earlier formula.
-          </p>
+          <p className="small muted">{t("photoProposal.reformulation")}</p>
         </>
       ) : (
-        <p className="small muted">This product has no {slot} photo yet.</p>
+        <p className="small muted">{t("photoProposal.noPhoto", { slot })}</p>
       )}
       <fieldset disabled={Boolean(receiptId)}>
         <PhotoPicker slot={slot} file={file} onChange={setFile} required />
       </fieldset>
       {!administrator && (
         <p className="small muted">
-          The current photo stays until the new one is accepted, and earlier
-          photos remain with the formula they document.
+          {t("photoProposal.staysUntil")}
           {current && (slot === "ingredients" || slot === "nutrition")
-            ? " Replacing an ingredient or nutrition photo is reviewed by a moderator."
+            ? ` ${t("photoProposal.moderatorReview")}`
             : ""}
         </p>
       )}
       <button className="button" disabled={action.busy || !file}>
         {action.busy
-          ? "Uploading…"
+          ? t("photoProposal.uploading")
           : administrator
-            ? "Save photo"
-            : "Submit photo"}
+            ? t("photoProposal.save")
+            : t("photoProposal.submit")}
       </button>
     </form>
   );

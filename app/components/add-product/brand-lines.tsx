@@ -4,7 +4,8 @@ import type { BrandLine } from "@server/community/domain/contracts";
 import { flavorLabel } from "@server/catalog/domain/flavor-label";
 import { ProductThumbnail } from "../catalog/product-thumbnail";
 import { communityRequest } from "../../lib/community";
-import { plural } from "../../lib/format";
+import { formatCount } from "../../lib/format";
+import { t } from "../../i18n";
 import { productPath } from "../../lib/site-chrome";
 
 export type { BrandLine };
@@ -79,23 +80,23 @@ export function BrandLines({
   if (failed)
     return (
       <div className="va-listed" id="brand-lines">
-        <p>We couldn’t check what’s listed from {brand.name}.</p>
+        <p>{t("addProduct.linesFailed", { brand: brand.name })}</p>
         <button type="button" className="button secondary" onClick={onRetry}>
-          Retry
+          {t("addProduct.retry")}
         </button>
         <button
           type="button"
           className="button secondary"
           onClick={onSomethingElse}
         >
-          Add it anyway
+          {t("addProduct.addAnyway")}
         </button>
       </div>
     );
   if (!lines)
     return (
       <p className="va-listed" id="brand-lines" role="status">
-        Checking what’s listed from {brand.name}…
+        {t("addProduct.linesChecking", { brand: brand.name })}
       </p>
     );
   if (!lines.length) return null;
@@ -133,14 +134,18 @@ export function BrandLines({
                   size="small"
                 />
                 <span>{flavorLabel(flavor, line.flavors)}</span>
-                <span className="sr-only">: open {flavor.name}</span>
+                <span className="sr-only">
+                  {t("addProduct.openFlavor", { name: flavor.name })}
+                </span>
               </Link>
               <Link
                 className="button secondary small-button"
                 to={`${productPath(code, flavor.slug, foodOf(flavor))}#scores-title`}
               >
-                That’s it, rate it
-                <span className="sr-only">: {flavor.name}</span>
+                {t("addProduct.thatsIt")}
+                <span className="sr-only">
+                  {t("addProduct.srName", { name: flavor.name })}
+                </span>
               </Link>
             </li>
           ))}
@@ -150,7 +155,7 @@ export function BrandLines({
           className="link-button"
           onClick={() => onFlavor(line)}
         >
-          Add a new flavor of {line.name}
+          {t("addProduct.newFlavorOf", { name: line.name })}
         </button>
       </li>
     );
@@ -163,21 +168,22 @@ export function BrandLines({
       aria-describedby={error ? "brand-lines-error" : undefined}
     >
       <h3 id="brand-lines-title" className="va-heading-s">
-        Already listed from {brand.name}
+        {t("addProduct.alreadyListedFrom", { brand: brand.name })}
       </h3>
-      <p className="small muted">
-        Found it here? Rate it instead of adding it again. A flavor that isn’t
-        listed joins its line.
-      </p>
+      <p className="small muted">{t("addProduct.foundIt")}</p>
       {here.length > 0 ? (
         <ul className="va-listed__lines">{here.map((line) => card(line))}</ul>
       ) : (
-        <p>Nothing from {brand.name} is listed for this food yet.</p>
+        <p>{t("addProduct.nothingListed", { brand: brand.name })}</p>
       )}
       {elsewhere.length > 0 && (
         <details className="va-listed__more">
           <summary>
-            {plural(elsewhere.length, "line")} from {brand.name} in other foods
+            {t("addProduct.linesElsewhere", {
+              count: elsewhere.length,
+              number: formatCount(elsewhere.length),
+              brand: brand.name,
+            })}
           </summary>
           <ul className="va-listed__lines">
             {elsewhere.map((line) => card(line, true))}
@@ -194,7 +200,7 @@ export function BrandLines({
         className="button secondary"
         onClick={onSomethingElse}
       >
-        Something else from {brand.name}
+        {t("addProduct.somethingElse", { brand: brand.name })}
       </button>
     </section>
   );

@@ -3,6 +3,7 @@ import { PendingRatingRecovery } from "../pending-rating-recovery";
 import { SiteFooter } from "./site-footer";
 import { SiteHeader, type PhoneBack } from "./site-header";
 import { PREVIEW } from "../../lib/site-chrome";
+import { t } from "../../i18n";
 
 export type PageWidth = "full" | "wide" | "narrow" | "prose";
 
@@ -34,8 +35,8 @@ export function PageShell({
   return (
     <div className="va-site">
       {PREVIEW && (
-        <aside className="va-preview-banner" aria-label="Development preview">
-          Development preview · Demo catalog and sample ratings
+        <aside className="va-preview-banner" aria-label={t("preview.label")}>
+          {t("preview.banner")}
         </aside>
       )}
       <SiteHeader

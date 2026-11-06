@@ -28,7 +28,8 @@ test("profile saves survive reload; reserved and occupied handles preserve the s
     await page.getByLabel("Public handle").fill("admin");
     await page.getByRole("button", { name: "Save profile" }).click();
     await expect(page.getByRole("alert")).toContainText("reserved");
-    await page.reload();
+    // Reloading a refused form sends it again, so open the page fresh.
+    await page.goto("/account");
     await expect(page.getByLabel("Public handle")).toHaveValue(handle);
     await context.addCookies([second.cookie]);
     await page.goto("/account");

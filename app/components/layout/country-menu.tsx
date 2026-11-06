@@ -7,6 +7,7 @@ import {
   type ChromeCountry,
 } from "../../lib/site-chrome";
 import { PREFERENCE_KEYS, writePreference } from "../../lib/device-preferences";
+import { t } from "../../i18n";
 
 // Where switching country should land: the same food or aisle when the page
 // names one (routes expose `countrySwitch` in their handle data), otherwise
@@ -60,7 +61,9 @@ export function CountryList({
               </span>
               <span className="va-country-list__name">{country.name}</span>
               <span className="va-country-list__note">
-                {country.hasRankings ? "Rankings" : "No rankings yet"}
+                {country.hasRankings
+                  ? t("country.rankings")
+                  : t("country.noRankings")}
               </span>
             </Link>
           </li>
@@ -99,7 +102,10 @@ export function CountryMenu() {
       <span className="va-country-button">
         {summary}
         <span className="sr-only va-phone-only">
-          Country: {country.name} ({country.code.toUpperCase()})
+          {t("country.current", {
+            name: country.name,
+            code: country.code.toUpperCase(),
+          })}
         </span>
       </span>
     );
@@ -108,18 +114,18 @@ export function CountryMenu() {
       align="end"
       tone="kale"
       className="va-country-menu"
-      summaryLabel={`Country: ${country.name} (${country.code.toUpperCase()}). Change country`}
-      panelLabel="Choose a country"
+      summaryLabel={t("country.change", {
+        name: country.name,
+        code: country.code.toUpperCase(),
+      })}
+      panelLabel={t("country.choose")}
       summary={summary}
     >
       {() => (
-        <nav aria-label="Countries">
-          <p className="va-menu-heading">Rankings for</p>
+        <nav aria-label={t("country.countries")}>
+          <p className="va-menu-heading">{t("country.rankingsFor")}</p>
           <CountryList current={country.code} countries={countries} />
-          <p className="va-menu-note">
-            Each country’s rankings come from people who live there. Empty
-            countries invite the first products.
-          </p>
+          <p className="va-menu-note">{t("country.note")}</p>
         </nav>
       )}
     </Popover>

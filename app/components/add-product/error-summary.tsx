@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { t } from "../../i18n";
 
 /**
  * Problems that stop a step, listed together and linked to their fields. It
@@ -32,9 +33,7 @@ export function ErrorSummary({
       aria-labelledby="error-summary-title"
     >
       <p id="error-summary-title" className="va-error-summary__title">
-        {entries.length === 1
-          ? "One thing to fix"
-          : `${entries.length} things to fix`}
+        {t("addProduct.thingsToFix", { count: entries.length })}
       </p>
       <ul>
         {entries.map(([field, message]) => (

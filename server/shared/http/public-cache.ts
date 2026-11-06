@@ -7,6 +7,7 @@ import {
 import {
   defaultLanguage,
   isLanguage,
+  languageFor,
   languagesOf,
   splitLanguage,
   type Language,
@@ -188,6 +189,7 @@ export function languageRedirect(
   url: URL,
   route: PublicRoute,
   preview = false,
+  cookies: string | null = null,
 ) {
   if (
     route.representation !== "document" ||
@@ -200,7 +202,28 @@ export function languageRedirect(
   if (language && languagesOf(route.country, preview).includes(language))
     return null;
   const rest = path.slice(`/${route.country}`.length);
-  return `/${route.country}/${defaultLanguage(route.country)}${rest}${url.search}`;
+  const target = languageFor(route.country, languageCookie(cookies), preview);
+  return `/${route.country}/${target}${rest}${url.search}`;
+}
+
+const LANGUAGE_COOKIE = "va_lang";
+const languageCookie = (cookies: string | null) =>
+  cookies?.match(new RegExp(`(?:^|;\\s*)${LANGUAGE_COOKIE}=([a-z]{2})`))?.[1];
+
+/**
+ * The language switcher's link. The uncached gateway saves the choice, so
+ * `Set-Cookie` never reaches a shared response and it works without JavaScript.
+ */
+export function languageChoice(url: URL) {
+  const language = url.searchParams.get("setlang");
+  if (!language || !isLanguage(language)) return null;
+  const clean = new URL(url);
+  clean.searchParams.delete("setlang");
+  const secure = url.protocol === "https:" ? "; Secure" : "";
+  return {
+    location: clean.pathname + clean.search,
+    cookie: `${LANGUAGE_COOKIE}=${language}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`,
+  };
 }
 
 export function normalizedPublicRequest(

@@ -5,7 +5,9 @@ import { Icon } from "../icons/icon";
 import { ScoreLabel } from "../ui/score";
 import { Badge, SeasonalBadge } from "../ui/badges";
 import type { Season } from "@server/taxonomy/domain/season";
-import { plural, productName } from "../../lib/format";
+import { counted } from "../../lib/counted";
+import { productName } from "../../lib/format";
+import { t } from "../../i18n";
 import { ProductThumbnail } from "./product-thumbnail";
 import { useFoodHref } from "../../lib/ranking-filters";
 import { foodPath, productPath, searchPath } from "../../lib/site-chrome";
@@ -61,7 +63,7 @@ export function FoodCard({
           {food.season && <SeasonalBadge />}
         </div>
         <span className="va-food-card__count">
-          {plural(food.productCount, "product")}
+          {counted("count.product", food.productCount)}
         </span>
       </header>
       {food.top.length ? (
@@ -70,7 +72,7 @@ export function FoodCard({
             <li key={product.slug}>
               <span
                 className={`va-food-card__rank${product.rank === 1 ? " va-food-card__rank--first" : ""}`}
-                aria-label={`Rank ${product.rank}`}
+                aria-label={t("aisle.rank", { rank: product.rank })}
               >
                 {product.rank}
               </span>
@@ -85,7 +87,9 @@ export function FoodCard({
               >
                 {productName(product.name, product.brand)}
               </Link>
-              {product.early && <Badge tone="early">Early</Badge>}
+              {product.early && (
+                <Badge tone="early">{t("badge.earlyShort")}</Badge>
+              )}
               <ScoreLabel
                 value={product.score}
                 size="mini"
@@ -95,13 +99,13 @@ export function FoodCard({
           ))}
         </ol>
       ) : (
-        <p className="va-food-card__empty">No ranked swaps yet.</p>
+        <p className="va-food-card__empty">{t("aisle.noRanked")}</p>
       )}
       {food.top.length > 0 && food.top.length < 3 && (
         <p className="va-food-card__more">
-          Know another?{" "}
+          {t("aisle.knowAnother")}{" "}
           <Link to={`/add-product?country=${country}&food=${food.slug}`}>
-            Add it.
+            {t("aisle.addIt")}
           </Link>
         </p>
       )}
@@ -139,8 +143,10 @@ export function AislePanel({
         <div className="va-aisle__title">
           <h1 className="va-aisle__name">{data.aisle.name}</h1>
           <p className="va-small va-muted">
-            {plural(foods.length, "food")}
-            {` · ${plural(ranked, "ranked swap")}`} · top 3 for each
+            {t("aisle.summary", {
+              foods: counted("count.food", foods.length),
+              swaps: counted("count.rankedSwap", ranked),
+            })}
           </p>
         </div>
         <Form
@@ -148,17 +154,19 @@ export function AislePanel({
           method="get"
           action={searchPath(country)}
           role="search"
-          aria-label={`Find in ${data.aisle.name}`}
+          aria-label={t("foodNav.findIn", { group: data.aisle.name })}
         >
           <label className="va-aisle__filter-field">
             <Icon name="filter" size={18} />
-            <span className="sr-only">Find a food in {data.aisle.name}</span>
+            <span className="sr-only">
+              {t("aisle.findFoodIn", { aisle: data.aisle.name })}
+            </span>
             <input
               type="search"
               name="q"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={`Find a food or brand in ${aisleName}`}
+              placeholder={t("aisle.findFoodOrBrand", { aisle: aisleName })}
               autoComplete="off"
             />
           </label>
@@ -178,22 +186,23 @@ export function AislePanel({
             <div className="va-empty">
               <p className="va-heading-s">
                 {lower
-                  ? `No ${aisleName} foods match “${query.trim()}”`
-                  : `No foods in this category yet`}
+                  ? t("aisle.noMatch", {
+                      aisle: aisleName,
+                      query: query.trim(),
+                    })
+                  : t("aisle.empty")}
               </p>
               {lower ? (
-                <p className="va-muted">
-                  Try the search bar above, or suggest it as a new food.
-                </p>
+                <p className="va-muted">{t("aisle.tryAbove")}</p>
               ) : (
                 <p className="va-muted">
                   <Link
                     className="va-link"
                     to={`/add-product?country=${country}`}
                   >
-                    Add a product
+                    {t("menu.addProduct")}
                   </Link>{" "}
-                  to bring its food here.
+                  {t("aisle.bringFood")}
                 </p>
               )}
             </div>
@@ -208,16 +217,13 @@ export function AislePanel({
 function SuggestFood({ country, aisle }: { country: string; aisle: string }) {
   return (
     <div className="va-suggest-food">
-      <p className="va-suggest-food__title">Missing a food?</p>
-      <p>
-        Anyone can suggest one. It gets its own ranking once people add and rate
-        products.
-      </p>
+      <p className="va-suggest-food__title">{t("aisle.missing")}</p>
+      <p>{t("aisle.anyoneCanSuggest")}</p>
       <Link
         className="button small-button"
         to={`/propose-category?country=${country}&aisle=${aisle}`}
       >
-        Suggest a food
+        {t("nav.suggestFood")}
       </Link>
     </div>
   );

@@ -6,10 +6,12 @@ import { InstantSearch } from "../catalog/instant-search";
 import { AccountMenu } from "./account-menu";
 import { AppearanceMenu } from "./appearance-menu";
 import { CountryMenu } from "./country-menu";
+import { LanguageMenu } from "./language-menu";
 import { PhoneMenu } from "./phone-menu";
 import { AisleBar } from "./aisle-bar";
 import { FoodsMenu } from "./foods-menu";
 import { homePath, searchPath, useSiteChrome } from "../../lib/site-chrome";
+import { t } from "../../i18n";
 
 export interface PhoneBack {
   to: string;
@@ -42,7 +44,7 @@ export function SiteHeader({
           <Link
             className="va-header__back"
             to={phoneBack.to}
-            aria-label={`Back to ${phoneBack.label}`}
+            aria-label={t("header.backTo", { place: phoneBack.label })}
           >
             <Icon name="back" size={22} />
             {/* The context line already names the place. */}
@@ -54,7 +56,7 @@ export function SiteHeader({
         <Link
           className={`va-header__brand${phoneBack ? " va-desktop-only" : ""}`}
           to={homePath(country.code)}
-          aria-label="VeganAlts home"
+          aria-label={t("chrome.home")}
         >
           <Wordmark size="header" />
         </Link>
@@ -74,12 +76,13 @@ export function SiteHeader({
               country={country.code}
               variant="header"
               id="header-search"
-              placeholder="Search a food or brand"
+              placeholder={t("search.foodOrBrand")}
             />
           </div>
         )}
         <div className="va-header__tools">
           {countryMenu && <CountryMenu />}
+          {countryMenu && <LanguageMenu />}
           <span className="va-desktop-only">
             <AppearanceMenu />
           </span>
@@ -89,7 +92,7 @@ export function SiteHeader({
           <Link
             className="va-icon-button va-phone-only"
             to={searchPath(country.code)}
-            aria-label="Search"
+            aria-label={t("header.search")}
           >
             <Icon name="search" size={22} />
           </Link>

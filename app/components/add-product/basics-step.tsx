@@ -11,6 +11,7 @@ import { BrandLines, useBrandLines } from "./brand-lines";
 import { IdentityMatches } from "./identity-matches";
 import { PhotosSection } from "./photos-section";
 import type { FoodChoice } from "../../lib/food-choices";
+import { t } from "../../i18n";
 import {
   MAX_FLAVOR,
   type DraftErrors,
@@ -109,20 +110,20 @@ export function BasicsStep({
         onContinue();
       }}
     >
-      <p className="va-add__note">
-        Fields are required unless they say optional.
-      </p>
+      <p className="va-add__note">{t("addProduct.requiredNote")}</p>
       <p className="va-add__note">{CATALOG_ELIGIBILITY_GUIDANCE}</p>
       <div className="va-add__country">
         <span>
-          Adding to <strong>{countryName}</strong>
+          {t("addProduct.addingTo")} <strong>{countryName}</strong>
         </span>
         {/* A reply to a follow-up stays in its submission's country. */}
         {!draft.followUp && (
           <Popover
-            summary="Change"
-            summaryLabel={`Change country (now ${countryName})`}
-            panelLabel="Countries"
+            summary={t("addProduct.change")}
+            summaryLabel={t("addProduct.changeCountry", {
+              country: countryName,
+            })}
+            panelLabel={t("addProduct.countries")}
             className="va-add__country-menu"
           >
             {(close) => (
@@ -178,7 +179,7 @@ export function BasicsStep({
       />
       <FoodPicker
         id="food"
-        label="What food does it replace? (required)"
+        label={t("addProduct.foodRequired")}
         foods={foods}
         countryName={countryName}
         value={draft.food}
@@ -187,10 +188,15 @@ export function BasicsStep({
         allowSuggest={allowSuggest}
         preferred={
           brandFoods.length
-            ? { ids: brandFoods, tag: `From ${draft.brand.trim()}` }
+            ? {
+                ids: brandFoods,
+                tag: t("addProduct.fromBrand", { brand: draft.brand.trim() }),
+              }
             : undefined
         }
-        disabledHint={draft.brandChosen ? undefined : "Choose the brand first."}
+        disabledHint={
+          draft.brandChosen ? undefined : t("addProduct.brandFirst")
+        }
         error={errors.food}
         aisleError={errors.aisle}
       />
@@ -222,8 +228,12 @@ export function BasicsStep({
         <fieldset className="va-add__product">
           <legend>
             {line.kind === "flavor"
-              ? `A new flavor of ${line.lineName || "this line"}`
-              : `New from ${draft.brand.trim() || "this brand"}`}
+              ? t("addProduct.newFlavorLegend", {
+                  name: line.lineName || t("addProduct.thisLine"),
+                })
+              : t("addProduct.newFromLegend", {
+                  brand: draft.brand.trim() || t("addProduct.thisBrand"),
+                })}
           </legend>
           {listed && (
             <button
@@ -232,13 +242,15 @@ export function BasicsStep({
               onClick={() => update({ line: null })}
             >
               {line.kind === "flavor"
-                ? "Choose something else"
-                : `See what’s listed from ${draft.brand.trim()}`}
+                ? t("addProduct.chooseElse")
+                : t("addProduct.seeListed", { brand: draft.brand.trim() })}
             </button>
           )}
           {line.kind === "flavor" && (
             <>
-              <label htmlFor="product-flavor">Flavor (required)</label>
+              <label htmlFor="product-flavor">
+                {t("addProduct.flavorRequired")}
+              </label>
               <input
                 id="product-flavor"
                 value={draft.flavor}
@@ -250,7 +262,7 @@ export function BasicsStep({
               {fieldError("flavor")}
             </>
           )}
-          <label htmlFor="product-name">Product name (required)</label>
+          <label htmlFor="product-name">{t("addProduct.nameRequired")}</label>
           <input
             id="product-name"
             value={draft.name}
@@ -261,13 +273,15 @@ export function BasicsStep({
           />
           <p className="small muted">
             {line.kind === "flavor"
-              ? "As the package names it. Package sizes share one product."
-              : "Include the flavor. Package sizes share one product."}
+              ? t("addProduct.nameHintFlavor")
+              : t("addProduct.nameHintNew")}
           </p>
           {fieldError("name")}
           {line.kind === "new" && (
             <>
-              <label htmlFor="product-flavor">Flavor (optional)</label>
+              <label htmlFor="product-flavor">
+                {t("addProduct.flavorOptional")}
+              </label>
               <input
                 id="product-flavor"
                 value={draft.flavor}
@@ -278,13 +292,13 @@ export function BasicsStep({
                 aria-invalid={errors.flavor ? true : undefined}
               />
               <p id="product-flavor-hint" className="small muted">
-                Leave blank if it’s the original or plain version.
+                {t("addProduct.flavorBlank")}
               </p>
               {fieldError("flavor")}
               {draft.flavor.trim() && (
                 <>
                   <label htmlFor="line-name">
-                    Name without the flavor (required)
+                    {t("addProduct.lineNameRequired")}
                   </label>
                   <input
                     id="line-name"
@@ -294,9 +308,7 @@ export function BasicsStep({
                     autoComplete="off"
                     {...field("lineName")}
                   />
-                  <p className="small muted">
-                    Its other flavors share this name and one ranking.
-                  </p>
+                  <p className="small muted">{t("addProduct.lineNameHint")}</p>
                   {fieldError("lineName")}
                 </>
               )}
@@ -315,7 +327,7 @@ export function BasicsStep({
               checked={seasonal}
               onChange={(e) => update({ seasonal: e.target.checked })}
             />
-            Sold only part of the year (seasonal)
+            {t("addProduct.seasonal")}
           </label>
         </fieldset>
       )}
@@ -327,7 +339,7 @@ export function BasicsStep({
         />
       )}
       <button className="button" disabled={busy}>
-        Continue
+        {t("addProduct.continue")}
       </button>
     </form>
   );

@@ -30,6 +30,7 @@ import {
   readPendingSave,
   storePendingSave,
 } from "../lib/pending-save";
+import { t } from "../i18n";
 
 type User = RatingState["user"];
 interface PersonalContext {
@@ -136,11 +137,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
         returnTo,
       });
     } catch {
-      throw new SaveError(
-        "Your browser could not remember this selection. Enable tab storage, then try again.",
-        "STORAGE_UNAVAILABLE",
-        400,
-      );
+      throw new SaveError(t("personal.storage"), "STORAGE_UNAVAILABLE", 400);
     }
     window.location.assign(`/sign-in?returnTo=${encodeURIComponent(returnTo)}`);
   }, []);
@@ -158,7 +155,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
             if (!userRef.current) {
               signIn(queue?.latestSelection(selection) ?? selection, returnTo);
               throw new SaveError(
-                "Continuing to sign in…",
+                t("personal.signingIn"),
                 "UNAUTHENTICATED",
                 401,
               );
@@ -181,13 +178,13 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
                 keepalive: true,
               }).catch(() => {});
               throw new SaveError(
-                "Connection lost. Your selection is here; retry when you’re ready.",
+                t("personal.connectionLostSelection"),
                 "NETWORK_ERROR",
                 0,
               );
             }
             const result = (await response.json().catch(() => ({
-              title: "The service did not respond correctly. Please retry.",
+              title: t("personal.badResponse"),
             }))) as {
               data: SavedRating;
               title?: string;
@@ -200,13 +197,13 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
             }
             if (!response.ok)
               throw new SaveError(
-                result.title ?? "Your rating wasn’t saved. Please retry.",
+                result.title ?? t("personal.notSaved"),
                 result.code ?? "SAVE_FAILED",
                 response.status,
               );
             if (!result.data?.rating)
               throw new SaveError(
-                "The saved rating could not be confirmed. Please retry.",
+                t("personal.unconfirmed"),
                 "INVALID_RESPONSE",
                 502,
               );
@@ -253,7 +250,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
         `/api/v1/me/saved-products/${encodeURIComponent(productId)}`,
         { method: value ? "PUT" : "DELETE" },
       ).catch(() => {
-        throw new Error("Connection lost. Please try again.");
+        throw new Error(t("personal.connectionLost"));
       });
       if (response.status === 401) {
         userRef.current = null;
@@ -269,9 +266,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
         const result = (await response.json().catch(() => null)) as {
           title?: string;
         } | null;
-        throw new Error(
-          result?.title ?? "Your saved list didn’t change. Please try again.",
-        );
+        throw new Error(result?.title ?? t("save.unchanged"));
       }
       writtenSaves.current.add(productId);
       markSaved(productId, value);
@@ -317,10 +312,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
         { signal: controller.signal, cache: "no-store" },
       )
         .then(async (response) => {
-          if (!response.ok)
-            throw new Error(
-              "Your personal state could not load. Please retry.",
-            );
+          if (!response.ok) throw new Error(t("personal.loadFailed"));
           return response.json() as Promise<{ data: RatingState }>;
         })
         .then(({ data }) => {
@@ -386,7 +378,7 @@ export function PersonalStateProvider({ children }: { children: ReactNode }) {
             setError(
               reason instanceof Error
                 ? reason.message
-                : "Personal state could not load.",
+                : t("personal.loadFailedShort"),
             );
         });
     }, 20);

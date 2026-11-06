@@ -10,6 +10,7 @@ import { SaveButton } from "../components/save-button";
 import { ButtonLink } from "../components/ui/button";
 import { EmptyState } from "../components/ui/feedback";
 import { productName } from "../lib/format";
+import { t } from "../i18n";
 import type { Route } from "./+types/saved";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -23,7 +24,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 export function meta() {
   return [
-    { title: "Saved products · VeganAlts" },
+    { title: t("saved.metaTitle") },
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
@@ -32,16 +33,16 @@ export default function Saved({ loaderData: data }: Route.ComponentProps) {
   return (
     <PageShell width="narrow" aisles={false}>
       <header className="page-heading">
-        <p className="eyebrow">Your list, for later</p>
-        <h1>Saved products</h1>
-        <p>Only you can see this list. Most recently saved first.</p>
+        <p className="eyebrow">{t("saved.eyebrow")}</p>
+        <h1>{t("saved.title")}</h1>
+        <p>{t("saved.intro")}</p>
       </header>
       {!data.items.length ? (
         <EmptyState
-          title="Nothing saved yet."
-          actions={<ButtonLink to="/">Find an alternative</ButtonLink>}
+          title={t("saved.emptyTitle")}
+          actions={<ButtonLink to="/">{t("saved.find")}</ButtonLink>}
         >
-          Tap the bookmark on a product’s page to keep it here.
+          {t("saved.emptyBody")}
         </EmptyState>
       ) : (
         <ul className="va-divided va-my-ratings va-saved-list">
@@ -57,10 +58,12 @@ export default function Saved({ loaderData: data }: Route.ComponentProps) {
                     </Link>
                   </h2>
                   {item.flavor && (
-                    <p className="small">Flavor: {item.flavor}</p>
+                    <p className="small">
+                      {t("product.flavor", { flavor: item.flavor })}
+                    </p>
                   )}
                   {item.lifecycleStatus === "discontinued" && (
-                    <p className="small muted">Discontinued</p>
+                    <p className="small muted">{t("saved.discontinued")}</p>
                   )}
                 </div>
                 <SaveButton
@@ -74,9 +77,9 @@ export default function Saved({ loaderData: data }: Route.ComponentProps) {
         </ul>
       )}
       {(data.nextCursor || data.items.length === 20) && (
-        <nav className="pagination" aria-label="Saved products pages">
+        <nav className="pagination" aria-label={t("saved.pages")}>
           <Link className="button secondary" to="/saved">
-            Most recent
+            {t("saved.recent")}
           </Link>
           <span />
           {data.nextCursor ? (
@@ -85,7 +88,7 @@ export default function Saved({ loaderData: data }: Route.ComponentProps) {
               to={`/saved?cursor=${encodeURIComponent(data.nextCursor)}`}
               rel="next"
             >
-              Older saves
+              {t("saved.older")}
             </Link>
           ) : (
             <span />

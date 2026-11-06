@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { hasIngredientEvidence as hasEvidence } from "@server/community/domain/policy";
+import { t } from "../i18n";
 import type {
   ManufacturerLabel,
   SubmissionInput,
@@ -213,35 +214,30 @@ export function basicsErrors(
   photos: DraftPhotos,
 ): DraftErrors {
   const errors: DraftErrors = {};
-  if (!enough(draft.brand)) errors.brand = "Enter the brand.";
-  else if (!draft.brandChosen)
-    errors.brand = "Choose the brand from the list, or add it as a new brand.";
+  if (!enough(draft.brand)) errors.brand = t("draft.enterBrand");
+  else if (!draft.brandChosen) errors.brand = t("draft.chooseBrand");
   // The food field opens once the brand is chosen.
   if (!draft.food) {
-    if (draft.brandChosen)
-      errors.food = "Choose the food it replaces, or suggest a new one.";
+    if (draft.brandChosen) errors.food = t("draft.chooseFood");
   } else if (draft.food.kind === "new") {
-    if (!enough(draft.food.name)) errors.food = "Name the food it replaces.";
-    if (!draft.food.aisleId)
-      errors.aisle = "Choose the category this food belongs in.";
+    if (!enough(draft.food.name)) errors.food = t("draft.nameFood");
+    if (!draft.food.aisleId) errors.aisle = t("draft.chooseAisle");
   }
-  if (draft.brandChosen && !draft.line)
-    errors.line =
-      "Choose the product if it’s listed, a new flavor of a line, or something else from the brand.";
+  if (draft.brandChosen && !draft.line) errors.line = t("draft.chooseLine");
   // The product's own fields appear once it's clear what it is.
   if (!draft.line) return errors;
   if (draft.line.kind === "flavor" && !draft.flavor.trim())
-    errors.flavor = "Enter the flavor.";
+    errors.flavor = t("draft.enterFlavor");
   if (draft.flavor.trim().length > MAX_FLAVOR)
-    errors.flavor = `Keep the flavor to ${MAX_FLAVOR} characters.`;
-  if (!enough(draft.name)) errors.name = "Enter the product name.";
+    errors.flavor = t("draft.flavorLength", { max: MAX_FLAVOR });
+  if (!enough(draft.name)) errors.name = t("draft.enterName");
   if (
     draft.line.kind === "new" &&
     draft.flavor.trim() &&
     !enough(draft.lineName)
   )
-    errors.lineName = "Enter the name without the flavor.";
-  if (!photos.front) errors.front = "Add a photo of the front of the package.";
+    errors.lineName = t("draft.enterLineName");
+  if (!photos.front) errors.front = t("draft.addFront");
   return errors;
 }
 
@@ -258,17 +254,14 @@ export function extrasErrors(draft: ProductDraft): DraftErrors {
     } catch {
       valid = false;
     }
-    if (!valid)
-      errors.ingredientUrl =
-        "Use an HTTPS link, like https://brand.example/ingredients.";
+    if (!valid) errors.ingredientUrl = t("draft.httpsLink");
   }
   if (
     draft.allergens.status === "declared" &&
     !draft.allergens.contains.length &&
     !draft.allergens.mayContain.length
   )
-    errors.allergens =
-      "Choose the allergens the label lists, or choose “No allergens declared”.";
+    errors.allergens = t("draft.chooseAllergens");
   return errors;
 }
 

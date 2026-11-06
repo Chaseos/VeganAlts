@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import type { CommunityAction } from "../lib/community";
 import { Turnstile } from "./turnstile";
 import type { ImageSlot } from "@server/media/domain/media";
+import { t } from "../i18n";
 
 export function CommunityFeedback({
   action,
@@ -24,16 +25,17 @@ export function CommunityFeedback({
         {action.checking && (
           <>
             {" "}
-            <Link to="/my-contributions">View automatic checks</Link>.
+            <Link to="/my-contributions">{t("community.viewChecks")}</Link>
+            {t("community.viewChecksAfter")}
           </>
         )}
         {action.sessionExpired && (
           <>
             {" "}
             <a href="/sign-in" target="_blank" rel="noopener">
-              Sign in again (new tab)
+              {t("community.signInAgain")}
             </a>
-            , then return here and retry.
+            {t("community.signInAgainAfter")}
           </>
         )}
       </div>
@@ -51,7 +53,7 @@ export function CommunityFeedback({
 export function EvidenceFields({
   prefix = "evidence",
   required = true,
-  noteLabel = "What does the evidence show?",
+  noteLabel = t("community.evidenceNote"),
   reviewed = true,
 }: {
   prefix?: string;
@@ -71,7 +73,7 @@ export function EvidenceFields({
         maxLength={2000}
         rows={4}
       />
-      <label htmlFor={`${prefix}-url`}>Source URL (optional)</label>
+      <label htmlFor={`${prefix}-url`}>{t("community.sourceUrl")}</label>
       <input
         id={`${prefix}-url`}
         name="evidenceUrl"
@@ -80,9 +82,8 @@ export function EvidenceFields({
         maxLength={1000}
       />
       <p className="small muted">
-        Link directly to relevant manufacturer or certification information.
-        {reviewed &&
-          " An operator reviews the evidence before changing the catalog."}
+        {t("community.evidenceHint")}
+        {reviewed && ` ${t("community.evidenceReviewed")}`}
       </p>
     </>
   );
@@ -90,20 +91,32 @@ export function EvidenceFields({
 export function ManufacturerField({ value = "unknown" }: { value?: string }) {
   return (
     <>
-      <label htmlFor="manufacturer-label">Manufacturer wording</label>
+      <label htmlFor="manufacturer-label">
+        {t("community.manufacturerLabel")}
+      </label>
       <select
         id="manufacturer-label"
         name="manufacturerLabel"
         defaultValue={value}
       >
-        <option value="unknown">Not sure / not stated</option>
-        <option value="vegan">Labeled vegan</option>
-        <option value="plant_based">Labeled plant-based</option>
-        <option value="neither">Neither wording</option>
+        <option value="unknown">{t("community.manufacturerUnknown")}</option>
+        <option value="vegan">{t("community.manufacturerVegan")}</option>
+        <option value="plant_based">
+          {t("community.manufacturerPlantBased")}
+        </option>
+        <option value="neither">{t("community.manufacturerNeither")}</option>
       </select>
     </>
   );
 }
+const slotLabel = (slot: ImageSlot) =>
+  ({
+    front: t("community.slotFront"),
+    back: t("community.slotBack"),
+    ingredients: t("community.slotIngredients"),
+    nutrition: t("community.slotNutrition"),
+    prepared: t("community.slotPrepared"),
+  })[slot];
 export function PhotoPicker({
   slot,
   file,
@@ -124,13 +137,10 @@ export function PhotoPicker({
   return (
     <div className="photo-picker">
       <label htmlFor={`photo-${slot}`}>
-        {label ??
-          (slot === "front"
-            ? "Front photo"
-            : slot === "ingredients"
-              ? "Ingredients photo"
-              : `${slot[0]!.toUpperCase()}${slot.slice(1)} photo`)}
-        {required ? " (required)" : " (optional)"}
+        {label ?? slotLabel(slot)}
+        {required
+          ? ` ${t("community.required")}`
+          : ` ${t("community.optional")}`}
       </label>
       <input
         id={`photo-${slot}`}
@@ -161,7 +171,9 @@ function ChosenPhoto({ file }: { file: File }) {
   return (
     <p className="photo-picker__chosen">
       {preview && <img src={preview} alt="" width={56} height={56} />}
-      <span className="small">Selected: {file.name}</span>
+      <span className="small">
+        {t("community.selected", { name: file.name })}
+      </span>
     </p>
   );
 }
@@ -175,10 +187,7 @@ export function CommunityControls({ children }: { children: ReactNode }) {
   return (
     <>
       <noscript>
-        <p className="notice">
-          JavaScript is required to add or edit contributions. Enable it, then
-          reload to continue.
-        </p>
+        <p className="notice">{t("community.noScript")}</p>
       </noscript>
       <fieldset
         className="community-controls"
@@ -195,9 +204,11 @@ export function CommunityControls({ children }: { children: ReactNode }) {
 export function GuidelinesNote() {
   return (
     <p className="small guidelines-note">
-      Contributions follow the{" "}
-      <Link to="/about/terms">community guidelines</Link> and are reviewed as
-      described in <Link to="/about/moderation">how moderation works</Link>.
+      {t("community.guidelinesBefore")}{" "}
+      <Link to="/about/terms">{t("community.guidelinesLink")}</Link>{" "}
+      {t("community.guidelinesMiddle")}{" "}
+      <Link to="/about/moderation">{t("community.moderationLink")}</Link>
+      {t("community.guidelinesAfter")}
     </p>
   );
 }

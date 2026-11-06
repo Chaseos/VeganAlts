@@ -10,6 +10,7 @@ import {
 } from "../../lib/food-choices";
 import type { FoodPick } from "../../lib/product-draft";
 import { useCombobox } from "../../lib/use-combobox";
+import { t } from "../../i18n";
 
 const parseNames = (text: string) =>
   text
@@ -115,7 +116,7 @@ export function FoodPicker({
             <FoodIcon slug={food?.slug ?? "food"} size={22} />
           </span>
           <span className="va-food-pick__text">
-            <strong>{food?.name ?? "Chosen food"}</strong>
+            <strong>{food?.name ?? t("addProduct.chosenFood")}</strong>
             {food && placeLabel(food) && (
               <span className="va-small va-muted">{placeLabel(food)}</span>
             )}
@@ -128,13 +129,19 @@ export function FoodPicker({
               requestAnimationFrame(() => field.current?.focus());
             }}
           >
-            Change<span className="sr-only"> {food?.name}</span>
+            {t("addProduct.change")}
+            <span className="sr-only"> {food?.name}</span>
           </button>
         </div>
         {food && !food.inCountry && (
           <p className="va-small">
-            <Badge tone="neutral">Not in {countryName} yet</Badge> Adding a
-            product brings {food.name.toLowerCase()} to {countryName}.
+            <Badge tone="neutral">
+              {t("addProduct.notInCountry", { country: countryName })}
+            </Badge>{" "}
+            {t("addProduct.bringsFood", {
+              food: food.name.toLowerCase(),
+              country: countryName,
+            })}
           </p>
         )}
       </div>
@@ -144,8 +151,8 @@ export function FoodPicker({
   if (value?.kind === "new")
     return (
       <fieldset className="va-food-pick va-food-pick--new" id={id}>
-        <legend>New food (reviewed with your product)</legend>
-        <label htmlFor={`${id}-name`}>Food name (required)</label>
+        <legend>{t("addProduct.newFoodLegend")}</legend>
+        <label htmlFor={`${id}-name`}>{t("suggestFood.nameLabel")}</label>
         <input
           id={`${id}-name`}
           value={value.name}
@@ -172,9 +179,7 @@ export function FoodPicker({
           value={value.newAisle ?? ""}
           onChange={(newAisle) => onChange({ ...value, newAisle })}
         />
-        <label htmlFor={`${id}-other`}>
-          Other names (optional, separated by commas)
-        </label>
+        <label htmlFor={`${id}-other`}>{t("common.aliasesLabel")}</label>
         <input
           id={`${id}-other`}
           value={otherNames}
@@ -184,10 +189,7 @@ export function FoodPicker({
             onChange({ ...value, otherNames: parseNames(e.target.value) });
           }}
         />
-        <p className="small muted">
-          We check new foods for duplicates within three days. Your product goes
-          live once the food is accepted.
-        </p>
+        <p className="small muted">{t("addProduct.newFoodNote")}</p>
         <button
           type="button"
           className="link-button"
@@ -196,7 +198,7 @@ export function FoodPicker({
             requestAnimationFrame(() => field.current?.focus());
           }}
         >
-          Choose an existing food instead
+          {t("addProduct.chooseExisting")}
         </button>
       </fieldset>
     );
@@ -208,9 +210,7 @@ export function FoodPicker({
       </label>
       <input
         {...combo.inputProps}
-        placeholder={
-          disabledHint ? undefined : "Chicken nuggets, cheddar, milk…"
-        }
+        placeholder={disabledHint ? undefined : t("addProduct.foodPlaceholder")}
         disabled={Boolean(disabledHint)}
         value={query}
         onChange={(e) => {
@@ -227,8 +227,8 @@ export function FoodPicker({
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {showing && typed
           ? options.length
-            ? `${options.length} choices. Use the arrow keys to choose.`
-            : `No food matches ${typed}.`
+            ? t("addProduct.choices", { number: options.length })
+            : t("addProduct.noFoodMatches", { text: typed })
           : ""}
       </p>
       {showing && (
@@ -236,7 +236,11 @@ export function FoodPicker({
           <div
             id={combo.listId}
             role="listbox"
-            aria-label={`Foods${typed ? ` matching ${typed}` : ""}`}
+            aria-label={
+              typed
+                ? t("addProduct.foodsMatching", { text: typed })
+                : t("addProduct.foods")
+            }
             className="va-combo__list"
           >
             {options.map((option, index) => (
@@ -257,7 +261,7 @@ export function FoodPicker({
                       {option.via && (
                         <span className="va-muted">
                           {" "}
-                          · Also called {option.via}
+                          · {t("addProduct.alsoCalled", { name: option.via })}
                         </span>
                       )}
                     </span>
@@ -266,14 +270,16 @@ export function FoodPicker({
                     ) : (
                       !option.food.inCountry && (
                         <span className="va-combo__tag">
-                          Not in {countryName} yet
+                          {t("addProduct.notInCountry", {
+                            country: countryName,
+                          })}
                         </span>
                       )
                     )}
                   </>
                 ) : (
                   <span className="va-combo__name">
-                    Suggest “{option.name}” as a new food
+                    {t("addProduct.suggestNewFood", { name: option.name })}
                   </span>
                 )}
               </div>
@@ -281,8 +287,9 @@ export function FoodPicker({
           </div>
           {!options.length && (
             <p className="va-combo__message">
-              No food matches “{typed}”. Check the spelling
-              {allowSuggest ? ", or suggest it as a new food." : "."}
+              {allowSuggest
+                ? t("addProduct.noMatchSuggest", { text: typed })
+                : t("addProduct.noMatch", { text: typed })}
             </p>
           )}
         </div>

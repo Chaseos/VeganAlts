@@ -14,6 +14,7 @@ import { recordEvent } from "@server/observability/events";
 import { PageShell } from "../components/layout/page-shell";
 import { Turnstile } from "../components/turnstile";
 import { ProviderButton } from "../components/auth/provider-button";
+import { t } from "../i18n";
 import type { Route } from "./+types/sign-in";
 
 export function loader({ request }: Route.LoaderArgs) {
@@ -34,7 +35,7 @@ export function loader({ request }: Route.LoaderArgs) {
 }
 export function meta() {
   return [
-    { title: "Sign in · VeganAlts" },
+    { title: t("signIn.metaTitle") },
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
@@ -67,10 +68,7 @@ export async function action({ request }: Route.ActionArgs) {
     (provider !== "google" && provider !== "apple") ||
     !configuredProviders(env).includes(provider)
   ) {
-    return data(
-      { error: "This sign-in option is not available yet." },
-      { status: 503 },
-    );
+    return data({ error: t("signIn.unavailable") }, { status: 503 });
   }
   const auth = await getAuth(env);
   const response = await auth.api.signInSocial({
@@ -84,10 +82,7 @@ export async function action({ request }: Route.ActionArgs) {
   });
   const result = (await response.json()) as { url?: string };
   if (!response.ok || !result.url)
-    return data(
-      { error: "Sign-in could not start. Please try again." },
-      { status: 502 },
-    );
+    return data({ error: t("signIn.couldNotStart") }, { status: 502 });
   const headers = new Headers();
   for (const cookie of response.headers.getSetCookie())
     headers.append("Set-Cookie", cookie);
@@ -108,15 +103,14 @@ export default function SignIn({
   return (
     <PageShell width="narrow" aisles={false}>
       <header className="page-heading">
-        <p className="eyebrow">Your experience makes a difference</p>
-        <h1>Sign in to VeganAlts</h1>
-        <p>
-          Keep track of what you’ve tried and help others find a closer
-          alternative. If you just chose a score or saved a product, we’ll keep
-          it when you return.
-        </p>
+        <p className="eyebrow">{t("signIn.eyebrow")}</p>
+        <h1>{t("signIn.title")}</h1>
+        <p>{t("signIn.intro")}</p>
       </header>
-      <section className="va-card va-sign-in" aria-label="Sign-in options">
+      <section
+        className="va-card va-sign-in"
+        aria-label={t("signIn.optionsLabel")}
+      >
         {actionData?.error && (
           <p className="notice error" role="alert">
             {actionData.error}
@@ -124,13 +118,11 @@ export default function SignIn({
         )}
         {loaderData.failed && (
           <p className="notice error" role="alert">
-            Sign-in did not finish. Please try again.
+            {t("signIn.didNotFinish")}
           </p>
         )}
         {loaderData.providers.length === 0 && (
-          <p className="notice">
-            Sign-in is being prepared. Please check back soon.
-          </p>
+          <p className="notice">{t("signIn.preparing")}</p>
         )}
         <Form method="post" className="va-sign-in__providers" reloadDocument>
           <input type="hidden" name="returnTo" value={loaderData.returnTo} />
@@ -165,19 +157,19 @@ export default function SignIn({
             }).catch(() => {});
           }}
         >
-          Continue browsing →
+          {t("signIn.continueBrowsing")}
         </a>
       </section>
       <p className="small muted va-sign-in__terms">
-        By continuing you agree to the{" "}
+        {t("signIn.termsBefore")}{" "}
         <Link className="text-link" to="/about/terms">
-          terms and community guidelines
+          {t("signIn.termsLink")}
         </Link>
-        . See how we handle your data in the{" "}
+        {t("signIn.termsAfter")}{" "}
         <Link className="text-link" to="/about/privacy">
-          privacy notice
+          {t("signIn.privacyLink")}
         </Link>
-        .
+        {t("signIn.privacyAfter")}
       </p>
     </PageShell>
   );

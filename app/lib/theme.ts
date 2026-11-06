@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { t } from "../i18n";
 import {
   PREFERENCE_KEYS,
   usePreferenceValue,
@@ -34,8 +35,8 @@ export function useTheme() {
   return [theme, setTheme] as const;
 }
 
-export const THEME_OPTIONS: { value: ThemeChoice; label: string }[] = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+export const themeOptions = (): { value: ThemeChoice; label: string }[] => [
+  { value: "system", label: t("theme.system") },
+  { value: "light", label: t("theme.light") },
+  { value: "dark", label: t("theme.dark") },
 ];

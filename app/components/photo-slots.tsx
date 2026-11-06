@@ -1,14 +1,28 @@
 import { Link } from "react-router";
 import type { ImageSlot } from "@server/media/domain/media";
+import { t, type MessageKey } from "../i18n";
+import { en } from "../i18n/en";
 
-/** Canonical slot order and labels shared by every photo control. */
-export const SLOT_LABELS: Record<ImageSlot, string> = {
-  front: "Front",
-  back: "Back",
-  ingredients: "Ingredients",
-  nutrition: "Nutrition & allergens",
-  prepared: "Prepared",
-};
+/** Canonical slot order shared by every photo control. */
+export const IMAGE_SLOTS = [
+  "front",
+  "back",
+  "ingredients",
+  "nutrition",
+  "prepared",
+] as const satisfies readonly ImageSlot[];
+
+const LABEL_KEYS = {
+  front: "photo.front",
+  back: "photo.back",
+  ingredients: "photo.ingredients",
+  nutrition: "photo.nutrition",
+  prepared: "photo.prepared",
+} as const satisfies Record<ImageSlot, MessageKey>;
+
+export const slotLabel = (slot: ImageSlot) => t(LABEL_KEYS[slot]);
+/** For notes saved as data, which stay in English. */
+export const storedSlotLabel = (slot: ImageSlot) => en[LABEL_KEYS[slot]];
 
 /**
  * One canonical photo per slot instead of an append-only gallery. A filled
@@ -29,9 +43,9 @@ export function PhotoSlots({
 }) {
   return (
     <section aria-labelledby="photo-slots">
-      <h2 id="photo-slots">Product photos</h2>
+      <h2 id="photo-slots">{t("photo.heading")}</h2>
       <ul className="photo-slots">
-        {(Object.keys(SLOT_LABELS) as ImageSlot[]).map((slot) => {
+        {IMAGE_SLOTS.map((slot) => {
           const image = images.find((i) => i.slot === slot);
           return (
             <li key={slot}>
@@ -55,7 +69,7 @@ export function PhotoSlots({
                 >
                   <img
                     src={`/media/${image.id}/thumbnail`}
-                    alt={`${productName}: ${SLOT_LABELS[slot]}`}
+                    alt={`${productName}: ${slotLabel(slot)}`}
                     width="100"
                     height="100"
                     loading="lazy"
@@ -64,15 +78,15 @@ export function PhotoSlots({
               ) : (
                 <span className="photo-slot-empty" aria-hidden="true" />
               )}
-              <strong>{SLOT_LABELS[slot]}</strong>
+              <strong>{slotLabel(slot)}</strong>
               {canPropose && (
                 <Link
                   className="small"
                   to={`/contribute/${productId}?action=photo&slot=${slot}`}
                   // The accessible name starts with the visible text.
-                  aria-label={`${image ? "Suggest a better photo" : "Add photo"}: ${SLOT_LABELS[slot]}`}
+                  aria-label={`${t(image ? "photo.suggestBetter" : "photo.add")}: ${slotLabel(slot)}`}
                 >
-                  {image ? "Suggest a better photo" : "Add photo"}
+                  {t(image ? "photo.suggestBetter" : "photo.add")}
                 </Link>
               )}
             </li>

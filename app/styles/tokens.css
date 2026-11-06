@@ -145,7 +145,10 @@
 
 /* Non-color scales shared by every component. */
 :root {
-  --va-font: "Archivo", "Archivo Fallback", "Helvetica Neue", Arial, sans-serif;
+  --va-font:
+    "Archivo", "Archivo Fallback", "Helvetica Neue", Arial, "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo,
+    "Noto Sans CJK JP", sans-serif;
   --va-space-1: 4px;
   --va-space-2: 8px;
   --va-space-3: 12px;

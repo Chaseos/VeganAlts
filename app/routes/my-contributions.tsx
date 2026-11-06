@@ -9,6 +9,7 @@ import { PageShell } from "../components/layout/page-shell";
 import { EmptyState } from "../components/ui/feedback";
 import { ContributionContent } from "../components/contribution-detail";
 import { dateLabel, friendly } from "../lib/community";
+import { t } from "../i18n";
 import type { Route } from "./+types/my-contributions";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -45,7 +46,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 export function meta() {
   return [
-    { title: "My contributions · VeganAlts" },
+    { title: t("myContributions.metaTitle") },
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
@@ -57,63 +58,72 @@ export default function Contributions({
   return (
     <PageShell width="narrow">
       <header className="page-heading">
-        <p className="eyebrow">Your catalog contributions</p>
-        <h1>{detail ? "Contribution status" : "My contributions"}</h1>
-        <p>
-          Check publication, review outcomes, and requests for more evidence.
-        </p>
+        <p className="eyebrow">{t("myContributions.eyebrow")}</p>
+        <h1>
+          {detail
+            ? t("myContributions.statusTitle")
+            : t("myContributions.title")}
+        </h1>
+        <p>{t("myContributions.intro")}</p>
       </header>
       {checks.length > 0 && (
         <section
           className="community-panel"
           aria-labelledby="automatic-checks-heading"
         >
-          <h2 id="automatic-checks-heading">Automatic checks</h2>
+          <h2 id="automatic-checks-heading">
+            {t("myContributions.checksTitle")}
+          </h2>
           <ul className="contribution-list">
             {checks.map((check) => (
               <li key={check.id}>
                 <strong>
                   {
                     {
-                      submission_finalize: "Product submission",
-                      comment_create: "Comment",
-                      comment_edit: "Comment edit",
-                      proposal_create: "Product change",
-                      proposal_response: "Response to a suggested change",
-                      retailer_proposal: "Store suggestion",
-                      category_proposal: "Food suggestion",
+                      submission_finalize: t("myContributions.opSubmission"),
+                      comment_create: t("myContributions.opComment"),
+                      comment_edit: t("myContributions.opCommentEdit"),
+                      proposal_create: t("myContributions.opProposal"),
+                      proposal_response: t("myContributions.opResponse"),
+                      retailer_proposal: t("myContributions.opStore"),
+                      category_proposal: t("myContributions.opFood"),
                     }[check.operation]
                   }
                 </strong>
                 <p role="status">
                   {check.errorCode === "RESPONSE_CHANGED"
-                    ? "Replaced by your newer response"
+                    ? t("myContributions.replaced")
                     : check.status === "checking"
-                      ? "Checking automatically"
+                      ? t("myContributions.checking")
                       : check.status === "blocked"
-                        ? "Rejected — please revise before submitting again"
-                        : "Please resubmit"}
+                        ? t("myContributions.rejected")
+                        : t("myContributions.resubmit")}
                 </p>
                 <small>{dateLabel(check.createdAt)}</small>
               </li>
             ))}
           </ul>
-          <p>
-            These checks run automatically. Your contributions stay private
-            until they finish.
-          </p>
+          <p>{t("myContributions.checksNote")}</p>
         </section>
       )}
       {category && (
         <div className="community-panel">
           <div className="notice">
-            <strong>Status: {friendly(category.status)}</strong>
+            <strong>
+              {t("myContributions.status", {
+                status: friendly(category.status),
+              })}
+            </strong>
             {category.resolutionNote && <p>{category.resolutionNote}</p>}
           </div>
-          <h2>Food suggestion: {String(category.proposed.name)}</h2>
+          <h2>
+            {t("myContributions.foodSuggestion", {
+              name: String(category.proposed.name),
+            })}
+          </h2>
           <p>{String(category.proposed.explanation)}</p>
           <p>
-            <Link to="/my-contributions">← All contributions</Link>
+            <Link to="/my-contributions">{t("myContributions.all")}</Link>
           </p>
         </div>
       )}
@@ -121,28 +131,28 @@ export default function Contributions({
         <div className="community-panel">
           <ContributionContent detail={detail} />
           <p>
-            <Link to="/my-contributions">← All contributions</Link>
+            <Link to="/my-contributions">{t("myContributions.all")}</Link>
           </p>
           {detail.kind === "submission" && detail.canFollowUp && (
             <Link className="button" to={`/add-product?followUp=${detail.id}`}>
-              Respond to follow-up →
+              {t("myContributions.followUp")}
             </Link>
           )}
           {detail.kind === "submission" && detail.supersededBy && (
             <p>
-              This record was replaced by your{" "}
+              {t("myContributions.replacedBefore")}{" "}
               <Link to={`/my-contributions/submission/${detail.supersededBy}`}>
-                revised submission
+                {t("myContributions.revisedLink")}
               </Link>
-              . The original details and evidence remain available here.
+              {t("myContributions.replacedAfter")}
             </p>
           )}
         </div>
       ) : (
         <>
           {!list?.items.length ? (
-            <EmptyState title="Help the catalog grow.">
-              <Link to="/add-product">Add a product →</Link>
+            <EmptyState title={t("myContributions.emptyTitle")}>
+              <Link to="/add-product">{t("myContributions.emptyAdd")}</Link>
             </EmptyState>
           ) : (
             <ul className="contribution-list">
@@ -152,7 +162,7 @@ export default function Contributions({
                     <strong>{item.title}</strong>
                     <span>
                       {item.kind === "category"
-                        ? "food suggestion"
+                        ? t("myContributions.kindFood")
                         : friendly(item.kind)}{" "}
                       · {dateLabel(item.createdAt)}
                     </span>
@@ -164,13 +174,18 @@ export default function Contributions({
             </ul>
           )}
           {paged && (
-            <nav className="button-row" aria-label="Contribution pages">
-              <Link to="/my-contributions">Most recent</Link>
+            <nav
+              className="button-row"
+              aria-label={t("myContributions.pagesLabel")}
+            >
+              <Link to="/my-contributions">
+                {t("myContributions.mostRecent")}
+              </Link>
               {list?.nextCursor && (
                 <Link
                   to={`/my-contributions?cursor=${encodeURIComponent(list.nextCursor)}`}
                 >
-                  Older contributions →
+                  {t("myContributions.older")}
                 </Link>
               )}
             </nav>

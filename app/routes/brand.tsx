@@ -22,7 +22,9 @@ import { ScoreLabel } from "../components/ui/score";
 import { EarlyBadge } from "../components/ui/badges";
 import { FoodIcon } from "../components/icons/food-icons";
 import { ProductThumbnail } from "../components/catalog/product-thumbnail";
-import { plural, productName } from "../lib/format";
+import { counted } from "../lib/counted";
+import { productName } from "../lib/format";
+import { t } from "../i18n";
 import { publicMetadata, countryAlternates } from "../lib/metadata";
 import type { Route } from "./+types/brand";
 
@@ -50,12 +52,12 @@ export const handle = {
 };
 
 export function meta({ loaderData: data }: Route.MetaArgs) {
-  const name = data?.brand.name ?? "Brand";
+  const name = data?.brand.name ?? t("brand.fallback");
   const country = data?.market.name ?? "";
   return [
     ...publicMetadata(
-      `${name} vegan products in ${country}`,
-      `Every ${name} vegan product in ${country}, by food, with where each recipe ranks.`,
+      t("brand.metaTitle", { name, country }),
+      t("brand.metaDescription", { name, country }),
       brandPath(data?.market.code ?? "us", data?.brand.slug ?? ""),
       data?.origin ?? "https://veganalts.com",
       data?.staging ?? true,
@@ -81,22 +83,27 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
     <PageShell width="wide">
       <Breadcrumb
         items={[
-          { label: "All foods", to: homePath(code) },
+          { label: t("nav.allFoods"), to: homePath(code) },
           { label: data.brand.name },
         ]}
       />
       <header className="va-brand__head">
         <h1 className="va-display-l">{data.brand.name}</h1>
         <p className="va-muted">
-          {plural(data.productCount, "product")} in {data.market.name}
+          {counted("search.brandProducts", data.productCount, {
+            country: data.market.name,
+          })}
         </p>
       </header>
       {!data.availability.here ? (
         <EmptyState
-          title={`No ${data.brand.name} products in ${data.market.name} yet`}
-          actions={<ButtonLink to={addHref}>Add a product</ButtonLink>}
+          title={t("brand.noProducts", {
+            name: data.brand.name,
+            country: data.market.name,
+          })}
+          actions={<ButtonLink to={addHref}>{t("menu.addProduct")}</ButtonLink>}
         >
-          Found one here? Add it and it joins the rankings.
+          {t("brand.foundOne")}
         </EmptyState>
       ) : (
         <div className="va-brand">
@@ -125,7 +132,9 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
                             line.leadProduct.slug,
                             food.slug,
                           )}
-                          aria-label={`View ${productName(line.name, data.brand.name)}`}
+                          aria-label={t("ranking.view", {
+                            name: productName(line.name, data.brand.name),
+                          })}
                         >
                           <ProductThumbnail
                             imageId={line.leadProduct.imageId}
@@ -147,10 +156,12 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
                           {line.closestRank !== null && (
                             <span className="va-small va-muted">
                               {line.rankedFlavorCount > 1
-                                ? `Across ${line.rankedFlavorCount} flavors`
+                                ? t("brand.across", {
+                                    count: line.rankedFlavorCount,
+                                  })
                                 : line.flavors.length === 1
-                                  ? "This flavor"
-                                  : "1 ranked flavor"}
+                                  ? t("brand.thisFlavor")
+                                  : t("brand.oneRanked")}
                             </span>
                           )}
                           <span className="va-brand__flavors">
@@ -170,19 +181,21 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
                         <div className="va-brand__scores">
                           {[
                             {
-                              label: "Closest",
+                              kind: "closest",
+                              label: t("brand.closest"),
                               rank: line.closestRank,
                               score: line.closestScore,
                               people: line.people,
                             },
                             {
-                              label: "Tastiest",
+                              kind: "tastiest",
+                              label: t("brand.tastiest"),
                               rank: line.tastiestRank,
                               score: line.tastiestScore,
                               people: line.tastiestPeople,
                             },
                           ].map((score) => (
-                            <div className="va-brand__score" key={score.label}>
+                            <div className="va-brand__score" key={score.kind}>
                               <strong>
                                 {score.label}
                                 {score.rank !== null ? ` #${score.rank}` : ""}
@@ -192,7 +205,7 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
                                   value={score.score}
                                   size="compact"
                                   tone={
-                                    score.label === "Tastiest"
+                                    score.kind === "tastiest"
                                       ? "tasty"
                                       : score.rank === 1
                                         ? "tag"
@@ -201,11 +214,11 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
                                 />
                               ) : (
                                 <span className="va-small va-muted">
-                                  Not rated yet
+                                  {t("brand.notRated")}
                                 </span>
                               )}
                               <span className="va-small va-muted">
-                                {plural(score.people, "person", "people")}
+                                {counted("count.person", score.people)}
                               </span>
                               {isEarly(score.people) && (
                                 <EarlyBadge count={score.people} />
@@ -222,7 +235,7 @@ export default function Brand({ loaderData: data }: Route.ComponentProps) {
           ))}
           <p>
             <ButtonLink variant="secondary" to={addHref}>
-              Add a product from {data.brand.name}
+              {t("brand.addFrom", { name: data.brand.name })}
             </ButtonLink>
           </p>
         </div>

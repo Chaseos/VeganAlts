@@ -16,7 +16,9 @@ import type { Route } from "./+types/root";
 import siteStyles from "./styles/site.css?url";
 import archivoFont from "./assets/fonts/archivo-latin-wdth.woff2?url";
 import { THEME_COLORS, THEME_SCRIPT } from "./lib/theme";
+import { LanguagePrompt } from "./components/layout/language-menu";
 import { PageShell } from "./components/layout/page-shell";
+import { t } from "./i18n";
 import { ButtonLink } from "./components/ui/button";
 import { searchPath, useSiteChrome } from "./lib/site-chrome";
 
@@ -61,7 +63,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <a className="skip-link" href="#main">
-          Skip to content
+          {t("chrome.skipToContent")}
         </a>
         {children}
         <ScrollRestoration nonce={nonce} />
@@ -76,6 +78,7 @@ export default function App() {
     <PersonalStateProvider>
       <NavigationEvents />
       <NavigationFeedback />
+      <LanguagePrompt />
       <Outlet />
     </PersonalStateProvider>
   );
@@ -86,23 +89,17 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const status = isRouteErrorResponse(error) ? error.status : 500;
   const message =
     status === 404
-      ? [
-          "This page isn’t here.",
-          "The link may have changed. Let’s get you back home.",
-        ]
+      ? [t("error.notFoundTitle"), t("error.notFoundBody")]
       : status === 403
-        ? [
-            "Access isn’t available.",
-            "Your account does not have permission to use this page.",
-          ]
+        ? [t("error.forbiddenTitle"), t("error.forbiddenBody")]
         : status === 429
-          ? ["Please slow down.", "Wait a moment before trying again."]
-          : ["Something went wrong.", "Please try again in a moment."];
+          ? [t("error.slowTitle"), t("error.slowBody")]
+          : [t("error.failedTitle"), t("error.failedBody")];
   return (
     <PageShell width="narrow" aisles={false} minimal>
       <div className="page-heading">
         <p className="eyebrow">
-          {status === 404 ? "Not found" : `Error ${status}`}
+          {status === 404 ? t("error.notFound") : t("error.status", { status })}
         </p>
         <h1>{message[0]}</h1>
         <p>{message[1]}</p>
@@ -110,12 +107,12 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       <div className="button-row">
         {(status === 429 || status >= 500) && (
           <a className="button" href="">
-            Retry
+            {t("error.retry")}
           </a>
         )}
-        <ButtonLink to="/">Back to VeganAlts</ButtonLink>
+        <ButtonLink to="/">{t("error.back")}</ButtonLink>
         <ButtonLink to={searchPath(country.code)} variant="secondary">
-          Search foods
+          {t("error.search")}
         </ButtonLink>
       </div>
     </PageShell>

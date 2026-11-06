@@ -4,7 +4,9 @@ import { FoodIcon } from "../icons/food-icons";
 import { Icon } from "../icons/icon";
 import { ProductThumbnail } from "./product-thumbnail";
 import { RankFlag, ScoreLabel } from "../ui/score";
-import { plural, productName } from "../../lib/format";
+import { counted } from "../../lib/counted";
+import { productName } from "../../lib/format";
+import { t } from "../../i18n";
 import { useHydrated } from "../../lib/use-hydrated";
 import {
   useInstantSearch,
@@ -34,8 +36,8 @@ export function InstantSearch({
   variant,
   id,
   query = "",
-  label = "Search a food or brand",
-  placeholder = "Ground beef, cheddar, eggs…",
+  label = t("search.foodOrBrand"),
+  placeholder = t("search.placeholder"),
   onPreview,
 }: {
   country: string;
@@ -110,14 +112,20 @@ export function InstantSearch({
   const announcement =
     state.status === "ready" && open
       ? options.length
-        ? `${plural(foods.length, "food")}${result!.brands.length ? `, ${plural(result!.brands.length, "brand")}` : ""} and ${plural(result!.products.length, "product")} found. Use the arrow keys to choose.`
-        : `No foods match ${state.query} yet.`
+        ? t("search.found", {
+            foods: counted("count.food", foods.length),
+            brands: result!.brands.length
+              ? `, ${counted("count.brand", result!.brands.length)}`
+              : "",
+            products: counted("count.product", result!.products.length),
+          })
+        : t("search.noFoods", { query: state.query })
       : open && state.status === "loading"
-        ? "Loading suggestions…"
+        ? t("search.loading")
         : open && state.status === "error"
-          ? "Suggestions couldn’t load. Press Enter to search."
+          ? t("search.loadFailed")
           : open && state.query
-            ? "Enter at least 3 letters or numbers to see suggestions."
+            ? t("search.needMore")
             : "";
   return (
     <div
@@ -201,7 +209,7 @@ export function InstantSearch({
           }}
         />
         <button type="submit" className="button search">
-          Find swaps
+          {t("search.submit")}
         </button>
       </Form>
       {/* A live region without the status role, so a page's own status
@@ -216,20 +224,18 @@ export function InstantSearch({
       {showing && (
         <div className="va-instant__panel">
           {state.status === "idle" && (
-            <p className="va-instant__message">
-              Enter at least 3 letters or numbers.
-            </p>
+            <p className="va-instant__message">{t("search.needThree")}</p>
           )}
-          {stale && <p className="va-instant__message">Loading suggestions…</p>}
+          {stale && (
+            <p className="va-instant__message">{t("search.loading")}</p>
+          )}
           {state.status === "error" ? (
-            <p className="va-instant__message">
-              Suggestions aren’t available right now. Press Enter to search.
-            </p>
+            <p className="va-instant__message">{t("search.unavailable")}</p>
           ) : (
             <div
               id={listId}
               role="listbox"
-              aria-label={`Suggestions for ${state.query}`}
+              aria-label={t("search.suggestionsFor", { query: state.query })}
               aria-busy={stale}
               className="va-instant__list"
             >
@@ -243,10 +249,10 @@ export function InstantSearch({
                   <div role="group" aria-labelledby={heading} key={kind}>
                     <p id={heading} className="va-instant__group">
                       {kind === "food"
-                        ? "Foods · closest swap shown"
+                        ? t("search.groupFoods")
                         : kind === "brand"
-                          ? "Brands"
-                          : "Products"}
+                          ? t("search.groupBrands")
+                          : t("search.groupProducts")}
                     </p>
                     {group.map(({ option, index }) => (
                       <div
@@ -277,24 +283,21 @@ export function InstantSearch({
           {state.status === "ready" && !options.length && (
             <div className="va-instant__message">
               <p className="va-instant__empty">
-                No foods match “{state.query}” yet
+                {t("search.emptyTitle", { query: state.query })}
               </p>
-              <p>
-                Check the spelling, or suggest it as a new food so others can
-                add products.
-              </p>
+              <p>{t("search.emptyBody")}</p>
             </div>
           )}
           {state.status !== "idle" && (
             <div className="va-instant__footer">
               <Link to={searchHref} onClick={() => setOpen(false)}>
-                See all results for “{state.query}”
+                {t("search.seeAll", { query: state.query })}
               </Link>
               <Link
                 to={`/propose-category?country=${country}&name=${encodeURIComponent(state.query)}`}
                 onClick={() => setOpen(false)}
               >
-                Can’t find a food? Suggest it
+                {t("search.cantFind")}
               </Link>
             </div>
           )}
@@ -314,7 +317,7 @@ function FoodOption({ food }: { food: SuggestedFood }) {
       <span className="va-instant__food">
         <span className="va-instant__name">{food.name}</span>
         <span className="va-instant__meta">
-          {[food.aisle, plural(food.productCount, "product")]
+          {[food.aisle, counted("count.product", food.productCount)]
             .filter(Boolean)
             .join(" · ")}
         </span>
@@ -329,7 +332,7 @@ function FoodOption({ food }: { food: SuggestedFood }) {
         </>
       ) : (
         <span className="va-instant__best va-instant__meta">
-          No ranked swaps yet
+          {t("search.noRanked")}
         </span>
       )}
     </>
@@ -341,7 +344,7 @@ function BrandOption({ brand }: { brand: SuggestedBrand }) {
     <span className="va-instant__food">
       <span className="va-instant__name">{brand.name}</span>
       <span className="va-instant__meta">
-        {plural(brand.productCount, "product")}
+        {counted("count.product", brand.productCount)}
       </span>
     </span>
   );
@@ -361,12 +364,15 @@ function ProductOption({ product }: { product: SuggestedProduct }) {
         </span>
         <span className="va-instant__meta">
           {product.rank
-            ? `Closest #${product.rank} for ${product.food.name.toLowerCase()}`
-            : `Not ranked yet for ${product.food.name.toLowerCase()}`}
+            ? t("search.closestRank", {
+                rank: product.rank,
+                food: product.food.name.toLowerCase(),
+              })
+            : t("search.notRanked", { food: product.food.name.toLowerCase() })}
         </span>
         {product.rank !== null && (
           <span className="va-instant__meta">
-            Score includes this recipe’s flavors
+            {t("search.includesFlavors")}
           </span>
         )}
       </span>

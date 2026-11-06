@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BrandPicker } from "./add-product/brand-picker";
 import { useBrandLines } from "./add-product/brand-lines";
+import { t } from "../i18n";
 
 /** A listed brand, and which of its lines the product joins. */
 export function BrandChangeField({
@@ -41,23 +42,18 @@ export function BrandChangeField({
           setIsNew(false);
         }}
       />
-      {isNew && (
-        <p className="field-error">
-          Choose a brand that’s already listed. A product can’t move to a new
-          brand yet.
-        </p>
-      )}
+      {isNew && <p className="field-error">{t("brandChange.newBrand")}</p>}
       <input type="hidden" name="brandId" value={other ? brandId : ""} />
       {other && (
         <>
-          <label htmlFor="change-brand-line">Line</label>
+          <label htmlFor="change-brand-line">{t("brandChange.line")}</label>
           <select
             id="change-brand-line"
             name="brandLine"
             value={line}
             onChange={(e) => setLine(e.target.value)}
           >
-            <option value="new">A new line</option>
+            <option value="new">{t("brandChange.newLine")}</option>
             {lines?.map((l) => (
               <option key={l.lineId} value={l.lineId}>
                 {l.name}
@@ -66,7 +62,9 @@ export function BrandChangeField({
           </select>
           {line === "new" && (
             <>
-              <label htmlFor="change-brand-line-name">New line’s name</label>
+              <label htmlFor="change-brand-line-name">
+                {t("brandChange.newLineName")}
+              </label>
               <input
                 id="change-brand-line-name"
                 name="newLineName"
@@ -79,10 +77,7 @@ export function BrandChangeField({
           )}
         </>
       )}
-      <p className="small muted">
-        The product keeps its address, photos and ratings. A line belongs to one
-        brand, so it moves to a line from the new brand.
-      </p>
+      <p className="small muted">{t("brandChange.note")}</p>
     </>
   );
 }

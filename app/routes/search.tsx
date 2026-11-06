@@ -24,7 +24,9 @@ import { Badge } from "../components/ui/badges";
 import { ButtonLink } from "../components/ui/button";
 import { EmptyState } from "../components/ui/feedback";
 import { publicMetadata } from "../lib/metadata";
-import { joinList, plural, productName } from "../lib/format";
+import { counted } from "../lib/counted";
+import { joinList, productName } from "../lib/format";
+import { t } from "../i18n";
 import { groupCategories } from "../lib/navigation-groups";
 import {
   brandPath,
@@ -73,8 +75,12 @@ export const handle = {
 export function meta({ loaderData }: Route.MetaArgs) {
   const market = loaderData?.market;
   return publicMetadata(
-    loaderData?.query ? `Search for ${loaderData.query}` : "Search every food",
-    `Explore vegan alternatives by food, brand or product. Browse the ${market?.name ?? "United States"} catalog.`,
+    loaderData?.query
+      ? t("searchPage.metaTitleQuery", { query: loaderData.query })
+      : t("searchPage.title"),
+    t("searchPage.metaDescription", {
+      country: market?.name ?? "United States",
+    }),
     `${searchPath(market?.code ?? "us")}${loaderData?.query ? `?q=${encodeURIComponent(loaderData.query)}` : ""}`,
     loaderData?.origin ?? "https://veganalts.com",
     loaderData?.staging ?? true,
@@ -152,19 +158,24 @@ function SearchList({
             <span className="va-small va-muted">
               {[
                 product.rank
-                  ? `Closest #${product.rank} for ${product.food.name.toLowerCase()}`
-                  : `Not ranked yet for ${product.food.name.toLowerCase()}`,
+                  ? t("search.closestRank", {
+                      rank: product.rank,
+                      food: product.food.name.toLowerCase(),
+                    })
+                  : t("search.notRanked", {
+                      food: product.food.name.toLowerCase(),
+                    }),
               ]
                 .filter(Boolean)
                 .join(" · ")}
             </span>
             {product.rank !== null && (
               <span className="va-small va-muted">
-                Score includes this recipe’s flavors
+                {t("search.includesFlavors")}
               </span>
             )}
           </span>
-          {product.early && <Badge tone="early">Early</Badge>}
+          {product.early && <Badge tone="early">{t("badge.earlyShort")}</Badge>}
           {product.rank !== null && product.score !== null && (
             <ScoreLabel
               value={product.score}
@@ -189,7 +200,9 @@ function SearchList({
           <span className="va-row-link__text">
             <span className="va-row-link__title">{brand.name}</span>
             <span className="va-small va-muted">
-              {plural(brand.productCount, "product")} in {data.market.name}
+              {counted("search.brandProducts", brand.productCount, {
+                country: data.market.name,
+              })}
             </span>
           </span>
         </Link>
@@ -219,17 +232,21 @@ function SearchList({
     <PageShell search={false}>
       <header className="va-search-page__head">
         <h1 className="va-display-l">
-          {data.query ? `Results for “${data.query}”` : "Search every food"}
+          {data.query
+            ? t("searchPage.results", { query: data.query })
+            : t("searchPage.title")}
         </h1>
         {data.query && (
           <p className="va-muted">
-            {joinList([
-              plural(foods.count, "food"),
-              // Brands are named only when some match.
-              ...(brands.count ? [plural(brands.count, "brand")] : []),
-              plural(products.count, "product"),
-            ])}{" "}
-            shown in {data.market.name}
+            {t("searchPage.shown", {
+              list: joinList([
+                counted("count.food", foods.count),
+                // Brands are named only when some match.
+                ...(brands.count ? [counted("count.brand", brands.count)] : []),
+                counted("count.product", products.count),
+              ]),
+              country: data.market.name,
+            })}
           </p>
         )}
         <InstantSearch
@@ -250,7 +267,7 @@ function SearchList({
               aria-labelledby="foods-title"
             >
               <h2 id="foods-title" className="va-heading-m">
-                Foods
+                {t("searchPage.foods")}
               </h2>
               <ul ref={foods.list} className="va-food-grid">
                 {foods.batches.map((batch, index) => (
@@ -266,7 +283,7 @@ function SearchList({
               aria-labelledby="brands-title"
             >
               <h2 id="brands-title" className="va-heading-m">
-                Brands
+                {t("searchPage.brands")}
               </h2>
               <ul
                 ref={brands.list}
@@ -285,7 +302,7 @@ function SearchList({
               aria-labelledby="products-title"
             >
               <h2 id="products-title" className="va-heading-m">
-                Products
+                {t("searchPage.products")}
               </h2>
               <ul
                 ref={products.list}
@@ -306,27 +323,26 @@ function SearchList({
             <EmptyState
               title={
                 (data.query.match(/[\p{L}\p{N}]/gu)?.length ?? 0) < 3
-                  ? "Enter at least 3 letters or numbers"
-                  : `No foods, brands or products match “${data.query}” yet`
+                  ? t("searchPage.enterThree")
+                  : t("searchPage.noMatch", { query: data.query })
               }
               actions={
                 <>
                   <ButtonLink
                     to={`/propose-category?country=${code}&name=${encodeURIComponent(data.query)}`}
                   >
-                    Suggest a food
+                    {t("nav.suggestFood")}
                   </ButtonLink>
                   <ButtonLink
                     variant="secondary"
                     to={`/add-product?country=${code}`}
                   >
-                    Add a product
+                    {t("menu.addProduct")}
                   </ButtonLink>
                 </>
               }
             >
-              Check the spelling or try a broader food, such as beef, cheese or
-              milk.
+              {t("searchPage.checkSpelling")}
             </EmptyState>
           )}
         </>
@@ -373,7 +389,7 @@ function AllAisles({ country }: { country: string }) {
                             {food.name}
                           </span>
                           <span className="va-small va-muted">
-                            {plural(food.productCount, "product")}
+                            {counted("count.product", food.productCount)}
                           </span>
                         </span>
                       </Link>

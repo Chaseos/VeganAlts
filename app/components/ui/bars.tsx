@@ -1,4 +1,5 @@
 import { formatScore } from "../../lib/format";
+import { t } from "../../i18n";
 
 // The content security policy forbids inline styles, so proportional fills are
 // SVG presentation attributes (an integer percentage), colored by classes.
@@ -30,7 +31,7 @@ export interface DetailScore {
 
 export function DetailBars({
   details,
-  label = "Detail scores",
+  label = t("bars.detailScores"),
 }: {
   details: DetailScore[];
   label?: string;
@@ -60,7 +61,11 @@ export function DetailCells({
 }) {
   if (!details.length) return null;
   return (
-    <span className="va-detail-cells" role="group" aria-label="Detail scores">
+    <span
+      className="va-detail-cells"
+      role="group"
+      aria-label={t("bars.detailScores")}
+    >
       {details.map((detail) => (
         <span
           key={detail.key}
@@ -71,7 +76,7 @@ export function DetailCells({
             {detail.mean === null ? (
               <>
                 <span aria-hidden="true">—</span>
-                <span className="sr-only">not enough answers yet</span>
+                <span className="sr-only">{t("bars.notEnough")}</span>
               </>
             ) : (
               formatScore(detail.mean)

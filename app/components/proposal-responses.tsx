@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { usePersonalState } from "./personal-state";
 import { CommunityControls, CommunityFeedback } from "./community-form";
 import { communityRequest, useCommunityAction } from "../lib/community";
+import { t } from "../i18n";
 
 interface OpenProposal {
   id: string;
@@ -83,21 +84,17 @@ function ProposalResponsesPanel({
     setAdding(null);
     setStatus(
       stance === "confirm"
-        ? "Thanks. Your confirmation is recorded."
+        ? t("responses.confirmed")
         : stance === "disagree"
-          ? "Thanks. A moderator will review the disagreement."
-          : "Thanks. Your evidence is attached.",
+          ? t("responses.disagreed")
+          : t("responses.evidenceAttached"),
     );
     setRevision((value) => value + 1);
   }
   return (
     <section className="community-panel" aria-labelledby="suggested-changes">
-      <h2 id="suggested-changes">Suggested changes</h2>
-      <p className="small muted">
-        Confirm only what you have checked yourself, for example on the package.
-        Low-risk changes apply after independent confirmation; protected facts
-        always go to a moderator.
-      </p>
+      <h2 id="suggested-changes">{t("responses.title")}</h2>
+      <p className="small muted">{t("responses.intro")}</p>
       <CommunityControls>
         <p role="status" className="small">
           {status}
@@ -109,17 +106,20 @@ function ProposalResponsesPanel({
                 <strong>{p.summary}</strong>
               </p>
               <p className="small muted">
-                {p.tier === 3
-                  ? "Protected · moderator decides"
-                  : "Community-confirmable"}{" "}
-                · {p.confirms} confirm{p.confirms === 1 ? "" : "s"} ·{" "}
-                {p.disagrees} disagree
+                {t("responses.tally", {
+                  tier:
+                    p.tier === 3
+                      ? t("responses.protected")
+                      : t("responses.communityConfirmable"),
+                  confirms: t("responses.confirms", { count: p.confirms }),
+                  disagrees: t("responses.disagrees", { count: p.disagrees }),
+                })}
               </p>
               {p.note && <p className="comment-body">{p.note}</p>}
               {p.evidenceUrls.map((url) => (
                 <p key={url} className="small">
                   <a href={url} target="_blank" rel="noreferrer">
-                    Evidence source ↗
+                    {t("responses.source")}
                   </a>
                 </p>
               ))}
@@ -134,7 +134,7 @@ function ProposalResponsesPanel({
                     >
                       <img
                         src={`/api/v1/submissions/${p.evidenceReceiptId}/media/${image}/thumbnail`}
-                        alt="Evidence photo for this proposal"
+                        alt={t("responses.photoAlt")}
                         width="100"
                         height="100"
                         loading="lazy"
@@ -144,13 +144,15 @@ function ProposalResponsesPanel({
                 </div>
               )}
               {p.own ? (
-                <p className="small">Your proposal</p>
+                <p className="small">{t("responses.own")}</p>
               ) : (
                 <div className="comment-actions">
                   <div
                     className="vote-group"
                     role="group"
-                    aria-label={`Respond to: ${p.summary}`}
+                    aria-label={t("responses.respondTo", {
+                      summary: p.summary,
+                    })}
                   >
                     <button
                       type="button"
@@ -158,7 +160,7 @@ function ProposalResponsesPanel({
                       disabled={action.busy}
                       onClick={() => void respond(p, "confirm")}
                     >
-                      Confirm
+                      {t("responses.confirm")}
                     </button>
                     <button
                       type="button"
@@ -167,7 +169,7 @@ function ProposalResponsesPanel({
                       disabled={action.busy}
                       onClick={() => setAdding(`${p.id}:disagree`)}
                     >
-                      Disagree
+                      {t("responses.disagree")}
                     </button>
                   </div>
                   <button
@@ -176,7 +178,7 @@ function ProposalResponsesPanel({
                     aria-expanded={adding === `${p.id}:evidence`}
                     onClick={() => setAdding(`${p.id}:evidence`)}
                   >
-                    Add evidence
+                    {t("responses.addEvidence")}
                   </button>
                 </div>
               )}
@@ -194,8 +196,8 @@ function ProposalResponsesPanel({
                 >
                   <label htmlFor={`response-note-${p.id}`}>
                     {adding.endsWith("disagree")
-                      ? "What is wrong with this change?"
-                      : "What does your evidence show?"}
+                      ? t("responses.whatIsWrong")
+                      : t("responses.evidenceShows")}
                   </label>
                   <textarea
                     id={`response-note-${p.id}`}
@@ -204,7 +206,7 @@ function ProposalResponsesPanel({
                     maxLength={2000}
                   />
                   <label htmlFor={`response-url-${p.id}`}>
-                    Source URL (optional)
+                    {t("community.sourceUrl")}
                   </label>
                   <input
                     id={`response-url-${p.id}`}
@@ -214,7 +216,7 @@ function ProposalResponsesPanel({
                     maxLength={1000}
                   />
                   <button className="button secondary" disabled={action.busy}>
-                    Send
+                    {t("responses.send")}
                   </button>
                 </form>
               )}

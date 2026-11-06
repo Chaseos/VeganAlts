@@ -1,4 +1,6 @@
-import { formatCount, formatScore, plural, productName } from "./format";
+import { counted } from "./counted";
+import { formatCount, formatScore, productName } from "./format";
+import { t } from "../i18n";
 
 // The sentence under a food's title (canvas: Category5). It describes the
 // unfiltered ranking so it reads the same for every visitor.
@@ -24,12 +26,23 @@ export function categorySummary({
 }) {
   const lower = food.toLowerCase();
   if (!rankedCount || !best || best.score === null)
-    return tastiest
-      ? `No one has said how tasty these ${lower} swaps are yet. Tried one? Your answer starts the ranking.`
-      : `No vegan ${lower} swaps are ranked yet. Tried one? Your rating starts the ranking.`;
-  const lead = `${plural(rankedCount, `vegan ${lower} swap`)} ranked by ${people === 1 ? "1 person who’s tried it" : `${plural(people, "person", "people")} who’ve tried them`}.`;
+    return t(tastiest ? "summary.emptyTastiest" : "summary.empty", {
+      food: lower,
+    });
+  const lead = counted("summary.ranked", rankedCount, {
+    food: lower,
+    people:
+      people === 1
+        ? t("summary.onePerson")
+        : counted("summary.manyPeople", people),
+  });
   const title = productName(best.name, best.brand ?? null);
-  return tastiest
-    ? `${lead} ${title} is the tastiest${best.early ? " so far" : ""}, at ${formatScore(best.score)} out of 5.`
-    : `${lead} ${title} comes closest${best.early ? " so far" : ""}, at ${formatScore(best.score)} out of 5.`;
+  const key = tastiest
+    ? best.early
+      ? "summary.tastiestEarly"
+      : "summary.tastiest"
+    : best.early
+      ? "summary.closestEarly"
+      : "summary.closest";
+  return t(key, { lead, title, score: formatScore(best.score) });
 }

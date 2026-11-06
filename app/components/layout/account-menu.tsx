@@ -4,20 +4,21 @@ import { Popover } from "../ui/popover";
 import { useOptionalPersonalState } from "../personal-state";
 import { useHydrated } from "../../lib/use-hydrated";
 import { useCountryCode } from "../../lib/site-chrome";
+import { t } from "../../i18n";
 
 // Add a product starts in the country being browsed.
 export const accountLinks = (country: string) => [
-  { to: "/my-ratings", label: "My ratings" },
-  { to: "/saved", label: "Saved products" },
-  { to: "/my-contributions", label: "My contributions" },
-  { to: `/add-product?country=${country}`, label: "Add a product" },
-  { to: "/account", label: "Account settings" },
+  { to: "/my-ratings", label: t("menu.myRatings") },
+  { to: "/saved", label: t("menu.saved") },
+  { to: "/my-contributions", label: t("menu.myContributions") },
+  { to: `/add-product?country=${country}`, label: t("menu.addProduct") },
+  { to: "/account", label: t("menu.accountSettings") },
 ];
 
-export const OPERATOR_LINKS = [
-  { to: "/admin/moderation", label: "Moderation inbox" },
-  { to: "/admin/taxonomy", label: "Taxonomy" },
-  { to: "/admin/analytics", label: "Product analytics" },
+export const operatorLinks = () => [
+  { to: "/admin/moderation", label: t("menu.moderation") },
+  { to: "/admin/taxonomy", label: t("menu.taxonomy") },
+  { to: "/admin/analytics", label: t("menu.analytics") },
 ];
 
 export function useSignInHref() {
@@ -38,11 +39,11 @@ export function AccountMenu() {
   if (!user)
     return location.pathname === "/sign-in" ? (
       <span className="va-header-link" aria-current="page">
-        Sign in
+        {t("menu.signIn")}
       </span>
     ) : (
       <Link className="va-header-link" to={signIn}>
-        Sign in
+        {t("menu.signIn")}
       </Link>
     );
   return (
@@ -50,19 +51,23 @@ export function AccountMenu() {
       align="end"
       tone="kale"
       className="va-account-menu"
-      summaryLabel={`Account: ${user.displayName || user.handle}`}
-      panelLabel="Account"
+      summaryLabel={t("menu.accountLabel", {
+        name: user.displayName || user.handle,
+      })}
+      panelLabel={t("menu.account")}
       summary={
         <>
           <Icon name="user" size={18} />
-          <span className="va-header-link__text">Account</span>
+          <span className="va-header-link__text">{t("menu.account")}</span>
           <Icon name="chevronDown" size={12} strokeWidth={3} />
         </>
       }
     >
       {() => (
-        <nav aria-label="Account">
-          <p className="va-menu-heading">Signed in as {user.handle}</p>
+        <nav aria-label={t("menu.account")}>
+          <p className="va-menu-heading">
+            {t("menu.signedInAs", { handle: user.handle })}
+          </p>
           <ul className="va-menu-list">
             {accountLinks(country).map((link) => (
               <li key={link.to}>
@@ -72,9 +77,9 @@ export function AccountMenu() {
           </ul>
           {user.administrator && (
             <>
-              <p className="va-menu-heading">Operators</p>
+              <p className="va-menu-heading">{t("menu.operators")}</p>
               <ul className="va-menu-list">
-                {OPERATOR_LINKS.map((link) => (
+                {operatorLinks().map((link) => (
                   <li key={link.to}>
                     <Link to={link.to}>{link.label}</Link>
                   </li>

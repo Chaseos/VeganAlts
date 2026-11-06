@@ -2,7 +2,8 @@ import { matchKey } from "@server/shared/domain/text";
 import { useEffect, useState } from "react";
 import type { BrandSuggestion } from "@server/community/domain/contracts";
 import { communityRequest } from "../../lib/community";
-import { plural } from "../../lib/format";
+import { formatCount } from "../../lib/format";
+import { t } from "../../i18n";
 import { useCombobox } from "../../lib/use-combobox";
 
 type Option =
@@ -121,16 +122,16 @@ export function BrandPicker({
     const brand = picked?.name === value ? picked : null;
     return (
       <div className="va-food-pick" id={id}>
-        <p className="va-food-pick__label">Brand (required)</p>
+        <p className="va-food-pick__label">{t("addProduct.brandRequired")}</p>
         <div className="va-food-pick__chosen">
           <span className="va-food-pick__text">
             <strong>{value}</strong>
             <span className="va-small va-muted">
               {isNew
-                ? "New brand"
+                ? t("addProduct.newBrand")
                 : brand
                   ? brandCount(brand, countryName)
-                  : "Listed brand"}
+                  : t("addProduct.listedBrand")}
             </span>
           </span>
           <button
@@ -141,7 +142,11 @@ export function BrandPicker({
               requestAnimationFrame(() => field.current?.focus());
             }}
           >
-            Change<span className="sr-only"> brand {value}</span>
+            {t("addProduct.change")}
+            <span className="sr-only">
+              {" "}
+              {t("addProduct.changeBrand", { name: value })}
+            </span>
           </button>
         </div>
       </div>
@@ -151,7 +156,7 @@ export function BrandPicker({
   return (
     <div className="va-food-pick va-combo" {...combo.rootProps}>
       <label htmlFor={`${id}-input`} className="va-food-pick__label">
-        Brand (required)
+        {t("addProduct.brandRequired")}
       </label>
       <input
         {...combo.inputProps}
@@ -169,9 +174,12 @@ export function BrandPicker({
       )}
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {showing && answeredNow
-          ? `${plural(shown.length, "brand")} found. Use the arrow keys to choose.`
+          ? t("addProduct.brandsFound", {
+              count: shown.length,
+              number: formatCount(shown.length),
+            })
           : showing && failed === typed
-            ? "We couldn’t check the brands. Try again."
+            ? t("addProduct.brandsFailedRetry")
             : ""}
       </p>
       {showing && (
@@ -179,7 +187,7 @@ export function BrandPicker({
           <div
             id={combo.listId}
             role="listbox"
-            aria-label={`Brands matching ${typed}`}
+            aria-label={t("addProduct.brandsMatching", { text: typed })}
             className="va-combo__list"
           >
             {options.map((option, index) => (
@@ -197,16 +205,18 @@ export function BrandPicker({
                   </>
                 ) : (
                   <span className="va-combo__name">
-                    Add “{option.name}” as a new brand
+                    {t("addProduct.addNewBrand", { name: option.name })}
                   </span>
                 )}
               </div>
             ))}
           </div>
-          {loading && <p className="va-combo__message">Looking for brands…</p>}
+          {loading && (
+            <p className="va-combo__message">{t("addProduct.lookingBrands")}</p>
+          )}
           {failed === typed && (
             <p className="va-combo__message">
-              We couldn’t check the brands.{" "}
+              {t("addProduct.brandsFailed")}{" "}
               <button
                 type="button"
                 className="link-button"
@@ -215,7 +225,7 @@ export function BrandPicker({
                   field.current?.focus();
                 }}
               >
-                Try again
+                {t("addProduct.tryAgain")}
               </button>
             </p>
           )}
@@ -227,5 +237,9 @@ export function BrandPicker({
 
 const brandCount = (brand: BrandSuggestion, countryName: string) =>
   brand.productCount
-    ? `${plural(brand.productCount, "product")} in ${countryName}`
-    : `Nothing in ${countryName} yet`;
+    ? t("addProduct.brandProducts", {
+        count: brand.productCount,
+        number: formatCount(brand.productCount),
+        country: countryName,
+      })
+    : t("addProduct.brandNothing", { country: countryName });

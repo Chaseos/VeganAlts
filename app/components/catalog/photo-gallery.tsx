@@ -1,12 +1,13 @@
 import { useId, useRef, useState } from "react";
 import type { ImageSlot } from "@server/media/domain/media";
 import { FoodIcon } from "../icons/food-icons";
-import { SLOT_LABELS } from "../photo-slots";
+import { IMAGE_SLOTS, slotLabel } from "../photo-slots";
 import { useHydrated } from "../../lib/use-hydrated";
 import { usePhotoSwipe } from "../../lib/use-photo-swipe";
 import { ProductThumbnail } from "./product-thumbnail";
+import { t } from "../../i18n";
 
-const SLOTS = Object.keys(SLOT_LABELS) as ImageSlot[];
+const SLOTS: readonly ImageSlot[] = IMAGE_SLOTS;
 
 /** Native thumbnail selection works without JS; hydration adds arrows and swipe. */
 export function PhotoGallery({
@@ -38,7 +39,7 @@ export function PhotoGallery({
     return (
       <div className="va-gallery__empty">
         <FoodIcon slug={food} size={40} />
-        <span>No photos yet</span>
+        <span>{t("photos.none")}</span>
       </div>
     );
   function step(direction: number) {
@@ -49,7 +50,7 @@ export function PhotoGallery({
   }
   return (
     <fieldset className="va-gallery" aria-roledescription="carousel">
-      <legend className="sr-only">Package photos</legend>
+      <legend className="sr-only">{t("photos.package")}</legend>
       <div className="va-gallery__stage" {...swipe}>
         <div className="va-gallery__track">
           {photos.map((image, index) => (
@@ -76,7 +77,10 @@ export function PhotoGallery({
               >
                 <img
                   src={`/media/${image.id}/${shown.has(index) ? "full" : "thumbnail"}`}
-                  alt={`${productName}: ${SLOT_LABELS[image.slot]}`}
+                  alt={t("photos.alt", {
+                    product: productName,
+                    slot: slotLabel(image.slot),
+                  })}
                   width={420}
                   height={420}
                   loading={index === 0 ? "eager" : "lazy"}
@@ -91,17 +95,17 @@ export function PhotoGallery({
           <div className="va-gallery__controls">
             <button
               type="button"
-              aria-label="Previous photo"
+              aria-label={t("photos.previous")}
               onClick={() => step(-1)}
             >
               ‹
             </button>
             <span aria-live="polite" aria-atomic="true">
-              {active + 1} of {photos.length}
+              {t("photos.position", { n: active + 1, total: photos.length })}
             </span>
             <button
               type="button"
-              aria-label="Next photo"
+              aria-label={t("photos.next")}
               onClick={() => step(1)}
             >
               ›
@@ -114,7 +118,7 @@ export function PhotoGallery({
           <label
             key={image.slot}
             className={`va-gallery__tab va-gallery__tab--${image.slot}`}
-            title={SLOT_LABELS[image.slot]}
+            title={slotLabel(image.slot)}
           >
             <input
               ref={(element) => {
@@ -131,13 +135,11 @@ export function PhotoGallery({
               }}
             />
             <ProductThumbnail imageId={image.id} food={food} size="small" />
-            <span className="sr-only">{SLOT_LABELS[image.slot]}</span>
+            <span className="sr-only">{slotLabel(image.slot)}</span>
           </label>
         ))}
       </div>
-      <p className="va-gallery__hint">
-        Select a photo. Open it to view full size.
-      </p>
+      <p className="va-gallery__hint">{t("photos.hint")}</p>
     </fieldset>
   );
 }

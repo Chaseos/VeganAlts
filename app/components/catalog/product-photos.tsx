@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ImageSlot } from "@server/media/domain/media";
-import { PhotoSlots, SLOT_LABELS } from "../photo-slots";
+import { IMAGE_SLOTS, PhotoSlots, slotLabel } from "../photo-slots";
 import { Icon } from "../icons/icon";
 import { usePhotoSwipe } from "../../lib/use-photo-swipe";
 import { useHydrated } from "../../lib/use-hydrated";
 import { PhotoGallery } from "./photo-gallery";
+import { t } from "../../i18n";
 import { ProductPhotoAdmin } from "./product-photo-admin";
 
 /** One viewer for both the gallery and the photo contribution slots. */
@@ -37,7 +38,7 @@ export function ProductPhotos({
       hasEvidence: Number(slot === "ingredients" || slot === "nutrition"),
     })),
   ];
-  const photos = (Object.keys(SLOT_LABELS) as ImageSlot[]).flatMap((slot) => {
+  const photos = IMAGE_SLOTS.flatMap((slot) => {
     const photo = images.find((image) => image.slot === slot);
     return photo ? [{ ...photo, slot }] : [];
   });
@@ -73,7 +74,7 @@ export function ProductPhotos({
         onOpenPhoto={hydrated ? openPhoto : undefined}
       />
       <details className="va-gallery__manage">
-        <summary>Add or improve photos</summary>
+        <summary>{t("photos.improve")}</summary>
         <PhotoSlots
           productId={productId}
           productName={productName}
@@ -113,12 +114,12 @@ export function ProductPhotos({
         <div className="va-photo-viewer__body">
           <div className="va-photo-viewer__header">
             <h2 id={titleId} className="va-heading-s">
-              {productName} photos
+              {t("photos.title", { product: productName })}
             </h2>
             <button
               type="button"
               className="va-icon-button"
-              aria-label="Close full-size photos"
+              aria-label={t("photos.closeViewer")}
               onClick={close}
               autoFocus
             >
@@ -130,7 +131,10 @@ export function ProductPhotos({
               <ViewerImage
                 key={photo.id}
                 src={`/media/${photo.id}/${photo.hasEvidence ? "evidence" : "full"}`}
-                alt={`${productName}: ${SLOT_LABELS[photo.slot]}`}
+                alt={t("photos.alt", {
+                  product: productName,
+                  slot: slotLabel(photo.slot),
+                })}
               />
             )}
           </div>
@@ -139,7 +143,7 @@ export function ProductPhotos({
               <button
                 type="button"
                 className="va-icon-button"
-                aria-label="Previous full-size photo"
+                aria-label={t("photos.previousFull")}
                 onClick={() => step(-1)}
               >
                 ‹
@@ -147,13 +151,17 @@ export function ProductPhotos({
             )}
             <p id={captionId} aria-live="polite" aria-atomic="true">
               {photo &&
-                `${SLOT_LABELS[photo.slot]} · ${active! + 1} of ${photos.length}`}
+                t("photos.caption", {
+                  slot: slotLabel(photo.slot),
+                  n: active! + 1,
+                  total: photos.length,
+                })}
             </p>
             {photos.length > 1 && (
               <button
                 type="button"
                 className="va-icon-button"
-                aria-label="Next full-size photo"
+                aria-label={t("photos.nextFull")}
                 onClick={() => step(1)}
               >
                 ›
@@ -173,12 +181,12 @@ function ViewerImage({ src, alt }: { src: string; alt: string }) {
     <>
       {state === "loading" && (
         <p className="va-photo-viewer__status" role="status">
-          Loading photo…
+          {t("photos.loading")}
         </p>
       )}
       {state === "error" ? (
         <div className="va-photo-viewer__status" role="alert">
-          <p>This photo couldn’t load.</p>
+          <p>{t("photos.loadFailed")}</p>
           <button
             className="button secondary"
             onClick={() => {
@@ -186,7 +194,7 @@ function ViewerImage({ src, alt }: { src: string; alt: string }) {
               setAttempt((value) => value + 1);
             }}
           >
-            Retry photo
+            {t("photos.retry")}
           </button>
         </div>
       ) : (

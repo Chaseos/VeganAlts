@@ -9,6 +9,7 @@ import {
 import { useNavigation, useNavigationType } from "react-router";
 import type { CatalogBatch } from "@server/catalog/domain/batches";
 import { appendBatch, browseCache } from "../../lib/browse-cache";
+import { t } from "../../i18n";
 
 export function useBatches<T, M = undefined>({
   context,
@@ -133,13 +134,11 @@ export function useBatches<T, M = undefined>({
       });
       if (!response.ok)
         throw new Error(
-          response.status === 429
-            ? "Please wait a moment, then retry."
-            : "More results could not be loaded. Please retry.",
+          response.status === 429 ? t("seeMore.wait") : t("seeMore.loadFailed"),
         );
       const value = (await response.json()) as { data: CatalogBatch<T> };
       if (!value.data || !Array.isArray(value.data.items))
-        throw new Error("More results could not be loaded. Please retry.");
+        throw new Error(t("seeMore.loadFailed"));
       if (controller.signal.aborted) return;
       const next = appendBatch(batches, value.data, identity);
       const added = next[next.length - 1]!.items;
@@ -159,7 +158,15 @@ export function useBatches<T, M = undefined>({
       position.current = { x: window.scrollX, y: window.scrollY, anchor, top };
       setState((current) => ({ ...current, batches: next }));
       setAnnouncement(
-        `${added.length} more ${section === "unranked" ? "unrated products" : section === "ranked" ? "results" : section} added.`,
+        t("seeMore.added", {
+          count: added.length,
+          what:
+            section === "unranked"
+              ? t("seeMore.unrated")
+              : section === "ranked"
+                ? t("seeMore.results")
+                : section,
+        }),
       );
     } catch (error) {
       if (!controller.signal.aborted)
@@ -168,7 +175,7 @@ export function useBatches<T, M = undefined>({
             !(error instanceof TypeError) &&
             !(error instanceof SyntaxError)
             ? error.message
-            : "More results could not be loaded. Check your connection and retry.",
+            : t("seeMore.offline"),
         );
     } finally {
       if (request.current === controller) {
@@ -229,7 +236,14 @@ export function SeeMore({
           className="button secondary"
           href={href}
           aria-disabled={busy || undefined}
-          aria-label={`${error ? "Retry" : "See more"} ${section === "ranked" ? "ranked results" : section === "unranked" ? "unrated products" : section}`}
+          aria-label={t(error ? "seeMore.retryLabel" : "seeMore.moreLabel", {
+            what:
+              section === "ranked"
+                ? t("seeMore.rankedResults")
+                : section === "unranked"
+                  ? t("seeMore.unrated")
+                  : section,
+          })}
           onClick={(event) => {
             if (
               event.button ||
@@ -243,15 +257,14 @@ export function SeeMore({
             if (!busy) load();
           }}
         >
-          {busy ? "Loading…" : error ? "Retry" : "See more"}
+          {busy
+            ? t("seeMore.loading")
+            : error
+              ? t("seeMore.retry")
+              : t("seeMore.more")}
         </a>
       )}
-      {limitReached && (
-        <p className="va-muted">
-          You’ve reached the browsing limit. Refine your search or filters to
-          find more.
-        </p>
-      )}
+      {limitReached && <p className="va-muted">{t("seeMore.limit")}</p>}
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {announcement}
       </p>

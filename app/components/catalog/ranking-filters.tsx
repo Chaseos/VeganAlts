@@ -6,7 +6,9 @@ import type {
 } from "@server/catalog/domain/contracts";
 import { Icon } from "../icons/icon";
 import { Popover } from "../ui/popover";
-import { formatCount, plural, summarizeNames } from "../../lib/format";
+import { counted } from "../../lib/counted";
+import { formatCount, summarizeNames } from "../../lib/format";
+import { t } from "../../i18n";
 import { filteredHref, saveFilters } from "../../lib/ranking-filters";
 
 export interface SortOption {
@@ -40,11 +42,11 @@ export function SortMenu({
   return (
     <Popover
       className="va-sort-menu"
-      summaryLabel={`Sort: ${label}`}
-      panelLabel="Sort by"
+      summaryLabel={t("filters.sortLabel", { label: label ?? "" })}
+      panelLabel={t("filters.sortBy")}
       summary={
         <>
-          <span className="va-muted va-desktop-only">Sort:</span>{" "}
+          <span className="va-muted va-desktop-only">{t("filters.sort")}</span>{" "}
           <strong className="va-sort-menu__current">{label}</strong>
           <Icon name="chevronDown" size={14} strokeWidth={2.6} />
         </>
@@ -75,10 +77,7 @@ export function SortMenu({
               );
             })}
           </ul>
-          <p className="va-menu-note">
-            Closest to the original and Tastiest are the rankings. Other sorts
-            never change them.
-          </p>
+          <p className="va-menu-note">{t("filters.sortNote")}</p>
         </>
       )}
     </Popover>
@@ -106,7 +105,7 @@ export function StoreChecklist({
   const names = stores
     .filter((store) => chosen.has(store.slug))
     .map((store) => store.name);
-  const summary = names.length ? summarizeNames(names) : "Any store";
+  const summary = names.length ? summarizeNames(names) : t("filters.anyStore");
   // Stores with ranked swaps here, plus any already chosen.
   const visible = stores.filter(
     (store) => store.count > 0 || chosen.has(store.slug),
@@ -122,13 +121,16 @@ export function StoreChecklist({
   return (
     <Popover
       className={`va-store-menu${chosen.size ? " va-store-menu--active" : ""}`}
-      summaryLabel={`Commonly found at: ${summary}${names.length > 2 ? `. Selected stores: ${names.join(", ")}` : ""}`}
-      panelLabel="Stores you shop at"
+      summaryLabel={t(
+        names.length > 2 ? "filters.storeLabelSelected" : "filters.storeLabel",
+        { summary, names: names.join(", ") },
+      )}
+      panelLabel={t("filters.storesPanel")}
       summary={
         <>
           <Icon name="bag" size={18} />
           <span className="va-store-menu__lead va-desktop-only">
-            Commonly found at:
+            {t("filters.commonlyAt")}
           </span>{" "}
           <strong>{summary}</strong>
           <Icon name="chevronDown" size={14} strokeWidth={2.6} />
@@ -158,11 +160,9 @@ export function StoreChecklist({
               value={filters.freeFrom.join(",")}
             />
           )}
-          <p className="va-menu-heading">Pick every store you shop at</p>
+          <p className="va-menu-heading">{t("filters.pickStores")}</p>
           <p className="va-menu-note">
-            Commonly found at any of your chosen stores, as reported by members
-            in {countryName}. Your choices are saved on this device for every
-            ranking in this country.
+            {t("filters.storesNote", { country: countryName })}
           </p>
           {visible.length ? (
             <ul className="va-check-list">
@@ -177,16 +177,14 @@ export function StoreChecklist({
                     />
                     <span className="va-check-list__name">{store.name}</span>
                     <span className="va-check-list__count">
-                      {plural(store.count, "swap")}
+                      {counted("count.swap", store.count)}
                     </span>
                   </label>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="va-menu-note">
-              No stores have been reported for these swaps in this country yet.
-            </p>
+            <p className="va-menu-note">{t("filters.noStores")}</p>
           )}
           <div className="va-check-list__actions">
             <button
@@ -197,10 +195,10 @@ export function StoreChecklist({
                 close(true);
               }}
             >
-              Any store
+              {t("filters.anyStore")}
             </button>
             <button type="submit" className="button small-button">
-              Done
+              {t("filters.done")}
             </button>
           </div>
         </Form>
@@ -236,16 +234,21 @@ export function FreeFromChecklist({
   };
   const params = new URLSearchParams(location.search);
   const summary = names.length
-    ? summarizeNames(names.map((name) => `${name.toLowerCase()}-free`))
-    : "Any";
+    ? summarizeNames(
+        names.map((name) => t("filters.free", { name: name.toLowerCase() })),
+      )
+    : t("filters.any");
   return (
     <Popover
       className={`va-free-menu va-store-menu${chosen.size ? " va-store-menu--active" : ""}`}
-      summaryLabel={`Free from: ${names.length ? `${summary}. Allergens: ${names.join(", ")}` : "any allergens"}`}
-      panelLabel="Allergens to avoid"
+      summaryLabel={t(
+        names.length ? "filters.freeLabelChosen" : "filters.freeLabelAny",
+        { summary, names: names.join(", ") },
+      )}
+      panelLabel={t("filters.allergensPanel")}
       summary={
         <>
-          <span className="va-store-menu__lead">Free from:</span>{" "}
+          <span className="va-store-menu__lead">{t("filters.freeFrom")}</span>{" "}
           <strong>{summary}</strong>
           <Icon name="chevronDown" size={14} strokeWidth={2.6} />
         </>
@@ -274,7 +277,7 @@ export function FreeFromChecklist({
               value={filters.stores.join(",")}
             />
           )}
-          <p className="va-menu-heading">Avoid products whose label lists</p>
+          <p className="va-menu-heading">{t("filters.avoid")}</p>
           <ul className="va-check-list">
             {options.map((option) => (
               <li key={option.key}>
@@ -290,11 +293,7 @@ export function FreeFromChecklist({
               </li>
             ))}
           </ul>
-          <p className="va-menu-note">
-            Only confirmed labels qualify. “May contain” counts too. Always
-            check the package. Your choices are saved on this device for every
-            ranking in this country.
-          </p>
+          <p className="va-menu-note">{t("filters.freeNote")}</p>
           <div className="va-check-list__actions">
             <button
               type="button"
@@ -304,10 +303,10 @@ export function FreeFromChecklist({
                 close(true);
               }}
             >
-              No allergen filter
+              {t("filters.noAllergen")}
             </button>
             <button type="submit" className="button small-button">
-              Done
+              {t("filters.done")}
             </button>
           </div>
         </Form>
@@ -330,7 +329,7 @@ export function StoreLine({
   return (
     <span className="va-store-line">
       <Icon name="check" size={14} strokeWidth={2.8} />
-      Commonly found at {names.join(", ")}
+      {t("filters.storeLine", { names: names.join(", ") })}
     </span>
   );
 }
@@ -353,10 +352,8 @@ export function RankingResultCount({
       <strong>{formatCount(count)}</strong>{" "}
       <span>
         {filtered
-          ? `of ${plural(total, "ranked swap")} match`
-          : count === 1
-            ? "ranked swap"
-            : "ranked swaps"}
+          ? counted("filters.ofMatch", total)
+          : counted("filters.rankedSwapWord", count)}
       </span>
     </span>
   );

@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
+import { t } from "../../i18n";
 import { useSiteChrome } from "../../lib/site-chrome";
 import { useHydrated } from "../../lib/use-hydrated";
 import {
@@ -21,7 +22,7 @@ export function AisleBar() {
   });
   if (!groups.length) return null;
   return (
-    <nav className="va-aisle-bar" aria-label="Categories">
+    <nav className="va-aisle-bar" aria-label={t("aisles.categories")}>
       <ul>
         {groups.map((group) => (
           <li key={group.id}>

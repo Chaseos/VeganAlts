@@ -1,18 +1,10 @@
 import { Wordmark } from "./icons/wordmark";
+import { t } from "../i18n";
 
-const STEPS = [
-  {
-    title: "Find your match",
-    body: "Start with what you want to replace. Discover alternatives available in your country.",
-  },
-  {
-    title: "Real people. Real experience.",
-    body: "Ranked by how closely they match the original, with more feedback making the picture clearer.",
-  },
-  {
-    title: "Independent by design",
-    body: "Community experience shapes the rankings. Brands can never buy their way to the top.",
-  },
+const steps = () => [
+  { title: t("comingSoon.step1Title"), body: t("comingSoon.step1Body") },
+  { title: t("comingSoon.step2Title"), body: t("comingSoon.step2Body") },
+  { title: t("comingSoon.step3Title"), body: t("comingSoon.step3Body") },
 ];
 
 // Production's pre-launch page: no catalog, no aisle bar.
@@ -21,11 +13,15 @@ export function ComingSoon() {
     <div className="va-site">
       <header className="va-header va-kale">
         <div className="va-header__row">
-          <a className="va-header__brand" href="/" aria-label="VeganAlts home">
+          <a
+            className="va-header__brand"
+            href="/"
+            aria-label={t("chrome.home")}
+          >
             <Wordmark size="header" />
           </a>
           <span className="va-header__tools va-coming-soon__status">
-            Coming soon
+            {t("comingSoon.status")}
           </span>
         </div>
       </header>
@@ -35,36 +31,38 @@ export function ComingSoon() {
           aria-labelledby="hero-title"
         >
           <div className="va-container">
-            <p className="va-coming-soon__eyebrow">
-              Good food. Closer matches.
-            </p>
+            <p className="va-coming-soon__eyebrow">{t("comingSoon.eyebrow")}</p>
             <h1 id="hero-title" className="va-display-xl">
-              Find the closest vegan swap.
+              {t("comingSoon.title")}
             </h1>
             <p className="va-body-l va-coming-soon__lead">
-              The burger that gets it right. The cheese that actually melts.
-              Find alternatives to the foods you love, ranked by people who’ve
-              tried them.
+              {t("comingSoon.lead")}
             </p>
             <ul
               className="va-coming-soon__foods"
-              aria-label="Foods we’re starting with"
+              aria-label={t("comingSoon.startingFoods")}
             >
-              {["Burgers", "Milk", "Cheese", "Butter", "Eggs"].map((food) => (
+              {[
+                t("comingSoon.burgers"),
+                t("comingSoon.milk"),
+                t("comingSoon.cheese"),
+                t("comingSoon.butter"),
+                t("comingSoon.eggs"),
+              ].map((food) => (
                 <li key={food}>{food}</li>
               ))}
             </ul>
             <p className="va-coming-soon__note">
-              A better way to find your next favorite.{" "}
-              <strong>We’re getting things ready.</strong>
+              {t("comingSoon.noteLead")}{" "}
+              <strong>{t("comingSoon.noteStrong")}</strong>
             </p>
           </div>
         </section>
         <section
           className="va-container va-coming-soon__steps"
-          aria-label="What makes VeganAlts different"
+          aria-label={t("comingSoon.different")}
         >
-          {STEPS.map((step, index) => (
+          {steps().map((step, index) => (
             <article key={step.title} className="va-card">
               <span className="va-step-number" aria-hidden="true">
                 {String(index + 1).padStart(2, "0")}
@@ -77,9 +75,7 @@ export function ComingSoon() {
       </main>
       <footer className="va-footer va-kale">
         <div className="va-footer__inner">
-          <p>
-            Community-ranked vegan alternatives. Made for your next good swap.
-          </p>
+          <p>{t("comingSoon.footer")}</p>
         </div>
       </footer>
     </div>

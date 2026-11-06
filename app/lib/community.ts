@@ -1,3 +1,4 @@
+import { pageLocale, t, type MessageKey } from "../i18n";
 import { useRef, useState } from "react";
 
 /** Stands in for a note someone was allowed to leave blank. */
@@ -36,11 +37,7 @@ export async function communityRequest<T>(
     });
   } catch (error) {
     if (options?.signal?.aborted) throw error;
-    throw new CommunityError(
-      "Check your connection and retry. Your entries are still here.",
-      "NETWORK_ERROR",
-      0,
-    );
+    throw new CommunityError(t("community.errNetwork"), "NETWORK_ERROR", 0);
   }
   const value = (await response.json().catch(() => null)) as {
     data: T;
@@ -58,15 +55,14 @@ export async function communityRequest<T>(
         "MODERATION_ACCOUNT_LIMIT",
         "MODERATION_CAPACITY",
       ].includes(value?.code ?? "")
-        ? (value?.title ?? "The check could not finish. Please retry.")
+        ? (value?.title ?? t("community.errCheck"))
         : response.status === 401
-          ? "Your session has expired. Sign in again, then retry. Your entries are still here."
+          ? t("community.errSession")
           : response.status === 429
-            ? "Too many requests. Wait a minute, then retry. Your entries are still here."
+            ? t("community.errRate")
             : response.status >= 500 || !value || typeof value !== "object"
-              ? "The server couldn’t complete this request. Please retry. Your entries are still here."
-              : (value.title ??
-                "The request could not be saved. Please retry."),
+              ? t("community.errServer")
+              : (value.title ?? t("community.errSave")),
       value?.code ?? "REQUEST_FAILED",
       response.status,
     );
@@ -138,11 +134,7 @@ export function useCommunityAction() {
         error.code === "CHALLENGE_REQUIRED"
       )
         setChallenge(true);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "The request could not be saved. Please retry.",
-      );
+      setError(error instanceof Error ? error.message : t("community.errSave"));
       requestAnimationFrame(() => errorRef.current?.focus());
     } finally {
       setBusy(false);
@@ -185,18 +177,18 @@ export function friendly(value: string) {
   return value.replaceAll("_", " ");
 }
 // Report reasons whose code doesn't read well on its own (milestone 7).
-const REPORT_REASONS: Record<string, string> = {
-  out_of_scope: "Doesn’t belong on VeganAlts",
-  flavor_not_real: "This flavor doesn’t exist",
-  wrong_line: "Not part of this line",
-};
+const REPORT_REASONS: Record<string, MessageKey> = {
+  out_of_scope: "community.reasonOutOfScope",
+  flavor_not_real: "community.reasonFlavorNotReal",
+  wrong_line: "community.reasonWrongLine",
+} as const;
 export const reportReasonLabel = (reason: string) =>
-  REPORT_REASONS[reason] ?? friendly(reason);
+  REPORT_REASONS[reason] ? t(REPORT_REASONS[reason]) : friendly(reason);
 export function dateLabel(value: number | null) {
   return value
-    ? new Date(value).toLocaleDateString("en-US", {
+    ? new Date(value).toLocaleDateString(pageLocale(), {
         dateStyle: "medium",
         timeZone: "UTC",
       })
-    : "Not yet confirmed";
+    : t("community.notConfirmed");
 }

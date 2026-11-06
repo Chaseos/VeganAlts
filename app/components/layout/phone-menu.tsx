@@ -3,8 +3,9 @@ import { Link, useLocation } from "react-router";
 import { Icon } from "../icons/icon";
 import { FoodIcon } from "../icons/food-icons";
 import { AppearanceControl } from "./appearance-menu";
-import { accountLinks, OPERATOR_LINKS, useSignInHref } from "./account-menu";
+import { accountLinks, operatorLinks, useSignInHref } from "./account-menu";
 import { CountryList } from "./country-menu";
+import { PhoneLanguages } from "./language-menu";
 import { useOptionalPersonalState } from "../personal-state";
 import { searchPath, useSiteChrome } from "../../lib/site-chrome";
 import {
@@ -14,7 +15,8 @@ import {
 } from "../../lib/navigation-groups";
 import { FoodGroupSections } from "./food-navigation";
 import { useHydrated } from "../../lib/use-hydrated";
-import { ABOUT_LINKS } from "./site-footer";
+import { aboutLinks } from "./site-footer";
+import { t } from "../../i18n";
 
 export const PHONE_MENU_ID = "site-menu";
 
@@ -42,7 +44,7 @@ export function PhoneMenu() {
         <button
           type="button"
           className="va-icon-button va-phone-only"
-          aria-label="Menu"
+          aria-label={t("phone.menu")}
           aria-haspopup="dialog"
           onClick={openPhoneMenu}
         >
@@ -52,7 +54,7 @@ export function PhoneMenu() {
         <a
           className="va-icon-button va-phone-only"
           href="#site-footer"
-          aria-label="Menu"
+          aria-label={t("phone.menu")}
         >
           <Icon name="menu" size={22} />
         </a>
@@ -62,18 +64,18 @@ export function PhoneMenu() {
           ref={dialog}
           id={PHONE_MENU_ID}
           className="va-sheet"
-          aria-label="Site menu"
+          aria-label={t("phone.siteMenu")}
           onClick={(event) => {
             if (event.target === dialog.current) close();
           }}
         >
           <div className="va-sheet__body">
             <div className="va-sheet__top">
-              <span className="va-heading-s">Menu</span>
+              <span className="va-heading-s">{t("phone.menu")}</span>
               <button
                 type="button"
                 className="va-icon-button"
-                aria-label="Close menu"
+                aria-label={t("phone.close")}
                 onClick={close}
               >
                 <Icon name="close" size={22} />
@@ -82,7 +84,7 @@ export function PhoneMenu() {
             {countries.length > 1 && (
               <section aria-labelledby="sheet-country">
                 <h2 id="sheet-country" className="va-menu-heading">
-                  Country
+                  {t("phone.country")}
                 </h2>
                 <CountryList
                   current={country.code}
@@ -91,15 +93,16 @@ export function PhoneMenu() {
                 />
               </section>
             )}
+            <PhoneLanguages />
             <section aria-labelledby="sheet-account">
               <h2 id="sheet-account" className="va-menu-heading">
-                Account
+                {t("menu.account")}
               </h2>
               <ul className="va-sheet__list">
                 {user ? (
                   [
                     ...accountLinks(country.code),
-                    ...(user.administrator ? OPERATOR_LINKS : []),
+                    ...(user.administrator ? operatorLinks() : []),
                   ].map((link) => (
                     <li key={link.to}>
                       <Link to={link.to} onClick={close}>
@@ -111,7 +114,7 @@ export function PhoneMenu() {
                 ) : (
                   <li>
                     <Link to={signIn} onClick={close}>
-                      <span>Sign in</span>
+                      <span>{t("menu.signIn")}</span>
                       <Icon name="chevronRight" size={14} />
                     </Link>
                   </li>
@@ -121,7 +124,7 @@ export function PhoneMenu() {
             {groups.length > 0 && (
               <section aria-labelledby="sheet-aisles">
                 <h2 id="sheet-aisles" className="va-menu-heading">
-                  Categories
+                  {t("aisles.categories")}
                 </h2>
                 {groups.map((group) => (
                   <details
@@ -149,7 +152,9 @@ export function PhoneMenu() {
                       discover="none"
                       onClick={close}
                     >
-                      Browse all {group.name.toLowerCase()}
+                      {t("foodNav.browseGroup", {
+                        group: group.name.toLowerCase(),
+                      })}
                     </Link>
                   </details>
                 ))}
@@ -159,15 +164,15 @@ export function PhoneMenu() {
                   discover="none"
                   onClick={close}
                 >
-                  Browse all categories
+                  {t("nav.browseAll")}
                 </Link>
               </section>
             )}
-            <section aria-label="Appearance">
+            <section aria-label={t("appearance.label")}>
               <AppearanceControl name="appearance-phone" />
             </section>
-            <nav aria-label="About VeganAlts" className="va-sheet__about">
-              {ABOUT_LINKS.map((link) => (
+            <nav aria-label={t("phone.about")} className="va-sheet__about">
+              {aboutLinks().map((link) => (
                 <Link key={link.to} to={link.to} onClick={close}>
                   {link.label}
                 </Link>

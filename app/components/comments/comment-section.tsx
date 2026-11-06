@@ -11,6 +11,7 @@ import {
 import { useCommunityAction } from "../../lib/community";
 import { CommentItem, type OwnComment } from "./comment-item";
 import { productPath, useCountryCode } from "../../lib/site-chrome";
+import { t } from "../../i18n";
 
 export interface CommentPage {
   productId: string;
@@ -114,7 +115,7 @@ export function CommentSection({
           : data,
       );
     } catch {
-      setStatus("Comments could not load. Please retry.");
+      setStatus(t("comments.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -138,12 +139,10 @@ export function CommentSection({
       ...old.filter((o) => o.id !== saved.id),
     ]);
     if (saved.state === "pending") {
-      setStatus(
-        "Thanks. Your comment will appear after a moderator checks it.",
-      );
+      setStatus(t("comments.thanksPending"));
       return;
     }
-    setStatus("Your comment is posted.");
+    setStatus(t("comments.posted"));
     if (page.formula === "current")
       await load({ sort: "newest", formula: "current" });
   }
@@ -199,13 +198,13 @@ export function CommentSection({
     }));
     setStatus(
       saved.state === "pending"
-        ? "Your edit will appear after a moderator checks it."
-        : "Your comment is updated.",
+        ? t("comments.editPending")
+        : t("comments.updated"),
     );
     return true;
   }
   async function remove(id: string) {
-    if (!window.confirm("Delete your comment? This can't be undone.")) return;
+    if (!window.confirm(t("comments.confirmDelete"))) return;
     const done = await action.run(() =>
       action.request(`comments/${id}/delete`, {}, crypto.randomUUID()),
     );
@@ -215,7 +214,7 @@ export function CommentSection({
       ...old,
       comments: old.comments.filter((c) => c.id !== id),
     }));
-    setStatus("Your comment is deleted.");
+    setStatus(t("comments.deleted"));
   }
   const held = own.filter(
     (o) => o.state === "pending" && !page.comments.some((c) => c.id === o.id),
@@ -242,7 +241,7 @@ export function CommentSection({
     setOwn((old) =>
       old.map((o) => (o.id === comment.id ? { ...o, state: "hidden" } : o)),
     );
-    setStatus("Comment hidden from public view.");
+    setStatus(t("comments.hidden"));
     setHiddenComment(true);
     statusRef.current?.focus();
     return true;
@@ -258,16 +257,12 @@ export function CommentSection({
   return (
     <section className="comments" aria-labelledby="comments-title">
       <div className="section-heading">
-        <h2 id="comments-title">Notes from people who tried it</h2>
+        <h2 id="comments-title">{t("comments.title")}</h2>
       </div>
-      <p className="small muted">
-        Share how it compares: taste, texture, cooking and how recently you had
-        the original. Vote on whether a comment helps someone understand the
-        product, not whether you agree with it.
-      </p>
+      <p className="small muted">{t("comments.intro")}</p>
       <CommunityControls>
         <div className="comment-toolbar">
-          <div role="group" aria-label="Sort comments">
+          <div role="group" aria-label={t("comments.sortLabel")}>
             {(["best", "newest"] as const).map((sort) => (
               <button
                 type="button"
@@ -276,18 +271,18 @@ export function CommentSection({
                 disabled={loading}
                 onClick={() => void load({ sort, formula: page.formula })}
               >
-                {sort === "best" ? "Best" : "Newest"}
+                {sort === "best" ? t("comments.best") : t("comments.newest")}
               </button>
             ))}
           </div>
-          <div role="group" aria-label="Formula">
+          <div role="group" aria-label={t("comments.formulaLabel")}>
             <button
               type="button"
               aria-pressed={page.formula === "current"}
               disabled={loading}
               onClick={() => void load({ sort: page.sort, formula: "current" })}
             >
-              Current formula ({page.counts.current})
+              {t("comments.currentFormula", { total: page.counts.current })}
             </button>
             {page.counts.earlier > 0 && (
               <button
@@ -298,7 +293,9 @@ export function CommentSection({
                   void load({ sort: page.sort, formula: "earlier" })
                 }
               >
-                Earlier formulas ({page.counts.earlier})
+                {t("comments.earlierFormulas", {
+                  total: page.counts.earlier,
+                })}
               </button>
             )}
           </div>
@@ -309,7 +306,7 @@ export function CommentSection({
             <>
               {" "}
               <Link to={`/admin/moderation/products/${productId}`}>
-                Review history or restore a comment
+                {t("comments.reviewHistory")}
               </Link>
               .
             </>
@@ -318,30 +315,31 @@ export function CommentSection({
         {held.length > 0 && (
           <ul
             className="comment-list held"
-            aria-label="Your comments awaiting review"
+            aria-label={t("comments.awaitingLabel")}
           >
             {held.map((o) => (
               <li className="comment" key={o.id} id={`held-${o.id}`}>
-                <p className="small muted">Awaiting moderator review</p>
+                <p className="small muted">{t("comments.awaiting")}</p>
                 <p className="comment-body">{o.body}</p>
               </li>
             ))}
           </ul>
         )}
         {recent.length > 0 && (
-          <ul className="comment-list held" aria-label="Your recent comments">
+          <ul
+            className="comment-list held"
+            aria-label={t("comments.recentLabel")}
+          >
             {recent.map((o) => (
               <li className="comment" key={o.id}>
-                <p className="small muted">
-                  Published. It can take a few minutes to appear for everyone.
-                </p>
+                <p className="small muted">{t("comments.published")}</p>
                 <p className="comment-body">{o.body}</p>
               </li>
             ))}
           </ul>
         )}
         {page.comments.length ? (
-          <ul className="comment-list" aria-label="Comments">
+          <ul className="comment-list" aria-label={t("comments.listLabel")}>
             {page.comments.map((comment) => (
               <CommentItem
                 key={comment.id}
@@ -364,8 +362,8 @@ export function CommentSection({
         ) : (
           <p className="muted">
             {page.formula === "current"
-              ? "No comments on this formula yet."
-              : "No comments on earlier formulas."}
+              ? t("comments.noneCurrent")
+              : t("comments.noneEarlier")}
           </p>
         )}
         {page.nextCursor && (
@@ -380,12 +378,12 @@ export function CommentSection({
               )
             }
           >
-            {loading ? "Loading…" : "Show more comments"}
+            {loading ? t("comments.loading") : t("comments.more")}
           </button>
         )}
         {user ? (
           <form className="community-form comment-composer" onSubmit={post}>
-            <label htmlFor="comment-body">Add your experience</label>
+            <label htmlFor="comment-body">{t("comments.add")}</label>
             <textarea
               id="comment-body"
               name="body"
@@ -397,10 +395,10 @@ export function CommentSection({
             {categories.length > 1 && (
               <>
                 <label htmlFor="comment-category">
-                  Compared with (optional)
+                  {t("comments.comparedWith")}
                 </label>
                 <select id="comment-category" name="categoryId" defaultValue="">
-                  <option value="">Any use</option>
+                  <option value="">{t("comments.anyUse")}</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -413,7 +411,7 @@ export function CommentSection({
               className="button"
               disabled={action.busy || (action.challenge && !action.hasToken)}
             >
-              {action.busy ? "Posting…" : "Post comment"}
+              {action.busy ? t("comments.posting") : t("comments.post")}
             </button>
             <GuidelinesNote />
           </form>
@@ -422,7 +420,7 @@ export function CommentSection({
             <a
               href={`/sign-in?returnTo=${encodeURIComponent(`${productPath(country, productSlug)}#comments-title`)}`}
             >
-              Sign in to comment and vote
+              {t("comments.signIn")}
             </a>
           </p>
         )}

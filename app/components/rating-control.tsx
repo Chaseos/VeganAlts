@@ -4,35 +4,36 @@ import type { ConventionalRecency } from "@server/ratings/domain/details";
 import { usePersonalState, ratingKey } from "./personal-state";
 import { Turnstile } from "./turnstile";
 import { productPath, useCountryCode } from "../lib/site-chrome";
+import { t } from "../i18n";
 
-export const SCORE_MEANINGS = [
-  "Not close",
-  "Slightly similar",
-  "Fairly close",
-  "Very close",
-  "Extremely close",
+export const scoreMeanings = () => [
+  t("rating.close1"),
+  t("rating.close2"),
+  t("rating.close3"),
+  t("rating.close4"),
+  t("rating.close5"),
 ];
 // The optional Tastiest answer (milestone 7): how tasty it is, whether or
 // not it's like the original. It never changes Closest to the original.
-export const TASTE_MEANINGS = [
-  "Not for me",
-  "It’s OK",
-  "Good",
-  "Really good",
-  "Delicious",
+export const tasteMeanings = () => [
+  t("rating.taste1"),
+  t("rating.taste2"),
+  t("rating.taste3"),
+  t("rating.taste4"),
+  t("rating.taste5"),
 ];
-export const LAST_ATE: { value: ConventionalRecency; label: string }[] = [
-  { value: "current_or_week", label: "This week" },
-  { value: "within_month", label: "This month" },
-  { value: "within_year", label: "This year" },
-  { value: "over_year", label: "Over a year ago" },
-  { value: "prefer_not_to_say", label: "Prefer not to say" },
+export const lastAte = (): { value: ConventionalRecency; label: string }[] => [
+  { value: "current_or_week", label: t("rating.lastWeek") },
+  { value: "within_month", label: t("rating.lastMonth") },
+  { value: "within_year", label: t("rating.lastYear") },
+  { value: "over_year", label: t("rating.lastOver") },
+  { value: "prefer_not_to_say", label: t("rating.lastNoSay") },
 ];
 /** Shared presentation; the caller owns whether a repeated choice clears. */
 export function NumberedScale({
   selected,
   onChoose,
-  meanings = SCORE_MEANINGS,
+  meanings = scoreMeanings(),
   label,
 }: {
   selected: number | null | undefined;
@@ -47,7 +48,7 @@ export function NumberedScale({
           <button
             type="button"
             key={meaning}
-            aria-label={`${label ? `${label}: ` : ""}${index + 1} ${meaning} (${index + 1} of 5)`}
+            aria-label={`${label ? `${label}: ` : ""}${index + 1} ${meaning} ${t("rating.position", { number: index + 1 })}`}
             aria-pressed={selected === index + 1}
             onClick={() => onChoose(index + 1)}
           >
@@ -75,7 +76,7 @@ export function TasteScale({
   return (
     <NumberedScale
       selected={selected}
-      meanings={TASTE_MEANINGS}
+      meanings={tasteMeanings()}
       onChoose={(value) => onChoose(value === selected ? null : value)}
     />
   );
@@ -172,12 +173,9 @@ export function RatingControl({
   }
   const helpId = `rating-help-${categoryId}`;
   return (
-    <section className="va-rate" aria-label={`Rate it as ${food}`}>
+    <section className="va-rate" aria-label={t("rating.rateAs", { food })}>
       <noscript>
-        <p className="notice">
-          JavaScript is required to save a rating. Enable it, then reload to
-          rate this product.
-        </p>
+        <p className="notice">{t("rating.noscript")}</p>
       </noscript>
       <p className="va-rate__product">
         {productName}
@@ -190,8 +188,9 @@ export function RatingControl({
           aria-describedby={helpId}
         >
           <legend className="va-rate__title">
-            Tried it? How close is it to {food}
-            {flavored ? " in the same flavor" : ""}?
+            {flavored
+              ? t("rating.closeQuestionFlavored", { food })
+              : t("rating.closeQuestion", { food })}
           </legend>
           <OverallScale
             selected={state?.selected}
@@ -200,14 +199,12 @@ export function RatingControl({
             }
           />
           <p id={helpId} className="va-rate__help">
-            {user === null
-              ? "Choose a score; you’ll sign in to save it."
-              : "Rate either question or both. Each choice saves right away; tap it again to clear. Your rating marks this formula as tried."}
+            {user === null ? t("rating.helpSignedOut") : t("rating.help")}
           </p>
         </fieldset>
         <fieldset className="va-rate__group va-rate__tasty" disabled={disabled}>
           <legend className="va-rate__subtitle">
-            How tasty is it, whether or not it’s like the original?
+            {t("rating.tastyQuestion")}
           </legend>
           <TasteScale
             selected={enjoyment}
@@ -218,11 +215,13 @@ export function RatingControl({
       {state?.selected ? (
         <details className="va-rate__more">
           <summary className="va-rate__subtitle">
-            Add detail{" "}
-            <span>{hasDetails ? "· your answers" : "· optional"}</span>
+            {t("rating.addDetail")}{" "}
+            <span>
+              {hasDetails ? t("rating.yourAnswers") : t("rating.optional")}
+            </span>
           </summary>
           <fieldset disabled={state.status === "conflict"}>
-            <legend className="sr-only">Detail ratings and last ate</legend>
+            <legend className="sr-only">{t("rating.detailLegend")}</legend>
             {dimensions.map((dimension) => (
               <div
                 className="va-rate__detail"
@@ -253,10 +252,11 @@ export function RatingControl({
               aria-labelledby={`last-ate-${categoryId}`}
             >
               <p id={`last-ate-${categoryId}`} className="va-rate__subtitle">
-                When did you last eat {food}? <span>optional</span>
+                {t("rating.lastAteQuestion", { food })}{" "}
+                <span>{t("rating.optionalWord")}</span>
               </p>
               <span className="va-rate__pills">
-                {LAST_ATE.map((option) => {
+                {lastAte().map((option) => {
                   const chosen = recency === option.value;
                   return (
                     <button
@@ -272,10 +272,7 @@ export function RatingControl({
                   );
                 })}
               </span>
-              <p className="va-rate__note">
-                Shows how close it seems to people who still eat it. It never
-                changes how much your rating counts.
-              </p>
+              <p className="va-rate__note">{t("rating.recencyNote")}</p>
             </div>
             {hasDetails && (
               <button
@@ -290,7 +287,7 @@ export function RatingControl({
                   })
                 }
               >
-                Clear details
+                {t("rating.clearDetails")}
               </button>
             )}
           </fieldset>
@@ -306,18 +303,18 @@ export function RatingControl({
           (error
             ? ""
             : user === undefined
-              ? "Loading your rating…"
+              ? t("rating.loading")
               : state?.selected
-                ? `Your rating: ${state.selected}/5${enjoyment ? ` · Taste: ${enjoyment}/5` : ""}`
+                ? `${t("rating.yours", { score: state.selected })}${enjoyment ? ` · ${t("rating.tasteScore", { taste: enjoyment })}` : ""}`
                 : enjoyment
-                  ? `Your taste rating: ${enjoyment}/5`
+                  ? t("rating.yoursTaste", { taste: enjoyment })
                   : "")}
       </p>
       {error && (
         <p role="alert">
           {error}{" "}
           <button type="button" className="text-button" onClick={retryLoad}>
-            Retry
+            {t("rating.retry")}
           </button>
         </p>
       )}
@@ -336,21 +333,22 @@ export function RatingControl({
           disabled={state.status === "challenge" && !token}
           onClick={() => save()}
         >
-          Retry saving{" "}
-          {state.selected
-            ? `${state.selected}/5`
-            : enjoyment
-              ? `taste ${enjoyment}/5`
-              : "rating removal"}
+          {t("rating.retrySaving", {
+            target: state.selected
+              ? `${state.selected}/5`
+              : enjoyment
+                ? t("rating.tasteTarget", { taste: enjoyment })
+                : t("rating.removalTarget"),
+          })}
         </button>
       )}
       {state?.status === "conflict" && (
         <p>
-          This formula or its questions changed.{" "}
+          {t("rating.conflict")}{" "}
           <a href={productPath(country, productSlug)}>
-            Open the current version
+            {t("rating.openCurrent")}
           </a>{" "}
-          and rate it again.
+          {t("rating.rateAgain")}
         </p>
       )}
     </section>

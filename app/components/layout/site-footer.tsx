@@ -7,14 +7,15 @@ import {
   useSiteChrome,
 } from "../../lib/site-chrome";
 import { POPULAR_AISLE_COUNT } from "../../lib/aisles";
+import { t } from "../../i18n";
 
-export const ABOUT_LINKS = [
-  { to: "/about/rankings", label: "How rankings work" },
-  { to: "/about/vegan-status", label: "Vegan status" },
-  { to: "/about/moderation", label: "Moderation" },
-  { to: "/about/terms", label: "Guidelines" },
-  { to: "/about/privacy", label: "Privacy" },
-  { to: "/about/contact", label: "Contact" },
+export const aboutLinks = () => [
+  { to: "/about/rankings", label: t("footer.rankings") },
+  { to: "/about/vegan-status", label: t("footer.veganStatus") },
+  { to: "/about/moderation", label: t("footer.moderation") },
+  { to: "/about/terms", label: t("footer.guidelines") },
+  { to: "/about/privacy", label: t("footer.privacy") },
+  { to: "/about/contact", label: t("footer.contact") },
 ];
 
 // The full footer also serves as the no-JavaScript site menu on phones (the
@@ -32,18 +33,15 @@ export function SiteFooter({
     >
       <div className="va-footer__inner">
         <div className="va-footer__brand">
-          <Link to={homePath(country.code)} aria-label="VeganAlts home">
+          <Link to={homePath(country.code)} aria-label={t("chrome.home")}>
             <Wordmark size="footer" />
           </Link>
-          <p>
-            Community-ranked vegan alternatives · {country.name} · Never
-            sponsored
-          </p>
+          <p>{t("footer.tagline", { country: country.name })}</p>
         </div>
-        <nav className="va-footer__columns" aria-label="Footer">
+        <nav className="va-footer__columns" aria-label={t("footer.label")}>
           {variant === "full" && aisles.length > 0 && (
             <div className="va-footer__group">
-              <h2 className="va-footer__heading">Popular categories</h2>
+              <h2 className="va-footer__heading">{t("footer.popular")}</h2>
               <ul>
                 {aisles.slice(0, POPULAR_AISLE_COUNT).map((aisle) => (
                   <li key={aisle.slug}>
@@ -54,7 +52,7 @@ export function SiteFooter({
                 ))}
                 <li>
                   <Link to={searchPath(country.code)}>
-                    Browse all categories
+                    {t("nav.browseAll")}
                   </Link>
                 </li>
               </ul>
@@ -62,7 +60,7 @@ export function SiteFooter({
           )}
           {variant === "full" && countries.length > 1 && (
             <div className="va-footer__group">
-              <h2 className="va-footer__heading">Countries</h2>
+              <h2 className="va-footer__heading">{t("country.countries")}</h2>
               <ul>
                 {countries.map((item) => (
                   <li key={item.code}>
@@ -80,33 +78,33 @@ export function SiteFooter({
             </div>
           )}
           <div className="va-footer__group">
-            <h2 className="va-footer__heading">Contribute</h2>
+            <h2 className="va-footer__heading">{t("footer.contribute")}</h2>
             <ul>
               <li>
                 <Link to={`/add-product?country=${country.code}`}>
-                  Add a product
+                  {t("menu.addProduct")}
                 </Link>
               </li>
               <li>
                 <Link to={`/propose-category?country=${country.code}`}>
-                  Suggest a food
+                  {t("nav.suggestFood")}
                 </Link>
               </li>
               <li>
-                <Link to="/my-ratings">My ratings</Link>
+                <Link to="/my-ratings">{t("menu.myRatings")}</Link>
               </li>
               <li>
-                <Link to="/saved">Saved products</Link>
+                <Link to="/saved">{t("menu.saved")}</Link>
               </li>
               <li>
-                <Link to="/account">Account</Link>
+                <Link to="/account">{t("menu.account")}</Link>
               </li>
             </ul>
           </div>
           <div className="va-footer__group">
-            <h2 className="va-footer__heading">About</h2>
+            <h2 className="va-footer__heading">{t("footer.about")}</h2>
             <ul>
-              {ABOUT_LINKS.map((link) => (
+              {aboutLinks().map((link) => (
                 <li key={link.to}>
                   <Link to={link.to}>{link.label}</Link>
                 </li>

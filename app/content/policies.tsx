@@ -85,8 +85,9 @@ export const POLICIES: Record<string, Policy> = {
         </ul>
         <h2>Cookies</h2>
         <p>
-          We use a sign-in session cookie and short-lived security cookies. We
-          do not use advertising or cross-site tracking cookies.
+          We use a sign-in session cookie, short-lived security cookies and a
+          cookie that remembers a language you choose. We do not use advertising
+          or cross-site tracking cookies.
         </p>
         <h2>Where it is stored</h2>
         <p>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { groupCategories } from "../lib/navigation-groups";
+import { t } from "../i18n";
 
 export interface AisleOption {
   id: string;
@@ -19,7 +20,7 @@ export function AisleSelect({
   name,
   required = false,
   error,
-  hint = "Choose the closest broad category for this food.",
+  hint = t("aisle.hint"),
 }: {
   id: string;
   aisles: AisleOption[];
@@ -34,7 +35,9 @@ export function AisleSelect({
     errorId = `${id}-error`;
   return (
     <>
-      <label htmlFor={id}>Category{required ? " (required)" : ""}</label>
+      <label htmlFor={id}>
+        {required ? t("aisle.labelRequired") : t("aisle.label")}
+      </label>
       <select
         id={id}
         name={name}
@@ -45,7 +48,7 @@ export function AisleSelect({
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${hintId} ${errorId}` : hintId}
       >
-        <option value="">Choose a category</option>
+        <option value="">{t("aisle.choose")}</option>
         {groupCategories(aisles).map((group) => (
           <optgroup key={group.id} label={group.name}>
             {group.categories.map((aisle) => (
@@ -88,13 +91,13 @@ export function NewAisleField({
           className="link-button"
           onClick={() => setOpen(true)}
         >
-          None of these really fit
+          {t("aisle.noneFit")}
         </button>
       </p>
     );
   return (
     <>
-      <label htmlFor={id}>What category is missing? (optional)</label>
+      <label htmlFor={id}>{t("aisle.missingLabel")}</label>
       <input
         id={id}
         value={value}
@@ -104,8 +107,7 @@ export function NewAisleField({
         onChange={(e) => onChange(e.target.value)}
       />
       <p id={hintId} className="small muted">
-        Your food goes in the closest category for now. A new one opens once
-        enough people ask for it.
+        {t("aisle.missingHint")}
       </p>
     </>
   );

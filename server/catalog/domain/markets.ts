@@ -48,6 +48,7 @@ let currentLanguage = (): Language | null =>
   typeof location === "undefined"
     ? null
     : splitLanguage(location.pathname.toLowerCase()).language;
+export const pageLanguage = () => currentLanguage();
 export function readPageLanguageFrom(source: () => Language | null) {
   currentLanguage = source;
 }
@@ -87,6 +88,18 @@ export function productPath(
 // A brand's page in a country (milestone 7).
 export function brandPath(code: string, slug: string, language?: Language) {
   return `${prefix(code, language)}/brand/${slug}`;
+}
+
+/**
+ * The same page in another language, carrying the choice for the gateway to
+ * save. Null on a page that isn't a country page.
+ */
+export function languageHref(page: string, language: Language) {
+  const url = new URL(page, "https://page.invalid");
+  const match = url.pathname.match(/^\/([a-z]{2})\/[a-z]{2}(?=\/|$)/);
+  if (!match) return null;
+  url.searchParams.set("setlang", language);
+  return `/${match[1]}/${language}${url.pathname.slice(match[0].length)}${url.search}`;
 }
 
 export function hreflang(code: string, language: Language = "en") {

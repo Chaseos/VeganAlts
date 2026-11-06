@@ -12,6 +12,7 @@ import {
   GuidelinesNote,
 } from "../components/community-form";
 import { useCommunityAction } from "../lib/community";
+import { t } from "../i18n";
 import type { Route } from "./+types/propose-category";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -32,7 +33,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 export function meta() {
   return [
-    { title: "Suggest a food · VeganAlts" },
+    { title: t("suggestFood.metaTitle") },
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
@@ -77,26 +78,22 @@ export default function ProposeCategory({
       <CommunityControls>
         <header className="page-heading">
           <p className="eyebrow">{market.name}</p>
-          <h1>Suggest a food</h1>
-          <p>
-            A food is the conventional product people want to replace, like
-            “Sausage rolls” or “Cream cheese”. It gets its own ranking. It opens
-            in {market.name} first; other countries get it when someone adds a
-            product there.
-          </p>
+          <h1>{t("suggestFood.title")}</h1>
+          <p>{t("suggestFood.intro", { country: market.name })}</p>
           <GuidelinesNote />
         </header>
         {saved ? (
           <div className="community-panel" role="status">
-            <h2>Thanks, {saved} is in review.</h2>
+            <h2>{t("suggestFood.thanks", { name: saved })}</h2>
             <p>
-              We check it for duplicates and decide within three days. Track it
-              in <Link to="/my-contributions">My contributions</Link>.
+              {t("suggestFood.reviewBefore")}{" "}
+              <Link to="/my-contributions">{t("myContributions.title")}</Link>
+              {t("suggestFood.reviewAfter")}
             </p>
           </div>
         ) : (
           <form className="community-form community-panel" onSubmit={submit}>
-            <label htmlFor="category-name">Food name (required)</label>
+            <label htmlFor="category-name">{t("suggestFood.nameLabel")}</label>
             <input
               id="category-name"
               name="name"
@@ -118,12 +115,10 @@ export default function ProposeCategory({
               value={newAisle}
               onChange={setNewAisle}
             />
-            <label htmlFor="category-aliases">
-              Other names (optional, separated by commas)
-            </label>
+            <label htmlFor="category-aliases">{t("common.aliasesLabel")}</label>
             <input id="category-aliases" name="aliases" maxLength={800} />
             <label htmlFor="category-explanation">
-              Anything we should know? (optional)
+              {t("suggestFood.explanationLabel")}
             </label>
             <textarea
               id="category-explanation"
@@ -135,14 +130,14 @@ export default function ProposeCategory({
               className="button"
               disabled={action.busy || (action.challenge && !action.hasToken)}
             >
-              {action.busy ? "Sending…" : "Suggest food"}
+              {action.busy ? t("common.sending") : t("suggestFood.submit")}
             </button>
             <p className="small">
-              Have a product for it?{" "}
+              {t("suggestFood.productBefore")}{" "}
               <Link to={`/add-product?${withProduct}`}>
-                Add it with the product
+                {t("suggestFood.productLink")}
               </Link>{" "}
-              and both are reviewed together.
+              {t("suggestFood.productAfter")}
             </p>
             <CommunityFeedback action={action} siteKey={siteKey} />
           </form>

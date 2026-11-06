@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { draftOf, ratingKey, usePersonalState } from "./personal-state";
 import { Turnstile } from "./turnstile";
+import { t } from "../i18n";
 
 export function PendingRatingRecovery() {
   const { pending, states, select, siteKey, forgetPending, visibleVersionIds } =
@@ -18,15 +19,15 @@ export function PendingRatingRecovery() {
   )
     return null;
   return (
-    <aside className="notice pending-recovery" aria-label="Your pending rating">
-      <strong>Your selected rating hasn’t been saved.</strong>
+    <aside className="notice pending-recovery" aria-label={t("pending.label")}>
+      <strong>{t("pending.unsaved")}</strong>
       <p role="status">{state.message}</p>
       {state.status === "conflict" ? (
         <a
           href={pending.returnTo.split("?")[0]?.split("#")[0]}
           onClick={forgetPending}
         >
-          Open the current formula and choose a fresh score →
+          {t("pending.openCurrent")}
         </a>
       ) : (
         <>
@@ -47,12 +48,12 @@ export function PendingRatingRecovery() {
               setToken("");
             }}
           >
-            Retry selected rating
+            {t("pending.retry")}
           </button>
         </>
       )}
       <button className="text-button" onClick={forgetPending}>
-        Discard selection
+        {t("pending.discard")}
       </button>
     </aside>
   );

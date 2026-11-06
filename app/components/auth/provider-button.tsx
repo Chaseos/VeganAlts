@@ -1,3 +1,4 @@
+import { t } from "../../i18n";
 import googleLogo from "../../assets/auth/google-g.png";
 import appleBlack from "../../assets/auth/apple-continue-black.png";
 import appleWhite from "../../assets/auth/apple-continue-white.png";
@@ -27,7 +28,7 @@ export function ProviderButton({
             height={20}
             alt=""
           />
-          <span>Continue with Google</span>
+          <span>{t("auth.continueGoogle")}</span>
         </>
       ) : (
         <>
@@ -45,7 +46,7 @@ export function ProviderButton({
             height={48}
             alt=""
           />
-          <span className="sr-only">Continue with Apple</span>
+          <span className="sr-only">{t("auth.continueApple")}</span>
         </>
       )}
     </button>

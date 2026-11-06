@@ -435,6 +435,8 @@ Non-JSX strings (meta titles, label arrays, Zod messages, date and number format
 | S4 | Policies (`app/content/policies.tsx`) | Deferred, English for now |
 | Stays English | `admin-taxonomy`, `moderation`, `admin-analytics` (about 220 nodes) | Operators only |
 
+**Built at checkpoint 6.** Slices S1 to S3 moved to `app/i18n/en/`, about 1,200 keys. `t()` reads the page's language the way `homePath` does, so text works outside React and a language with no dictionary shows English. All JavaScript grew 66 KB, or 14 KB compressed, from 841 KB and 248 KB, because the English text now ships in the shared `page-shell` chunk on every page. The account's `preferred_language` is deferred until a language is live. Server text such as `ApplicationError` messages and allergen summaries stays English until checkpoint 7.
+
 **Mechanics, with no new dependency:** `app/i18n/en.ts`, `fr.ts` and `ja.ts`, typed so a missing key fails `tsc`, plus about 40 lines of `t()` using `Intl.PluralRules`. English stays in the main bundle. Other languages are one chunk loaded before hydration, chosen from `<html lang>`. API errors keep `message` and gain a client map from `code` to text, so `/api/v1` doesn't change. Dates and numbers use the page language.
 
 **Translation:**

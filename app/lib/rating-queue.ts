@@ -1,10 +1,11 @@
+import { t } from "../i18n";
+import { counted } from "./counted";
 import type {
   PersonalRating,
   RatingInput,
   SavedRating,
 } from "@server/ratings/domain/contracts";
 import type { ConventionalRecency } from "@server/ratings/domain/details";
-import { plural } from "./format";
 
 export type SaveStatus =
   "idle" | "saving" | "saved" | "error" | "conflict" | "challenge";
@@ -42,12 +43,17 @@ const answered = (dimensions: RatingInput["dimensions"]) =>
 export function savedMessage(rating: PersonalRating) {
   const details = Object.keys(rating.dimensions).length;
   if (rating.overallSimilarity === null && rating.enjoyment === null)
-    return "Rating removed. You’ve tried this formula.";
+    return t("rating.queueRemoved");
+  const taste = rating.enjoyment;
   const answer =
     rating.overallSimilarity === null
-      ? `taste ${rating.enjoyment}/5`
-      : `${rating.overallSimilarity}/5${rating.enjoyment !== null ? `; taste ${rating.enjoyment}/5` : ""}`;
-  return `Saved ${answer}${details ? ` with ${plural(details, "detail")}` : ""}. You’ve tried this formula.`;
+      ? t("rating.queueTaste", { score: taste ?? "" })
+      : taste !== null
+        ? t("rating.queueBoth", { score: rating.overallSimilarity, taste })
+        : t("rating.queueScore", { score: rating.overallSimilarity });
+  return details
+    ? counted("rating.queueSavedDetails", details, { answer })
+    : t("rating.queueSaved", { answer });
 }
 
 // One queue per user/formula/category. Network writes are serialized; while one
@@ -149,9 +155,7 @@ export class RatingQueue {
                   ? "challenge"
                   : "error",
             message:
-              error instanceof Error
-                ? error.message
-                : "Your rating wasn’t saved. Please retry.",
+              error instanceof Error ? error.message : t("rating.queueFailed"),
           });
         }
       }

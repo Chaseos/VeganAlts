@@ -1,5 +1,6 @@
 import { PhotoPicker } from "../community-form";
 import type { PhotoSlot } from "../../lib/product-draft";
+import { t } from "../../i18n";
 
 /** Every photo of a new product, together: only the front is required. */
 export function PhotosSection({
@@ -13,14 +14,11 @@ export function PhotosSection({
 }) {
   return (
     <fieldset className="va-add__product">
-      <legend>Photos</legend>
-      <p className="small muted">
-        JPEG, PNG or WebP, up to 10 MiB each. Photos stay private until the
-        product is published.
-      </p>
+      <legend>{t("contribute.tabPhotos")}</legend>
+      <p className="small muted">{t("addProduct.photoRules")}</p>
       <PhotoPicker
         slot="front"
-        label="Front of pack photo"
+        label={t("addProduct.frontOfPack")}
         required
         file={photos.front}
         onChange={(file) => setPhoto("front", file)}
@@ -38,7 +36,7 @@ export function PhotosSection({
       />
       <PhotoPicker
         slot="nutrition"
-        label="Nutrition and allergens photo"
+        label={t("contribute.nutritionAllergensPhoto")}
         file={photos.nutrition}
         onChange={(file) => setPhoto("nutrition", file)}
       />

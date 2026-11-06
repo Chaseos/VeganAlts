@@ -11,15 +11,17 @@ import {
   CommunityFeedback,
 } from "../components/community-form";
 import { useCommunityAction } from "../lib/community";
+import { t } from "../i18n";
 import type { Route } from "./+types/report-food";
 
-const REASONS = [
-  ["not_a_food", "It isn’t a food"],
-  ["duplicate_food", "It’s the same as another food"],
-  ["wrong_name", "The name is wrong"],
-  ["wrong_aisle", "It’s in the wrong category"],
-  ["other", "Something else"],
-] as const;
+const reasons = () =>
+  [
+    ["not_a_food", t("reportFood.notAFood")],
+    ["duplicate_food", t("reportFood.duplicate")],
+    ["wrong_name", t("reportFood.wrongName")],
+    ["wrong_aisle", t("reportFood.wrongCategory")],
+    ["other", t("reportFood.other")],
+  ] as const;
 
 export async function loader({ request }: Route.LoaderArgs) {
   await communityPageActor(request, env);
@@ -33,7 +35,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 export function meta() {
   return [
-    { title: "Report a food · VeganAlts" },
+    { title: t("reportFood.metaTitle") },
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
@@ -62,36 +64,36 @@ export default function ReportFood({
       <CommunityControls>
         <header className="page-heading">
           <p className="eyebrow">{market.name}</p>
-          <h1>Report a food</h1>
-          <p>Tell us what’s wrong with this food’s page.</p>
+          <h1>{t("reportFood.title")}</h1>
+          <p>{t("reportFood.intro")}</p>
         </header>
         {saved ? (
           <div className="community-panel" role="status">
-            <h2>Thanks, we’ll take a look.</h2>
+            <h2>{t("reportFood.thanks")}</h2>
             <p>
-              <Link to={back}>Back to the food</Link>
+              <Link to={back}>{t("reportFood.back")}</Link>
             </p>
           </div>
         ) : (
           <form className="community-form community-panel" onSubmit={submit}>
-            <label htmlFor="report-reason">What’s wrong? (required)</label>
+            <label htmlFor="report-reason">{t("reportFood.reasonLabel")}</label>
             <select id="report-reason" name="reason" required defaultValue="">
               <option value="" disabled>
-                Choose a reason
+                {t("reportFood.choose")}
               </option>
-              {REASONS.map(([value, label]) => (
+              {reasons().map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
             </select>
-            <label htmlFor="report-note">Anything to add? (optional)</label>
+            <label htmlFor="report-note">{t("reportFood.noteLabel")}</label>
             <textarea id="report-note" name="note" maxLength={2000} rows={3} />
             <button
               className="button"
               disabled={action.busy || (action.challenge && !action.hasToken)}
             >
-              {action.busy ? "Sending…" : "Send report"}
+              {action.busy ? t("common.sending") : t("reportFood.send")}
             </button>
             <CommunityFeedback action={action} siteKey={siteKey} />
           </form>

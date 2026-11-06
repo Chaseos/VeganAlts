@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { AllergenChecklist } from "../allergen-fields";
-import { OverallScale, SCORE_MEANINGS, TasteScale } from "../rating-control";
+import { OverallScale, scoreMeanings, TasteScale } from "../rating-control";
 import { CheckThePackage } from "../ui/badges";
 import { FoodPicker } from "./food-picker";
 import { OptionalRow } from "./optional-row";
 import { placeLabel, type FoodChoice } from "../../lib/food-choices";
-import { plural } from "../../lib/format";
+import { formatCount } from "../../lib/format";
+import { t } from "../../i18n";
 import {
   MAX_FOODS,
   hasIngredientEvidence,
@@ -55,7 +56,9 @@ export function MoreStep({
   const primary =
     chosen?.kind === "existing" ? foods.find((f) => f.id === chosen.id) : null;
   const foodName =
-    draft.food?.kind === "new" ? draft.food.name : (primary?.name ?? "it");
+    draft.food?.kind === "new"
+      ? draft.food.name
+      : (primary?.name ?? t("addProduct.it"));
   const evidence = hasIngredientEvidence(draft, photos);
   const ingredients = draft.ingredients;
   const setIngredients = (patch: Partial<ProductDraft["ingredients"]>) =>
@@ -80,16 +83,16 @@ export function MoreStep({
       <div className="va-add__summary">
         <dl className="review-facts va-add__facts">
           <div>
-            <dt>Product</dt>
+            <dt>{t("addProduct.product")}</dt>
             <dd>
               {draft.brand.trim()} · {draft.name.trim()}
             </dd>
           </div>
           <div>
-            <dt>Replaces</dt>
+            <dt>{t("addProduct.replaces")}</dt>
             <dd>
               {draft.food?.kind === "new"
-                ? `${draft.food.name} (new food, reviewed with your product)`
+                ? t("addProduct.newFoodSummary", { name: draft.food.name })
                 : primary
                   ? [primary.name, placeLabel(primary)]
                       .filter(Boolean)
@@ -98,17 +101,15 @@ export function MoreStep({
             </dd>
           </div>
           <div>
-            <dt>Country</dt>
+            <dt>{t("addProduct.country")}</dt>
             <dd>{countryName}</dd>
           </div>
         </dl>
         <button type="button" className="link-button" onClick={onEdit}>
-          Edit the basics
+          {t("addProduct.editBasics")}
         </button>
       </div>
-      <p className="va-add__note">
-        Everything here is optional. Submit now or add what you know.
-      </p>
+      <p className="va-add__note">{t("addProduct.allOptional")}</p>
 
       <section className="va-add__rating" aria-labelledby="rate-title">
         <p className="va-rate__product">
@@ -116,7 +117,7 @@ export function MoreStep({
           {draft.flavor.trim() ? ` · ${draft.flavor.trim()}` : ""}
         </p>
         <h3 id="rate-title" className="va-heading-s">
-          Tried it? How close is it to {foodName.toLowerCase()}?
+          {t("addProduct.triedIt", { food: foodName.toLowerCase() })}
         </h3>
         <div className="va-rate">
           <OverallScale
@@ -128,13 +129,13 @@ export function MoreStep({
         </div>
         <p className="small muted">
           {draft.rating
-            ? `${SCORE_MEANINGS[draft.rating - 1]}. Saved as your rating when the product goes live; tap it again to clear.`
-            : "Saved as your rating when the product goes live."}
+            ? t("addProduct.ratingSavedClear", {
+                meaning: scoreMeanings()[draft.rating - 1]!,
+              })
+            : t("addProduct.ratingSaved")}
         </p>
         <fieldset className="va-rate__group va-rate__tasty">
-          <legend className="va-rate__subtitle">
-            How tasty is it, whether or not it’s like the original?
-          </legend>
+          <legend className="va-rate__subtitle">{t("addProduct.tasty")}</legend>
           <TasteScale
             selected={draft.enjoyment}
             onChoose={(enjoyment) => update({ enjoyment })}
@@ -144,23 +145,19 @@ export function MoreStep({
 
       <div className="va-optional-list">
         <OptionalRow
-          title="Ingredients"
+          title={t("addProduct.ingredients")}
           status={
             evidence
               ? ingredients.checked
-                ? "Added · nothing animal-derived"
-                : "Added"
+                ? t("addProduct.addedNothingAnimal")
+                : t("addProduct.added")
               : undefined
           }
           open={evidence || Boolean(errors.ingredientUrl)}
         >
-          <p className="small muted">
-            Without an ingredients photo or link, the product shows “Ingredients
-            not checked yet” until someone adds them. Photos are added in the
-            basics.
-          </p>
+          <p className="small muted">{t("safety.uncheckedHint")}</p>
           <label htmlFor="ingredient-source">
-            Link to the ingredients on the brand’s site (optional)
+            {t("addProduct.ingredientLink")}
           </label>
           <input
             id="ingredient-source"
@@ -187,10 +184,12 @@ export function MoreStep({
                 checked={ingredients.checked}
                 onChange={(e) => setIngredients({ checked: e.target.checked })}
               />
-              I checked the ingredients and found nothing animal-derived
+              {t("addProduct.checkedNothing")}
             </label>
           )}
-          <label htmlFor="manufacturer-label">What does the package say?</label>
+          <label htmlFor="manufacturer-label">
+            {t("addProduct.packageSays")}
+          </label>
           <select
             id="manufacturer-label"
             value={ingredients.label}
@@ -200,20 +199,22 @@ export function MoreStep({
               })
             }
           >
-            <option value="unknown">Not sure / not stated</option>
-            <option value="vegan">Labeled vegan</option>
-            <option value="plant_based">Labeled plant-based</option>
-            <option value="neither">Neither wording</option>
+            <option value="unknown">
+              {t("community.manufacturerUnknown")}
+            </option>
+            <option value="vegan">{t("community.manufacturerVegan")}</option>
+            <option value="plant_based">
+              {t("community.manufacturerPlantBased")}
+            </option>
+            <option value="neither">
+              {t("community.manufacturerNeither")}
+            </option>
           </select>
           {countryCode === "in" && (
-            <p className="small">
-              India’s green vegetarian mark isn’t a vegan label, because
-              vegetarian food can contain dairy. Choose Labeled vegan only if
-              the package says vegan or has the vegan logo.
-            </p>
+            <p className="small">{t("safety.indiaMark")}</p>
           )}
           <label htmlFor="ingredient-note">
-            Anything a reviewer should know? (optional)
+            {t("addProduct.reviewerNote")}
           </label>
           <textarea
             id="ingredient-note"
@@ -225,22 +226,30 @@ export function MoreStep({
         </OptionalRow>
 
         <OptionalRow
-          title="Allergens"
+          title={t("addProduct.allergens")}
           status={
             draft.allergens.status === "none_declared"
-              ? "None on the label"
+              ? t("addProduct.noneOnLabel")
               : draft.allergens.status === "declared"
-                ? `${plural(draft.allergens.contains.length + draft.allergens.mayContain.length, "allergen")} added`
+                ? t("addProduct.allergensAdded", {
+                    count:
+                      draft.allergens.contains.length +
+                      draft.allergens.mayContain.length,
+                    number: formatCount(
+                      draft.allergens.contains.length +
+                        draft.allergens.mayContain.length,
+                    ),
+                  })
                 : undefined
           }
           open={Boolean(draft.allergens.status) || Boolean(errors.allergens)}
         >
           <div id="allergens">
             <p className="small muted">
-              Record what the package says.{" "}
+              {t("addProduct.recordPackage")}{" "}
               {photos.ingredients || photos.nutrition
-                ? "Another member confirms it against your photo."
-                : "With an ingredients or nutrition photo, another member can confirm it; otherwise a moderator checks it."}
+                ? t("addProduct.confirmPhoto")
+                : t("addProduct.confirmNoPhoto")}
             </p>
             <CheckThePackage />
             <AllergenChecklist
@@ -255,22 +264,25 @@ export function MoreStep({
         </OptionalRow>
 
         <OptionalRow
-          title="Where it’s sold"
+          title={t("addProduct.whereSold")}
           status={
             draft.retailerIds.length
-              ? plural(draft.retailerIds.length, "store")
+              ? t("addProduct.stores", {
+                  count: draft.retailerIds.length,
+                  number: formatCount(draft.retailerIds.length),
+                })
               : undefined
           }
           open={draft.retailerIds.length > 0}
         >
           {options.retailers.length ? (
             <fieldset className="va-choice-list">
-              <legend>Commonly found at</legend>
+              <legend>{t("contribute.foundAt")}</legend>
               {options.retailers.length > 12 && (
                 <input
                   type="search"
-                  aria-label="Filter stores"
-                  placeholder="Filter stores"
+                  aria-label={t("addProduct.filterStores")}
+                  placeholder={t("addProduct.filterStores")}
                   value={storeFilter}
                   onChange={(e) => setStoreFilter(e.target.value)}
                 />
@@ -293,31 +305,34 @@ export function MoreStep({
                   </label>
                 ))}
               </div>
-              <p className="small muted">
-                “Commonly found at”, not live stock. Up to 10 stores.
-              </p>
+              <p className="small muted">{t("addProduct.foundAtNote")}</p>
             </fieldset>
           ) : (
             <p className="small muted">
-              No stores are listed for {countryName} yet. You can add one from
-              the product page once it’s live.
+              {t("addProduct.noStores", { country: countryName })}
             </p>
           )}
         </OptionalRow>
 
         <OptionalRow
-          title="Other foods it replaces"
+          title={t("addProduct.otherFoods")}
           status={
             otherFoods.length
-              ? plural(otherFoods.length, "other food")
+              ? t("addProduct.otherFoodsCount", {
+                  count: otherFoods.length,
+                  number: formatCount(otherFoods.length),
+                })
               : undefined
           }
           open={otherFoods.length > 0}
         >
           <fieldset>
-            <legend>Also replaces</legend>
+            <legend>{t("addProduct.alsoReplaces")}</legend>
             {otherFoods.length > 0 && (
-              <ul className="va-chip-row" aria-label="Other foods">
+              <ul
+                className="va-chip-row"
+                aria-label={t("addProduct.otherFoodsLabel")}
+              >
                 {otherFoods.map((food) => (
                   <li key={food.id}>
                     <button
@@ -333,7 +348,11 @@ export function MoreStep({
                       }
                     >
                       {food.name}
-                      <span className="sr-only"> (remove)</span> ×
+                      <span className="sr-only">
+                        {" "}
+                        {t("addProduct.remove")}
+                      </span>{" "}
+                      ×
                     </button>
                   </li>
                 ))}
@@ -342,7 +361,7 @@ export function MoreStep({
             {room > 0 && (
               <FoodPicker
                 id="other-food"
-                label="Another food it replaces"
+                label={t("fact.categoryAdd")}
                 foods={foods}
                 countryName={countryName}
                 value={null}
@@ -367,10 +386,10 @@ export function MoreStep({
       )}
       <div className="button-row">
         <button type="button" className="button secondary" onClick={onEdit}>
-          Back
+          {t("addProduct.back")}
         </button>
         <button className="button" disabled={busy}>
-          {busy ? "Submitting…" : "Submit product"}
+          {busy ? t("addProduct.submitting") : t("addProduct.submit")}
         </button>
       </div>
     </form>

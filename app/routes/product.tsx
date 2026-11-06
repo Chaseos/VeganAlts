@@ -25,11 +25,12 @@ import {
 } from "../components/ui/badges";
 import { DetailBars, DistributionBars } from "../components/ui/bars";
 import { Notice } from "../components/ui/feedback";
-import { formatScore, plural, productName } from "../lib/format";
+import { formatCount, formatScore, productName } from "../lib/format";
+import { t, type MessageKey } from "../i18n";
 import { FLAVOR_SCORE_MIN_ANSWERS } from "@server/ranking/domain/display";
 import { useHydrated } from "../lib/use-hydrated";
 import { saveFilters, useSavedFilters } from "../lib/ranking-filters";
-import { RatingControl, SCORE_MEANINGS } from "../components/rating-control";
+import { RatingControl, scoreMeanings } from "../components/rating-control";
 import { CommentSection } from "../components/comments/comment-section";
 import { usePersonalState } from "../components/personal-state";
 import { ProposalResponses } from "../components/proposal-responses";
@@ -110,9 +111,13 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
   return [
     ...publicMetadata(
       p
-        ? `${productName(p.name, p.brand)}${p.formula.isCurrent ? "" : " · Formula history"}`
-        : "Product",
-      `Explore ${p ? productName(p.name, p.brand) : "this vegan alternative"}, its scores for each food, formula history and community experience.`,
+        ? p.formula.isCurrent
+          ? productName(p.name, p.brand)
+          : t("product.historyTitle", { name: productName(p.name, p.brand) })
+        : t("product.title"),
+      t("product.description", {
+        name: p ? productName(p.name, p.brand) : t("product.thisAlternative"),
+      }),
       `${productPath(data?.market.code ?? "us", p?.slug ?? "")}${p && !p.formula.isCurrent ? `?version=${p.versionId}` : ""}`,
       origin,
       data?.staging ?? true,
@@ -125,7 +130,7 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
     ...(p
       ? [
           breadcrumbs(origin, [
-            { name: "Home", path: "/" },
+            { name: t("product.home"), path: "/" },
             ...(category
               ? [
                   {
@@ -146,14 +151,26 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
 type ProductData = Route.ComponentProps["loaderData"]["product"];
 type FoodView = ProductData["categories"][number];
 
+const counted = (key: MessageKey, n: number) =>
+  t(key, { count: n, amount: formatCount(n) });
+
 function ProductAdminLink({ productId }: { productId: string }) {
   const { user } = usePersonalState();
   return user?.administrator ? (
     <p className="va-small">
-      <Link to={`/admin/moderation/products/${productId}`}>Manage product</Link>
+      <Link to={`/admin/moderation/products/${productId}`}>
+        {t("product.manage")}
+      </Link>
     </p>
   ) : null;
 }
+
+const MANUFACTURER_LABEL_KEYS: Record<string, MessageKey> = {
+  vegan: "product.labelVegan",
+  plant_based: "product.labelPlantBased",
+  neither: "product.labelNeither",
+  unknown: "product.labelUnknown",
+};
 
 // A product page about one of its foods (canvas: Product5, PProduct5).
 export default function Product({
@@ -212,14 +229,14 @@ export default function Product({
       <div className="va-product">
         <Breadcrumb
           items={[
-            { label: "All foods", to: homePath(code) },
+            { label: t("product.allFoods"), to: homePath(code) },
             ...(p.place?.aisle
               ? [
                   {
                     // Distinguish the broad category from its namesake food.
                     label:
                       p.place.aisle.name === food?.name
-                        ? `${p.place.aisle.name} category`
+                        ? t("product.categoryOf", { name: p.place.aisle.name })
                         : p.place.aisle.name,
                     to: aislePath,
                   },
@@ -232,9 +249,11 @@ export default function Product({
           ]}
         />
         {!p.formula.isCurrent && (
-          <Notice tone="warn" title="Historical formula · Read only">
-            These ratings belong to a previous formula.{" "}
-            <Link to={productPath(code, p.slug)}>View the current formula</Link>
+          <Notice tone="warn" title={t("product.historicalTitle")}>
+            {t("product.historicalBody")}{" "}
+            <Link to={productPath(code, p.slug)}>
+              {t("product.viewCurrent")}
+            </Link>
           </Notice>
         )}
         <div className="va-product__top">
@@ -248,7 +267,7 @@ export default function Product({
                 {p.isNew && <NewBadge />}
                 {food?.line?.trending && <TrendingBadge />}
                 {p.seasonal === 1 && <SeasonalBadge />}
-                {!!p.developmentOnly && <Badge>Demo product</Badge>}
+                {!!p.developmentOnly && <Badge>{t("product.demo")}</Badge>}
               </p>
               <div className="va-product__title-row">
                 <h1 className="va-product__name">{title}</h1>
@@ -256,7 +275,7 @@ export default function Product({
               </div>
               {p.flavor && (
                 <p className="va-product__flavor va-muted">
-                  Flavor: {p.flavor}
+                  {t("product.flavor", { flavor: p.flavor })}
                 </p>
               )}
             </div>
@@ -266,11 +285,11 @@ export default function Product({
                 aria-labelledby="ratings-title"
               >
                 <h2 id="ratings-title" className="va-heading-s">
-                  Ratings
+                  {t("product.ratings")}
                 </h2>
                 <ScoreCard country={code} food={food} brand={p.brand} />
                 <div className="va-product__editor">
-                  <h3 className="va-heading-s">Your rating</h3>
+                  <h3 className="va-heading-s">{t("product.yourRating")}</h3>
                   {food.canRate ? (
                     <div id="scores-title" className="va-product__rate">
                       <div id={`rate-${food.id}`}>
@@ -291,14 +310,14 @@ export default function Product({
                   ) : (
                     <p id="scores-title" className="va-muted">
                       {p.formula.isCurrent
-                        ? "Ratings aren’t available for this food right now."
-                        : "Historical scores are preserved. Choose the current formula to add your experience."}
+                        ? t("product.ratingsUnavailable")
+                        : t("product.historicalScores")}
                     </p>
                   )}
                 </div>
                 {food.ratingCount > 0 && (
                   <details className="va-product__rating-details">
-                    <summary>How people rated it</summary>
+                    <summary>{t("product.howRated")}</summary>
                     <RatingBreakdown food={food} />
                   </details>
                 )}
@@ -307,8 +326,10 @@ export default function Product({
                     className="va-link va-small"
                     to={foodPath(code, food.slug)}
                   >
-                    Compare all {food.rankedCount} {food.name.toLowerCase()}{" "}
-                    swaps
+                    {t("product.compareAll", {
+                      total: food.rankedCount,
+                      food: food.name.toLowerCase(),
+                    })}
                   </Link>
                 )}
               </section>
@@ -316,40 +337,39 @@ export default function Product({
             <div className="va-product__summary">
               {p.lifecycleStatus !== "active" && (
                 <Notice>
-                  This product is {p.lifecycleStatus.replaceAll("_", " ")}. New
-                  ratings are unavailable.
+                  {t("product.lifecycle", {
+                    status: p.lifecycleStatus.replaceAll("_", " "),
+                  })}
                 </Notice>
               )}
               {added && (
                 <Notice
                   tone="success"
-                  title="Your product is live"
+                  title={t("product.liveTitle")}
                   role="status"
                 >
-                  Thanks for adding it.{" "}
+                  {t("product.liveThanks")}{" "}
                   {added.rated ? (
                     <>
-                      Your {added.rated}/5 rating is saved.{" "}
-                      <a href="#scores-title">Add detail scores</a> if you like.
+                      {t("product.liveRated", { rating: added.rated })}{" "}
+                      <a href="#scores-title">{t("product.liveAddDetail")}</a>{" "}
+                      {t("product.liveIfYouLike")}
                     </>
                   ) : added.ratingPending ? (
-                    <>Your rating will be saved in a moment.</>
+                    <>{t("product.livePending")}</>
                   ) : (
                     food?.canRate && (
                       <>
-                        Tried it? <a href="#scores-title">Rate it</a> so it
-                        joins the ranking.
+                        {t("product.liveTried")}{" "}
+                        <a href="#scores-title">{t("product.liveRateIt")}</a>{" "}
+                        {t("product.liveJoins")}
                       </>
                     )
                   )}
                 </Notice>
               )}
               {p.veganStatus === "under_review" && (
-                <Notice tone="warn">
-                  An operator is assessing an ingredient concern. This formula
-                  is excluded from active rankings and new ratings until the
-                  concern is resolved.
-                </Notice>
+                <Notice tone="warn">{t("product.underReview")}</Notice>
               )}
               <StoreToggles
                 country={code}
@@ -363,7 +383,7 @@ export default function Product({
                   aria-labelledby="also-title"
                 >
                   <h2 id="also-title" className="va-heading-s">
-                    Also ranked for
+                    {t("product.alsoRanked")}
                   </h2>
                   <ul className="va-product__also">
                     {others.map((other) => (
@@ -379,8 +399,15 @@ export default function Product({
                             </span>
                             <span className="va-small va-muted">
                               {other.line?.closest
-                                ? `#${other.line.closest.rank} of ${other.line.closest.of} · ${plural(other.line.closest.people, "person", "people")}`
-                                : "Not ranked yet"}
+                                ? t("product.alsoRankedLine", {
+                                    rank: other.line.closest.rank,
+                                    of: other.line.closest.of,
+                                    people: counted(
+                                      "product.people",
+                                      other.line.closest.people,
+                                    ),
+                                  })
+                                : t("product.notRanked")}
                             </span>
                           </span>
                           {other.line?.closest && (
@@ -393,10 +420,7 @@ export default function Product({
                       </li>
                     ))}
                   </ul>
-                  <p className="va-small">
-                    Each food has its own ranking, so the same product can score
-                    differently when you use it another way.
-                  </p>
+                  <p className="va-small">{t("product.ownRanking")}</p>
                 </section>
               )}
               {p.lifecycleStatus === "active" && (
@@ -405,7 +429,7 @@ export default function Product({
                   aria-labelledby="flavors-title"
                 >
                   <h2 id="flavors-title" className="va-heading-s">
-                    Other flavors
+                    {t("product.otherFlavors")}
                   </h2>
                   {p.otherFlavors.length > 0 ? (
                     <ul className="va-divided va-product__flavors">
@@ -437,7 +461,7 @@ export default function Product({
                     </ul>
                   ) : (
                     <p className="va-small va-muted">
-                      No other flavors of this recipe are listed yet.
+                      {t("product.noOtherFlavors")}
                     </p>
                   )}
                   <p className="va-small">
@@ -445,7 +469,7 @@ export default function Product({
                       className="va-link"
                       to={`/add-product?country=${code}${food ? `&food=${food.slug}` : ""}&line=${p.lineId}`}
                     >
-                      Add another flavor
+                      {t("product.addFlavor")}
                     </Link>
                   </p>
                 </section>
@@ -471,10 +495,10 @@ export default function Product({
               >
                 <div className="va-product__section-head">
                   <h2 id="others-title" className="va-heading-s">
-                    Other {food.name.toLowerCase()} swaps
+                    {t("product.otherSwaps", { food: food.name.toLowerCase() })}
                   </h2>
                   <Link className="va-link" to={foodPath(code, food.slug)}>
-                    See all {food.rankedCount}
+                    {t("product.seeAll", { total: food.rankedCount })}
                   </Link>
                 </div>
                 <ul className="va-product__others">
@@ -485,7 +509,8 @@ export default function Product({
                         to={`${productPath(code, other.slug)}?food=${food.slug}`}
                       >
                         <span className="va-rank-row__rank">
-                          <span className="sr-only">Rank </span>#{other.rank}
+                          <span className="sr-only">{t("product.rank")}</span>#
+                          {other.rank}
                         </span>
                         <ProductThumbnail
                           imageId={other.imageId}
@@ -497,7 +522,7 @@ export default function Product({
                             {productName(other.name, other.brand)}
                           </span>
                           <span className="va-small va-muted">
-                            {plural(other.ratingCount, "person", "people")}
+                            {counted("product.people", other.ratingCount)}
                           </span>
                           {other.trending && (
                             <span className="va-rank-row__meta">
@@ -523,82 +548,85 @@ export default function Product({
         <section className="va-product__facts" aria-labelledby="facts-title">
           <div>
             <h2 id="facts-title" className="va-heading-s">
-              Product facts
+              {t("product.facts")}
             </h2>
             <p className="va-small va-muted">
-              Checked by members against package photos. Spot a mistake?{" "}
+              {t("product.factsChecked")}{" "}
               <Link className="va-link" to={`/contribute/${p.id}`}>
-                Suggest a change
+                {t("product.suggestChange")}
               </Link>
             </p>
             <p className="va-small">
               <Link to={`/contribute/${p.id}?action=report`}>
-                Report product
+                {t("product.report")}
               </Link>
             </p>
             <ProductAdminLink productId={p.id} />
           </div>
           <dl className="va-facts">
-            <dt>Vegan status</dt>
+            <dt>{t("safety.veganStatus")}</dt>
             <dd>
               {veganStatusLabel(p.veganStatus)}.{" "}
               <span className="va-muted">
                 {p.classification?.reviewed
-                  ? "Classification reviewed by an operator."
+                  ? t("product.classificationReviewed")
                   : p.formula.isCurrent
-                    ? "Provisional: uploaded evidence and package wording don’t by themselves establish verification."
-                    : "Only the classification recorded for this formula is shown."}
+                    ? t("product.classificationProvisional")
+                    : t("product.classificationRecorded")}
               </span>
             </dd>
-            <dt>Package label</dt>
+            <dt>{t("product.packageLabel")}</dt>
             <dd>
-              {{
-                vegan: "Says vegan",
-                plant_based: "Says plant-based",
-                neither: "Says neither vegan nor plant-based",
-                unknown: "Not recorded",
-              }[p.manufacturerLabel] ?? friendly(p.manufacturerLabel)}
+              {MANUFACTURER_LABEL_KEYS[p.manufacturerLabel]
+                ? t(MANUFACTURER_LABEL_KEYS[p.manufacturerLabel]!)
+                : friendly(p.manufacturerLabel)}
             </dd>
-            <dt>Allergens</dt>
+            <dt>{t("safety.allergens")}</dt>
             <dd>
               {allergens ? (
                 <AllergenLabel allergens={allergens} variant="line" />
               ) : (
-                "Not confirmed yet"
+                t("safety.notConfirmed")
               )}
               .{" "}
               <span className="va-muted">
                 {p.allergens && p.allergenConfirmations
-                  ? `Confirmed by ${plural(p.allergenConfirmations, "member")} from the package. `
+                  ? `${t("safety.confirmedBy", { members: counted("product.members", p.allergenConfirmations) })} `
                   : ""}
-                Always check the package.
+                {t("safety.checkPackage")}
               </span>{" "}
               {p.formula.isCurrent && (
                 <Link
                   className="va-link"
                   to={`/contribute/${p.id}?action=change`}
                 >
-                  {p.allergens ? "Correct the allergens" : "Add the allergens"}
+                  {p.allergens
+                    ? t("product.correctAllergens")
+                    : t("product.addAllergens")}
                 </Link>
               )}
             </dd>
-            <dt>Replaces</dt>
+            <dt>{t("product.replaces")}</dt>
             <dd>
               {p.categories
                 .filter((c) => c.isActive)
                 .map((c) => c.name.toLowerCase())
                 .join(", ") || "—"}
             </dd>
-            <dt>Recipe</dt>
+            <dt>{t("product.recipe")}</dt>
             <dd>
-              {p.formula.isCurrent ? "Current recipe" : "Earlier recipe"}:{" "}
-              {p.formula.versionLabel}.{" "}
+              {t("product.recipeLine", {
+                kind: p.formula.isCurrent
+                  ? t("product.currentRecipe")
+                  : t("product.earlierRecipe"),
+                label: p.formula.versionLabel,
+              })}{" "}
               <a className="va-link" href="#formula-history">
-                Earlier recipes
+                {t("product.earlierRecipes")}
               </a>{" "}
-              keep their own ratings.
+              {t("product.keepRatings")}
             </dd>
-            <dt>Sold in</dt>
+            <dt>{t("product.soldIn")}</dt>
             <dd>{p.country}</dd>
           </dl>
         </section>
@@ -610,56 +638,60 @@ export default function Product({
           (p.images.some(
             (i) => i.slot === "ingredients" || i.slot === "nutrition",
           ) ? (
-            <Notice title="Ingredients not checked yet">
-              No one has checked this product’s ingredients against its label
-              photo yet.{" "}
+            <Notice title={t("safety.ingredientsUnchecked")}>
+              {t("safety.uncheckedWithPhoto")}{" "}
               <Link
                 to={`/contribute/${p.id}?action=change&kind=classification`}
               >
-                Check the ingredients
+                {t("safety.checkIngredients")}
               </Link>{" "}
-              and another member can confirm it.
+              {t("safety.memberCanConfirm")}
             </Notice>
           ) : (
-            <Notice title="Ingredients not checked yet">
-              Whoever added this product didn’t include its ingredients. Have
-              the package?{" "}
+            <Notice title={t("safety.ingredientsUnchecked")}>
+              {t("safety.uncheckedNoPhoto")}{" "}
               <Link to={`/contribute/${p.id}?action=photo&slot=ingredients`}>
-                Add an ingredients photo
+                {t("safety.addIngredientsPhoto")}
               </Link>{" "}
-              and another member can confirm it.
+              {t("safety.memberCanConfirm")}
             </Notice>
           ))}
 
         <div className="va-product__more">
           {p.ingredientTranscription && (
             <details className="va-product__details">
-              <summary>Transcribed ingredients</summary>
+              <summary>{t("product.transcribed")}</summary>
               <p className="va-small va-muted">
                 {p.ingredientTranscription.verification === "online_only"
-                  ? "No matching readable package list; checked against an exact-product online source."
+                  ? t("product.verifiedOnline")
                   : p.ingredientTranscription.verification === "no_source"
-                    ? "No readable package or online ingredient source was available."
-                    : `${p.ingredientTranscription.verification.replaceAll("_", " ")} from the package label.`}
+                    ? t("product.verifiedNoSource")
+                    : t("product.verifiedFromLabel", {
+                        status:
+                          p.ingredientTranscription.verification.replaceAll(
+                            "_",
+                            " ",
+                          ),
+                      })}
               </p>
               {p.ingredientTranscription.ingredients ? (
                 <p>{p.ingredientTranscription.ingredients}</p>
               ) : (
-                <p>No readable package ingredient list was available.</p>
+                <p>{t("product.noPackageList")}</p>
               )}
               {p.ingredientTranscription.onlineIngredients && (
                 <div>
-                  <h3 className="va-small">Online ingredient supplement</h3>
+                  <h3 className="va-small">{t("product.onlineSupplement")}</h3>
                   <p>{p.ingredientTranscription.onlineIngredients}</p>
                   {p.ingredientTranscription.onlineContains && (
                     <p>
-                      <strong>Contains:</strong>{" "}
+                      <strong>{t("safety.contains")}</strong>{" "}
                       {p.ingredientTranscription.onlineContains}
                     </p>
                   )}
                   {p.ingredientTranscription.onlineMayContain && (
                     <p>
-                      <strong>May contain:</strong>{" "}
+                      <strong>{t("safety.mayContain")}</strong>{" "}
                       {p.ingredientTranscription.onlineMayContain}
                     </p>
                   )}
@@ -667,49 +699,50 @@ export default function Product({
               )}
               {p.ingredientTranscription.contains && (
                 <p>
-                  <strong>Contains:</strong>{" "}
+                  <strong>{t("safety.contains")}</strong>{" "}
                   {p.ingredientTranscription.contains}
                 </p>
               )}
               {p.ingredientTranscription.mayContain && (
                 <p>
-                  <strong>May contain:</strong>{" "}
+                  <strong>{t("safety.mayContain")}</strong>{" "}
                   {p.ingredientTranscription.mayContain}
                 </p>
               )}
               {p.ingredientTranscription.onlineSource && (
                 <p>
-                  Package text was supplemented from{" "}
-                  {p.ingredientTranscription.onlineSource.productMatch}.{" "}
+                  {t("product.supplementedFrom", {
+                    source: p.ingredientTranscription.onlineSource.productMatch,
+                  })}{" "}
                   <a
                     href={p.ingredientTranscription.onlineSource.url}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    View source
+                    {t("product.viewSource")}
                   </a>{" "}
-                  (checked{" "}
-                  {p.ingredientTranscription.onlineSource.accessedAt.slice(
-                    0,
-                    10,
-                  )}
-                  ).
+                  {t("product.checkedOn", {
+                    date: p.ingredientTranscription.onlineSource.accessedAt.slice(
+                      0,
+                      10,
+                    ),
+                  })}
                 </p>
               )}
             </details>
           )}
           {p.classification && (
             <details className="va-product__details">
-              <summary>Ingredient evidence</summary>
+              <summary>{t("product.evidence")}</summary>
               <p>{p.classification.evidence.note}</p>
               {p.classification.evidence.urls.map((url, index) => (
                 <p key={url}>
                   <a href={url} target="_blank" rel="noreferrer">
-                    Ingredient source {index + 1}
+                    {t("product.evidenceSource", { number: index + 1 })}
                   </a>
                 </p>
               ))}
-              <h3 className="va-small">Third-party certifications</h3>
+              <h3 className="va-small">{t("product.certifications")}</h3>
               {p.classification.certifications.length ? (
                 <ul>
                   {p.classification.certifications.map((c) => (
@@ -722,7 +755,7 @@ export default function Product({
                 </ul>
               ) : (
                 <p className="va-small va-muted">
-                  No third-party certification recorded for this formula.
+                  {t("product.noCertification")}
                 </p>
               )}
             </details>
@@ -734,11 +767,11 @@ export default function Product({
             aria-labelledby="retailers-title"
           >
             <h2 id="retailers-title" className="va-heading-s">
-              Where members found it
+              {t("product.whereFound")}
             </h2>
             <div className="va-product__section-body">
               <p className="va-small va-muted">
-                Community availability reports, not live inventory.
+                {t("product.availabilityNote")}
               </p>
               {p.retailers.length ? (
                 <ul className="va-divided">
@@ -746,17 +779,22 @@ export default function Product({
                     <li key={r.id} className="va-product__retailer">
                       <strong>{r.name}</strong>
                       <span className="va-small va-muted">
-                        {r.stale
-                          ? "Not confirmed recently"
-                          : "Recently confirmed"}{" "}
-                        · {plural(r.contributorCount, "contributor")} · last
-                        confirmed {dateLabel(r.lastConfirmedAt)}
+                        {t("product.retailerLine", {
+                          status: r.stale
+                            ? t("product.notConfirmedRecently")
+                            : t("product.recentlyConfirmed"),
+                          contributors: counted(
+                            "product.contributors",
+                            r.contributorCount,
+                          ),
+                          date: dateLabel(r.lastConfirmedAt),
+                        })}
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p>No retailer confirmations yet.</p>
+                <p>{t("product.noRetailers")}</p>
               )}
             </div>
           </section>
@@ -766,7 +804,7 @@ export default function Product({
               aria-labelledby="related-title"
             >
               <h2 id="related-title" className="va-heading-s">
-                Related products
+                {t("product.related")}
               </h2>
               <div className="va-product__section-body">
                 <ul className="va-divided">
@@ -786,9 +824,7 @@ export default function Product({
                     </li>
                   ))}
                 </ul>
-                <p className="va-small va-muted">
-                  Each product and country keeps its own ratings.
-                </p>
+                <p className="va-small va-muted">{t("product.ownRatings")}</p>
               </div>
             </section>
           )}
@@ -798,13 +834,10 @@ export default function Product({
             aria-labelledby="history-title"
           >
             <h2 id="history-title" className="va-heading-s">
-              Formula history
+              {t("product.formulaHistory")}
             </h2>
             <div className="va-product__section-body">
-              <p className="va-small va-muted">
-                A new formula starts fresh. Earlier experiences stay with the
-                formula people tried.
-              </p>
+              <p className="va-small va-muted">{t("product.newFormula")}</p>
               <ul className="va-divided">
                 {p.history.map((v) => (
                   <li key={v.id} className="va-product__formula">
@@ -815,9 +848,11 @@ export default function Product({
                       {v.versionLabel}
                     </Link>
                     <span className="va-small va-muted">
-                      {v.isCurrent ? "Current" : "Historical"}
+                      {v.isCurrent
+                        ? t("product.current")
+                        : t("product.historical")}
                       {v.effectiveDate
-                        ? ` · effective ${v.effectiveDate} (${v.effectiveDatePrecision} precision)`
+                        ? ` · ${t("product.effective", { date: v.effectiveDate, precision: v.effectiveDatePrecision })}`
                         : ""}
                     </span>
                   </li>
@@ -828,11 +863,7 @@ export default function Product({
           </section>
 
           {!!p.developmentOnly && (
-            <p className="va-small va-muted">
-              Demo catalog. Product details, illustrations and sample ratings
-              are fictional development fixtures, not verified manufacturer
-              claims.
-            </p>
+            <p className="va-small va-muted">{t("product.demoCatalog")}</p>
           )}
         </div>
         <div className="va-product__notes">
@@ -863,7 +894,11 @@ function ScoreCard({
   const lower = food.name.toLowerCase();
   const line = food.line;
   return (
-    <div className="va-score-card" role="group" aria-label="Community ratings">
+    <div
+      className="va-score-card"
+      role="group"
+      aria-label={t("product.communityRatings")}
+    >
       <div className="va-score-card__standing">
         {line?.closest && (
           <Link
@@ -872,14 +907,21 @@ function ScoreCard({
           >
             <RankFlag>
               {line.closest.rank === 1
-                ? `#1 swap for ${lower}`
-                : `#${line.closest.rank} of ${line.closest.of} for ${lower}`}
+                ? t("product.firstSwap", { food: lower })
+                : t("product.rankOfFor", {
+                    rank: line.closest.rank,
+                    of: line.closest.of,
+                    food: lower,
+                  })}
             </RankFlag>
           </Link>
         )}
         {line && line.flavorCount > 1 && (
           <p className="va-score-card__context">
-            Across {line.flavorCount} flavors of {productName(line.name, brand)}
+            {t("product.acrossFlavors", {
+              total: line.flavorCount,
+              name: productName(line.name, brand),
+            })}
           </p>
         )}
       </div>
@@ -887,20 +929,22 @@ function ScoreCard({
         {(
           [
             {
-              label: "Closest",
-              description: `to ${lower}`,
+              id: "closest",
+              label: t("product.closest"),
+              description: t("product.toFood", { food: lower }),
               value: line?.closest,
               tone: "tag",
             },
             {
-              label: "Tastiest",
-              description: "on its own",
+              id: "tastiest",
+              label: t("product.tastiest"),
+              description: t("product.onItsOwn"),
               value: line?.tastiest,
               tone: "tasty",
             },
           ] as const
         ).map((metric) => (
-          <div className="va-score-card__metric" key={metric.label}>
+          <div className="va-score-card__metric" key={metric.id}>
             <div className="va-score-card__metric-title">
               <strong>{metric.label}</strong> <span>{metric.description}</span>
             </div>
@@ -919,7 +963,7 @@ function ScoreCard({
                   <strong>
                     #{metric.value.rank} of {metric.value.of}
                   </strong>
-                  <span>{plural(metric.value.people, "person", "people")}</span>
+                  <span>{counted("product.people", metric.value.people)}</span>
                   {metric.value.early && (
                     <EarlyBadge count={metric.value.people} />
                   )}
@@ -931,13 +975,17 @@ function ScoreCard({
       </div>
       {line && line.flavorCount > 1 && (
         <div className="va-score-card__flavor">
-          <strong>This flavor</strong>
+          <strong>{t("product.thisFlavor")}</strong>
           <div className="va-score-card__flavor-scores">
             {(["closest", "tastiest"] as const).map((metric) => {
               const own = food.flavorScores[metric];
               return (
                 <div key={metric}>
-                  <span>{metric === "closest" ? "Closest" : "Tastiest"}</span>
+                  <span>
+                    {metric === "closest"
+                      ? t("product.closest")
+                      : t("product.tastiest")}
+                  </span>
                   {own.count >= FLAVOR_SCORE_MIN_ANSWERS &&
                   own.score !== null ? (
                     <ScoreLabel
@@ -949,12 +997,12 @@ function ScoreCard({
                     <UnratedScore />
                   ) : (
                     <span className="va-small va-muted">
-                      Too few ratings yet
+                      {t("product.tooFew")}
                     </span>
                   )}
                   {own.count > 0 && (
                     <span className="va-small va-muted">
-                      {plural(own.count, "person", "people")}
+                      {counted("product.people", own.count)}
                     </span>
                   )}
                 </div>
@@ -970,7 +1018,7 @@ function ScoreCard({
 function UnratedScore() {
   return (
     <span className="va-score-card__unrated">
-      <span aria-hidden="true">—</span> Unrated
+      <span aria-hidden="true">—</span> {t("product.unrated")}
     </span>
   );
 }
@@ -983,34 +1031,39 @@ function RatingBreakdown({ food }: { food: FoodView }) {
       aria-labelledby="distribution-title"
     >
       <h3 id="distribution-title" className="sr-only">
-        Rating breakdown
+        {t("product.breakdown")}
       </h3>
       <p className="va-small va-muted">
-        This flavor · Closeness to {food.name.toLowerCase()} ·{" "}
-        {plural(food.ratingCount, "person", "people")}
+        {t("product.breakdownLine", {
+          food: food.name.toLowerCase(),
+          people: counted("product.people", food.ratingCount),
+        })}
       </p>
       <DistributionBars
-        label={`Ratings of closeness to ${food.name.toLowerCase()}`}
+        label={t("product.closenessRatings", {
+          food: food.name.toLowerCase(),
+        })}
         rows={food.distribution.map((row) => ({
-          label: `${row.score} · ${SCORE_MEANINGS[row.score - 1]}`,
+          label: `${row.score} · ${scoreMeanings()[row.score - 1]}`,
           count: row.count,
         }))}
       />
       {food.details.some((d) => d.mean !== null) && (
         <div className="va-product__detail-scores">
-          <h3 className="va-heading-s">A closer look</h3>
+          <h3 className="va-heading-s">{t("product.closerLook")}</h3>
           <DetailBars details={food.details} />
           <p className="va-small va-muted">
-            From {plural(detailCount, "person", "people")} who added detail
-            scores to this flavor.
+            {t("product.detailFrom", {
+              people: counted("product.people", detailCount),
+            })}
           </p>
         </div>
       )}
       {food.recentEaters && (
         <p className="va-small va-muted">
-          People who ate {food.name.toLowerCase()} in the past year give this
-          flavor <strong>{formatScore(food.recentEaters.average)}/5</strong> (
-          {plural(food.recentEaters.count, "person", "people")}).
+          {t("product.recentEaters", { food: food.name.toLowerCase() })}{" "}
+          <strong>{formatScore(food.recentEaters.average)}/5</strong> (
+          {counted("product.people", food.recentEaters.count)}).
         </p>
       )}
     </section>
@@ -1036,13 +1089,13 @@ function StoreToggles({
       className="va-link va-small"
       to={`/contribute/${productId}?action=retailer`}
     >
-      Seen it elsewhere? Add or confirm a retailer
+      {t("product.addRetailer")}
     </Link>
   );
   if (!retailers.length)
     return (
       <div className="va-store-toggles">
-        <p className="va-small">Nobody has reported where it’s sold yet.</p>
+        <p className="va-small">{t("product.nobodyReported")}</p>
         <p>{add}</p>
       </div>
     );
@@ -1050,7 +1103,7 @@ function StoreToggles({
     <div className="va-store-toggles">
       <div className="va-store-toggles__row">
         <span className="va-store-toggles__lead" id="found-at">
-          Commonly found at
+          {t("product.foundAt")}
         </span>
         <ul className="va-chip-row" aria-labelledby="found-at">
           {retailers.map((retailer) => {
@@ -1073,7 +1126,7 @@ function StoreToggles({
                   >
                     {retailer.name}
                     {yours && (
-                      <span className="va-store-toggles__yours"> · yours</span>
+                      <span className="va-store-toggles__yours">{` · ${t("product.yours")}`}</span>
                     )}
                   </button>
                 ) : (
@@ -1085,10 +1138,7 @@ function StoreToggles({
         </ul>
       </div>
       <p>{add}</p>
-      <p className="va-small va-muted">
-        Tap every store you shop at to save them on this device. Rankings will
-        show what you can find at any of them.
-      </p>
+      <p className="va-small va-muted">{t("product.tapStores")}</p>
     </div>
   );
 }

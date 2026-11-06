@@ -8,6 +8,7 @@ import { CommunityError } from "../../lib/community";
 import { shrinkPhoto } from "../../lib/shrink-photo";
 import type { CommunityAction } from "../../lib/community";
 import { PHOTO_SLOTS, type PhotoSlot } from "../../lib/product-draft";
+import { t } from "../../i18n";
 
 export type SubmitOutcome =
   | {
@@ -56,7 +57,7 @@ export function useSubmission(action: CommunityAction) {
         files.current = { ...photos };
         key.current ??= crypto.randomUUID();
         if (!receipt.current) {
-          setProgress("Checking your product…");
+          setProgress(t("addProduct.progressChecking"));
           const checked = await action.request<
             SubmissionDecision & { receiptId: string | null; slug?: string }
           >("submissions/preflight", input, key.current);
@@ -82,7 +83,12 @@ export function useSubmission(action: CommunityAction) {
         );
         for (const [index, slot] of slots.entries())
           if (!uploaded.current.has(slot)) {
-            setProgress(`Uploading photo ${index + 1} of ${slots.length}…`);
+            setProgress(
+              t("addProduct.progressUploading", {
+                number: index + 1,
+                total: slots.length,
+              }),
+            );
             const form = new FormData();
             form.set("slot", slot);
             form.set("image", await shrinkPhoto(photos[slot]!));
@@ -93,7 +99,7 @@ export function useSubmission(action: CommunityAction) {
             );
             uploaded.current.add(slot);
           }
-        setProgress("Finishing up…");
+        setProgress(t("addProduct.progressFinishing"));
         const saved = await action
           .request<{
             decision: string;
@@ -135,8 +141,8 @@ export function useSubmission(action: CommunityAction) {
         throw new Error(
           saved.reasons?.join(" ") ||
             (saved.decision === "BLOCKED"
-              ? "This submission can’t be accepted."
-              : "Check the product details and try again."),
+              ? t("addProduct.cannotAccept")
+              : t("addProduct.checkAndRetry")),
         );
       })
       .finally(() => setProgress(""));

@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import type { Candidate } from "@server/community/domain/contracts";
 import { communityRequest } from "../../lib/community";
 import { productPath } from "../../lib/site-chrome";
+import { t } from "../../i18n";
 
 /**
  * "Is it one of these?" while someone types the name: similar products here
@@ -81,21 +82,23 @@ export function IdentityMatches({
   if (exact)
     return (
       <div className="notice" role="status">
-        <strong className="notice-title">Already on VeganAlts</strong>
+        <strong className="notice-title">
+          {t("addProduct.alreadyListedTitle")}
+        </strong>
         <p>
           {exact.brand ? `${exact.brand} · ` : ""}
-          {exact.name} is already listed, including other package sizes.{" "}
+          {t("addProduct.alreadyListed", { name: exact.name })}{" "}
           <Link to={`${productPath(code, exact.slug)}#scores-title`}>
-            Rate it
+            {t("addProduct.rateIt")}
           </Link>{" "}
-          instead, or change the name if this is a different flavor or formula.
+          {t("addProduct.alreadyListedAfter")}
         </p>
       </div>
     );
   if (!matches.length || lineId) return null;
   return (
     <div className="va-matches" role="status">
-      <p className="va-matches__title">Is it one of these?</p>
+      <p className="va-matches__title">{t("addProduct.oneOfThese")}</p>
       <ul className="va-divided">
         {matches.slice(0, 5).map((c) => (
           <li key={c.id}>
@@ -106,9 +109,7 @@ export function IdentityMatches({
           </li>
         ))}
       </ul>
-      <p className="small muted">
-        If not, carry on. Different flavors and formulas are separate products.
-      </p>
+      <p className="small muted">{t("addProduct.ifNotCarryOn")}</p>
     </div>
   );
 }

@@ -47,6 +47,7 @@ import {
   type PhotoSlot,
   type ProductDraft,
 } from "../lib/product-draft";
+import { t } from "../i18n";
 import type { Route } from "./+types/add-product";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -111,7 +112,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 export function meta() {
   return [
-    { title: "Add a product · VeganAlts" },
+    { title: t("addProduct.metaTitle") },
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
@@ -326,8 +327,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     ...basicsErrors(draft, photos),
     ...(exact
       ? {
-          duplicate:
-            "This product is already on VeganAlts. Rate it instead, or change the name if it’s a different flavor or formula.",
+          duplicate: t("addProduct.duplicate"),
         }
       : {}),
   });
@@ -414,9 +414,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
       // An exact duplicate was found after all: back to the basics.
       goTo("basics");
       setShownErrors({
-        duplicate:
-          outcome.reasons.join(" ") ||
-          "This product is already on VeganAlts. Rate it instead.",
+        duplicate: outcome.reasons.join(" ") || t("addProduct.duplicateShort"),
       });
       setAttempt((n) => n + 1);
     }
@@ -433,27 +431,23 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
     goTo("basics");
   };
   const title = held
-    ? "Thanks, your product is in review"
+    ? t("addProduct.heldTitle")
     : step === "basics"
-      ? "The basics"
-      : "Add more (optional)";
+      ? t("addProduct.basicsTitle")
+      : t("addProduct.moreTitle");
   return (
     <PageShell width="narrow" countryMenu={false}>
       <UnsavedWorkGuard atRisk={atRisk && !held} finished={finished} />
       <CommunityControls>
         {photoRestoreFailed && (
           <p className="notice" role="status">
-            Saved photos couldn’t be restored from this device. Please choose
-            them again before submitting.
+            {t("addProduct.photosNotRestored")}
           </p>
         )}
         {persistenceFailed && !held && (
           <div className="notice" role="status">
-            <strong>This draft isn’t safely saved on this device.</strong>
-            <p>
-              Keep this page open while editing. Reloading or leaving may lose
-              your latest text or photos.
-            </p>
+            <strong>{t("addProduct.draftNotSaved")}</strong>
+            <p>{t("addProduct.keepOpen")}</p>
             <button
               type="button"
               className="button secondary small-button"
@@ -463,47 +457,45 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                   setPhoto(slot as PhotoSlot, file);
               }}
             >
-              Retry saving draft
+              {t("addProduct.retrySaving")}
             </button>
           </div>
         )}
         <header className="page-heading">
-          <p className="eyebrow">Grow the community catalog</p>
-          <h1>Add a product</h1>
-          <p>
-            Tell us the basics first. Everything else is optional and can be
-            added later by anyone.
-          </p>
+          <p className="eyebrow">{t("addProduct.eyebrow")}</p>
+          <h1>{t("addProduct.title")}</h1>
+          <p>{t("addProduct.intro")}</p>
           <GuidelinesNote />
         </header>
         {followUp && (
-          <aside className="community-panel" aria-label="Requested follow-up">
-            <h2>Respond to the moderator</h2>
+          <aside
+            className="community-panel"
+            aria-label={t("addProduct.followUpLabel")}
+          >
+            <h2>{t("addProduct.respondModerator")}</h2>
             <p>{followUp.note}</p>
             <p>
-              Update the details and add the photos you want reviewed again.
-              Your{" "}
+              {t("addProduct.updateDetails")}{" "}
               <Link
                 to={`/my-contributions/submission/${followUp.submissionId}`}
               >
-                original submission
+                {t("addProduct.originalSubmission")}
               </Link>{" "}
-              stays in your history, and this response returns to review.
+              {t("addProduct.staysInHistory")}
             </p>
           </aside>
         )}
         {restored && (
-          <Notice title="You have an unfinished product">
-            {hasWork && (
-              <p role="status">
-                Your new entries are not saved until you choose “Start a new
-                one”.
-              </p>
-            )}
+          <Notice title={t("addProduct.unfinishedTitle")}>
+            {hasWork && <p role="status">{t("addProduct.notSavedUntil")}</p>}
             <p>
               {restored.brand || restored.name
-                ? `${[restored.brand, restored.name].filter(Boolean).join(" · ")} is saved on this device.`
-                : "A product you started is saved on this device."}
+                ? t("addProduct.savedOnDevice", {
+                    product: [restored.brand, restored.name]
+                      .filter(Boolean)
+                      .join(" · "),
+                  })
+                : t("addProduct.savedOnDeviceGeneric")}
             </p>
             <div className="button-row">
               <button
@@ -529,7 +521,7 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                     );
                 }}
               >
-                Continue it
+                {t("addProduct.continueIt")}
               </button>
               <button
                 type="button"
@@ -540,18 +532,18 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
                   setRestored(null);
                 }}
               >
-                Start a new one
+                {t("addProduct.startNew")}
               </button>
             </div>
           </Notice>
         )}
         {!held && (
-          <ol className="step-list" aria-label="Steps">
+          <ol className="step-list" aria-label={t("addProduct.stepsLabel")}>
             <li aria-current={step === "basics" ? "step" : undefined}>
-              1. The basics
+              {t("addProduct.step1")}
             </li>
             <li aria-current={step === "more" ? "step" : undefined}>
-              2. Add more (optional)
+              {t("addProduct.step2")}
             </li>
           </ol>
         )}

@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import type { QueueDecisionRepository } from "@server/community/infrastructure/queue-decision-repository";
 import { friendly, dateLabel, reportReasonLabel } from "../lib/community";
 import { veganStatusLabel } from "./ui/badges";
+import { t } from "../i18n";
 import {
   allergenDeclaration,
   describeDeclaration,
@@ -19,12 +20,7 @@ export function ProposalSummary({
   labels?: Record<string, string>;
 }) {
   if (!value || typeof value !== "object")
-    return (
-      <p>
-        The submission receipt is ready. Complete its photos and final review
-        from the submission page.
-      </p>
-    );
+    return <p>{t("detail.receiptReady")}</p>;
   const input = value as Record<string, unknown>,
     evidence =
       input.evidence && typeof input.evidence === "object"
@@ -67,8 +63,8 @@ export function ProposalSummary({
               <dd>
                 {typeof input[key] === "boolean"
                   ? input[key]
-                    ? "Yes"
-                    : "No"
+                    ? t("common.yes")
+                    : t("common.no")
                   : key === "reason"
                     ? reportReasonLabel(String(input[key]))
                     : friendly(String(input[key]))}
@@ -78,12 +74,13 @@ export function ProposalSummary({
       </dl>
       {Array.isArray(input.aliases) && input.aliases.length > 0 && (
         <p>
-          <strong>Other names:</strong> {input.aliases.map(String).join(", ")}
+          <strong>{t("detail.otherNames")}</strong>{" "}
+          {input.aliases.map(String).join(", ")}
         </p>
       )}
       {Array.isArray(input.categoryIds) && (
         <p>
-          <strong>Foods it replaces:</strong>{" "}
+          <strong>{t("detail.foodsReplaced")}</strong>{" "}
           {input.categoryIds
             .map(String)
             .map((id) => labels[id] ?? id)
@@ -92,49 +89,57 @@ export function ProposalSummary({
       )}
       {typeof input.lineId === "string" && (
         <p>
-          <strong>Joins the line:</strong>{" "}
+          <strong>{t("detail.joinsLine")}</strong>{" "}
           {labels[input.lineId] ?? input.lineId}
         </p>
       )}
       {Object.hasOwn(input, "productFamilyId") && (
         <p>
-          <strong>Line:</strong>{" "}
+          <strong>{t("detail.line")}</strong>{" "}
           {typeof input.productFamilyId === "string"
-            ? `Move to ${labels[input.productFamilyId] ?? input.productFamilyId}`
-            : "Keeps its line"}
+            ? t("detail.moveTo", {
+                name: labels[input.productFamilyId] ?? input.productFamilyId,
+              })
+            : t("detail.keepsLine")}
         </p>
       )}
       {typeof input.relatedProductId === "string" && (
         <p>
-          <strong>Related product:</strong>{" "}
-          {labels[input.relatedProductId] ?? input.relatedProductId} ·{" "}
-          {friendly(String(input.relationship))}
+          <strong>{t("detail.relatedProduct")}</strong>{" "}
+          {t("detail.related", {
+            name: labels[input.relatedProductId] ?? input.relatedProductId,
+            type: friendly(String(input.relationship)),
+          })}
         </p>
       )}
       {allergenDeclaration.safeParse(input.declaration).success && (
         <p>
-          <strong>Allergens on the label:</strong>{" "}
+          <strong>{t("detail.allergensLabel")}</strong>{" "}
           {describeDeclaration(allergenDeclaration.parse(input.declaration))}
           {typeof input.citedImageId === "string"
-            ? " (cites the formula’s label photo)"
-            : " (no label photo cited)"}
+            ? ` ${t("detail.citesPhoto")}`
+            : ` ${t("detail.noPhotoCited")}`}
         </p>
       )}
       {typeof input.retailerId === "string" && (
         <p>
-          <strong>Retailer:</strong>{" "}
+          <strong>{t("detail.retailer")}</strong>{" "}
           {labels[input.retailerId] ?? input.retailerId}
         </p>
       )}
       {Array.isArray(input.categoryEligibility) && (
         <>
-          <h3>Proposed ranking eligibility</h3>
+          <h3>{t("detail.eligibilityTitle")}</h3>
           <ul>
             {input.categoryEligibility.map(
               (entry: { categoryId: string; eligible: boolean }) => (
                 <li key={entry.categoryId}>
-                  {labels[entry.categoryId] ?? entry.categoryId}:{" "}
-                  {entry.eligible ? "Eligible" : "Not ranked for this food"}
+                  {t("detail.nameState", {
+                    name: labels[entry.categoryId] ?? entry.categoryId,
+                    state: entry.eligible
+                      ? t("detail.eligible")
+                      : t("detail.notRanked"),
+                  })}
                 </li>
               ),
             )}
@@ -147,7 +152,7 @@ export function ProposalSummary({
           {urls.map((url, i) => (
             <li key={`${url}-${i}`}>
               <a href={url} target="_blank" rel="noreferrer">
-                View evidence source ↗
+                {t("detail.viewSource")}
               </a>
             </li>
           ))}
@@ -156,7 +161,7 @@ export function ProposalSummary({
       {Array.isArray(input.certifications) &&
         input.certifications.length > 0 && (
           <>
-            <h3>Third-party certification claims</h3>
+            <h3>{t("detail.certifications")}</h3>
             <ul>
               {input.certifications.map((c, i) => {
                 const cert = c as { name: string; sourceUrl: string };
@@ -183,37 +188,51 @@ export function AutomatedChecks({
 }) {
   return (
     <section aria-labelledby="automated-checks">
-      <h2 id="automated-checks">Automated checks</h2>
+      <h2 id="automated-checks">{t("detail.automatedChecks")}</h2>
       <p className="small muted">
-        Advisory {checks.model} answers ({friendly(checks.status)}
-        {checks.errorCode ? `: ${friendly(checks.errorCode)}` : ""}). They are
-        evidence, not a decision.
+        {t("detail.advisory", {
+          model: checks.model,
+          status: friendly(checks.status),
+          error: checks.errorCode ? `: ${friendly(checks.errorCode)}` : "",
+        })}
       </p>
       {checks.outcome && (
         <p>
-          <strong>Suggested outcome:</strong>{" "}
+          <strong>{t("detail.suggestedOutcome")}</strong>{" "}
           {friendly(checks.outcome.toLowerCase())}
         </p>
       )}
       {checks.flags.length > 0 && (
         <p>
-          <strong>Signals:</strong> {checks.flags.map(friendly).join(", ")}
+          <strong>{t("detail.signals")}</strong>{" "}
+          {checks.flags.map(friendly).join(", ")}
         </p>
       )}
       {checks.safety && (
         <div>
           <p>
-            Safety: {checks.safety.model}
-            {checks.safety.reused ? " (reused)" : ""}.{" "}
-            {checks.safety.result.flagged ? "Flagged" : "Passed"}.
+            {t("detail.safetyCheck", {
+              model: checks.safety.model,
+              reused: checks.safety.reused ? ` ${t("detail.reused")}` : "",
+              result: checks.safety.result.flagged
+                ? t("detail.flagged")
+                : t("detail.passed"),
+            })}
           </p>
           {Object.entries(checks.safety.result.categories)
             .filter(([, flag]) => flag)
             .map(([category]) => (
               <p key={category}>
-                {friendly(category)}: score{" "}
-                {checks.safety!.result.scores[category]?.toFixed(3)} (
-                {checks.safety!.result.appliedInputTypes[category]?.join(", ")})
+                {t("detail.categoryScore", {
+                  category: friendly(category),
+                  score: String(
+                    checks.safety!.result.scores[category]?.toFixed(3),
+                  ),
+                  types:
+                    checks.safety!.result.appliedInputTypes[category]?.join(
+                      ", ",
+                    ) ?? "",
+                })}
               </p>
             ))}
         </div>
@@ -224,8 +243,10 @@ export function AutomatedChecks({
             <div key={a.question}>
               <dt>{friendly(a.question)}</dt>
               <dd>
-                {friendly(a.option.toLowerCase())} (
-                {Math.round(a.probability * 100)}% likely)
+                {t("detail.likely", {
+                  option: friendly(a.option.toLowerCase()),
+                  percent: Math.round(a.probability * 100),
+                })}
               </dd>
             </div>
           ))}
@@ -244,14 +265,18 @@ export function ContributionContent({
   return (
     <>
       <div className="notice">
-        <strong>Status: {friendly(detail.status)}</strong>
+        <strong>
+          {t("myContributions.status", { status: friendly(detail.status) })}
+        </strong>
         {detail.resolutionNote && <p>{detail.resolutionNote}</p>}
       </div>
       {detail.kind === "comment" && (
         <section aria-labelledby="held-comment">
-          <h2 id="held-comment">Held comment</h2>
+          <h2 id="held-comment">{t("detail.heldComment")}</h2>
           <p className="small muted">
-            By @{String((detail.proposed as { author: string }).author)}
+            {t("detail.by", {
+              author: String((detail.proposed as { author: string }).author),
+            })}
           </p>
           <blockquote className="comment-body">
             {String((detail.proposed as { body: string }).body)}
@@ -260,10 +285,12 @@ export function ContributionContent({
       )}
       {"reportedComment" in detail && detail.reportedComment && (
         <section aria-labelledby="reported-comment">
-          <h2 id="reported-comment">Reported comment</h2>
+          <h2 id="reported-comment">{t("detail.reportedComment")}</h2>
           <p className="small muted">
-            By @{detail.reportedComment.author} ·{" "}
-            {friendly(detail.reportedComment.state)}
+            {t("detail.byState", {
+              author: detail.reportedComment.author,
+              state: friendly(detail.reportedComment.state),
+            })}
           </p>
           <blockquote className="comment-body">
             {detail.reportedComment.body}
@@ -273,11 +300,11 @@ export function ContributionContent({
       {automated && <AutomatedChecks checks={automated} />}
       {detail.kind === "submission" && detail.followUpOf && (
         <p>
-          Follow-up to the{" "}
+          {t("detail.followUpBefore")}{" "}
           <Link to={`/my-contributions/submission/${detail.followUpOf}`}>
-            original submission and evidence
+            {t("detail.followUpLink")}
           </Link>
-          .
+          {t("detail.followUpAfter")}
         </p>
       )}
       {"publishedProduct" in detail && detail.publishedProduct && (
@@ -289,33 +316,33 @@ export function ContributionContent({
               detail.publishedProduct.slug,
             )}
           >
-            View published product →
+            {t("detail.viewPublished")}
           </Link>
         </p>
       )}
       {product && (
         <section>
-          <h2>Current catalog entry</h2>
+          <h2>{t("detail.catalogEntry")}</h2>
           <p>
             <Link to={productPath(product.countryCode, product.slug)}>
               {product.name}
             </Link>
           </p>
           <dl className="review-facts">
-            <dt>Formula</dt>
-            <dd>{product.versionLabel ?? "Current formula"}</dd>
-            <dt>Lifecycle</dt>
+            <dt>{t("detail.formula")}</dt>
+            <dd>{product.versionLabel ?? t("detail.currentFormula")}</dd>
+            <dt>{t("detail.lifecycle")}</dt>
             <dd>{friendly(product.lifecycleStatus)}</dd>
-            <dt>Platform classification</dt>
+            <dt>{t("detail.classification")}</dt>
             <dd>
               {/* An unchecked formula stores only a placeholder status. */}
               {product.classification?.ingredientsChecked === false
                 ? veganStatusLabel("unchecked")
                 : friendly(product.veganStatus)}
             </dd>
-            <dt>Manufacturer wording</dt>
+            <dt>{t("community.manufacturerLabel")}</dt>
             <dd>{friendly(product.manufacturerLabel)}</dd>
-            <dt>Allergens on file</dt>
+            <dt>{t("detail.allergensOnFile")}</dt>
             <dd>
               {product.allergens
                 ? describeDeclaration(
@@ -324,20 +351,24 @@ export function ContributionContent({
                       product.allergenList.map((a) => [a.key, a.label]),
                     ),
                   )
-                : "Not confirmed yet"}
+                : t("allergen.notConfirmed")}
             </dd>
           </dl>
           <p>
-            <strong>Product family:</strong>{" "}
+            <strong>{t("detail.family")}</strong>{" "}
             {product.familyId
               ? (detail.referenceLabels[product.familyId] ?? product.familyId)
-              : "No family"}
+              : t("detail.noFamily")}
           </p>
           <ul>
             {product.categories.map((c) => (
               <li key={c.categoryId}>
-                {detail.referenceLabels[c.categoryId] ?? c.categoryId}:{" "}
-                {c.eligible ? "Eligible for ranking" : "Excluded from ranking"}
+                {t("detail.nameState", {
+                  name: detail.referenceLabels[c.categoryId] ?? c.categoryId,
+                  state: c.eligible
+                    ? t("detail.eligibleRanking")
+                    : t("detail.excluded"),
+                })}
               </li>
             ))}
           </ul>
@@ -345,23 +376,27 @@ export function ContributionContent({
             <ul>
               {product.relationships.map((r) => (
                 <li key={`${r.productId}-${r.type}`}>
-                  {detail.referenceLabels[r.productId] ?? r.productId} ·{" "}
-                  {friendly(r.type)}
+                  {t("detail.related", {
+                    name: detail.referenceLabels[r.productId] ?? r.productId,
+                    type: friendly(r.type),
+                  })}
                 </li>
               ))}
             </ul>
           )}
           {product.retailers.length > 0 && (
             <>
-              <h3>Current retailer evidence</h3>
+              <h3>{t("detail.retailerEvidence")}</h3>
               <ul>
                 {product.retailers.map((r) => (
                   <li key={r.retailerId}>
                     <strong>{r.name}</strong> · {friendly(r.status)}
                     <p>
-                      {r.contributorCount} confirmations; {r.disagreementCount}{" "}
-                      availability concerns. Last confirmed{" "}
-                      {dateLabel(r.lastConfirmedAt)}.
+                      {t("detail.retailerCounts", {
+                        confirmations: r.contributorCount,
+                        concerns: r.disagreementCount,
+                        date: dateLabel(r.lastConfirmedAt),
+                      })}
                     </p>
                   </li>
                 ))}
@@ -372,7 +407,9 @@ export function ContributionContent({
       )}
       <section>
         <h2>
-          {detail.kind === "report" ? "Reported concern" : "Proposed details"}
+          {detail.kind === "report"
+            ? t("detail.reportedConcern")
+            : t("detail.proposedDetails")}
         </h2>
         <ProposalSummary
           value={detail.proposed}
@@ -388,7 +425,7 @@ export function ContributionContent({
       </section>
       {"images" in detail && (detail.images?.length ?? 0) > 0 && (
         <section>
-          <h2>Private evidence</h2>
+          <h2>{t("detail.privateEvidence")}</h2>
           <div className="evidence-images">
             {detail.images?.map((image) => (
               <a
@@ -399,7 +436,7 @@ export function ContributionContent({
               >
                 <img
                   src={`/api/v1/submissions/${detail.evidenceReceiptId}/media/${image.id}/thumbnail`}
-                  alt={`${image.slot} evidence`}
+                  alt={t("detail.evidenceAlt", { slot: image.slot })}
                   width={150}
                   height={150}
                 />

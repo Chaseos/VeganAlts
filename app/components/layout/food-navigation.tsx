@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
 import { Icon } from "../icons/icon";
-import { plural } from "../../lib/format";
+import { counted } from "../../lib/counted";
+import { t } from "../../i18n";
 import { useFoodHref } from "../../lib/ranking-filters";
 import {
   navigationGroupPath,
@@ -29,15 +30,20 @@ export function FoodNavigation({
     <div className="va-food-navigation">
       <div className="va-food-navigation__top">
         <h2 className="va-heading-m">{group.name}</h2>
-        <div role="search" aria-label={`Find in ${group.name}`}>
+        <div
+          role="search"
+          aria-label={t("foodNav.findIn", { group: group.name })}
+        >
           <label className="va-aisle__filter-field">
             <Icon name="filter" size={18} />
-            <span className="sr-only">Find a food type in {group.name}</span>
+            <span className="sr-only">
+              {t("foodNav.findTypeIn", { group: group.name })}
+            </span>
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Find a food type"
+              placeholder={t("foodNav.findType")}
               autoComplete="off"
             />
           </label>
@@ -45,7 +51,13 @@ export function FoodNavigation({
       </div>
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {query.trim()
-          ? `${navigationSections(group, query).reduce((sum, section) => sum + section.foods.length, 0)} food types match ${query.trim()}.`
+          ? t("foodNav.matches", {
+              count: navigationSections(group, query).reduce(
+                (sum, section) => sum + section.foods.length,
+                0,
+              ),
+              query: query.trim(),
+            })
           : ""}
       </p>
       <FoodGroupSections country={country} group={group} query={query} />
@@ -55,17 +67,17 @@ export function FoodNavigation({
           to={navigationGroupPath(country, group.id)}
           discover="none"
         >
-          Browse all {group.name.toLowerCase()}
+          {t("foodNav.browseGroup", { group: group.name.toLowerCase() })}
         </Link>
         <Link className="va-link" to={searchPath(country)} discover="none">
-          Browse all categories
+          {t("nav.browseAll")}
         </Link>
         <Link
           className="va-link"
           to={`/propose-category?country=${country}`}
           discover="none"
         >
-          Suggest a food
+          {t("nav.suggestFood")}
         </Link>
       </div>
     </div>
@@ -87,7 +99,9 @@ export function FoodGroupSections({
   const sections = navigationSections(group, query);
   if (!sections.length)
     return (
-      <p className="va-small va-muted">No food types match “{query.trim()}”.</p>
+      <p className="va-small va-muted">
+        {t("foodNav.noMatch", { query: query.trim() })}
+      </p>
     );
   return (
     <div className="va-food-navigation__sections">
@@ -109,7 +123,7 @@ export function FoodGroupSections({
           </h3>
           <ul
             className="va-food-navigation__foods"
-            aria-label={`Food types in ${category.name}`}
+            aria-label={t("foodNav.typesIn", { category: category.name })}
           >
             {foods.map((food) => (
               <li key={food.slug}>
@@ -126,10 +140,12 @@ export function FoodGroupSections({
               className="va-link va-food-navigation__all"
               to={foodPath(country, category.slug)}
               discover="none"
-              aria-label={`View all ${category.name} food types`}
+              aria-label={t("foodNav.viewAllLabel", {
+                category: category.name,
+              })}
               onClick={onNavigate}
             >
-              View all ({category.foods.length}){" "}
+              {t("foodNav.viewAll", { count: category.foods.length })}{" "}
               <Icon name="arrowRight" size={14} />
             </Link>
           )}
@@ -158,7 +174,7 @@ function FoodNavigationLink({
     >
       <span>{food.name}</span>
       <span className="va-small va-muted">
-        {plural(food.productCount, "product")}
+        {counted("count.product", food.productCount)}
       </span>
     </Link>
   );

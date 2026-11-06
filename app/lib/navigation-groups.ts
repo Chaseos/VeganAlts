@@ -1,11 +1,12 @@
 import { splitLanguage } from "@server/catalog/domain/languages";
 import { searchPath } from "@server/catalog/domain/markets";
 import { normalizeFood } from "./food-choices";
+import { t, type MessageKey } from "../i18n";
 import type { ChromeAisle } from "./site-chrome";
 
 interface NavigationGroupDefinition {
   id: string;
-  name: string;
+  name: MessageKey;
   iconSlug: string;
   categorySlugs: readonly string[];
 }
@@ -15,7 +16,7 @@ interface NavigationGroupDefinition {
 export const NAVIGATION_GROUPS = [
   {
     id: "meat-seafood",
-    name: "Meat & seafood",
+    name: "group.meatSeafood",
     iconSlug: "beef",
     categorySlugs: [
       "beef",
@@ -28,7 +29,7 @@ export const NAVIGATION_GROUPS = [
   },
   {
     id: "dairy-eggs",
-    name: "Dairy & eggs",
+    name: "group.dairyEggs",
     iconSlug: "milk-aisle",
     categorySlugs: [
       "milk-aisle",
@@ -41,25 +42,25 @@ export const NAVIGATION_GROUPS = [
   },
   {
     id: "bakery-baking",
-    name: "Bakery & baking",
+    name: "group.bakeryBaking",
     iconSlug: "bakery",
     categorySlugs: ["bakery", "toaster-pastries-aisle", "bakery-and-desserts"],
   },
   {
     id: "sweets-desserts",
-    name: "Sweets & desserts",
+    name: "group.sweetsDesserts",
     iconSlug: "ice-cream-aisle",
     categorySlugs: ["chocolate", "candy", "ice-cream-aisle", "desserts"],
   },
   {
     id: "sauces-dips-spreads",
-    name: "Sauces, dips & spreads",
+    name: "group.saucesDips",
     iconSlug: "dips-and-spreads",
     categorySlugs: ["condiments", "sauces", "dips-and-spreads"],
   },
   {
     id: "meals-prepared-foods",
-    name: "Meals & prepared foods",
+    name: "group.mealsPrepared",
     iconSlug: "meals",
     categorySlugs: ["meals", "pizza-aisle"],
   },
@@ -67,7 +68,7 @@ export const NAVIGATION_GROUPS = [
 
 const MORE_FOODS: NavigationGroupDefinition = {
   id: "more-foods",
-  name: "More foods",
+  name: "group.moreFoods",
   iconSlug: "food",
   categorySlugs: [],
 };
@@ -98,7 +99,7 @@ export function groupCategories<T extends { slug: string }>(
       ? [
           {
             id: definition.id,
-            name: definition.name,
+            name: t(definition.name),
             iconSlug: definition.iconSlug,
             categories: members,
           },

@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { useEffect, useState } from "react";
 import { communityRequest, type CommunityOptions } from "../lib/community";
 
@@ -35,7 +36,7 @@ export function CatalogSelect({
     [found, setFound] = useState(options),
     [selected, setSelected] = useState<Option | null>(
       options.find((o) => o.id === defaultValue) ??
-        (defaultValue ? { id: defaultValue, name: "Current selection" } : null),
+        (defaultValue ? { id: defaultValue, name: t("select.current") } : null),
     ),
     [error, setError] = useState("");
   // A choice that changes from outside (a draft restored after mount, or
@@ -46,7 +47,7 @@ export function CatalogSelect({
         ? current
         : (options.find((o) => o.id === defaultValue) ??
           (defaultValue
-            ? { id: defaultValue, name: "Current selection" }
+            ? { id: defaultValue, name: t("select.current") }
             : null)),
     );
     // Only the outside value matters; options change with every search.
@@ -70,8 +71,7 @@ export function CatalogSelect({
           }
         })
         .catch(() => {
-          if (active)
-            setError("Search could not load. Edit the search to retry.");
+          if (active) setError(t("select.searchFailed"));
         });
     }, 250);
     return () => {
@@ -106,7 +106,7 @@ export function CatalogSelect({
         }}
       >
         <option value="">
-          {required ? "Choose a product" : "None selected"}
+          {required ? t("select.chooseProduct") : t("select.none")}
         </option>
         {choices.map((o) => (
           <option key={o.id} value={o.id}>

@@ -17,7 +17,9 @@ import {
 import { DetailBars, DetailCells } from "../ui/bars";
 import { ButtonLink } from "../ui/button";
 import { StoreLine } from "./ranking-filters";
-import { formatScore, plural, shortDate, productName } from "../../lib/format";
+import { counted } from "../../lib/counted";
+import { formatScore, shortDate, productName } from "../../lib/format";
+import { t } from "../../i18n";
 import { productPath } from "../../lib/site-chrome";
 
 // One flavor of a recipe line, with its own score in the ranking shown.
@@ -87,8 +89,9 @@ export function allergenSummary(
       };
 }
 
-const people = (count: number) => plural(count, "person", "people");
-export const flavorLabel = (flavor: string | null) => flavor ?? "Original";
+const people = (count: number) => counted("count.person", count);
+export const flavorLabel = (flavor: string | null) =>
+  flavor ?? t("ranking.original");
 
 /**
  * A line's flavors behind a native disclosure, so it works without
@@ -135,8 +138,11 @@ function ExpandableFlavors({
       }}
     >
       <summary>
-        {plural(line.flavorCount, "flavor")}
-        <span className="sr-only"> of {line.name}</span>
+        {counted("count.flavor", line.flavorCount)}
+        <span className="sr-only">
+          {" "}
+          {t("ranking.flavorsOf", { name: line.name })}
+        </span>
       </summary>
       {/* A fragment inside the disclosure reveals it even before hydration. */}
       <ul
@@ -151,7 +157,10 @@ function ExpandableFlavors({
               <Link
                 className="va-flavors__photo"
                 to={productPath(country, flavor.slug, food)}
-                aria-label={`View ${flavor.label}: ${flavor.name}`}
+                aria-label={t("ranking.viewFlavor", {
+                  label: flavor.label,
+                  name: flavor.name,
+                })}
               >
                 <ProductThumbnail imageId={flavor.imageId} food={food} />
               </Link>
@@ -165,7 +174,9 @@ function ExpandableFlavors({
                     prefetch="intent"
                   >
                     {flavor.label}
-                    <span className="sr-only">: {flavor.name}</span>
+                    <span className="sr-only">
+                      {t("ranking.nameSuffix", { name: flavor.name })}
+                    </span>
                   </Link>
                 </div>
                 {allergens && (
@@ -178,23 +189,28 @@ function ExpandableFlavors({
                 <span className="va-flavors__score">
                   {flavor.score !== null ? (
                     <>
-                      <span className="sr-only">Score </span>
+                      <span className="sr-only">{t("ranking.score")} </span>
                       {formatScore(flavor.score)}
                     </>
                   ) : (
                     <span className="va-small va-muted">
                       {flavor.ratingCount === 0
-                        ? "No ratings"
-                        : plural(flavor.ratingCount, "rating")}
+                        ? t("ranking.noRatings")
+                        : counted("count.rating", flavor.ratingCount)}
                     </span>
                   )}
                 </span>
                 <Link
                   className="va-link va-flavors__rate"
                   to={`${productPath(country, flavor.slug, food)}#scores-title`}
-                  aria-label={`Rate it: ${flavor.name}${flavor.flavor ? ` · ${flavor.flavor}` : ""}`}
+                  aria-label={t(
+                    flavor.flavor
+                      ? "ranking.rateLabelFlavor"
+                      : "ranking.rateLabel",
+                    { name: flavor.name, flavor: flavor.flavor ?? "" },
+                  )}
                 >
-                  Rate it
+                  {t("ranking.rateIt")}
                 </Link>
               </div>
             </li>
@@ -203,9 +219,7 @@ function ExpandableFlavors({
       </ul>
       {line.hiddenFlavorCount > 0 && (
         <p className="va-small va-muted va-flavors__hidden">
-          {plural(line.hiddenFlavorCount, "more flavor")}{" "}
-          {line.hiddenFlavorCount === 1 ? "doesn’t" : "don’t"} match your
-          filters.
+          {counted("ranking.hiddenFlavors", line.hiddenFlavorCount)}
         </p>
       )}
     </details>
@@ -292,7 +306,7 @@ export function FeaturedSwap({
             <p className="va-muted">
               {[
                 people(line.people),
-                rank && rank !== 1 ? `#${rank} overall` : null,
+                rank && rank !== 1 ? t("ranking.overall", { rank }) : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -307,18 +321,18 @@ export function FeaturedSwap({
         </div>
         <DetailBars details={line.details} />
         <div className="button-row">
-          <ButtonLink to={href}>View product</ButtonLink>
+          <ButtonLink to={href}>{t("ranking.viewProduct")}</ButtonLink>
           {line.flavorCount > 1 ? (
             <a
               className="button secondary"
               href={`#${flavorsId}`}
               onClick={(event) => openFlavors(event, flavorsId)}
             >
-              I’ve tried it
+              {t("ranking.triedIt")}
             </a>
           ) : (
             <ButtonLink variant="secondary" to={`${href}#scores-title`}>
-              I’ve tried it
+              {t("ranking.triedIt")}
             </ButtonLink>
           )}
         </div>
@@ -361,13 +375,13 @@ export function RankedRow({
       <span className="va-rank-row__rank">
         {rank ? (
           <>
-            <span className="sr-only">Rank </span>#{rank}
+            <span className="sr-only">{t("aisle.rankWord")} </span>#{rank}
           </>
         ) : (
           // Unranked here: "New" only for a line that is new, since a line
           // can trend on tries alone without being new.
           <span className="va-rank-row__unranked">
-            {line.isNew && !line.closestRank ? "New" : "–"}
+            {line.isNew && !line.closestRank ? t("badge.new") : "–"}
           </span>
         )}
       </span>
@@ -382,8 +396,8 @@ export function RankedRow({
             line.people
               ? people(line.people)
               : line.closestRank
-                ? "No one has said how tasty yet"
-                : "No ratings yet",
+                ? t("ranking.noTasty")
+                : t("ranking.noRatingsYet"),
             note,
           ]
             .filter(Boolean)
@@ -457,7 +471,9 @@ export function UnratedRow({
       <Link
         className="va-unrated__photo"
         to={href}
-        aria-label={`View ${productName(line.name, line.brand)}`}
+        aria-label={t("ranking.view", {
+          name: productName(line.name, line.brand),
+        })}
       >
         <ProductThumbnail imageId={line.leadProduct.imageId} food={food} />
       </Link>
@@ -466,7 +482,8 @@ export function UnratedRow({
           {productName(line.name, line.brand)}
         </Link>
         <span className="va-small va-muted">
-          {line.publishedAt && `added ${shortDate(line.publishedAt)}`}
+          {line.publishedAt &&
+            t("ranking.added", { date: shortDate(line.publishedAt) })}
           {allergens && (
             <>
               {" · "}
@@ -480,9 +497,11 @@ export function UnratedRow({
           className="button secondary small-button"
           href={`${href}#scores-title`}
         >
-          Be the first to rate
+          {t("ranking.firstToRate")}
           <span className="sr-only">
-            : {productName(line.name, line.brand)}
+            {t("ranking.nameSuffix", {
+              name: productName(line.name, line.brand),
+            })}
           </span>
         </a>
       )}
@@ -494,8 +513,8 @@ export function UnratedRow({
 export const sortNote = (view: string, line: ListedLine) =>
   view === "trending"
     ? line.recentPeople > 0
-      ? `${people(line.recentPeople)} this week`
-      : "rising this quarter"
+      ? counted("count.personThisWeek", line.recentPeople)
+      : t("ranking.rising")
     : view === "new" && line.publishedAt
-      ? `added ${shortDate(line.publishedAt)}`
+      ? t("ranking.added", { date: shortDate(line.publishedAt) })
       : null;

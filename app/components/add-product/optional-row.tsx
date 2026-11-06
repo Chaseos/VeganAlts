@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { t } from "../../i18n";
 
 /**
  * One optional part of step 2: a disclosure in a divided list, with what has
@@ -27,7 +28,7 @@ export function OptionalRow({
     >
       <summary className="va-optional__summary">
         <span className="va-optional__title">{title}</span>
-        <span className="va-optional__tag">Optional</span>
+        <span className="va-optional__tag">{t("fact.optionalTag")}</span>
         {status && <span className="va-optional__status">{status}</span>}
       </summary>
       <div className="va-optional__body">{children}</div>

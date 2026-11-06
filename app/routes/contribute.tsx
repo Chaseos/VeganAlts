@@ -43,7 +43,8 @@ import {
 import { PhotoProposalForm } from "../components/photo-proposal-form";
 import { ProductEditSummary } from "../components/product-edit-summary";
 import { shrinkPhoto } from "../lib/shrink-photo";
-import { SLOT_LABELS } from "../components/photo-slots";
+import { slotLabel } from "../components/photo-slots";
+import { t } from "../i18n";
 import type { Route } from "./+types/contribute";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -86,7 +87,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 export function meta() {
   return [
-    { title: "Contribute to the catalog · VeganAlts" },
+    { title: t("contribute.metaTitle") },
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
@@ -101,17 +102,17 @@ const kinds = [
   "retailer_status",
   "allergens",
 ] as const;
-const labels = {
-  ...factLabels,
-  classification: "Classification evidence",
-  reformulation: "Material reformulation",
-  packaging: "Packaging update",
-  discontinue: "Discontinued product",
-  reintroduce: "Reintroduced product",
-  relationships: "Line, related products and which foods it’s ranked for",
-  retailer_status: "Retailer availability concern",
-  allergens: "Allergens on the label",
-};
+const changeLabels = () => ({
+  ...factLabels(),
+  classification: t("contribute.kindClassification"),
+  reformulation: t("contribute.kindReformulation"),
+  packaging: t("contribute.kindPackaging"),
+  discontinue: t("contribute.kindDiscontinue"),
+  reintroduce: t("contribute.kindReintroduce"),
+  relationships: t("contribute.kindRelationships"),
+  retailer_status: t("contribute.kindRetailerStatus"),
+  allergens: t("contribute.kindAllergens"),
+});
 export default function Contribute({
   loaderData: {
     product,
@@ -126,6 +127,7 @@ export default function Contribute({
     initialKind,
   },
 }: Route.ComponentProps) {
+  const labels = changeLabels();
   // No one has confirmed this formula's ingredients yet (milestone 6).
   const unchecked = product.classification?.ingredientsChecked === false;
   // The current formula's accepted label photos a check can cite.
@@ -171,7 +173,7 @@ export default function Contribute({
         reportImage &&
         !product.images.some((photo) => photo.id === reportImage)
       )
-        throw new Error("Choose a photo of this product.");
+        throw new Error(t("contribute.choosePhoto"));
       const saved = await action.request<{ id: string }>("reports", {
         targetType: reportImage ? "product_image" : "product",
         targetId: reportImage || product.id,
@@ -337,25 +339,31 @@ export default function Contribute({
               label: product.name,
               to: productPath(product.countryCode, product.slug),
             },
-            { label: "Contribute" },
+            { label: t("contribute.breadcrumb") },
           ]}
         />
         <header className="page-heading">
-          <p className="eyebrow">Keep the catalog useful</p>
+          <p className="eyebrow">{t("contribute.eyebrow")}</p>
           <h1>{product.name}</h1>
           <p>
-            {administrator
-              ? "Your edits apply right away. Existing ratings remain with their original formula."
-              : "Your evidence helps an operator make an informed decision. Existing ratings remain with their original formula."}
+            {administrator ? t("contribute.introAdmin") : t("contribute.intro")}
           </p>
           <GuidelinesNote />
         </header>
-        <nav className="contribution-tabs" aria-label="Contribution type">
+        <nav
+          className="contribution-tabs"
+          aria-label={t("contribute.typeLabel")}
+        >
           {[
-            ["change", administrator ? "Edit product" : "Suggest a change"],
-            ["photo", "Photos"],
-            ["report", "Report a concern"],
-            ["retailer", "Retailer availability"],
+            [
+              "change",
+              administrator
+                ? t("contribute.editProduct")
+                : t("contribute.suggestChange"),
+            ],
+            ["photo", t("contribute.tabPhotos")],
+            ["report", t("contribute.tabReport")],
+            ["retailer", t("contribute.tabRetailer")],
           ].map(([value, label]) => (
             <button
               type="button"
@@ -378,7 +386,7 @@ export default function Contribute({
               />
               {unchecked && labelPhotos.length > 0 && (
                 <p className="small">
-                  The ingredients photo is here but no one has checked it yet.{" "}
+                  {t("contribute.photoUnchecked")}{" "}
                   <button
                     type="button"
                     className="link-button"
@@ -387,7 +395,7 @@ export default function Contribute({
                       setTab("change");
                     }}
                   >
-                    Check the ingredients
+                    {t("contribute.checkIngredients")}
                   </button>
                 </p>
               )}
@@ -395,9 +403,9 @@ export default function Contribute({
           )}
           {tab === "report" && (
             <form className="community-form" onSubmit={saveReport}>
-              <h2>Report this product</h2>
+              <h2>{t("contribute.reportTitle")}</h2>
               <label htmlFor="report-target">
-                What would you like to report?
+                {t("contribute.reportTarget")}
               </label>
               <select
                 id="report-target"
@@ -405,14 +413,18 @@ export default function Contribute({
                 value={reportImage}
                 onChange={(event) => setReportImage(event.target.value)}
               >
-                <option value="">Product information</option>
+                <option value="">{t("contribute.productInfo")}</option>
                 {product.images.map((photo) => (
                   <option key={photo.id} value={photo.id}>
-                    {SLOT_LABELS[photo.slot as ImageSlot]} photo
+                    {t("contribute.photoOption", {
+                      slot: slotLabel(photo.slot as ImageSlot),
+                    })}
                     {photo.versionId !== product.versionId
-                      ? " (earlier formula)"
+                      ? ` ${t("contribute.earlierFormula")}`
                       : ""}
-                    {photo.state === "archived" ? " (replaced)" : ""}
+                    {photo.state === "archived"
+                      ? ` ${t("contribute.replaced")}`
+                      : ""}
                   </option>
                 ))}
               </select>
@@ -420,10 +432,10 @@ export default function Contribute({
                 <img
                   className="upload-preview"
                   src={`/media/${reportImage}/thumbnail`}
-                  alt="Photo being reported"
+                  alt={t("contribute.reportedPhotoAlt")}
                 />
               )}
-              <label htmlFor="reason">Reason</label>
+              <label htmlFor="reason">{t("contribute.reason")}</label>
               <select
                 id="reason"
                 name="reason"
@@ -439,44 +451,32 @@ export default function Contribute({
               </select>
               <EvidenceFields required={false} />
               {!reportImage && (
-                <p className="small muted">
-                  Choose “Doesn’t belong on VeganAlts” if the product is not
-                  intended to imitate an animal-based original, or a mix lacks a
-                  manufacturer-supported vegan preparation. Use “wrong category”
-                  if the product belongs here but is in the wrong food.
-                </p>
+                <p className="small muted">{t("contribute.reportHint")}</p>
               )}
-              <p className="small muted">
-                Ingredient concerns receive priority. A report does not change
-                product facts until an operator assesses it. Repeated reports
-                update your evidence and count once.
-              </p>
+              <p className="small muted">{t("contribute.reportNote")}</p>
               <button className="button" disabled={action.busy}>
-                Submit report
+                {t("contribute.submitReport")}
               </button>
             </form>
           )}
           {tab === "retailer" && (
             <>
-              <h2>Commonly found at</h2>
-              <p>
-                Share where this product is commonly sold in {countryName}. This
-                does not indicate live inventory.
-              </p>
+              <h2>{t("contribute.foundAt")}</h2>
+              <p>{t("contribute.foundAtIntro", { country: countryName })}</p>
               <div className="button-row">
                 <button
                   className="button secondary"
                   aria-pressed={!newRetailer}
                   onClick={() => setNewRetailer(false)}
                 >
-                  Choose a retailer
+                  {t("contribute.chooseRetailer")}
                 </button>
                 <button
                   className="button secondary"
                   aria-pressed={newRetailer}
                   onClick={() => setNewRetailer(true)}
                 >
-                  Propose a retailer
+                  {t("contribute.proposeRetailer")}
                 </button>
               </div>
               <form
@@ -486,7 +486,9 @@ export default function Contribute({
               >
                 {newRetailer ? (
                   <>
-                    <label htmlFor="retailer-name">Retailer name</label>
+                    <label htmlFor="retailer-name">
+                      {t("contribute.retailerName")}
+                    </label>
                     <input
                       id="retailer-name"
                       name="retailerName"
@@ -495,7 +497,7 @@ export default function Contribute({
                       maxLength={160}
                     />
                     <label htmlFor="retailer-url">
-                      Official retailer website
+                      {t("contribute.retailerSite")}
                     </label>
                     <input
                       id="retailer-url"
@@ -506,7 +508,7 @@ export default function Contribute({
                       placeholder="https://"
                     />
                     <label htmlFor="retailer-aliases">
-                      Other names (optional, separated by commas)
+                      {t("common.aliasesLabel")}
                     </label>
                     <input
                       id="retailer-aliases"
@@ -514,7 +516,7 @@ export default function Contribute({
                       maxLength={1000}
                     />
                     <label htmlFor="retailer-note">
-                      Why should this retailer be added?
+                      {t("contribute.retailerWhy")}
                     </label>
                     <textarea
                       id="retailer-note"
@@ -524,64 +526,66 @@ export default function Contribute({
                       required
                     />
                     <p className="small muted">
-                      An operator checks its identity and country before it
-                      becomes selectable.
+                      {t("contribute.retailerCheck")}
                     </p>
                   </>
                 ) : (
                   <>
-                    <label htmlFor="retailer-search">Find a retailer</label>
+                    <label htmlFor="retailer-search">
+                      {t("contribute.findRetailer")}
+                    </label>
                     <input
                       id="retailer-search"
                       type="search"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search names and aliases"
+                      placeholder={t("contribute.searchPlaceholder")}
                     />
-                    <label htmlFor="retailer">Canonical retailer</label>
+                    <label htmlFor="retailer">
+                      {t("contribute.canonicalRetailer")}
+                    </label>
                     <select
                       id="retailer"
                       name="retailer"
                       required
                       defaultValue=""
                     >
-                      <option value="">Select a retailer</option>
+                      <option value="">{t("contribute.selectRetailer")}</option>
                       {retailers.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.name}
                         </option>
                       ))}
                     </select>
-                    <label htmlFor="stance">Your experience</label>
+                    <label htmlFor="stance">{t("contribute.experience")}</label>
                     <select id="stance" name="stance">
-                      <option value="confirm">I have seen it sold here</option>
+                      <option value="confirm">
+                        {t("contribute.seenHere")}
+                      </option>
                       <option value="not_current">
-                        I believe this relationship is no longer current
+                        {t("contribute.notCurrent")}
                       </option>
                     </select>
-                    <p className="small muted">
-                      One current stance is kept per person. Confirming again
-                      refreshes its date; it does not increase your weight. An
-                      operator decides whether to remove a relationship.
-                    </p>
+                    <p className="small muted">{t("contribute.stanceNote")}</p>
                   </>
                 )}
                 <button className="button" disabled={action.busy}>
                   {newRetailer
-                    ? "Submit retailer proposal"
-                    : "Save availability"}
+                    ? t("contribute.submitRetailer")
+                    : t("contribute.saveAvailability")}
                 </button>
               </form>
             </>
           )}
           {tab === "change" && (
             <form className="community-form" onSubmit={saveChange}>
-              <h2>{administrator ? "Edit product" : "Suggest a change"}</h2>
+              <h2>
+                {administrator
+                  ? t("contribute.editProduct")
+                  : t("contribute.suggestChange")}
+              </h2>
               {administrator && (
-                <p className="notice">
-                  Saved changes apply immediately, with no review. Each one is
-                  recorded in Decision history and can be reversed.
-                </p>
+                <p className="notice">{t("contribute.adminNotice")}</p>
               )}
               {administrator && (
                 <ProductEditSummary
@@ -597,8 +601,8 @@ export default function Contribute({
               )}
               <label htmlFor="change-kind">
                 {administrator
-                  ? "What do you want to change?"
-                  : "What changed?"}
+                  ? t("contribute.whatToChange")
+                  : t("contribute.whatChanged")}
               </label>
               <select
                 id="change-kind"
@@ -611,67 +615,52 @@ export default function Contribute({
                 {kinds.map((k) => (
                   <option key={k} value={k}>
                     {k === "classification" && unchecked
-                      ? "Check the ingredients"
+                      ? t("contribute.checkIngredients")
                       : labels[k]}
                   </option>
                 ))}
               </select>
               {kind === "classification" && unchecked && (
-                <p className="notice">
-                  Ingredients not checked yet. Choose the ingredients photo you
-                  checked and what it shows. Another member confirms it, and any
-                  disagreement goes to a moderator.
-                </p>
+                <p className="notice">{t("safety.uncheckedChoose")}</p>
               )}
               {kind === "reformulation" && (
-                <p className="notice">
-                  A material ingredient or formula change starts a new current
-                  formula. Previous ratings, comments and evidence stay in
-                  history.
-                </p>
+                <p className="notice">{t("contribute.noticeReformulation")}</p>
               )}
               {kind === "packaging" && (
-                <p className="notice">
-                  Packaging-only changes keep the same formula and ratings.
-                  Attach a photo of the updated packaging.
-                </p>
+                <p className="notice">{t("contribute.noticePackaging")}</p>
               )}
               {kind === "discontinue" && (
-                <p className="notice">
-                  Accepted discontinuation removes active discovery and ranking
-                  eligibility. The product and formula history stay readable.
-                </p>
+                <p className="notice">{t("contribute.noticeDiscontinue")}</p>
               )}
               {kind === "reintroduce" && (
                 <label className="checkbox-label">
                   <input type="checkbox" name="sameFormula" />
-                  Evidence establishes that this is the same formula as before.
-                  Explain the equivalence below.
+                  {t("contribute.sameFormula")}
                 </label>
               )}
               {(kind === "reformulation" || kind === "reintroduce") && (
                 <>
-                  <label htmlFor="version-label">Formula label</label>
+                  <label htmlFor="version-label">
+                    {t("contribute.formulaLabel")}
+                  </label>
                   <input
                     id="version-label"
                     name="versionLabel"
                     required
                     minLength={2}
                     maxLength={160}
-                    placeholder="e.g. 2026 recipe"
+                    placeholder={t("contribute.formulaPlaceholder")}
                   />
                   <label htmlFor="effective-date">
-                    Approximate effective date (optional)
+                    {t("contribute.effectiveDate")}
                   </label>
                   <input
                     id="effective-date"
                     name="effectiveDate"
                     pattern="[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?"
-                    placeholder="2026, 2026-09, or 2026-09-15"
+                    placeholder={t("contribute.datePlaceholder")}
                   />
-                  <p className="small muted">
-                    Use only the precision supported by your evidence.
-                  </p>
+                  <p className="small muted">{t("contribute.precision")}</p>
                 </>
               )}
               {["classification", "reformulation", "reintroduce"].includes(
@@ -679,7 +668,7 @@ export default function Contribute({
               ) && (
                 <>
                   <label htmlFor="vegan-status">
-                    Proposed platform classification
+                    {t("contribute.proposedClassification")}
                   </label>
                   <select
                     id="vegan-status"
@@ -687,14 +676,14 @@ export default function Contribute({
                     defaultValue={product.veganStatus}
                   >
                     <option value="appears_plant_based">
-                      Appears plant-based
+                      {t("safety.optAppearsPlantBased")}
                     </option>
-                    <option value="vegan">
-                      Vegan — requires operator verification
+                    <option value="vegan">{t("safety.optVegan")}</option>
+                    <option value="plant_based">
+                      {t("safety.optPlantBased")}
                     </option>
-                    <option value="plant_based">Plant-based</option>
                     <option value="under_review">
-                      Under review — ingredient concern
+                      {t("safety.optUnderReview")}
                     </option>
                   </select>
                   <ManufacturerField value={product.manufacturerLabel} />
@@ -702,7 +691,7 @@ export default function Contribute({
                     unchecked &&
                     (labelPhotos.length ? (
                       <fieldset>
-                        <legend>The photo you checked</legend>
+                        <legend>{t("contribute.photoChecked")}</legend>
                         {labelPhotos.map((photo, index) => (
                           <label className="checkbox-label" key={photo.id}>
                             <input
@@ -712,29 +701,28 @@ export default function Contribute({
                               defaultChecked={index === 0}
                             />
                             {photo.slot === "ingredients"
-                              ? "Ingredients photo"
-                              : "Nutrition and allergens photo"}
+                              ? t("community.slotIngredients")
+                              : t("contribute.nutritionAllergensPhoto")}
                           </label>
                         ))}
                       </fieldset>
                     ) : (
                       <p className="small muted">
-                        This product has no ingredients photo yet.{" "}
+                        {t("contribute.noIngredientsPhoto")}{" "}
                         <button
                           type="button"
                           className="link-button"
                           onClick={() => setTab("photo")}
                         >
-                          Add one first
+                          {t("contribute.addOneFirst")}
                         </button>{" "}
-                        so another member can confirm your check; without it a
-                        moderator reviews it.
+                        {t("contribute.addOneAfter")}
                       </p>
                     ))}
                   <fieldset>
-                    <legend>Third-party certification (optional)</legend>
+                    <legend>{t("contribute.certification")}</legend>
                     <label htmlFor="certification-name">
-                      Certification name
+                      {t("contribute.certificationName")}
                     </label>
                     <input
                       id="certification-name"
@@ -742,7 +730,7 @@ export default function Contribute({
                       maxLength={160}
                     />
                     <label htmlFor="certification-url">
-                      Certification evidence URL
+                      {t("contribute.certificationUrl")}
                     </label>
                     <input
                       id="certification-url"
@@ -756,7 +744,9 @@ export default function Contribute({
               )}
               {kind === "relationships" && (
                 <>
-                  <label htmlFor="change-family">Recipe line</label>
+                  <label htmlFor="change-family">
+                    {t("contribute.recipeLine")}
+                  </label>
                   <select
                     id="change-family"
                     name="family"
@@ -768,35 +758,42 @@ export default function Contribute({
                       (line) => line.lineId === product.familyId,
                     ) && (
                       <option value={product.familyId ?? ""}>
-                        {product.lineName ?? product.name} (its line now)
+                        {t("contribute.itsLineNow", {
+                          name: product.lineName ?? product.name,
+                        })}
                       </option>
                     )}
                     {lines.map((line) => (
                       <option key={line.lineId} value={line.lineId}>
-                        {line.name} ({line.flavors.length}{" "}
-                        {line.flavors.length === 1 ? "flavor" : "flavors"})
+                        {t("contribute.lineFlavors", {
+                          name: line.name,
+                          count: line.flavors.length,
+                        })}
                       </option>
                     ))}
                   </select>
-                  <p className="small muted">
-                    Flavors of one base recipe share a line and one ranking. An
-                    operator reviews a move to another line.
-                  </p>
+                  <p className="small muted">{t("contribute.lineNote")}</p>
                   <CatalogSelect
                     id="change-related"
                     name="related"
-                    label="Related product (optional)"
+                    label={t("contribute.relatedProduct")}
                     kind="products"
                     options={options.products}
                     excludeId={product.id}
                   />
-                  <label htmlFor="change-relation">Relationship</label>
+                  <label htmlFor="change-relation">
+                    {t("contribute.relationship")}
+                  </label>
                   <select id="change-relation" name="relationship">
-                    <option value="companion">Companion</option>
-                    <option value="successor">Successor</option>
+                    <option value="companion">
+                      {t("contribute.companion")}
+                    </option>
+                    <option value="successor">
+                      {t("contribute.successor")}
+                    </option>
                   </select>
                   <fieldset>
-                    <legend>Ranked for these foods</legend>
+                    <legend>{t("contribute.rankedFor")}</legend>
                     {product.categories.map((c) => (
                       <label className="checkbox-label" key={c.categoryId}>
                         <input
@@ -807,10 +804,7 @@ export default function Contribute({
                         {product.categoryNames[c.categoryId] ?? c.categoryId}
                       </label>
                     ))}
-                    <p className="small muted">
-                      Leave a flavor out of foods where ranking it would
-                      mislead. Existing ratings are kept.
-                    </p>
+                    <p className="small muted">{t("contribute.rankedNote")}</p>
                   </fieldset>
                 </>
               )}
@@ -836,9 +830,11 @@ export default function Contribute({
               {kind === "allergens" && <AllergenFields product={product} />}
               {kind === "retailer_status" && (
                 <>
-                  <label htmlFor="change-retailer">Relationship</label>
+                  <label htmlFor="change-retailer">
+                    {t("contribute.relationship")}
+                  </label>
                   <select id="change-retailer" name="retailer" required>
-                    <option value="">Choose a retailer</option>
+                    <option value="">{t("contribute.chooseRetailer")}</option>
                     {product.retailers.map((r) => (
                       <option key={r.retailerId} value={r.retailerId}>
                         {options.retailers.find(
@@ -847,19 +843,25 @@ export default function Contribute({
                       </option>
                     ))}
                   </select>
-                  <label htmlFor="retailer-status">Proposed status</label>
+                  <label htmlFor="retailer-status">
+                    {t("contribute.proposedStatus")}
+                  </label>
                   <select id="retailer-status" name="status">
-                    <option value="not_current">No longer current</option>
-                    <option value="uncertain">Uncertain</option>
-                    <option value="active">Active</option>
+                    <option value="not_current">
+                      {t("contribute.statusNotCurrent")}
+                    </option>
+                    <option value="uncertain">
+                      {t("contribute.statusUncertain")}
+                    </option>
+                    <option value="active">
+                      {t("contribute.statusActive")}
+                    </option>
                   </select>
                 </>
               )}
               <EvidenceFields
                 noteLabel={
-                  administrator
-                    ? "Reason for this change (optional)"
-                    : undefined
+                  administrator ? t("contribute.reasonForChange") : undefined
                 }
                 required={!administrator}
                 reviewed={!administrator}
@@ -872,7 +874,7 @@ export default function Contribute({
                 "rename",
               ].includes(kind) && (
                 <fieldset disabled={!!receiptId}>
-                  <legend>Supporting photos</legend>
+                  <legend>{t("contribute.supportingPhotos")}</legend>
                   {(["front", "ingredients"] as const).map((slot) => (
                     <PhotoPicker
                       slot={slot}
@@ -883,19 +885,15 @@ export default function Contribute({
                       }
                     />
                   ))}
-                  <p className="small muted">
-                    Up to 10 MiB per photo. While a proposal is open for
-                    community confirmation, signed-in contributors can see its
-                    evidence; otherwise it stays private during review.
-                  </p>
+                  <p className="small muted">{t("contribute.photoLimits")}</p>
                 </fieldset>
               )}
               <button className="button" disabled={action.busy}>
                 {action.busy
-                  ? "Saving…"
+                  ? t("contribute.saving")
                   : administrator
-                    ? "Save change"
-                    : "Submit proposal for review"}
+                    ? t("contribute.saveChange")
+                    : t("contribute.submitProposal")}
               </button>
               {receiptId && action.error && (
                 <button
@@ -909,13 +907,13 @@ export default function Contribute({
                     action.clearError();
                   }}
                 >
-                  Revise photos
+                  {t("contribute.revisePhotos")}
                 </button>
               )}
               {administrator && (
                 <p>
                   <Link to={`/admin/moderation/products/${product.id}`}>
-                    Operator history and reversals →
+                    {t("contribute.history")}
                   </Link>
                 </p>
               )}

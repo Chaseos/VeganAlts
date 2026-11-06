@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import type { PublicComment } from "@server/comments/infrastructure/d1-comment-repository";
 import { reportReasons } from "@server/community/domain/contracts";
 import { dateLabel, friendly, type CommunityAction } from "../../lib/community";
+import { t } from "../../i18n";
 
 export interface OwnComment {
   id: string;
@@ -81,11 +82,13 @@ export function CommentItem({
         {comment.category && (
           <span className="comment-tag">{comment.category.name}</span>
         )}
-        {comment.editedAt && <span className="muted">Edited</span>}
+        {comment.editedAt && (
+          <span className="muted">{t("comments.edited")}</span>
+        )}
       </header>
       {hidden ? (
         <p className="comment-collapsed">
-          Collapsed after many “not useful” votes.{" "}
+          {t("comments.collapsed")}{" "}
           <button
             type="button"
             className="link-button"
@@ -93,12 +96,14 @@ export function CommentItem({
             aria-controls={`comment-body-${comment.id}`}
             onClick={() => setRevealed(true)}
           >
-            Show comment
+            {t("comments.show")}
           </button>
         </p>
       ) : editing ? (
         <form className="community-form" onSubmit={saveEdit}>
-          <label htmlFor={`edit-${comment.id}`}>Edit your comment</label>
+          <label htmlFor={`edit-${comment.id}`}>
+            {t("comments.editYours")}
+          </label>
           <textarea
             id={`edit-${comment.id}`}
             name="body"
@@ -110,14 +115,14 @@ export function CommentItem({
           />
           <div className="button-row">
             <button className="button" disabled={action.busy}>
-              Save changes
+              {t("comments.saveChanges")}
             </button>
             <button
               type="button"
               className="button secondary"
               onClick={() => setEditing(false)}
             >
-              Cancel
+              {t("comments.cancel")}
             </button>
           </div>
         </form>
@@ -130,7 +135,7 @@ export function CommentItem({
         <div
           className="vote-group"
           role="group"
-          aria-label="Was this comment useful?"
+          aria-label={t("comments.wasUseful")}
         >
           <button
             type="button"
@@ -138,7 +143,7 @@ export function CommentItem({
             disabled={!signedIn || Boolean(own) || action.busy}
             onClick={() => onVote(vote === 1 ? 0 : 1)}
           >
-            <span aria-hidden="true">▲</span> Useful{" "}
+            <span aria-hidden="true">▲</span> {t("comments.useful")}{" "}
             <span className="vote-count">{comment.upvotes}</span>
           </button>
           <button
@@ -147,7 +152,7 @@ export function CommentItem({
             disabled={!signedIn || Boolean(own) || action.busy}
             onClick={() => onVote(vote === -1 ? 0 : -1)}
           >
-            <span aria-hidden="true">▼</span> Not useful{" "}
+            <span aria-hidden="true">▼</span> {t("comments.notUseful")}{" "}
             <span className="vote-count">{comment.downvotes}</span>
           </button>
         </div>
@@ -158,17 +163,17 @@ export function CommentItem({
               className="link-button"
               onClick={() => setEditing(true)}
             >
-              Edit
+              {t("comments.edit")}
             </button>
             <button type="button" className="link-button" onClick={onDelete}>
-              Delete
+              {t("comments.delete")}
             </button>
           </>
         ) : (
           signedIn &&
           (reported ? (
             <span className="small muted" role="status">
-              Report received
+              {t("comments.reportReceived")}
             </span>
           ) : (
             <button
@@ -177,7 +182,7 @@ export function CommentItem({
               aria-expanded={reporting}
               onClick={() => setReporting((v) => !v)}
             >
-              Report
+              {t("comments.report")}
             </button>
           ))
         )}
@@ -195,7 +200,7 @@ export function CommentItem({
               setEditing(false);
             }}
           >
-            Hide comment
+            {t("comments.hide")}
           </button>
         )}
       </div>
@@ -205,12 +210,10 @@ export function CommentItem({
           className="community-form comment-report"
           onSubmit={hideComment}
         >
-          <p>
-            Hide this comment from public view? Its text and votes are
-            preserved, and you can restore it from the product’s decision
-            history.
-          </p>
-          <label htmlFor={`hide-note-${comment.id}`}>Reason for hiding</label>
+          <p>{t("comments.hideExplain")}</p>
+          <label htmlFor={`hide-note-${comment.id}`}>
+            {t("comments.hideReason")}
+          </label>
           <textarea
             id={`hide-note-${comment.id}`}
             name="note"
@@ -222,7 +225,7 @@ export function CommentItem({
           />
           <div className="button-row">
             <button className="button" disabled={action.busy}>
-              Confirm hide
+              {t("comments.confirmHide")}
             </button>
             <button
               type="button"
@@ -233,14 +236,16 @@ export function CommentItem({
                 hideButton.current?.focus();
               }}
             >
-              Cancel
+              {t("comments.cancel")}
             </button>
           </div>
         </form>
       )}
       {reporting && (
         <form className="community-form comment-report" onSubmit={saveReport}>
-          <label htmlFor={`reason-${comment.id}`}>Why report this?</label>
+          <label htmlFor={`reason-${comment.id}`}>
+            {t("comments.whyReport")}
+          </label>
           <select id={`reason-${comment.id}`} name="reason">
             {reportReasons.comment.map((reason) => (
               <option key={reason} value={reason}>
@@ -249,7 +254,7 @@ export function CommentItem({
             ))}
           </select>
           <label htmlFor={`report-note-${comment.id}`}>
-            Details (optional)
+            {t("comments.details")}
           </label>
           <textarea
             id={`report-note-${comment.id}`}
@@ -258,7 +263,7 @@ export function CommentItem({
             maxLength={2000}
           />
           <button className="button secondary" disabled={action.busy}>
-            Send report
+            {t("comments.sendReport")}
           </button>
         </form>
       )}

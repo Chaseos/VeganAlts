@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 
 interface TurnstileApi {
@@ -34,7 +35,7 @@ function loadTurnstile() {
       script.onerror = () => {
         script.remove();
         loaded = undefined;
-        reject(new Error("The security check could not load."));
+        reject(new Error(t("check.loadFailed")));
       };
       document.head.appendChild(script);
     });
@@ -70,13 +71,11 @@ export function Turnstile({
           "expired-callback": () => callback.current(""),
           "error-callback": () => {
             callback.current("");
-            setError("The check failed. Please try again.");
+            setError(t("check.failed"));
           },
         });
       })
-      .catch(() =>
-        setError("The security check could not load. Please try again."),
-      );
+      .catch(() => setError(t("check.loadRetry")));
     return () => {
       active = false;
       if (id) window.turnstile?.remove(id);

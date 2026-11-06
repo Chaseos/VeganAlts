@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { ButtonLink } from "../ui/button";
+import { t } from "../../i18n";
 
 /** A submission an operator will look at, and what happens next. */
 export function InReview({
@@ -17,35 +18,33 @@ export function InReview({
 }) {
   return (
     <div className="va-in-review">
-      <p>
-        Thanks. We check it before it goes live. Your photos stay private until
-        then.
-      </p>
-      <h3 className="va-heading-s">What happens next</h3>
+      <p>{t("addProduct.reviewThanks")}</p>
+      <h3 className="va-heading-s">{t("addProduct.whatNext")}</h3>
       <ol className="va-in-review__steps">
         <li>
           {newFood
-            ? `We check your new food “${newFood}” together with your product. That takes up to three days.`
-            : "We check the details."}
+            ? t("addProduct.checkNewFood", { name: newFood })
+            : t("addProduct.checkDetails")}
         </li>
         <li>
-          When it’s accepted, it goes live in {countryName}
-          {hasRating ? " and your rating is saved." : "."}
+          {hasRating
+            ? t("addProduct.acceptedRated", { country: countryName })
+            : t("addProduct.accepted", { country: countryName })}
         </li>
         <li>
-          You can follow it, and answer any questions, in{" "}
+          {t("addProduct.followBefore")}{" "}
           <Link to={`/my-contributions/submission/${receiptId}`}>
-            My contributions
+            {t("myContributions.title")}
           </Link>
-          .
+          {t("addProduct.followAfter")}
         </li>
       </ol>
       <div className="button-row">
         <ButtonLink to={`/my-contributions/submission/${receiptId}`}>
-          View your submission
+          {t("addProduct.viewSubmission")}
         </ButtonLink>
         <button type="button" className="button secondary" onClick={onAnother}>
-          Add another product
+          {t("addProduct.addAnother")}
         </button>
       </div>
     </div>

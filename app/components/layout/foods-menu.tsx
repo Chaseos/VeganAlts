@@ -17,6 +17,7 @@ import {
 } from "../../lib/navigation-groups";
 import { useHydrated } from "../../lib/use-hydrated";
 import { useMediaQuery } from "../../lib/use-media-query";
+import { t } from "../../i18n";
 
 // Hover intent: a pointer crossing the button on its way elsewhere doesn't
 // open the menu, and one leaving it briefly doesn't close it.
@@ -86,7 +87,7 @@ export function FoodsMenu() {
   const label = (
     <>
       <Icon name="grid" size={18} className="va-tag-icon" />
-      <span>Foods</span>
+      <span>{t("foods.label")}</span>
       <Icon name="chevronDown" size={12} strokeWidth={3} />
     </>
   );
@@ -179,12 +180,15 @@ export function FoodsMenu() {
           id="foods-menu"
           className="va-foods-menu"
           role="region"
-          aria-label="Foods"
+          aria-label={t("foods.label")}
         >
           <div className="va-foods-menu__inner">
             <div className="va-foods-menu__categories">
-              <h2 className="va-overline">Categories</h2>
-              <ul className="va-foods-menu__aisles" aria-label="Categories">
+              <h2 className="va-overline">{t("aisles.categories")}</h2>
+              <ul
+                className="va-foods-menu__aisles"
+                aria-label={t("aisles.categories")}
+              >
                 {groups.map((group, index) => {
                   const isShown = group.id === shown?.id;
                   return (

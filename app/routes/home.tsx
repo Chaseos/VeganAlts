@@ -21,7 +21,9 @@ import { BROWSE_AISLE_FOODS } from "@server/ranking/domain/display";
 import type { Season } from "@server/taxonomy/domain/season";
 import { ButtonLink } from "../components/ui/button";
 import { publicMetadata, countryAlternates } from "../lib/metadata";
-import { formatCount, plural, shortDate, productName } from "../lib/format";
+import { counted } from "../lib/counted";
+import { formatCount, shortDate, productName } from "../lib/format";
+import { t } from "../i18n";
 import { POPULAR_AISLE_COUNT } from "../lib/aisles";
 import type { SuggestedFood } from "../lib/instant-search";
 import {
@@ -48,9 +50,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return [
     ...publicMetadata(
       market && market.code !== "us"
-        ? `Find the closest vegan alternative in ${market.name}`
-        : "Find the closest vegan alternative",
-      "Search a food you already buy and see the vegan products people say come closest, ranked.",
+        ? t("home.metaTitleIn", { country: market.name })
+        : t("home.metaTitle"),
+      t("home.metaDescription"),
       homePath(market?.code ?? "us"),
       loaderData?.origin ?? "https://veganalts.com",
       loaderData?.staging ?? true,
@@ -99,17 +101,15 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
             aria-labelledby="home-title"
           >
             <p className="va-home-hero__eyebrow">
-              {plural(home.counts.foods, "food")} ·{" "}
-              {formatCount(home.counts.products)} vegan products, rated by
-              people who’ve tried them
+              {t("home.eyebrow", {
+                foods: counted("count.food", home.counts.foods),
+                products: formatCount(home.counts.products),
+              })}
             </p>
             <h1 id="home-title" className="va-home-hero__title">
-              What do you want to swap?
+              {t("home.heroTitle")}
             </h1>
-            <p className="va-home-hero__lede">
-              Search a food you already buy. You’ll see the vegan products
-              people say come closest, ranked.
-            </p>
+            <p className="va-home-hero__lede">{t("home.heroLede")}</p>
             <InstantSearch
               country={code}
               variant="hero"
@@ -118,7 +118,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
             />
             {home.tryFoods.length > 0 && (
               <p className="va-home-hero__try">
-                <span>Try</span>
+                <span>{t("home.try")}</span>
                 {home.tryFoods.slice(0, 5).map((food) => (
                   <Link
                     key={food.slug}
@@ -152,10 +152,10 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
             >
               <div className="va-home__card-head">
                 <h2 id="trending-title" className="va-heading-s">
-                  Trending now
+                  {t("home.trending")}
                 </h2>
                 <span className="va-small va-muted">
-                  Rising this quarter · never changes rankings
+                  {t("home.trendingNote")}
                 </span>
               </div>
               <ol className="va-trending">
@@ -175,10 +175,16 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                           {productName(product.name, product.brand)}
                         </span>
                         <span className="va-small va-muted">
-                          For {product.foodName.toLowerCase()} ·{" "}
-                          {product.recentRatingCount > 0
-                            ? `${plural(product.recentRatingCount, "person", "people")} this week`
-                            : "rising this quarter"}
+                          {t("home.trendingMeta", {
+                            food: product.foodName.toLowerCase(),
+                            detail:
+                              product.recentRatingCount > 0
+                                ? counted(
+                                    "count.personThisWeek",
+                                    product.recentRatingCount,
+                                  )
+                                : t("ranking.rising"),
+                          })}
                         </span>
                       </span>
                       {product.bayesianScore !== null &&
@@ -201,10 +207,10 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
             >
               <div className="va-home__card-head">
                 <h2 id="new-title" className="va-heading-s">
-                  New and needs ratings
+                  {t("home.newTitle")}
                 </h2>
                 <span className="va-small va-muted">
-                  Added in the last {home.newDays} days
+                  {t("home.newNote", { days: home.newDays })}
                 </span>
               </div>
               <ul className="va-divided">
@@ -212,7 +218,9 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                   <li key={product.id} className="va-new-row">
                     <Link
                       to={productPath(code, product.slug, product.foodSlug)}
-                      aria-label={`View ${productName(product.name, product.brand)}`}
+                      aria-label={t("ranking.view", {
+                        name: productName(product.name, product.brand),
+                      })}
                     >
                       <ProductThumbnail
                         imageId={product.imageId}
@@ -231,11 +239,13 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                         {product.ratingCount > 0 ? (
                           <EarlyBadge count={product.ratingCount} />
                         ) : (
-                          <strong>No ratings yet</strong>
+                          <strong>{t("ranking.noRatingsYet")}</strong>
                         )}
                         <span>
-                          For {product.foodName.toLowerCase()} · added{" "}
-                          {shortDate(product.publishedAt ?? 0)}
+                          {t("home.newMeta", {
+                            food: product.foodName.toLowerCase(),
+                            date: shortDate(product.publishedAt ?? 0),
+                          })}
                         </span>
                       </span>
                     </span>
@@ -244,9 +254,11 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                       small
                       to={`${productPath(code, product.slug, product.foodSlug)}#scores-title`}
                     >
-                      Rate it
+                      {t("ranking.rateIt")}
                       <span className="sr-only">
-                        : {productName(product.name, product.brand)}
+                        {t("ranking.nameSuffix", {
+                          name: productName(product.name, product.brand),
+                        })}
                       </span>
                     </ButtonLink>
                   </li>
@@ -263,14 +275,11 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
           >
             <div className="va-home__waiting-intro">
               <h2 id="waiting-title" className="va-heading-s">
-                Still waiting for a great swap
+                {t("home.waitingTitle")}
               </h2>
-              <p className="va-muted">
-                The best option for these foods scores under 3.5, or nothing is
-                ranked yet. Know a better one? Add it and it joins the ranking.
-              </p>
+              <p className="va-muted">{t("home.waitingBody")}</p>
               <ButtonLink small to={`/add-product?country=${code}`}>
-                Add a product
+                {t("menu.addProduct")}
               </ButtonLink>
             </div>
             <ul className="va-home__waiting-list">
@@ -281,7 +290,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                     food={leader.food}
                     best={leader.best}
                     neutral
-                    prefix="Best so far: "
+                    bestSoFar
                   />
                 </li>
               ))}
@@ -316,16 +325,14 @@ function BrowseAisles({
     >
       <div className="va-home__heading">
         <h2 id="browse-title" className="va-home__title">
-          Popular categories
+          {t("footer.popular")}
         </h2>
         <p className="va-muted">
-          {empty
-            ? "Open a food to add the first product people can rate here."
-            : "Each food shows its closest swap."}
+          {empty ? t("home.openFood") : t("home.closestSwap")}
         </p>
       </div>
       <Link className="va-link va-browse__all" to={searchPath(country)}>
-        Browse all categories <Icon name="arrowRight" size={16} />
+        {t("nav.browseAll")} <Icon name="arrowRight" size={16} />
       </Link>
       {/* Phones: an accordion of aisles. Desktop: popular aisles in columns. */}
       <ul className="va-browse va-browse--phone">
@@ -360,11 +367,11 @@ function BrowseAisles({
         ))}
       </ul>
       <p className="va-home__suggest">
-        Don’t see the food you’re replacing?{" "}
+        {t("home.suggestLead")}{" "}
         <Link className="va-link" to={`/propose-category?country=${country}`}>
-          Suggest a food
+          {t("nav.suggestFood")}
         </Link>{" "}
-        and it gets its own ranking.
+        {t("home.suggestTail")}
       </p>
     </section>
   );
@@ -377,7 +384,7 @@ function AisleTitle({ aisle }: { aisle: Aisle }) {
       </span>
       <span className="va-browse__name">{aisle.name}</span>
       <span className="va-browse__count">
-        {plural(aisle.foodCount, "food")}
+        {counted("count.food", aisle.foodCount)}
       </span>
     </>
   );
@@ -405,9 +412,7 @@ function AisleFoods({
               best={food.best}
               // A food with an unrated product isn't waiting for one.
               missing={
-                empty && !food.productCount
-                  ? "Be the first to add one"
-                  : undefined
+                empty && !food.productCount ? t("home.firstToAdd") : undefined
               }
             />
           </li>
@@ -418,7 +423,10 @@ function AisleFoods({
           className="va-link va-browse__more"
           to={foodPath(country, aisle.slug)}
         >
-          See all {aisle.foods.length} {aisle.name.toLowerCase()} foods
+          {t("home.seeAllFoods", {
+            count: aisle.foods.length,
+            aisle: aisle.name.toLowerCase(),
+          })}
           <Icon name="arrowRight" size={14} />
         </Link>
       )}
@@ -440,11 +448,9 @@ function StartWithThese({
       aria-live="off"
     >
       <h2 id="start-title" className="va-heading-s">
-        New to this? Start with these
+        {t("home.startTitle")}
       </h2>
-      <p className="va-muted">
-        The closest matches on the site, so the switch barely registers.
-      </p>
+      <p className="va-muted">{t("home.startBody")}</p>
       <ol className="va-divided">
         {leaders.map((leader) => (
           <li key={leader.food.slug}>
@@ -469,7 +475,7 @@ function StartRow({ country, leader }: { country: string; leader: Leader }) {
       )}
       <span className="va-row-link__text">
         <span className="va-small va-muted">
-          Instead of {leader.food.name.toLowerCase()}
+          {t("home.insteadOf", { food: leader.food.name.toLowerCase() })}
         </span>
         <span className="va-row-link__title va-row-link__title--large">
           {leader.best && productName(leader.best.name, leader.best.brand)}
@@ -492,14 +498,14 @@ function FoodRow({
   food,
   best,
   neutral = false,
-  prefix = "",
-  missing = "No ranked swaps yet",
+  bestSoFar = false,
+  missing = t("search.noRanked"),
 }: {
   country: string;
   food: { slug: string; name: string; season?: Season | null };
   best: Leader["best"];
   neutral?: boolean;
-  prefix?: string;
+  bestSoFar?: boolean;
   // What the row says when nothing is ranked.
   missing?: string;
 }) {
@@ -524,7 +530,13 @@ function FoodRow({
           )}
         </span>
         <span className="va-small va-muted">
-          {best ? `${prefix}${productName(best.name, best.brand)}` : missing}
+          {best
+            ? bestSoFar
+              ? t("home.bestSoFar", {
+                  name: productName(best.name, best.brand),
+                })
+              : productName(best.name, best.brand)
+            : missing}
         </span>
         {best?.trending && (
           <span className="va-chip-row">
@@ -554,13 +566,13 @@ function FoodPreview({
   return (
     <section
       className="va-home-panel"
-      aria-label={`Top swaps for ${food.name}`}
+      aria-label={t("home.topSwapsForName", { name: food.name })}
     >
       <div>
-        <p className="va-small va-muted">Top swaps for</p>
+        <p className="va-small va-muted">{t("home.topSwapsFor")}</p>
         <h2 className="va-heading-m">{food.name}</h2>
         <p className="va-small va-muted">
-          {[food.aisle, plural(food.rankedCount, "ranked swap")]
+          {[food.aisle, counted("count.rankedSwap", food.rankedCount)]
             .filter(Boolean)
             .join(" · ")}
         </p>
@@ -582,7 +594,9 @@ function FoodPreview({
               <span className="va-truncate">
                 {productName(product.name, product.brand)}
               </span>
-              {product.early && <Badge tone="early">Early</Badge>}
+              {product.early && (
+                <Badge tone="early">{t("badge.earlyShort")}</Badge>
+              )}
               <ScoreLabel
                 value={product.score}
                 size="compact"
@@ -592,16 +606,16 @@ function FoodPreview({
           ))}
         </ol>
       ) : (
-        <p className="va-muted">No ranked swaps yet.</p>
+        <p className="va-muted">{t("aisle.noRanked")}</p>
       )}
       <ButtonLink to={foodPath(country, food.slug)}>
         {food.rankedCount
-          ? `See all ${plural(food.rankedCount, `${food.name.toLowerCase()} swap`)}`
-          : `Open ${food.name.toLowerCase()}`}
+          ? counted("home.seeAllSwaps", food.rankedCount, {
+              food: food.name.toLowerCase(),
+            })
+          : t("home.open", { food: food.name.toLowerCase() })}
       </ButtonLink>
-      <p className="va-small va-muted">
-        Point at another food in the list to preview it.
-      </p>
+      <p className="va-small va-muted">{t("home.pointAt")}</p>
     </section>
   );
 }
@@ -613,22 +627,18 @@ function EmptyCountry({ name, code }: { name: string; code: string }) {
     <section className="va-empty-country" aria-labelledby="empty-country-title">
       <p className="eyebrow">{name}</p>
       <h1 id="empty-country-title" className="va-display-l">
-        No rankings in {name} yet
+        {t("home.noRankings", { name })}
       </h1>
-      <p className="va-body-l">
-        Rankings here come from people who live in {name}. Add a vegan product
-        you buy, or suggest a food it replaces, and it gets its own ranking once
-        people rate it.
-      </p>
+      <p className="va-body-l">{t("home.noRankingsBody", { name })}</p>
       <div className="button-row">
         <ButtonLink to={`/add-product?country=${code}`}>
-          Add the first product
+          {t("home.addFirst")}
         </ButtonLink>
         <ButtonLink
           to={`/propose-category?country=${code}`}
           variant="secondary"
         >
-          Suggest a food
+          {t("nav.suggestFood")}
         </ButtonLink>
       </div>
     </section>

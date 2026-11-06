@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigation, useNavigationType } from "react-router";
 
@@ -104,7 +105,7 @@ export function NavigationFeedback() {
         </div>
       )}
       <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {pending ? "Loading page…" : message}
+        {pending ? t("nav.loadingPage") : message}
       </p>
     </>
   );

@@ -2,8 +2,9 @@ import { useRef, useState } from "react";
 import type { ImageSlot } from "@server/media/domain/media";
 import { shrinkPhoto } from "../../lib/shrink-photo";
 import { usePersonalState } from "../personal-state";
-import { SLOT_LABELS } from "../photo-slots";
+import { IMAGE_SLOTS, slotLabel } from "../photo-slots";
 import { Notice } from "../ui/feedback";
+import { t } from "../../i18n";
 import {
   rotatedPhoto,
   uploadProductPhoto,
@@ -39,9 +40,7 @@ export function ProductPhotoAdmin({
       setStatus(done);
     } catch (failure) {
       setError(
-        failure instanceof Error
-          ? failure.message
-          : "The photo couldn’t be saved.",
+        failure instanceof Error ? failure.message : t("photoAdmin.saveFailed"),
       );
     } finally {
       setBusy(false);
@@ -49,13 +48,13 @@ export function ProductPhotoAdmin({
   }
   return (
     <details className="va-gallery__manage">
-      <summary>Manage photos</summary>
+      <summary>{t("photoAdmin.manage")}</summary>
       <ul className="va-photo-admin">
-        {(Object.keys(SLOT_LABELS) as ImageSlot[]).map((slot) => {
+        {IMAGE_SLOTS.map((slot) => {
           const image = images.find((i) => i.slot === slot);
-          const label = SLOT_LABELS[slot];
+          const label = slotLabel(slot);
           const rotate = (direction: "left" | "right") =>
-            void change(slot, `${label} photo rotated.`, () =>
+            void change(slot, t("photoAdmin.rotated", { slot: label }), () =>
               rotatedPhoto(
                 `/media/${image!.id}/${image!.hasEvidence ? "evidence" : "full"}`,
                 slot,
@@ -82,30 +81,36 @@ export function ProductPhotoAdmin({
                       type="button"
                       className="button secondary small-button"
                       disabled={busy}
-                      aria-label={`Rotate ${label} photo left`}
+                      aria-label={t("photoAdmin.rotateLeftLabel", {
+                        slot: label,
+                      })}
                       onClick={() => rotate("left")}
                     >
-                      Rotate left
+                      {t("photoAdmin.rotateLeft")}
                     </button>
                     <button
                       type="button"
                       className="button secondary small-button"
                       disabled={busy}
-                      aria-label={`Rotate ${label} photo right`}
+                      aria-label={t("photoAdmin.rotateRightLabel", {
+                        slot: label,
+                      })}
                       onClick={() => rotate("right")}
                     >
-                      Rotate right
+                      {t("photoAdmin.rotateRight")}
                     </button>
                   </>
                 )}
                 <ChoosePhoto
-                  action={image ? "Replace" : "Add"}
+                  action={image ? "replace" : "add"}
                   label={label}
                   disabled={busy}
                   onChoose={(file) =>
                     void change(
                       slot,
-                      `${label} photo ${image ? "replaced" : "added"}.`,
+                      t(image ? "photoAdmin.replaced" : "photoAdmin.added", {
+                        slot: label,
+                      }),
                       () => shrinkPhoto(file),
                     )
                   }
@@ -116,10 +121,10 @@ export function ProductPhotoAdmin({
         })}
       </ul>
       <p role="status" className="small">
-        {busy ? "Saving photo…" : status}
+        {busy ? t("photoAdmin.saving") : status}
       </p>
       {error && (
-        <Notice tone="error" role="alert" title="Photo not saved">
+        <Notice tone="error" role="alert" title={t("photoAdmin.notSaved")}>
           {error}
         </Notice>
       )}
@@ -133,7 +138,7 @@ function ChoosePhoto({
   disabled,
   onChoose,
 }: {
-  action: string;
+  action: "replace" | "add";
   label: string;
   disabled: boolean;
   onChoose: (file: File) => void;
@@ -145,16 +150,21 @@ function ChoosePhoto({
         type="button"
         className="button secondary small-button"
         disabled={disabled}
-        aria-label={`${action} ${label} photo`}
+        aria-label={t(
+          action === "replace"
+            ? "photoAdmin.replaceLabel"
+            : "photoAdmin.addLabel",
+          { slot: label },
+        )}
         onClick={() => input.current?.click()}
       >
-        {action}
+        {action === "replace" ? t("photoAdmin.replace") : t("photoAdmin.add")}
       </button>
       <input
         ref={input}
         type="file"
         accept="image/jpeg,image/png,image/webp"
-        aria-label={`Photo file: ${label}`}
+        aria-label={t("photoAdmin.file", { slot: label })}
         hidden
         onChange={(event) => {
           const file = event.target.files?.[0];

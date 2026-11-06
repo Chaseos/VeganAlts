@@ -1,4 +1,5 @@
 import { formatScore } from "../../lib/format";
+import { t } from "../../i18n";
 
 export type ScoreSize = "large" | "medium" | "compact" | "mini";
 
@@ -30,7 +31,7 @@ export function ScoreLabel({
   return size === "large" || size === "medium" ? (
     <span className={classes}>
       <span className="va-score__value">{score}</span>
-      <span className="va-score__unit">out of 5</span>
+      <span className="va-score__unit">{t("score.outOf5")}</span>
     </span>
   ) : (
     <span className={classes}>
@@ -38,7 +39,7 @@ export function ScoreLabel({
       <span className="va-score__unit" aria-hidden="true">
         /5
       </span>
-      <span className="sr-only"> out of 5</span>
+      <span className="sr-only"> {t("score.outOf5")}</span>
     </span>
   );
 }

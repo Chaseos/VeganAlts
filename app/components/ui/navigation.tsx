@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
+import { t } from "../../i18n";
 
 export function Breadcrumb({
   items,
@@ -7,7 +8,7 @@ export function Breadcrumb({
   items: { label: string; to?: string }[];
 }) {
   return (
-    <nav className="va-breadcrumb" aria-label="Breadcrumb">
+    <nav className="va-breadcrumb" aria-label={t("nav.breadcrumb")}>
       <ol>
         {items.map((item, index) => (
           <Fragment key={`${item.label}-${index}`}>
@@ -38,7 +39,7 @@ export function Pagination({
   page,
   hasNext,
   parameter = "page",
-  label = "Rankings",
+  label = t("nav.rankings"),
 }: {
   page: number;
   hasNext: boolean;
@@ -54,26 +55,26 @@ export function Pagination({
   };
   if (page === 1 && !hasNext) return null;
   return (
-    <nav className="pagination" aria-label={`${label} pages`}>
+    <nav className="pagination" aria-label={t("nav.pages", { label })}>
       {page > 1 ? (
         <Link
           className="button secondary"
           to={destination(page - 1)}
           rel="prev"
         >
-          Previous
+          {t("nav.previous")}
         </Link>
       ) : (
         <span />
       )}
-      <span className="va-small va-muted">Page {page}</span>
+      <span className="va-small va-muted">{t("nav.page", { page })}</span>
       {hasNext && page < 100 ? (
         <Link
           className="button secondary"
           to={destination(page + 1)}
           rel="next"
         >
-          Next
+          {t("nav.next")}
         </Link>
       ) : (
         <span />
