@@ -305,6 +305,16 @@ it("undoes an accepted food with no products", async () => {
   await expect(
     taxonomy.undoAutomatic(actor, id(), proposal, NOTE),
   ).rejects.toThrow("no longer");
+  // Someone can suggest it again, and it gets its address back.
+  const again = await w.suggest(food.name);
+  await w.service.sweep();
+  const second = await w.row(again);
+  expect(second).toMatchObject({ status: "accepted" });
+  expect(second!.food).not.toBe(accepted!.food);
+  const address = await env.DB.prepare("SELECT slug FROM categories WHERE id=?")
+    .bind(second!.food)
+    .first("slug");
+  expect(address).toBe(food.text.slug);
 });
 
 it("undoes an automatic alias", async () => {
@@ -376,7 +386,11 @@ it("keeps one open report per person, and an operator closes it", async () => {
     ).bind(user, user),
   ]);
   const taxonomy = taxonomyServices(testEnv, id);
-  const actor = { id: user, administrator: false, accountState: "active" } as never;
+  const actor = {
+    id: user,
+    administrator: false,
+    accountState: "active",
+  } as never;
   const report = (reason: string) =>
     taxonomy.reportFood(actor, {
       food: "ground-beef",
@@ -385,7 +399,11 @@ it("keeps one open report per person, and an operator closes it", async () => {
     });
   await report("wrong_name");
   await report("duplicate_food");
-  const admin = { id: user, administrator: true, accountState: "active" } as never;
+  const admin = {
+    id: user,
+    administrator: true,
+    accountState: "active",
+  } as never;
   const open = (await taxonomy.foodReports(admin)).filter(
     (row) => row.reason === "duplicate_food",
   );

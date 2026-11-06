@@ -1204,6 +1204,23 @@ export class D1TaxonomyRepository {
       .bind(foodId, SYSTEM_ACTOR_ID, note)
       .first<string>("id");
   }
+  // A retired food keeps its names so an operator can bring it back. An undone
+  // one never really existed, so someone can suggest it again. The audit keeps
+  // what it was called.
+  releaseUndoneFood(foodId: string, now: number) {
+    return this.db.batch([
+      this.db
+        .prepare("DELETE FROM category_aliases WHERE category_id=?")
+        .bind(foodId),
+      this.db
+        .prepare(
+          `UPDATE categories SET name=name||' (undone '||substr(id,-8)||')',
+          slug='undone-'||substr(replace(id,'-',''),-12),updated_at=?
+          WHERE id=? AND is_active=0`,
+        )
+        .bind(now, foodId),
+    ]);
+  }
   async foodHasProducts(foodId: string) {
     return Boolean(
       await this.db

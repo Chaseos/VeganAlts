@@ -407,6 +407,7 @@ export class TaxonomyService {
         isActive: false,
         note,
       });
+      await this.repository.releaseUndoneFood(foodId, this.clock());
     }
     await this.repository.markUndone(id, actor.id, note, this.clock());
     return { undone: true };
