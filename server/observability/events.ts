@@ -1,3 +1,4 @@
+import { splitLanguage } from "../catalog/domain/languages";
 export const clientEvents = [
   "page_view",
   "rating_save_failed",
@@ -14,7 +15,7 @@ export type AppEvent =
   | "rating_updated";
 
 export function routeLabel(path: string) {
-  const value = path.replace(/\.data$/, "");
+  const value = splitLanguage(path.replace(/\.data$/, "")).path;
   if (value === "/" || value === "/_root") return "home";
   if (/^\/[a-z]{2}$/.test(value)) return "home";
   if (/^\/[a-z]{2}\/search$/.test(value) || value === "/api/v1/search")

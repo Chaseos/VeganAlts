@@ -873,10 +873,7 @@ describe("site facts", () => {
       ),
     ).toBeUndefined();
     expect(
-      importAllergenDeclaration(
-        { status: "none_declared" },
-        new Set(),
-      ),
+      importAllergenDeclaration({ status: "none_declared" }, new Set()),
     ).toEqual({ status: "none_declared" });
   });
 

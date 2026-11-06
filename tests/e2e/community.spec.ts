@@ -187,7 +187,7 @@ test("submission, private receipt, operator publication, reporting, formula hist
     ).json();
     const slug = current.data.slug;
     await context.addCookies([contributor.cookie]);
-    await page.goto(`/us/products/${slug}`);
+    await page.goto(`/us/en/products/${slug}`);
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     await expect(page.getByText("New", { exact: true })).toBeVisible();
     await page
@@ -216,7 +216,7 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await expect(
       page.getByText("Status: resolved", { exact: true }),
     ).toBeVisible();
-    await page.goto(`/us/products/${slug}`);
+    await page.goto(`/us/en/products/${slug}`);
     await expect(
       page.getByText(/An operator is assessing an ingredient concern/),
     ).toBeVisible();
@@ -251,7 +251,7 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await expect(
       page.getByText("Status: accepted", { exact: true }),
     ).toBeVisible();
-    await page.goto(`/us/products/${slug}`);
+    await page.goto(`/us/en/products/${slug}`);
     await expect(
       page.getByRole("link", { name: "Original formula", exact: true }),
     ).toBeVisible();
@@ -302,7 +302,7 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await expect(
       page.getByText("Status: accepted", { exact: true }),
     ).toBeVisible();
-    await page.goto(`/us/products/${slug}`);
+    await page.goto(`/us/en/products/${slug}`);
     await expect(
       page
         .getByRole("group", { name: "Package photos" })
@@ -333,11 +333,11 @@ test("submission, private receipt, operator publication, reporting, formula hist
       page.getByRole("heading", { name: "Decision history" }),
     ).toBeVisible();
     const redirect = await page.request.get(
-      `/us/products/${slug}?version=donor-only`,
+      `/us/en/products/${slug}?version=donor-only`,
       { maxRedirects: 0 },
     );
     expect(redirect.status()).toBe(302);
-    expect(redirect.headers().location).toBe("/us/products/beyond-burger");
+    expect(redirect.headers().location).toBe("/us/en/products/beyond-burger");
     expect(redirect.headers()["cache-control"]).toContain("no-store");
     const apiRedirect = await page.request.get(
       `/api/v1/products/${slug}?version=donor-only`,
@@ -349,12 +349,14 @@ test("submission, private receipt, operator publication, reporting, formula hist
     );
     expect(apiRedirect.headers()["cache-control"]).toContain("no-store");
     const dataRedirect = await page.request.get(
-      `/us/products/${slug}.data?version=donor-only`,
+      `/us/en/products/${slug}.data?version=donor-only`,
       { maxRedirects: 0 },
     );
     expect(dataRedirect.status()).toBe(202);
     expect(dataRedirect.headers()["cache-control"]).toContain("no-store");
-    expect(await dataRedirect.text()).toContain("/us/products/beyond-burger");
+    expect(await dataRedirect.text()).toContain(
+      "/us/en/products/beyond-burger",
+    );
     await page
       .locator("li")
       .filter({ has: page.getByText("consolidation", { exact: true }) })
@@ -379,7 +381,7 @@ test("submission, private receipt, operator publication, reporting, formula hist
     await expect(
       page.getByRole("button", { name: "Confirm reversal" }),
     ).toHaveCount(0);
-    await page.goto(`/us/products/${slug}`);
+    await page.goto(`/us/en/products/${slug}`);
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
   } finally {
     await page.close();
@@ -400,7 +402,7 @@ test("retailer proposal and one-person confirmation are accessible", async ({
     operator = await createBrowserSession({ administrator: true });
   try {
     await context.addCookies([contributor.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await page.getByRole("link", { name: "Add or confirm a retailer" }).click();
     await expect(page).toHaveURL(/\/contribute\/.*action=retailer/);
     const contributeUrl = page.url(),

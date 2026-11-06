@@ -17,7 +17,7 @@ test("comments post safely, vote once, report, hold for review and publish after
   const marker = `${testInfo.project.name}-${Date.now()}`;
   try {
     await context.addCookies([author.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     const section = page.locator("section.comments");
     await expect(
       section.getByRole("heading", { name: "Notes from people who tried it" }),
@@ -66,7 +66,7 @@ test("comments post safely, vote once, report, hold for review and publish after
 
     await context.clearCookies();
     await context.addCookies([voter.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     const newest = section.getByRole("button", { name: "Newest" });
     // Controls stay disabled until hydration attaches their handlers.
     await expect(newest).toBeEnabled();
@@ -147,7 +147,7 @@ test("an identical comment posted after deleting the first is saved as new", asy
   const body = `Crisps nicely in a pan ${testInfo.project.name}-${Date.now()}`;
   try {
     await context.addCookies([author.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     const section = page.locator("section.comments");
     await expect(
       section.getByRole("button", { name: "Post comment" }),

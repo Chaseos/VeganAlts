@@ -14,7 +14,7 @@ test("canonical photo slots offer add or replace, never an append gallery", asyn
   const contributor = await createBrowserSession();
   try {
     await context.addCookies([contributor.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await page.getByText("Add or improve photos", { exact: true }).click();
     const slots = page.locator("section", {
       has: page.getByRole("heading", { name: "Product photos" }),
@@ -49,13 +49,13 @@ test("canonical photo slots offer add or replace, never an append gallery", asyn
         .or(page.getByRole("heading", { name: "Suggested changes" })),
     ).toBeVisible();
     if (label?.startsWith("Add")) {
-      await page.goto("/us/products/beyond-burger");
+      await page.goto("/us/en/products/beyond-burger");
       await page.getByText("Add or improve photos", { exact: true }).click();
       await expect(
         slots.getByRole("link", { name: "Suggest a better photo: Prepared" }),
       ).toBeVisible();
     }
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await page.getByText("Add or improve photos", { exact: true }).click();
     await slots.screenshot({ path: testInfo.outputPath("photo-slots.png") });
   } finally {
@@ -75,7 +75,7 @@ test("an administrator rotates and replaces a photo on the product page", async 
   const operator = await createBrowserSession({ administrator: true });
   try {
     await context.addCookies([operator.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await page.getByText("Manage photos", { exact: true }).click();
     const front = page.locator(".va-gallery img").first();
     const size = () =>
@@ -115,7 +115,7 @@ test("an administrator's photo needs no note and applies at once", async ({
   const operator = await createBrowserSession({ administrator: true });
   try {
     await context.addCookies([operator.cookie]);
-    await page.goto("/us/products/oatly-full-fat");
+    await page.goto("/us/en/products/oatly-full-fat");
     await page
       .getByRole("link", { name: "Manage product", exact: true })
       .click();

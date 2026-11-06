@@ -4,10 +4,10 @@ import { expect, test } from "./fixtures";
 // preferences (fonts use metric-matched fallbacks; filters replace the URL).
 for (const path of [
   "/",
-  "/us/beef",
-  "/us/ground-beef",
-  "/us/products/beyond-beef",
-  "/us/search?q=beef",
+  "/us/en/beef",
+  "/us/en/ground-beef",
+  "/us/en/products/beyond-beef",
+  "/us/en/search?q=beef",
 ])
   test(`${path} stays put while it loads`, async ({ page }) => {
     await page.addInitScript(() => {

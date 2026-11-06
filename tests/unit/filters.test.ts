@@ -71,11 +71,11 @@ describe("ranking filter parameters", () => {
 });
 
 describe("country paths", () => {
-  it("keeps the United States home at / and every other country under its code", () => {
-    expect(homePath("us")).toBe("/");
-    expect(homePath("ca")).toBe("/ca");
-    expect(foodPath("gb", "ground-beef")).toBe("/gb/ground-beef");
-    expect(productPath("au", "oat-milk")).toBe("/au/products/oat-milk");
+  it("names the country and the language in every address", () => {
+    expect(homePath("us")).toBe("/us/en");
+    expect(homePath("ca")).toBe("/ca/en");
+    expect(foodPath("gb", "ground-beef")).toBe("/gb/en/ground-beef");
+    expect(productPath("au", "oat-milk")).toBe("/au/en/products/oat-milk");
     expect(parseCountryCode(undefined)).toBe("us");
     expect(parseCountryCode("NZ")).toBe("nz");
     expect(() => parseCountryCode("usa")).toThrow();

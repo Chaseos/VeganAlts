@@ -9,7 +9,7 @@ it("serves readable gateway document errors and retains API errors and response 
     VERSION_METADATA: { id: "gateway-error" },
     SEARCH_RATE_LIMIT: { limit: async () => ({ success: false }) },
   } as unknown as Cloudflare.Env;
-  for (const path of ["/us/search?q=beef", "/api/v1/search?q=beef"]) {
+  for (const path of ["/us/en/search?q=beef", "/api/v1/search?q=beef"]) {
     const response = await gateway.fetch(
       new Request(env.APP_URL + path) as Request<
         unknown,
@@ -63,8 +63,8 @@ it("serves cached product documents, data and API reads without touching D1", as
     exports: { PublicCatalog: { fetch: cached } },
   } as unknown as ExecutionContext;
   for (const path of [
-    "/us/products/cached",
-    "/us/products/cached.data",
+    "/us/en/products/cached",
+    "/us/en/products/cached.data",
     "/api/v1/products/cached",
   ]) {
     const response = await gateway.fetch(

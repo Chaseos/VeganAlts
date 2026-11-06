@@ -131,14 +131,14 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
     });
     await expect(product).toHaveAttribute(
       "href",
-      /\/us\/products\/beyond-beef/,
+      /\/us\/en\/products\/beyond-beef/,
     );
     await expect(product.locator("img")).toHaveCount(1);
     await expect(
       listed.getByRole("link", {
         name: /^That’s it, rate it\s*: Beyond Beef$/,
       }),
-    ).toHaveAttribute("href", /\/us\/products\/beyond-beef.*#scores-title/);
+    ).toHaveAttribute("href", /\/us\/en\/products\/beyond-beef.*#scores-title/);
     await accessible(page);
     await listed
       .getByRole("button", { name: "Something else from Beyond" })
@@ -147,7 +147,7 @@ test("asks for the basics first, explains what's missing and keeps the draft", a
     await expect(page.getByText("Already on VeganAlts")).toBeVisible();
     await expect(page.getByRole("link", { name: "Rate it" })).toHaveAttribute(
       "href",
-      /\/us\/products\/beyond-beef/,
+      /\/us\/en\/products\/beyond-beef/,
     );
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByRole("alert")).toContainText("already on VeganAlts");

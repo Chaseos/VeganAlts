@@ -11,19 +11,19 @@ import { chooseBrand } from "./site";
 // stay local in the ignored test-results folder and are never committed.
 const PAGES = [
   ["home", "/"],
-  ["aisle", "/us/beef"],
-  ["category", "/us/ground-beef"],
-  ["product", "/us/products/beyond-beef"],
-  ["search", "/us/search?q=beef"],
-  ["food-silent-aisle", "/us/eggs"],
-  ["aisle-single-food", "/us/butter-aisle"],
-  ["seasonal-food", "/us/eggnog"],
-  ["empty-country", "/ca"],
+  ["aisle", "/us/en/beef"],
+  ["category", "/us/en/ground-beef"],
+  ["product", "/us/en/products/beyond-beef"],
+  ["search", "/us/en/search?q=beef"],
+  ["food-silent-aisle", "/us/en/eggs"],
+  ["aisle-single-food", "/us/en/butter-aisle"],
+  ["seasonal-food", "/us/en/eggnog"],
+  ["empty-country", "/ca/en"],
   // Milestone 7: a line of several flavors, Tastiest, a flavor and a brand.
-  ["line-food", "/us/milk"],
-  ["tastiest", "/us/milk?view=tastiest"],
-  ["flavor-product", "/us/products/oatly-full-fat?food=milk"],
-  ["brand", "/us/brand/oatly"],
+  ["line-food", "/us/en/milk"],
+  ["tastiest", "/us/en/milk?view=tastiest"],
+  ["flavor-product", "/us/en/products/oatly-full-fat?food=milk"],
+  ["brand", "/us/en/brand/oatly"],
 ] as const;
 const WIDTHS = [
   ["phone", 390, 844],
@@ -41,7 +41,7 @@ test("capture grouped food navigation", async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     for (const colorScheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      await page.goto("/us/cheddar");
+      await page.goto("/us/en/cheddar");
       await page
         .getByRole("button", {
           name: width >= 760 ? "Foods" : "Menu",
@@ -159,7 +159,7 @@ test("capture not-here", async ({ page }, testInfo) => {
           colorScheme: scheme,
           reducedMotion: "reduce",
         });
-        await page.goto("/nz/bacon");
+        await page.goto("/nz/en/bacon");
         await page.waitForLoadState("networkidle");
         await page.screenshot({
           path: join(directory, `not-here-${label}-${scheme}.jpg`),

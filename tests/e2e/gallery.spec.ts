@@ -72,7 +72,7 @@ test("photo thumbnails, arrows and horizontal swipes keep the page in place", as
   );
   const cleanup = await extraPhotos();
   try {
-    await page.goto("/us/products/oatly-full-fat?food=milk");
+    await page.goto("/us/en/products/oatly-full-fat?food=milk");
     const gallery = page.getByRole("group", { name: "Package photos" });
     await expect(gallery.getByRole("radio")).toHaveCount(3);
     await gallery.locator(".va-gallery__tabs").scrollIntoViewIfNeeded();
@@ -136,7 +136,7 @@ test("full-size photos stay in an accessible overlay with carousel controls and 
   test.skip(!!process.env.TEST_BASE_URL, "Gallery fixtures are local only.");
   const cleanup = await extraPhotos();
   try {
-    await page.goto("/us/products/oatly-full-fat?food=milk");
+    await page.goto("/us/en/products/oatly-full-fat?food=milk");
     const gallery = page.getByRole("group", { name: "Package photos" });
     await gallery.locator(".va-gallery__tab--back").click();
     const opener = gallery.getByRole("link", {
@@ -212,7 +212,7 @@ test.describe("gallery without JavaScript", () => {
     );
     const cleanup = await extraPhotos();
     try {
-      await page.goto("/us/products/oatly-full-fat?food=milk");
+      await page.goto("/us/en/products/oatly-full-fat?food=milk");
       const gallery = page.getByRole("group", { name: "Package photos" });
       await gallery.locator(".va-gallery__tabs").scrollIntoViewIfNeeded();
       const scroll = await page.evaluate(() => scrollY);

@@ -11,7 +11,7 @@ test("a product view reaches the private analytics page", async ({
       /\/api\/v1\/products\/[^/]+\/views$/.test(response.url()) &&
       response.request().method() === "POST",
   );
-  await page.goto("/us/products/beyond-burger");
+  await page.goto("/us/en/products/beyond-burger");
   expect((await recorded).status()).toBe(200);
 
   await page.goto("/admin/analytics?q=Beyond+Burger");

@@ -1,7 +1,7 @@
 import { expect, test } from "./fixtures";
 import { createBrowserSession } from "./session-fixture";
 
-const PRODUCT = "/us/products/beyond-burger";
+const PRODUCT = "/us/en/products/beyond-burger";
 
 test("a visitor who taps save signs in and finds the product saved", async ({
   page,

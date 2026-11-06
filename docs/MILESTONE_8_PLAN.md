@@ -79,14 +79,15 @@ It is code, not a table, because the gateway must decide before any D1 read. Add
 
 | URL | Page |
 |---|---|
-| `/ca/ground-beef` | Canada, English (no change) |
+| `/ca/en/ground-beef` | Canada, English |
 | `/ca/fr/ground-beef` | Canada, French |
-| `/jp/karaage` | Japan, Japanese |
+| `/jp/ja/karaage` | Japan, Japanese |
 | `/jp/en/karaage` | Japan, English |
 
-- The country's default language has no language segment, so every existing URL keeps working.
+- The first two segments are always the country and the language (owner, 2026-11-05). The site hasn't launched, so no public address is lost.
 - The slug is the same in every language, as the owner decided.
-- `/ca/en` redirects to `/ca` with a 301. `/us/fr` redirects to `/us` with a 302. Both are decided from the URL alone.
+- `/ca/ground-beef` redirects to the visitor's language or the country's default with a 302, and `/us/fr` to `/us/en`, both from the URL and cookie alone.
+- `/` still shows the United States home, with `/us/en` as its canonical address, so a returning visitor can be sent to their saved country.
 - All codes in `LANGUAGES` join `RESERVED_SLUGS`, so `/ca/fr` can never be read as a food.
 - `app/routes.ts` generates a static `prefix(":country/fr", …)` and `prefix(":country/en", …)` block with unique IDs. A static segment outranks `:categorySlug`.
 - A single `parsePublicPath` in `public-cache.ts` strips the language segment first. `publicRoute` gains `language`, and loaders read it from the same parser.
@@ -107,8 +108,8 @@ The URL always decides what renders. The cookie decides only where a visitor wit
 
 - **Cookie:** `va_lang`, one value from `LANGUAGES`. It is `SameSite=Lax`, `Secure`, lasts one year and is readable by scripts. `normalizedPublicRequest` already strips it before the shared renderer.
 - **Setting it:** the switcher links to `?setlang=fr`. The uncached gateway validates the value, sets the cookie, and returns a `no-store` 302 to the clean URL. This works without JavaScript, needs no D1 read, and keeps `Set-Cookie` off shared responses. Switcher links are `rel="nofollow"`.
-- **Gateway redirect:** in `publicRedirect`, for a `GET` document only, on a URL with no language segment, when the cookie names a different language the country offers: 302 to the language URL, `no-store`.
-- **Explicit language URLs are never redirected.** `/jp/en/x` always stays English, so a shared link shows what was shared. Crawlers send no cookie and are never redirected.
+- **Gateway redirect:** in `languageRedirect`, for a `GET` document only, on a URL with no language segment: 302 to the cookie's language if the country offers it, else the default, `no-store`.
+- **Explicit language URLs are never redirected.** `/jp/en/x` always stays English, so a shared link shows what was shared. Crawlers send no cookie and every listed address is explicit.
 - **Switching country:** one pure function, `languageFor(country, preference)`, is used by both the gateway and `country-menu.tsx`. Client navigation doesn't pass through the redirect.
 - **Account:** add `profiles.preferred_language` and return it in the private session projection. After hydration, a signed-in visitor with no cookie gets the account value. If a cookie exists and differs, the client saves it with `PUT /api/v1/me/language`. Public loaders stay anonymous.
 - **Language prompt:** a one-time banner after hydration, built like the country prompt, compares `navigator.languages` with what the country offers ("View in English?"). It never redirects, and it matters most for English visitors who open `/jp`. I recommend no server redirect from `Accept-Language`, because cookie-less crawlers should see stable URLs.

@@ -70,7 +70,7 @@ for (const delayed of ["next", "previous"] as const) {
       writes.push(new URL(route.request().url()).pathname.split("/").at(-2)!);
       await route.fulfill({ json: { data: { saved: true } } });
     });
-    await page.goto("/us/products/oatly-original");
+    await page.goto("/us/en/products/oatly-original");
     const panel = page.getByRole("region", { name: "Suggested changes" });
     if (delayed === "next") {
       await expect(
@@ -148,7 +148,7 @@ test("a fact proposal is confirmed once by an independent contributor and appear
   const alias = `Plant crumble ${testInfo.project.name} ${Date.now()}`;
   try {
     await context.addCookies([proposer.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await page.getByRole("link", { name: "Suggest a change" }).click();
     await expect(page.getByLabel("What changed?")).toBeEnabled();
     await page.getByLabel("What changed?").selectOption("alias");
@@ -163,7 +163,7 @@ test("a fact proposal is confirmed once by an independent contributor and appear
     // Local development evaluates tier 1 additions with the fake provider.
     await expect(page.getByText(/Status: (accepted|pending)/)).toBeVisible();
 
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await page.getByRole("link", { name: "Suggest a change" }).click();
     await page.getByLabel("What changed?").selectOption("rename");
     await page
@@ -182,7 +182,7 @@ test("a fact proposal is confirmed once by an independent contributor and appear
 
     await context.clearCookies();
     await context.addCookies([confirmer.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     const panel = page.locator("section", {
       has: page.getByRole("heading", { name: "Suggested changes" }),
     });
@@ -232,7 +232,7 @@ test("an allergen declaration is proposed from the country's list and shown for 
   const proposer = await createBrowserSession();
   try {
     await context.addCookies([proposer.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await page.getByRole("link", { name: "Suggest a change" }).click();
     await expect(page.getByLabel("What changed?")).toBeEnabled();
     await page.getByLabel("What changed?").selectOption("allergens");

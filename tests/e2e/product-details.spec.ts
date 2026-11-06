@@ -12,7 +12,7 @@ test("unrated scores have a deliberate empty state and show people only after an
   const session = await createBrowserSession();
   try {
     await context.addCookies([session.cookie]);
-    await page.goto("/us/products/beyond-burger?food=beef-burgers");
+    await page.goto("/us/en/products/beyond-burger?food=beef-burgers");
     const metrics = page.locator(".va-score-card__metric");
     await expect(metrics.nth(0).locator(".va-score-card__unrated")).toHaveText(
       "— Unrated",
@@ -49,7 +49,7 @@ test("unrated scores have a deliberate empty state and show people only after an
 test("the product overview groups ratings, collapses their breakdown and keeps notes last", async ({
   page,
 }) => {
-  await page.goto("/us/products/oatly-full-fat?food=milk");
+  await page.goto("/us/en/products/oatly-full-fat?food=milk");
   const metrics = page.locator(".va-score-card__metric");
   await expect(metrics).toHaveCount(2);
   await expect(metrics.nth(0)).toContainText("Closest");
@@ -170,7 +170,7 @@ test("the retailer contribution link sits below the store chips", async ({
       .run();
   });
   try {
-    await page.goto("/us/products/oatly-full-fat?food=milk");
+    await page.goto("/us/en/products/oatly-full-fat?food=milk");
     const stores = (await page
       .locator(".va-store-toggles .va-chip-row")
       .boundingBox())!;
@@ -193,7 +193,7 @@ test.describe("native product photos", () => {
   test("thumbnails, keyboard selection and photo contribution links work without JavaScript", async ({
     page,
   }) => {
-    await page.goto("/us/products/oatly-full-fat?food=milk");
+    await page.goto("/us/en/products/oatly-full-fat?food=milk");
     const gallery = page.getByRole("group", { name: "Package photos" });
     const thumbnail = gallery.locator(".va-gallery__tab--front img");
     const source = await thumbnail.getAttribute("src");
@@ -228,7 +228,7 @@ test.describe("native product photos", () => {
       "solid",
     );
     // The canonical deep link reveals the contribution tools even without hydration.
-    await page.goto("/us/products/oatly-full-fat?food=milk#photo-slots");
+    await page.goto("/us/en/products/oatly-full-fat?food=milk#photo-slots");
     await expect(
       page.getByRole("heading", { name: "Product photos" }),
     ).toBeVisible();

@@ -8,7 +8,7 @@ test("the desktop Foods menu navigates categories and food types without catalog
   test.skip(isPhone(page), "Phones open aisle pages from the aisle chips.");
   // Aisles follow popularity, so the page sets which aisle comes first: the
   // one being viewed.
-  await page.goto("/us/beef-burgers");
+  await page.goto("/us/en/beef-burgers");
   const foods = page.getByRole("button", { name: "Foods", exact: true });
   await expect(foods).toHaveAttribute("aria-expanded", "false");
   const catalogRequests: string[] = [];
@@ -119,7 +119,7 @@ test("the desktop Foods menu navigates categories and food types without catalog
     "Opening, switching and filtering need no catalog requests",
   ).toEqual([]);
   await menu.getByRole("link", { name: "Cheese", exact: true }).click();
-  await expect(page).toHaveURL(/\/us\/cheese$/);
+  await expect(page).toHaveURL(/\/us\/en\/cheese$/);
   await expect(
     page.getByRole("heading", { level: 1, name: "Cheese" }),
   ).toBeVisible();
@@ -129,15 +129,17 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
   page,
   request,
 }) => {
-  const root = await request.get("/us/food", { maxRedirects: 0 });
+  const root = await request.get("/us/en/food", { maxRedirects: 0 });
   expect(root.status()).toBe(302);
   expect(root.headers().location).toBe("/");
   // An old shelf link still opens its aisle: the public boundary drops the
   // parameter.
-  const shelf = await request.get("/us/beef?shelf=pork", { maxRedirects: 0 });
+  const shelf = await request.get("/us/en/beef?shelf=pork", {
+    maxRedirects: 0,
+  });
   expect(shelf.status()).toBe(200);
 
-  await page.goto("/us/beef");
+  await page.goto("/us/en/beef");
   await expect(page.getByRole("navigation", { name: "Shelves" })).toHaveCount(
     0,
   );
@@ -167,9 +169,9 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
     page
       .locator(".va-browse__more", { hasText: "See all 8 cheese foods" })
       .first(),
-  ).toHaveAttribute("href", "/us/cheese");
+  ).toHaveAttribute("href", "/us/en/cheese");
   // Seasonal tags use a single label without dates or month ranges.
-  await page.goto("/us/eggnog");
+  await page.goto("/us/en/eggnog");
   const seasonal = page.locator(".va-badge").filter({ hasText: /^Seasonal/ });
   await expect(seasonal.first()).toBeVisible();
   expect(await seasonal.allTextContents()).toEqual(
@@ -177,7 +179,7 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
   );
 
   // An aisle's Suggest a food link starts in that aisle.
-  await page.goto("/us/eggs-aisle");
+  await page.goto("/us/en/eggs-aisle");
   await expect(
     page.getByRole("heading", { name: "Eggs", exact: true, level: 2 }),
   ).toBeVisible();
@@ -189,13 +191,13 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
   ).toHaveAttribute("href", "/propose-category?country=us&aisle=eggs-aisle");
   // Crumbs (phones show a back link instead) skip an aisle that only repeats
   // its one food, and name a shared one "Eggs category" rather than repeat it.
-  await page.goto("/us/butter");
+  await page.goto("/us/en/butter");
   if (!isPhone(page)) {
     const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
     await expect(crumbs).not.toContainText("Butter category");
     await expect(crumbs.getByRole("link")).toHaveCount(1);
   }
-  await page.goto("/us/eggs");
+  await page.goto("/us/en/eggs");
   if (!isPhone(page)) {
     const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
     await expect(crumbs).toContainText("Eggs category");
@@ -220,14 +222,14 @@ test("without JavaScript and on phones, aisles are links to their pages", async 
     await plain.goto("/");
     // On desktop, Foods links to the page listing every aisle.
     const foods = plain.getByRole("link", { name: "Foods", exact: true });
-    await expect(foods).toHaveAttribute("href", "/us/search");
+    await expect(foods).toHaveAttribute("href", "/us/en/search");
     await foods.click();
     const beef = plain
       .getByRole("main")
       .getByRole("link", { name: "Beef", exact: true });
-    await expect(beef).toHaveAttribute("href", "/us/beef");
+    await expect(beef).toHaveAttribute("href", "/us/en/beef");
     await beef.click();
-    await expect(plain).toHaveURL(/\/us\/beef$/);
+    await expect(plain).toHaveURL(/\/us\/en\/beef$/);
     await expect(
       plain.getByRole("heading", { name: "Beef Burgers" }),
     ).toBeVisible();
@@ -240,7 +242,7 @@ test("without JavaScript and on phones, aisles are links to their pages", async 
   const chips = page.getByRole("navigation", { name: "Categories" });
   await expect(chips.getByRole("button")).toHaveCount(0);
   await chips.getByRole("link", { name: "Dairy & eggs", exact: true }).click();
-  await expect(page).toHaveURL(/\/us\/search#dairy-eggs$/);
+  await expect(page).toHaveURL(/\/us\/en\/search#dairy-eggs$/);
   await expect(chips.locator("[aria-current]")).toHaveCount(1);
   await expect(
     chips.getByRole("link", { name: "Dairy & eggs", exact: true }),
@@ -263,7 +265,7 @@ test("directory groups preserve country-specific food names and availability", a
     if (/hydrat/i.test(message.text()) && message.type() === "error")
       hydrationErrors.push(message.text());
   });
-  await page.goto("/gb/search#meat-seafood");
+  await page.goto("/gb/en/search#meat-seafood");
   const main = page.getByRole("main");
   const meat = main.getByRole("region", {
     name: "Meat & seafood",
@@ -286,7 +288,7 @@ test("phone menu expands the current group and links directly to foods", async (
   page,
 }) => {
   test.skip(!isPhone(page), "Phone navigation");
-  await page.goto("/us/cheddar");
+  await page.goto("/us/en/cheddar");
   await page.getByRole("button", { name: "Menu", exact: true }).click();
   const menu = page.getByRole("dialog", { name: "Site menu" });
   const dairy = menu
@@ -303,5 +305,5 @@ test("phone menu expands the current group and links directly to foods", async (
   await accessible(page);
   await meat.getByRole("link", { name: /^Ground Beef/ }).click();
   await expect(menu).toBeHidden();
-  await expect(page).toHaveURL(/\/us\/ground-beef$/);
+  await expect(page).toHaveURL(/\/us\/en\/ground-beef$/);
 });

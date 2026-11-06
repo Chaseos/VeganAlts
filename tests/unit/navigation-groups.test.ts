@@ -103,14 +103,18 @@ describe("shared food navigation groups", () => {
     ]);
     const current = (pathname: string, search = "", hash = "") =>
       currentNavigationGroup(groups, { pathname, search, hash });
-    expect(current("/gb/cheese")).toBe("dairy-eggs");
-    expect(current("/gb/cheddar")).toBe("dairy-eggs");
-    expect(current("/gb/products/example", "?food=cheddar")).toBe("dairy-eggs");
-    expect(current("/gb/search", "", "#meat-seafood")).toBe("meat-seafood");
-    expect(current("/gb/search", "?q=cheese", "#dairy-eggs")).toBeUndefined();
-    expect(current("/gb/search", "", "#unknown")).toBeUndefined();
+    expect(current("/gb/en/cheese")).toBe("dairy-eggs");
+    expect(current("/gb/en/cheddar")).toBe("dairy-eggs");
+    expect(current("/gb/en/products/example", "?food=cheddar")).toBe(
+      "dairy-eggs",
+    );
+    expect(current("/gb/en/search", "", "#meat-seafood")).toBe("meat-seafood");
+    expect(
+      current("/gb/en/search", "?q=cheese", "#dairy-eggs"),
+    ).toBeUndefined();
+    expect(current("/gb/en/search", "", "#unknown")).toBeUndefined();
     expect(navigationGroupPath("gb", "dairy-eggs")).toBe(
-      "/gb/search#dairy-eggs",
+      "/gb/en/search#dairy-eggs",
     );
   });
 });

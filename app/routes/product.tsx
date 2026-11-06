@@ -36,7 +36,11 @@ import { ProposalResponses } from "../components/proposal-responses";
 import { SaveButton } from "../components/save-button";
 import { recordProductView } from "../lib/product-view";
 import { publicCommentService } from "@server/comments/infrastructure/composition";
-import { breadcrumbs, publicMetadata } from "../lib/metadata";
+import {
+  breadcrumbs,
+  publicMetadata,
+  countryAlternates,
+} from "../lib/metadata";
 import {
   foodPath,
   homePath,
@@ -113,6 +117,11 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
       origin,
       data?.staging ?? true,
     ),
+    ...(p
+      ? countryAlternates(origin, [data!.market], (code, language) =>
+          productPath(code, p.slug, null, language),
+        )
+      : []),
     ...(p
       ? [
           breadcrumbs(origin, [

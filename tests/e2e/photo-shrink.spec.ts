@@ -72,7 +72,7 @@ test("shrinks a phone photo before upload, upright and without its location", as
         );
       };
     });
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await page.getByText("Add or improve photos", { exact: true }).click();
     await page
       .getByRole("link", { name: /^(Add photo|Suggest a better photo): Back$/ })

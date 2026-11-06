@@ -1,3 +1,4 @@
+import { splitLanguage } from "@server/catalog/domain/languages";
 import { searchPath } from "@server/catalog/domain/markets";
 import { normalizeFood } from "./food-choices";
 import type { ChromeAisle } from "./site-chrome";
@@ -115,7 +116,7 @@ export function currentNavigationGroup(
   groups: readonly NavigationGroup<ChromeAisle>[],
   location: { pathname: string; search: string; hash: string },
 ) {
-  const segment = location.pathname.split("/")[2] ?? "";
+  const segment = splitLanguage(location.pathname).path.split("/")[2] ?? "";
   if (segment === "search" && !new URLSearchParams(location.search).get("q"))
     return groups.find((group) => `#${group.id}` === location.hash)?.id;
   const food = new URLSearchParams(location.search).get("food") ?? "";

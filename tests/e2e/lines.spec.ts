@@ -10,7 +10,7 @@ test("a recipe line lists its flavors, and its brand has a page", async ({
   page,
   request,
 }, testInfo) => {
-  await page.goto("/us/milk");
+  await page.goto("/us/en/milk");
   // The demo Oatly line has two flavors behind a native disclosure.
   const flavors = page.locator(".va-flavors").first();
   await expect(flavors.locator("summary")).toContainText("2 flavors");
@@ -52,7 +52,7 @@ test("a recipe line lists its flavors, and its brand has a page", async ({
       .screenshot({ path: testInfo.outputPath("expanded-flavors.png") });
   }
 
-  await page.goto("/us/products/oatly-full-fat?food=milk");
+  await page.goto("/us/en/products/oatly-full-fat?food=milk");
   // Decorative images belong to each linked flavor and retain empty alt text.
   const siblingPhoto = page.locator(".va-product__flavor-link img");
   await expect(siblingPhoto).toHaveCount(1);
@@ -70,7 +70,7 @@ test("a recipe line lists its flavors, and its brand has a page", async ({
       .brands[0]?.slug,
   ).toBe("oatly");
 
-  await page.goto("/us/brand/oatly");
+  await page.goto("/us/en/brand/oatly");
   await expect(
     page.getByRole("heading", { level: 1, name: "Oatly" }),
   ).toBeVisible();
@@ -86,7 +86,7 @@ test("a recipe line lists its flavors, and its brand has a page", async ({
   ).toHaveAttribute("href", "/add-product?country=us&brand=oatly");
   await accessible(page);
   // A brand with nothing here keeps a page that invites the first product.
-  const elsewhere = await request.get("/ca/brand/oatly");
+  const elsewhere = await request.get("/ca/en/brand/oatly");
   expect(elsewhere.status()).toBe(200);
   expect(await elsewhere.text()).toContain("No Oatly products in Canada yet");
 });
@@ -103,7 +103,7 @@ test("Add another flavor joins the product's line and publishes without review",
     await context.addCookies([session.cookie]);
     // The demo Nuggs line already has flavors; the new one is taken out
     // again below.
-    await page.goto("/us/products/simulate-nuggs?food=chicken-nuggets");
+    await page.goto("/us/en/products/simulate-nuggs?food=chicken-nuggets");
     await page.getByRole("link", { name: "Add another flavor" }).click();
     // The food, brand and line come chosen; the name follows the flavor.
     await expect(
@@ -131,7 +131,7 @@ test("Add another flavor joins the product's line and publishes without review",
     await expect(page.getByText("Your product is live")).toBeVisible();
     await expect(page.getByText(`Flavor: ${flavor}`)).toBeVisible();
 
-    await page.goto("/us/chicken-nuggets");
+    await page.goto("/us/en/chicken-nuggets");
     const choice = page.locator(".va-flavors").filter({ hasText: flavor });
     await choice.locator("summary").click();
     const addedFlavor = choice

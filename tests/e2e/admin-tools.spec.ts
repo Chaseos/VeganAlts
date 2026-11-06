@@ -29,7 +29,7 @@ test("scope reports lead to reversible product removal, with a separate direct r
   const marker = `${testInfo.project.name}-${Date.now()}`;
   try {
     await context.addCookies([contributor.cookie]);
-    await page.goto("/us/products/oatly-full-fat");
+    await page.goto("/us/en/products/oatly-full-fat");
     await expect(
       page.getByRole("link", { name: "Manage product", exact: true }),
     ).toHaveCount(0);
@@ -123,7 +123,7 @@ test("scope reports lead to reversible product removal, with a separate direct r
     );
     await reverse(page, directNote);
     await expect(remove).toBeVisible();
-    await page.goto("/us/products/oatly-full-fat");
+    await page.goto("/us/en/products/oatly-full-fat");
     await expect(
       page.getByRole("link", { name: "Report product", exact: true }),
     ).toBeVisible();
@@ -153,7 +153,7 @@ test("admins can hide a comment directly and restore it from history; contributo
   const body = `Sears well and stays juicy for this local check ${marker}.`;
   try {
     await context.addCookies([author.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     const section = page.locator("section.comments");
     await section.getByLabel("Add your experience").fill(body);
     await section.getByRole("button", { name: "Post comment" }).click();
@@ -166,7 +166,7 @@ test("admins can hide a comment directly and restore it from history; contributo
 
     await context.clearCookies();
     await context.addCookies([operator.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await section.getByRole("button", { name: "Newest", exact: true }).click();
     const comment = section.getByRole("listitem").filter({ hasText: body });
     const hide = comment.getByRole("button", {
@@ -196,7 +196,7 @@ test("admins can hide a comment directly and restore it from history; contributo
       .getByRole("link", { name: "Review history or restore a comment" })
       .click();
     await reverse(page, note);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await section.getByRole("button", { name: "Newest", exact: true }).click();
     await expect(comment).toBeVisible();
   } finally {
@@ -217,7 +217,7 @@ test("an administrator edits a product from the same form, applied at once", asy
   const operator = await createBrowserSession({ administrator: true });
   try {
     await context.addCookies([operator.cookie]);
-    await page.goto("/us/products/oatly-full-fat");
+    await page.goto("/us/en/products/oatly-full-fat");
     await page
       .getByRole("link", { name: "Manage product", exact: true })
       .click();
@@ -270,7 +270,7 @@ test("an administrator moves a product to another brand", async ({
   const operator = await createBrowserSession({ administrator: true });
   try {
     await context.addCookies([operator.cookie]);
-    await page.goto("/us/products/beyond-nuggets");
+    await page.goto("/us/en/products/beyond-nuggets");
     await page
       .getByRole("link", { name: "Manage product", exact: true })
       .click();

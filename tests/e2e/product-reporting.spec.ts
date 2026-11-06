@@ -10,7 +10,7 @@ test("one product reporting flow selects product information or a specific photo
   const session = await createBrowserSession();
   try {
     await context.addCookies([session.cookie]);
-    await page.goto("/us/products/oatly-full-fat?food=milk");
+    await page.goto("/us/en/products/oatly-full-fat?food=milk");
     const report = page.getByRole("link", {
       name: "Report product",
       exact: true,

@@ -1,7 +1,7 @@
 import { homePath, isCountryCode } from "../../catalog/domain/markets";
 
 const PUBLIC_PATHS = [
-  "[a-z]{2}(?:/(?:search|[a-z0-9-]+|(?:products|brand)/[a-z0-9-]+))?",
+  "[a-z]{2}(?:/[a-z]{2})?(?:/(?:search|[a-z0-9-]+|(?:products|brand)/[a-z0-9-]+))?",
   "users/[a-z0-9_]+",
   "about/(?:terms|privacy|rankings|vegan-status|moderation|contact)",
 ];

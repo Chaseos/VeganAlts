@@ -23,7 +23,7 @@ import { EarlyBadge } from "../components/ui/badges";
 import { FoodIcon } from "../components/icons/food-icons";
 import { ProductThumbnail } from "../components/catalog/product-thumbnail";
 import { plural, productName } from "../lib/format";
-import { publicMetadata } from "../lib/metadata";
+import { publicMetadata, countryAlternates } from "../lib/metadata";
 import type { Route } from "./+types/brand";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
@@ -60,6 +60,11 @@ export function meta({ loaderData: data }: Route.MetaArgs) {
       data?.origin ?? "https://veganalts.com",
       data?.staging ?? true,
     ),
+    ...(data
+      ? countryAlternates(data.origin, [data.market], (code, language) =>
+          brandPath(code, data.brand.slug, language),
+        )
+      : []),
     // A brand with nothing listed here keeps its page but isn't indexed.
     ...(data && !data.availability.here && !data.staging
       ? [{ name: "robots", content: "noindex" }]

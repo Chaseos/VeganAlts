@@ -98,14 +98,16 @@ it("cancels sign-in to public pages while preserving the successful task destina
     expect(publicBrowseDestination(path, origin)).toBe("/");
   const task = "/add-product?country=gb&food=milk&line=oat";
   expect(safeReturnDestination(task, origin)).toBe(task);
-  expect(publicBrowseDestination(task, origin)).toBe("/gb");
+  expect(publicBrowseDestination(task, origin)).toBe("/gb/en");
   expect(
     publicBrowseDestination(
       "/propose-category.data?country=CA&_routes=routes%2Fpropose-category",
       origin,
     ),
-  ).toBe("/ca");
-  expect(publicBrowseDestination("/add-product?country=us", origin)).toBe("/");
+  ).toBe("/ca/en");
+  expect(publicBrowseDestination("/add-product?country=us", origin)).toBe(
+    "/us/en",
+  );
   for (const path of [
     null,
     "//evil.test/gb/milk",

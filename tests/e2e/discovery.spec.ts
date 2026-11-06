@@ -88,7 +88,7 @@ test("discovery, alias search, rankings and formula history are crawlable and ac
   await expect(
     page.getByRole("button", { name: "4 Very close (4 of 5)", exact: true }),
   ).toHaveCount(0);
-  await page.goto("/us/bacon");
+  await page.goto("/us/en/bacon");
   await expect(
     page
       .locator(".va-unrated")
@@ -108,10 +108,10 @@ test("alternate search URLs pass through the normalized public boundary", async 
       hydrationErrors.push(message.text());
   });
   for (const path of [
-    "/us/search/",
+    "/us/en/search/",
     "/US/search",
-    "/us/se%61rch",
-    "/us/search/.data",
+    "/us/en/se%61rch",
+    "/us/en/search/.data",
     "/US/search.data",
     "/API/V1/search",
   ]) {
@@ -156,11 +156,11 @@ test("public HTML is session-independent apart from fresh CSP nonces; API/privat
     html.replace(/nonce="[^"]+"/g, 'nonce="DELIVERY"');
   for (const path of [
     "/",
-    "/ca",
-    "/us/ground-beef",
-    "/us/ground-beef?view=trending",
-    "/gb/ground-beef",
-    "/us/products/beyond-beef",
+    "/ca/en",
+    "/us/en/ground-beef",
+    "/us/en/ground-beef?view=trending",
+    "/gb/en/ground-beef",
+    "/us/en/products/beyond-beef",
     "/users/demo_taster_01",
   ]) {
     const anonymous = await request.get(path);
@@ -179,14 +179,14 @@ test("public HTML is session-independent apart from fresh CSP nonces; API/privat
     expect(anonymous.headers()["x-template-nonce"]).toBeUndefined();
     expect(await anonymous.text()).toContain('rel="canonical"');
   }
-  const data = await request.get("/us/ground-beef.data");
+  const data = await request.get("/us/en/ground-beef.data");
   expect(data.headers()["content-type"]).not.toContain("text/html");
   const api = await request.get("/api/v1/categories/ground-beef");
   expect((await api.json()).data.ranked.length).toBeGreaterThan(0);
   const privateResponse = await request.get("/api/v1/me/rating-state");
   expect(privateResponse.headers()["cache-control"]).toContain("no-store");
   expect((await privateResponse.json()).data.user).toBeNull();
-  const missing = await request.get("/us/products/missing-product");
+  const missing = await request.get("/us/en/products/missing-product");
   expect(missing.status()).toBe(404);
   expect(missing.headers()["cache-control"]).toContain("no-store");
   const empty = await request.get("/api/v1/search?q=totallyunknownfood");

@@ -41,26 +41,26 @@ test("robots, sitemap and structured data describe only public pages", async ({
   const sitemap = await request.get("/sitemap.xml");
   expect(sitemap.headers()["content-type"]).toContain("application/xml");
   const xml = await sitemap.text();
-  expect(xml).toContain("/us/ground-beef</loc>");
+  expect(xml).toContain("/us/en/ground-beef</loc>");
   // Every active country lists its own food and aisle pages, and only the
   // aisles holding a food that is on there.
-  expect(xml).toContain("/gb/ground-beef</loc>");
-  expect(xml).toContain("/ca/beef</loc>");
-  expect(xml).toContain("/us/condiments</loc>");
-  expect(xml).not.toContain("/ca/condiments</loc>");
-  expect(xml).toContain("/us/dips-and-spreads</loc>");
-  expect(xml).toMatch(/\/us\/products\/[a-z0-9-]+<\/loc>/);
+  expect(xml).toContain("/gb/en/ground-beef</loc>");
+  expect(xml).toContain("/ca/en/beef</loc>");
+  expect(xml).toContain("/us/en/condiments</loc>");
+  expect(xml).not.toContain("/ca/en/condiments</loc>");
+  expect(xml).toContain("/us/en/dips-and-spreads</loc>");
+  expect(xml).toMatch(/\/us\/en\/products\/[a-z0-9-]+<\/loc>/);
   expect(xml).toContain("/about/rankings</loc>");
   expect(xml).not.toMatch(/\/(api|account|admin|my-ratings|sign-in)\b/);
 
-  await page.goto("/us/ground-beef");
+  await page.goto("/us/en/ground-beef");
   // Each country's version of the food, with the United States as default.
   await expect(
     page.locator('link[rel="alternate"][hreflang="en-GB"]'),
-  ).toHaveAttribute("href", /\/gb\/ground-beef$/);
+  ).toHaveAttribute("href", /\/gb\/en\/ground-beef$/);
   await expect(
     page.locator('link[rel="alternate"][hreflang="x-default"]'),
-  ).toHaveAttribute("href", /\/us\/ground-beef$/);
+  ).toHaveAttribute("href", /\/us\/en\/ground-beef$/);
   const data = await page
     .locator('script[type="application/ld+json"]')
     .allTextContents();

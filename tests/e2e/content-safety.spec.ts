@@ -45,7 +45,7 @@ test("a transient safety failure is shown as an automatic check and never publis
     body = `A pending comment ${testInfo.project.name} ${Date.now()} [safety:unavailable]`;
   try {
     await context.addCookies([session.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     const section = page.locator("section.comments");
     await section.getByLabel("Add your experience").fill(body);
     await section.getByRole("button", { name: "Post comment" }).click();

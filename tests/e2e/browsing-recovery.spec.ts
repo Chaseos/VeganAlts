@@ -20,7 +20,7 @@ test("Back restores a consistent ranking snapshot after standings change", async
   for (const view of ["top", "tastiest"]) {
     await prepareBrowseFixture();
     try {
-      await page.goto(`/us/browse-batches?view=${view}`);
+      await page.goto(`/us/en/browse-batches?view=${view}`);
       const rows = page.locator(".va-rank-list > li");
       await expect(rows).toHaveCount(20);
       const summary = await page.locator(".va-ranking__summary").innerText();
@@ -131,7 +131,7 @@ test("brand candidate limits remain visible after append and when candidates do 
       expect(cursor).toBeTruthy();
     }
     await page.goto(
-      `/us/search?q=qzx&section=brands&cursor=${encodeURIComponent(cursor)}`,
+      `/us/en/search?q=qzx&section=brands&cursor=${encodeURIComponent(cursor)}`,
     );
     const brands = page.getByRole("region", { name: "Brands", exact: true });
     await expect(brands.locator(".va-result")).toHaveCount(10);
@@ -146,7 +146,7 @@ test("brand candidate limits remain visible after append and when candidates do 
 
     // A truncated candidate set with no final matches still needs the notice,
     // including in the server-rendered HTML used without JavaScript.
-    const document = await page.goto("/us/search?q=qzxt");
+    const document = await page.goto("/us/en/search?q=qzxt");
     expect(await document!.text()).toContain(
       "You’ve reached the browsing limit.",
     );
@@ -176,7 +176,7 @@ test("brand candidate limits remain visible after append and when candidates do 
 test("ignores superseded batches, resets on view changes, and announces the browsing limit", async ({
   page,
 }) => {
-  await page.goto("/us/browse-batches");
+  await page.goto("/us/en/browse-batches");
   let started = false;
   await page.route("**/api/v1/categories/browse-batches?**", async (route) => {
     started = true;
@@ -219,7 +219,7 @@ test("ignores superseded batches, resets on view changes, and announces the brow
 test("evicted Back contexts use the server batch without replaying requests", async ({
   page,
 }) => {
-  await page.goto("/us/search?q=appendfixture");
+  await page.goto("/us/en/search?q=appendfixture");
   let requests = 0;
   page.on("request", (request) => {
     if (new URL(request.url()).pathname === "/api/v1/search") requests++;
@@ -252,10 +252,10 @@ test("photo retries, thumbnail fallbacks, reduced motion and narrow layouts rema
 }) => {
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await page.route("**/media/*/thumbnail", (route) => route.abort());
-  await page.goto("/us/milk");
+  await page.goto("/us/en/milk");
   await expect(page.locator(".va-thumb--empty").first()).toBeVisible();
   await page.route("**/media/*/full", (route) => route.abort());
-  await page.goto("/us/products/oatly-full-fat?food=milk");
+  await page.goto("/us/en/products/oatly-full-fat?food=milk");
   const photoLink = page
     .getByRole("group", { name: "Package photos" })
     .getByRole("link");
@@ -286,7 +286,7 @@ test("photo retries, thumbnail fallbacks, reduced motion and narrow layouts rema
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.goto("/us/search?q=appendfixture");
+  await page.goto("/us/en/search?q=appendfixture");
   await appendControl(page.getByRole("link", { name: "See more brands" }));
   expect(
     await page

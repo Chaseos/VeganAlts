@@ -7,10 +7,10 @@ import {
 } from "@react-router/dev/routes";
 import { LANGUAGES } from "../server/catalog/domain/languages";
 
-// One country's pages. The default language has no path segment.
-const countryPages = (path: string, language = "") => {
-  const id = (file: string) => (language ? `${file}-${language}` : file);
-  return prefix(path, [
+// One country's pages in one language. Every address names both.
+const countryPages = (language: string) => {
+  const id = (file: string) => `${file}-${language}`;
+  return prefix(`:country/${language}`, [
     index("routes/home.tsx", { id: id("routes/country-home") }),
     route("search", "routes/search.tsx", { id: id("routes/search") }),
     route("products/:productSlug", "routes/product.tsx", {
@@ -24,15 +24,11 @@ const countryPages = (path: string, language = "") => {
 };
 
 export default [
-  // Every country's catalog shares one layout (header, aisles, footer). "/" is
-  // the United States home; static first segments below outrank ":country".
+  // Every country's catalog shares one layout (header, aisles, footer). "/" shows
+  // the United States home and sends a returning visitor to their country.
   layout("routes/country-layout.tsx", [
     index("routes/home.tsx"),
-    ...countryPages(":country"),
-    // Static segments outrank ":categorySlug", so /ca/fr is never a food.
-    ...LANGUAGES.flatMap((language) =>
-      countryPages(`:country/${language}`, language),
-    ),
+    ...LANGUAGES.flatMap(countryPages),
   ]),
   route("users/:handle", "routes/profile.tsx"),
   route("about/:page", "routes/policy.tsx"),

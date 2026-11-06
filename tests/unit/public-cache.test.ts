@@ -1,8 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  brandPath,
+  foodPath,
+  homePath,
+  productPath,
+  readPageLanguageFrom,
+  searchPath,
+} from "../../server/catalog/domain/markets";
 import {
   cachePublicResponse,
   edgeCacheControl,
   invalidationTags,
+  languageRedirect,
   normalizedPublicRequest,
   publicCacheTags,
   publicRedirect,
@@ -266,7 +275,6 @@ it("gives each filter combination one normalized cache identity", () => {
   const url = (path: string) => new URL(path, origin);
   const redirect = (path: string) =>
     publicRedirect(url(path), publicRoute(url(path))!);
-  expect(redirect("/us")).toBe("/");
   expect(redirect("/ca")).toBeNull();
   expect(redirect("/us/milk?stores=kroger,target")).toBeNull();
   expect(redirect("/us/milk?stores=Target&stores=kroger&page=3")).toBe(
@@ -442,14 +450,22 @@ describe("languages in public URLs", () => {
   it("redirects from the URL alone", () => {
     const moved = (path: string, preview = false) => {
       const url = new URL(path, origin);
-      return publicRedirect(url, publicRoute(url)!, preview);
+      return languageRedirect(url, publicRoute(url)!, preview);
     };
-    expect(moved("/ca/en/ground-beef")).toBe("/ca/ground-beef");
-    expect(moved("/ca/en")).toBe("/ca");
-    expect(moved("/us/en")).toBe("/");
-    expect(moved("/us/fr/milk?view=new")).toBe("/us/milk?view=new");
+    expect(moved("/ca/ground-beef")).toBe("/ca/en/ground-beef");
+    expect(moved("/ca")).toBe("/ca/en");
+    expect(moved("/us")).toBe("/us/en");
+    expect(moved("/ca/products/oat?food=milk")).toBe(
+      "/ca/en/products/oat?food=milk",
+    );
+    expect(moved("/us/fr/milk?view=new")).toBe("/us/en/milk?view=new");
+    expect(moved("/jp/karaage")).toBe("/jp/ja/karaage");
+    // Named languages stay, and "/" stays the entry page.
+    expect(moved("/ca/en/ground-beef")).toBeNull();
+    expect(moved("/")).toBeNull();
+    expect(moved("/about/terms")).toBeNull();
     // French is on previews only until its translations are reviewed.
-    expect(moved("/ca/fr/ground-beef")).toBe("/ca/ground-beef");
+    expect(moved("/ca/fr/ground-beef")).toBe("/ca/en/ground-beef");
     expect(moved("/ca/fr/ground-beef", true)).toBeNull();
   });
 
@@ -474,5 +490,31 @@ describe("languages in public URLs", () => {
     expect(publicCacheTags(route("/ca/fr/milk"))).toEqual(
       publicCacheTags(route("/ca/milk")),
     );
+  });
+});
+
+describe("links in a page's language", () => {
+  afterEach(() => readPageLanguageFrom(() => null));
+
+  it("stays in the page's language where the country offers it", () => {
+    readPageLanguageFrom(() => "fr");
+    expect(foodPath("ca", "milk")).toBe("/ca/fr/milk");
+    expect(homePath("ca")).toBe("/ca/fr");
+    expect(productPath("ca", "beyond", "milk")).toBe(
+      "/ca/fr/products/beyond?food=milk",
+    );
+    expect(brandPath("ca", "beyond")).toBe("/ca/fr/brand/beyond");
+    expect(searchPath("ca")).toBe("/ca/fr/search");
+    // Another country falls back to its own default.
+    expect(foodPath("gb", "milk")).toBe("/gb/en/milk");
+    expect(homePath("us")).toBe("/us/en");
+  });
+
+  it("lets a link name its language", () => {
+    readPageLanguageFrom(() => "fr");
+    expect(foodPath("ca", "milk", "en")).toBe("/ca/en/milk");
+    readPageLanguageFrom(() => null);
+    expect(foodPath("ca", "milk", "fr")).toBe("/ca/fr/milk");
+    expect(foodPath("ca", "milk")).toBe("/ca/en/milk");
   });
 });

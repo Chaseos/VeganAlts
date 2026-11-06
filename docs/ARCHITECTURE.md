@@ -506,6 +506,14 @@ Follow [milestone 6](MILESTONE_6_PLAN.md).
 
 **After publication.** Stores are confirmed inside the publication batch. The contributor's rating and allergen declaration need the rating aggregates and an automated check, so the batch records a recovery marker and the extras are applied immediately afterward, then retried by the hourly schedule until done. The hourly schedule also continues submissions whose suggested food was accepted.
 
+## Milestone 8 boundaries
+
+Follow [milestone 8](MILESTONE_8_PLAN.md).
+
+**Languages in URLs.** A country's languages live in `server/catalog/domain/languages.ts`, because the gateway decides them before any D1 read. Every country page names both its country and its language, and an address without a language redirects from the URL alone. `/` shows the United States home. The language is part of the cache identity, and public renders never read a cookie. Purge tags are shared across languages, so one purge clears every language of a page.
+
+**Links keep the language.** Path helpers read the page's language from one place: `AsyncLocalStorage` in the Worker, set around each public render, and the address in the browser. A caller can still name a language, and a country that doesn't offer it uses its default.
+
 ## Milestone 7 boundaries
 
 Follow [milestone 7](MILESTONE_7_PLAN.md).

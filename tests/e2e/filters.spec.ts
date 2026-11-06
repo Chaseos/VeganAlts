@@ -68,7 +68,7 @@ test("stores narrow a ranking with OR, are saved per country and never change To
     ]);
   });
   try {
-    await page.goto("/us/ground-beef");
+    await page.goto("/us/en/ground-beef");
     const rows = page.locator(".va-rank-list > li");
     await expect(rows).toHaveCount(ranked.length);
     await page.getByLabel(/^Commonly found at: Any store/).click();
@@ -103,21 +103,21 @@ test("stores narrow a ranking with OR, are saved per country and never change To
     ).toBe(true);
 
     // The choice is saved on this device for the United States only.
-    await page.goto("/us/ground-beef");
+    await page.goto("/us/en/ground-beef");
     await expect(page).toHaveURL(/stores=/);
     await expect(rows).toHaveCount(2);
-    await page.goto("/ca/ground-beef");
+    await page.goto("/ca/en/ground-beef");
     await expect(
       page.getByLabel(/^Commonly found at: Any store/),
     ).toBeVisible();
     await expect(page).not.toHaveURL(/stores=/);
 
-    await page.goto(`/us/ground-beef?stores=${stores[0]!.slug}`);
+    await page.goto(`/us/en/ground-beef?stores=${stores[0]!.slug}`);
     await page.getByLabel(/^Commonly found at: /).click();
     await page.getByRole("button", { name: "Any store" }).click();
     await expect(page).not.toHaveURL(/stores=/);
     await expect(rows).toHaveCount(ranked.length);
-    await page.goto("/us/ground-beef");
+    await page.goto("/us/en/ground-beef");
     await expect(
       page.getByLabel(/^Commonly found at: Any store/),
     ).toBeVisible();
@@ -125,21 +125,21 @@ test("stores narrow a ranking with OR, are saved per country and never change To
 
     // One cache variant per combination: other forms redirect.
     const messy = await request.get(
-      `/us/ground-beef?stores=${stores[1]!.slug.toUpperCase()}&stores=${stores[0]!.slug}&page=2`,
+      `/us/en/ground-beef?stores=${stores[1]!.slug.toUpperCase()}&stores=${stores[0]!.slug}&page=2`,
       { maxRedirects: 0 },
     );
     expect(messy.status()).toBe(301);
     expect(messy.headers().location).toBe(
-      `/us/ground-beef?stores=${stores[0]!.slug}%2C${stores[1]!.slug}`,
+      `/us/en/ground-beef?stores=${stores[0]!.slug}%2C${stores[1]!.slug}`,
     );
     const unknown = await request.get(
-      `/us/ground-beef?stores=not-a-store-${suffix}`,
+      `/us/en/ground-beef?stores=not-a-store-${suffix}`,
       { maxRedirects: 0 },
     );
     expect(unknown.status()).toBe(302);
     expect(unknown.headers()["cache-control"]).toContain("no-store");
     const filtered = await request.get(
-      `/us/ground-beef?stores=${stores[0]!.slug}`,
+      `/us/en/ground-beef?stores=${stores[0]!.slug}`,
     );
     expect(await filtered.text()).toContain(
       'rel="canonical" href="http://127.0.0.1:5173/us/ground-beef"',
@@ -163,7 +163,7 @@ test("stores narrow a ranking with OR, are saved per country and never change To
 test("the sort menu works from the keyboard and keeps Top unchanged", async ({
   page,
 }) => {
-  await page.goto("/us/ground-beef");
+  await page.goto("/us/en/ground-beef");
   const names = page.locator(".va-featured__name, .va-rank-row__name");
   const top = await names.allTextContents();
   const sort = page.getByLabel("Sort: Ranking");
@@ -180,7 +180,7 @@ test("the sort menu works from the keyboard and keeps Top unchanged", async ({
   await page.getByLabel("Sort: Trending").click();
   await page.keyboard.press("Escape");
   await expect(page.getByLabel("Sort: Trending")).toBeFocused();
-  await page.goto("/us/ground-beef");
+  await page.goto("/us/en/ground-beef");
   expect(await names.allTextContents()).toEqual(top);
 });
 
@@ -215,7 +215,7 @@ test("Free from shows only confirmed labels without the allergen and counts the 
     ]),
   );
   try {
-    await page.goto("/us/ground-beef");
+    await page.goto("/us/en/ground-beef");
     await expect(
       page.locator(".va-featured").getByText("Contains soy"),
     ).toBeVisible();
@@ -243,7 +243,7 @@ test("Free from shows only confirmed labels without the allergen and counts the 
     ).toBeVisible();
     await accessible(page);
     // The choice is saved for this country.
-    await page.goto("/us/ground-beef");
+    await page.goto("/us/en/ground-beef");
     await expect(page).toHaveURL(/freeFrom=soy/);
     await page.getByLabel(/^Free from: /).click();
     await page.getByRole("button", { name: "No allergen filter" }).click();
@@ -270,7 +270,7 @@ test("detail and most-rated sorts reorder without changing ranks, and unknown on
   page,
   request,
 }) => {
-  await page.goto("/us/ground-beef");
+  await page.goto("/us/en/ground-beef");
   const ranks = await page.locator(".va-rank-row__rank").allTextContents();
   await page.getByLabel("Sort: Ranking").click();
   await page
@@ -297,9 +297,9 @@ test("detail and most-rated sorts reorder without changing ranks, and unknown on
   expect(
     (await page.locator(".va-rank-row__rank").allTextContents()).sort(),
   ).toEqual(["Rank #1", ...ranks].sort());
-  const unknown = await request.get("/us/ground-beef?view=detail-crunch", {
+  const unknown = await request.get("/us/en/ground-beef?view=detail-crunch", {
     maxRedirects: 0,
   });
   expect(unknown.status()).toBe(302);
-  expect(unknown.headers().location).toBe("/us/ground-beef");
+  expect(unknown.headers().location).toBe("/us/en/ground-beef");
 });

@@ -15,7 +15,7 @@ test("categories offer separate Top, Trending and New views and the homepage sur
       page.getByRole("main").getByRole("heading", { name }),
     ).toBeVisible();
   await accessible(page);
-  await page.goto("/us/ground-beef");
+  await page.goto("/us/en/ground-beef");
   // The sort menu holds the ranking, Trending and Newest; the toggle above
   // it switches between the two rankings.
   const sortBy = async (current: string, next: RegExp) => {
@@ -36,7 +36,7 @@ test("categories offer separate Top, Trending and New views and the homepage sur
   await expect(page.getByText(/^Added in the last \d+ days/)).toBeVisible();
   await expect(page.locator("link[rel=canonical]")).toHaveAttribute(
     "href",
-    /\/us\/ground-beef\?view=new$/,
+    /\/us\/en\/ground-beef\?view=new$/,
   );
   await sortBy("Newest", /^Ranking/);
   await expect(page.locator(".va-featured")).toContainText("#1 swap");
@@ -72,7 +72,7 @@ test("home and footer show the same popular aisles and retain the complete direc
     .getByRole("main")
     .getByRole("link", { name: "Browse all categories" })
     .click();
-  await expect(page).toHaveURL(/\/us\/search$/);
+  await expect(page).toHaveURL(/\/us\/en\/search$/);
   await expect
     .poll(() => page.locator(".va-search-page__aisles > li").count())
     .toBeGreaterThan(6);
@@ -82,11 +82,11 @@ test("product lists show branded titles and loaded package thumbnails on every s
   page,
 }) => {
   for (const [path, selector, minimum] of [
-    ["/us/milk", ".va-featured img.va-thumb", isPhone(page) ? 128 : 200],
-    ["/us/milk", ".va-rank-row img.va-thumb", 88],
-    ["/us/bacon", ".va-unrated img.va-thumb", 88],
-    ["/us/search?q=milk", ".va-search-page__products img.va-thumb", 88],
-    ["/us/brand/oatly", ".va-brand__line img.va-thumb", 88],
+    ["/us/en/milk", ".va-featured img.va-thumb", isPhone(page) ? 128 : 200],
+    ["/us/en/milk", ".va-rank-row img.va-thumb", 88],
+    ["/us/en/bacon", ".va-unrated img.va-thumb", 88],
+    ["/us/en/search?q=milk", ".va-search-page__products img.va-thumb", 88],
+    ["/us/en/brand/oatly", ".va-brand__line img.va-thumb", 88],
   ] as const) {
     await page.goto(path);
     const photo = page.locator(selector).first();
@@ -98,15 +98,15 @@ test("product lists show branded titles and loaded package thumbnails on every s
       .toBeGreaterThan(0);
     expect((await photo.boundingBox())!.width).toBeGreaterThanOrEqual(minimum);
   }
-  await page.goto("/us/products/oatly-full-fat");
+  await page.goto("/us/en/products/oatly-full-fat");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Oatly Oatmilk Full Fat",
   );
-  await page.goto("/us/products/beyond-beef");
+  await page.goto("/us/en/products/beyond-beef");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Beyond Beef",
   );
-  await page.goto("/us/milk");
+  await page.goto("/us/en/milk");
   await accessible(page);
   if (isPhone(page)) {
     await page.setViewportSize({ width: 320, height: 844 });

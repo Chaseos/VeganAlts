@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { useCallback, useState } from "react";
-import { Link, redirect } from "react-router";
+import { Link, useLocation } from "react-router";
 import { publicCatalogService } from "@server/catalog/infrastructure/composition";
 import { publicLoader, pageLanguage } from "@server/catalog/http/loader";
 import { catalogIsPublic } from "@server/shared/domain/launch";
@@ -20,7 +20,7 @@ import {
 import { BROWSE_AISLE_FOODS } from "@server/ranking/domain/display";
 import type { Season } from "@server/taxonomy/domain/season";
 import { ButtonLink } from "../components/ui/button";
-import { publicMetadata } from "../lib/metadata";
+import { publicMetadata, countryAlternates } from "../lib/metadata";
 import { formatCount, plural, shortDate, productName } from "../lib/format";
 import { POPULAR_AISLE_COUNT } from "../lib/aisles";
 import type { SuggestedFood } from "../lib/instant-search";
@@ -35,8 +35,6 @@ import { useRememberedCountry } from "../lib/country-memory";
 import type { Route } from "./+types/home";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  // The United States home lives at "/".
-  if (params.country?.toLowerCase() === "us") throw redirect("/", 301);
   const base = { staging: env.APP_ENV !== "production", origin: env.APP_URL };
   if (!catalogIsPublic(env)) return { ...base, market: null, catalog: null };
   return publicLoader(async () => {
@@ -47,15 +45,24 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 }
 export function meta({ loaderData }: Route.MetaArgs) {
   const market = loaderData?.market;
-  return publicMetadata(
-    market && market.code !== "us"
-      ? `Find the closest vegan alternative in ${market.name}`
-      : "Find the closest vegan alternative",
-    "Search a food you already buy and see the vegan products people say come closest, ranked.",
-    homePath(market?.code ?? "us"),
-    loaderData?.origin ?? "https://veganalts.com",
-    loaderData?.staging ?? true,
-  );
+  return [
+    ...publicMetadata(
+      market && market.code !== "us"
+        ? `Find the closest vegan alternative in ${market.name}`
+        : "Find the closest vegan alternative",
+      "Search a food you already buy and see the vegan products people say come closest, ranked.",
+      homePath(market?.code ?? "us"),
+      loaderData?.origin ?? "https://veganalts.com",
+      loaderData?.staging ?? true,
+    ),
+    ...(market
+      ? countryAlternates(
+          loaderData?.origin ?? "https://veganalts.com",
+          [market],
+          homePath,
+        )
+      : []),
+  ];
 }
 
 type Home = NonNullable<Route.ComponentProps["loaderData"]["catalog"]>;
@@ -63,7 +70,7 @@ type Leader = Home["startWithThese"][number];
 
 // The country home (canvas: Home5, PHome5).
 export default function HomePage({ loaderData }: Route.ComponentProps) {
-  useRememberedCountry(!loaderData.market || loaderData.market.code === "us");
+  useRememberedCountry(useLocation().pathname === "/");
   const [preview, setPreview] = useState<SuggestedFood | null>(null);
   const onPreview = useCallback(
     (food: SuggestedFood | null) => setPreview(food),

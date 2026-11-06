@@ -1,5 +1,10 @@
 import { ApplicationError } from "../../shared/domain/errors";
-import { defaultLanguage, type Language } from "./languages";
+import {
+  defaultLanguage,
+  languagesOf,
+  splitLanguage,
+  type Language,
+} from "./languages";
 
 // A country's catalog. Routes use the lowercase ISO code; the database stores
 // the uppercase ISO 3166-1 alpha-2 code.
@@ -36,15 +41,29 @@ export function parseCountryCode(value: string | null | undefined) {
   return code;
 }
 
-// The default language has no path segment, so every older address keeps working.
-const prefix = (code: string, language?: Language) =>
-  language && language !== defaultLanguage(code)
-    ? `/${code}/${language}`
-    : `/${code}`;
+// The language of the page being rendered, so a link stays in it without every
+// caller passing it along. The browser reads its own address; the Worker sets
+// this per request in workers/app.ts, because it serves many at once.
+let currentLanguage = (): Language | null =>
+  typeof location === "undefined"
+    ? null
+    : splitLanguage(location.pathname.toLowerCase()).language;
+export function readPageLanguageFrom(source: () => Language | null) {
+  currentLanguage = source;
+}
+
+// Every country page names its language. A country that doesn't offer the
+// page's language uses its default. Previews count: a language not live yet
+// has no pages outside them.
+const prefix = (code: string, language = currentLanguage()) =>
+  `/${code}/${
+    language && languagesOf(code, true).includes(language)
+      ? language
+      : defaultLanguage(code)
+  }`;
 
 export function homePath(code: string, language?: Language) {
-  const path = prefix(code, language);
-  return path === `/${DEFAULT_COUNTRY}` ? "/" : path;
+  return prefix(code, language);
 }
 
 export function searchPath(code: string, language?: Language) {

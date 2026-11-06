@@ -13,18 +13,18 @@ test("cancelling sign-in leaves protected tasks and retains public product conte
   await expect(page.locator('input[name="returnTo"]')).toHaveValue(task);
   await expect(
     page.getByRole("link", { name: "Continue browsing" }),
-  ).toHaveAttribute("href", "/gb");
+  ).toHaveAttribute("href", "/gb/en");
   await page.getByRole("link", { name: "Continue browsing" }).click();
-  await expect(page).toHaveURL(/\/gb$/);
+  await expect(page).toHaveURL(/\/gb\/en$/);
 
-  const product = "/us/products/beyond-beef?food=ground-beef#scores-title";
+  const product = "/us/en/products/beyond-beef?food=ground-beef#scores-title";
   await page.goto(`/sign-in?returnTo=${encodeURIComponent(product)}`);
   await expect(
     page.getByRole("link", { name: "Continue browsing" }),
   ).toHaveAttribute("href", product);
   await page.getByRole("link", { name: "Continue browsing" }).click();
   await expect(page).toHaveURL(
-    new RegExp("/us/products/beyond-beef\\?food=ground-beef#scores-title$"),
+    new RegExp("/us/en/products/beyond-beef\\?food=ground-beef#scores-title$"),
   );
   await expect(
     page.getByRole("region", { name: "Rate it as ground beef" }),
@@ -42,7 +42,7 @@ test("a multi-flavor shortcut selects a flavor and resumes its rating after sign
   );
   const session = await createBrowserSession();
   try {
-    await page.goto("/us/milk");
+    await page.goto("/us/en/milk");
     // Test the hydrated keyboard handler; the native fallback is covered below.
     await expect(
       page.getByRole("button", {
@@ -55,7 +55,7 @@ test("a multi-flavor shortcut selects a flavor and resumes its rating after sign
     await featured
       .getByRole("link", { name: "I’ve tried it", exact: true })
       .press("Enter");
-    await expect(page).toHaveURL(/\/us\/milk$/);
+    await expect(page).toHaveURL(/\/us\/en\/milk$/);
     await expect(disclosure).toHaveAttribute("open", "");
     await expect(disclosure.locator("summary")).toBeFocused();
     await page.keyboard.press("Escape");
@@ -68,7 +68,7 @@ test("a multi-flavor shortcut selects a flavor and resumes its rating after sign
       .getByRole("link", { name: "Rate it: Oatmilk Full Fat", exact: true })
       .click();
     await expect(page).toHaveURL(
-      /\/us\/products\/oatly-full-fat\?food=milk#scores-title$/,
+      /\/us\/en\/products\/oatly-full-fat\?food=milk#scores-title$/,
     );
     const form = page.getByRole("region", { name: "Rate it as milk" });
     await expect(form.locator(".va-rate__product")).toContainText(
@@ -80,7 +80,7 @@ test("a multi-flavor shortcut selects a flavor and resumes its rating after sign
     await expect(page).toHaveURL(/\/sign-in\?returnTo=/);
     const returnTo = new URL(page.url()).searchParams.get("returnTo")!;
     expect(returnTo).toMatch(
-      /^\/us\/products\/oatly-full-fat\?food=milk#rate-/,
+      /^\/us\/en\/products\/oatly-full-fat\?food=milk#rate-/,
     );
     await context.addCookies([session.cookie]);
     await page.goto(`/auth/return?returnTo=${encodeURIComponent(returnTo)}`);
@@ -108,7 +108,7 @@ test("phone country selection is visible, keyboard accessible and before aisles"
   page,
 }) => {
   test.skip(!isPhone(page), "Phone header and sheet.");
-  await page.goto("/us/milk");
+  await page.goto("/us/en/milk");
   // Escape and focus restoration belong to the hydrated header.
   await expect(
     page.getByRole("button", { name: "Menu", exact: true }),
@@ -128,7 +128,7 @@ test("phone country selection is visible, keyboard accessible and before aisles"
     .getByRole("banner")
     .getByRole("link", { name: /^Canada/ })
     .click();
-  await expect(page).toHaveURL(/\/ca\/milk$/);
+  await expect(page).toHaveURL(/\/ca\/en\/milk$/);
   await expect(page.getByLabel(/^Country: Canada/)).toContainText("CA");
   await page.getByRole("button", { name: "Menu", exact: true }).click();
   const menu = page.getByRole("dialog", { name: "Site menu" });
@@ -149,13 +149,13 @@ test("phone rankings and product scores are visible before scrolling", async ({
 }) => {
   test.skip(!isPhone(page), "390px phone layout.");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/us/milk");
+  await page.goto("/us/en/milk");
   const score = page.locator(".va-featured .va-score");
   await expect(score).toBeVisible();
   expect(
     (await score.boundingBox())!.y + (await score.boundingBox())!.height,
   ).toBeLessThan(page.viewportSize()!.height);
-  await page.goto("/us/products/oatly-full-fat?food=milk");
+  await page.goto("/us/en/products/oatly-full-fat?food=milk");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   const primary = page.locator(".va-score-card__metrics .va-score").first();
   await expect(primary).toBeVisible();
@@ -176,7 +176,7 @@ test.describe("native flavor choice", () => {
   test("the multi-flavor shortcut reveals the list without JavaScript", async ({
     page,
   }) => {
-    await page.goto("/us/milk");
+    await page.goto("/us/en/milk");
     const featured = page.getByRole("article", { name: "Oatly Oatmilk" });
     await featured
       .getByRole("link", { name: "I’ve tried it", exact: true })
@@ -186,7 +186,7 @@ test.describe("native flavor choice", () => {
       .getByRole("link", { name: "Rate it: Oatmilk Full Fat", exact: true })
       .click();
     await expect(page).toHaveURL(
-      /\/us\/products\/oatly-full-fat\?food=milk#scores-title$/,
+      /\/us\/en\/products\/oatly-full-fat\?food=milk#scores-title$/,
     );
   });
 });

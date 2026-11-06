@@ -82,10 +82,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   // A renamed or merged category redirects (uncached) to its current slug.
   const moved = await catalog.categoryRedirect(params.categorySlug);
   if (moved)
-    throw redirect(`/${country}/${moved}${new URL(request.url).search}`, {
-      status: 302,
-      headers: { "Cache-Control": "private, no-store" },
-    });
+    throw redirect(
+      `${foodPath(country, moved)}${new URL(request.url).search}`,
+      {
+        status: 302,
+        headers: { "Cache-Control": "private, no-store" },
+      },
+    );
   return publicLoader(async () => {
     const continuation = new URL(request.url).searchParams;
     if (continuation.has("cursor") && !continuation.has("section"))

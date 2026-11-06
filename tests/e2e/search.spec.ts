@@ -57,7 +57,7 @@ test("instant answers work from the keyboard and announce their count", async ({
   await expect(field).toHaveAttribute("aria-activedescendant", /.+/);
   await field.fill("chedd");
   await field.press("Enter");
-  await expect(page).toHaveURL(/\/us\/search\?q=chedd$/);
+  await expect(page).toHaveURL(/\/us\/en\/search\?q=chedd$/);
   await page.goto("/");
 
   await field.fill("ground");
@@ -66,7 +66,7 @@ test("instant answers work from the keyboard and announce their count", async ({
   ).toBeVisible();
   await field.press("ArrowDown");
   await field.press("Enter");
-  await expect(page).toHaveURL(/\/us\/ground-beef$/);
+  await expect(page).toHaveURL(/\/us\/en\/ground-beef$/);
 });
 
 test("a food that is not here yet can be suggested from the answers", async ({
@@ -90,7 +90,7 @@ test("the header searches from any desktop page and search works without JavaScr
   page,
 }) => {
   if (!isPhone(page)) {
-    await page.goto("/us/beef");
+    await page.goto("/us/en/beef");
     const header = page
       .getByRole("banner")
       .getByRole("combobox", { name: "Search a food or brand" });
@@ -100,7 +100,7 @@ test("the header searches from any desktop page and search works without JavaScr
       .getByRole("option", { name: /Cheddar/ })
       .first();
     await option.click();
-    await expect(page).toHaveURL(/\/us\/cheddar$/);
+    await expect(page).toHaveURL(/\/us\/en\/cheddar$/);
   }
   const context = await browser.newContext({ javaScriptEnabled: false });
   try {
@@ -110,7 +110,7 @@ test("the header searches from any desktop page and search works without JavaScr
       .getByRole("searchbox", { name: "Search a food or brand" })
       .fill("milk");
     await plain.getByRole("button", { name: "Find swaps" }).click();
-    await expect(plain).toHaveURL(/\/us\/search\?q=milk$/);
+    await expect(plain).toHaveURL(/\/us\/en\/search\?q=milk$/);
     await expect(
       plain.getByRole("heading", { level: 1, name: "Results for “milk”" }),
     ).toBeVisible();
@@ -120,7 +120,7 @@ test("the header searches from any desktop page and search works without JavaScr
   } finally {
     await context.close();
   }
-  await page.goto("/us/search?q=milk");
+  await page.goto("/us/en/search?q=milk");
   await accessible(page);
 });
 

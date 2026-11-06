@@ -13,7 +13,7 @@ test("anonymous selection resumes once after sign-in and My Ratings edits the sa
   );
   const session = await createBrowserSession();
   try {
-    await page.goto("/us/ground-beef");
+    await page.goto("/us/en/ground-beef");
     await page
       .getByRole("main")
       .getByRole("link", { name: "Beyond Beef", exact: true })
@@ -93,7 +93,7 @@ test("rapid changes, a lost response and retry preserve one authoritative rating
   const session = await createBrowserSession();
   try {
     await context.addCookies([session.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     const one = page.getByRole("button", {
       name: "1 Not close (1 of 5)",
       exact: true,
@@ -155,7 +155,7 @@ test("detail answers and last ate save on tap, clear on a second tap and survive
       )
         drafts.push(request.postDataJSON());
     });
-    await page.goto("/us/products/beyond-beef");
+    await page.goto("/us/en/products/beyond-beef");
     const form = page.getByRole("region", { name: "Rate it as beef burgers" });
     const status = form.getByRole("status");
     // Optional questions appear only once the overall score is chosen.
@@ -254,7 +254,7 @@ test("taste can be rated first, survives sign-in, and clears independently of cl
   test.skip(!!process.env.TEST_BASE_URL, "Provider simulation is local only.");
   const session = await createBrowserSession();
   try {
-    await page.goto("/us/products/beyond-burger?food=beef-burgers");
+    await page.goto("/us/en/products/beyond-burger?food=beef-burgers");
     const editor = page.getByRole("region", {
       name: "Rate it as beef burgers",
     });

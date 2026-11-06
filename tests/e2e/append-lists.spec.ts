@@ -16,8 +16,8 @@ test.beforeEach(() =>
   ),
 );
 
-const ranking = "/us/browse-batches";
-const search = "/us/search?q=appendfixture";
+const ranking = "/us/en/browse-batches";
+const search = "/us/en/search?q=appendfixture";
 
 test("appends independent sections, retries safely, and restores batches on Back", async ({
   page,
@@ -91,7 +91,7 @@ test("appends independent sections, retries safely, and restores batches on Back
   await expect(rows).toHaveCount(60);
   const target = rows.nth(42).getByRole("link").first();
   await target.click();
-  await expect(page).toHaveURL(/\/us\/products\/browse-product-/);
+  await expect(page).toHaveURL(/\/us\/en\/products\/browse-product-/);
   await page.goBack();
   await expect(rows).toHaveCount(60);
   await expect(page.locator(".va-unrated-list > li")).toHaveCount(40);

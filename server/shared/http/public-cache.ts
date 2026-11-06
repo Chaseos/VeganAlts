@@ -156,20 +156,8 @@ export function publicRoute(url: URL): PublicRoute | null {
 // Permanent redirects decided from the URL alone, before any cache lookup or
 // D1 read: the United States home lives at "/", and filter parameters have one
 // normalized form so each filter combination is cached once.
-export function publicRedirect(url: URL, route: PublicRoute, preview = false) {
+export function publicRedirect(url: URL, route: PublicRoute) {
   if (route.representation !== "document") return null;
-  if (route.kind === "home" && route.pathname === "/us") return "/";
-  const split = splitLanguage(route.pathname);
-  if (split.language) {
-    const country = route.country ?? "us";
-    // The default language has no segment; one the country doesn't offer
-    // falls back to it.
-    if (
-      split.language === defaultLanguage(country) ||
-      !languagesOf(country, preview).includes(split.language)
-    )
-      return `${country === "us" && split.path === "/us" ? "/" : split.path}${url.search}`;
-  }
   if (route.kind === "category" && !filtersAreNormalized(url.searchParams)) {
     const target = new URL(url);
     const params = applyFilters(
@@ -181,6 +169,38 @@ export function publicRedirect(url: URL, route: PublicRoute, preview = false) {
     return `${target.pathname}${target.search}`;
   }
   return null;
+}
+
+const COUNTRY_PAGES = new Set<PublicRoute["kind"]>([
+  "home",
+  "search",
+  "category",
+  "product",
+  "brand",
+]);
+
+/**
+ * Every country page has a language in its address. One without it, or with
+ * one the country doesn't offer, goes to the country's default, decided from
+ * the URL alone. These are temporary redirects: the preference can change.
+ */
+export function languageRedirect(
+  url: URL,
+  route: PublicRoute,
+  preview = false,
+) {
+  if (
+    route.representation !== "document" ||
+    !route.country ||
+    !COUNTRY_PAGES.has(route.kind) ||
+    route.pathname === "/"
+  )
+    return null;
+  const { path, language } = splitLanguage(route.pathname);
+  if (language && languagesOf(route.country, preview).includes(language))
+    return null;
+  const rest = path.slice(`/${route.country}`.length);
+  return `/${route.country}/${defaultLanguage(route.country)}${rest}${url.search}`;
 }
 
 export function normalizedPublicRequest(

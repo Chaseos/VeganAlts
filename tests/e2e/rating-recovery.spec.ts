@@ -18,7 +18,7 @@ test("reauthentication saves the latest score selected during an expired in-flig
         hydrationErrors.push(message.text());
     });
     await context.addCookies([session.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await expectSignedIn(page);
     let receiveRequest!: (route: Route) => void;
     const firstRequest = new Promise<Route>((resolve) => {
@@ -80,7 +80,7 @@ test("session loss and a cancelled sign-in retain the score for a later successf
   const session = await createBrowserSession();
   try {
     await context.addCookies([session.cookie]);
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await expectSignedIn(page);
     await context.clearCookies();
     await page
@@ -130,7 +130,7 @@ test("a formula conflict after sign-in requires a fresh selection", async ({
   );
   const session = await createBrowserSession();
   try {
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     await page
       .getByRole("button", { name: "3 Fairly close (3 of 5)", exact: true })
       .click();
@@ -197,7 +197,7 @@ test("rate limits and an unavailable security check preserve a recoverable selec
     await page.route("https://challenges.cloudflare.com/**", (route) =>
       route.abort("failed"),
     );
-    await page.goto("/us/products/beyond-burger");
+    await page.goto("/us/en/products/beyond-burger");
     let challenge = false;
     await page.route("**/api/v1/ratings", (route) =>
       route.fulfill({

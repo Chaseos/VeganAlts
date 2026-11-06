@@ -17,7 +17,7 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
   const name = `Bratwurst ${stamp}`;
   try {
     await context.addCookies([contributor.cookie]);
-    await page.goto(`/us/search?q=${encodeURIComponent(name)}`);
+    await page.goto(`/us/en/search?q=${encodeURIComponent(name)}`);
     await page
       .getByRole("main")
       .getByRole("link", { name: "Suggest a food" })
@@ -51,7 +51,7 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
     await expect(
       page.getByText("Status: accepted", { exact: true }),
     ).toBeVisible();
-    await page.goto(`/us/${slug}`);
+    await page.goto(`/us/en/${slug}`);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       new RegExp(name, "i"),
     );
@@ -66,8 +66,8 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
       .fill("Clearer address for the browser check.");
     await page.getByRole("button", { name: "Save category" }).click();
     await expect(page.getByRole("status")).toContainText("updated");
-    await page.goto(`/us/${slug}`);
-    await expect(page).toHaveURL(new RegExp(`/us/${renamed}$`));
+    await page.goto(`/us/en/${slug}`);
+    await expect(page).toHaveURL(new RegExp(`/us/en/${renamed}$`));
 
     // A new food asks Taste and Texture until an operator adds its own.
     await page.goto("/admin/taxonomy");
@@ -127,8 +127,8 @@ test("a proposed category is reviewed, created, renamed with a redirect and merg
       .fill("Same reference food; merging duplicate.");
     await page.getByRole("button", { name: "Merge categories" }).click();
     await expect(page.getByRole("status")).toContainText("merged into");
-    await page.goto(`/us/brats-${stamp}`);
-    await expect(page).toHaveURL(new RegExp(`/us/${renamed}$`));
+    await page.goto(`/us/en/brats-${stamp}`);
+    await expect(page).toHaveURL(new RegExp(`/us/en/${renamed}$`));
     await page.goto("/admin/taxonomy");
     await accessible(page);
     await page.screenshot({

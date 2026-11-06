@@ -12,12 +12,12 @@ import { withLocalDb } from "./local-db";
 test("switching country keeps the food, remembers the choice and invites the first products", async ({
   page,
 }) => {
-  await page.goto("/us/ground-beef");
+  await page.goto("/us/en/ground-beef");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     /ground beef/i,
   );
   await chooseCountry(page, "Canada");
-  await expect(page).toHaveURL(/\/ca\/ground-beef$/);
+  await expect(page).toHaveURL(/\/ca\/en\/ground-beef$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     /ground beef/i,
   );
@@ -25,11 +25,11 @@ test("switching country keeps the food, remembers the choice and invites the fir
   await expect(page.getByRole("link", { name: /Beyond Beef/ })).toHaveCount(0);
 
   // A product page moves to its food in the other country.
-  await page.goto("/us/products/beyond-beef");
+  await page.goto("/us/en/products/beyond-beef");
   await chooseCountry(page, "Canada");
-  await expect(page).toHaveURL(/\/ca\/[a-z-]+$/);
+  await expect(page).toHaveURL(/\/ca\/en\/[a-z-]+$/);
 
-  await page.goto("/ca");
+  await page.goto("/ca/en");
   await expect(
     page.getByRole("heading", { name: "No rankings in Canada yet" }),
   ).toBeVisible();
@@ -44,7 +44,7 @@ test("switching country keeps the food, remembers the choice and invites the fir
 
   // "/" sends a returning visitor to the remembered country after hydration.
   await page.goto("/");
-  await expect(page).toHaveURL(/\/ca$/);
+  await expect(page).toHaveURL(/\/ca\/en$/);
   await chooseCountry(page, "United States");
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/");
@@ -64,13 +64,13 @@ test("a food that is not on in a country invites its first product there", async
       .run();
   await withLocalDb(off);
   try {
-    await page.goto("/nz/bacon");
+    await page.goto("/nz/en/bacon");
     await expect(
       page.getByRole("heading", { name: "Not in New Zealand yet" }),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "See it in United States" }),
-    ).toHaveAttribute("href", "/us/bacon");
+    ).toHaveAttribute("href", "/us/en/bacon");
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
       "content",
       /noindex/,
@@ -100,13 +100,13 @@ test("a food that is not on in a country invites its first product there", async
 test("only active countries route; the United States home lives at /", async ({
   request,
 }) => {
-  const moved = await request.get("/us", { maxRedirects: 0 });
+  const moved = await request.get("/us/en", { maxRedirects: 0 });
   expect(moved.status()).toBe(301);
   expect(moved.headers().location).toBe("/");
   for (const path of ["/zz", "/zz/ground-beef", "/zz/products/beyond-beef"])
     expect((await request.get(path)).status(), path).toBe(404);
   // Product slugs belong to their country.
-  expect((await request.get("/ca/products/beyond-beef")).status()).toBe(404);
+  expect((await request.get("/ca/en/products/beyond-beef")).status()).toBe(404);
   const api = await request.get("/api/v1/categories/ground-beef?country=CA");
   expect(api.status()).toBe(200);
   expect((await api.json()).data.ranked).toEqual([]);
@@ -132,7 +132,7 @@ test("a product added from Ireland is published, rated and ranked in Ireland onl
     await context.addCookies([contributor.cookie]);
     // (Canada stays empty for the empty-country check above.) The account
     // menu's Add a product starts in the country being browsed.
-    await page.goto("/ie/beef-burgers");
+    await page.goto("/ie/en/beef-burgers");
     await openAccountLink(page, "Add a product");
     await expect(page).toHaveURL(/\/add-product\?country=ie$/);
     await expect(page.getByRole("main")).toContainText("Adding to Ireland");
@@ -172,18 +172,18 @@ test("a product added from Ireland is published, rated and ranked in Ireland onl
       await expect(
         page.getByText("Status: published", { exact: true }),
       ).toBeVisible();
-    } else await expect(page).toHaveURL(/\/ie\/products\//);
+    } else await expect(page).toHaveURL(/\/ie\/en\/products\//);
 
     // Someone else in Ireland rates it from the food's ranking.
     await context.clearCookies();
     await context.addCookies([rater.cookie]);
-    await page.goto("/ie/beef-burgers");
+    await page.goto("/ie/en/beef-burgers");
     await page
       .locator(".va-unrated")
       .filter({ hasText: name })
       .getByRole("link", { name: /Be the first to rate/ })
       .click();
-    await expect(page).toHaveURL(/\/ie\/products\/.+\?food=beef-burgers/);
+    await expect(page).toHaveURL(/\/ie\/en\/products\/.+\?food=beef-burgers/);
     const four = page.getByRole("button", {
       name: "4 Very close (4 of 5)",
       exact: true,
@@ -193,9 +193,9 @@ test("a product added from Ireland is published, rated and ranked in Ireland onl
     await expect(
       page.getByRole("status").filter({ hasText: "Saved 4/5" }),
     ).toBeVisible();
-    await page.goto("/ie/beef-burgers");
+    await page.goto("/ie/en/beef-burgers");
     await expect(page.locator(".va-rank-list")).toContainText(name);
-    await page.goto("/us/beef-burgers");
+    await page.goto("/us/en/beef-burgers");
     await expect(page.getByText(name)).toHaveCount(0);
   } finally {
     await page.close();

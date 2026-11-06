@@ -1,4 +1,5 @@
 import { catalogIsPublic, robotsTxt } from "../server/shared/domain/launch";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { createRequestHandler } from "react-router";
 import {
@@ -7,10 +8,16 @@ import {
   responsePolicy,
 } from "../server/shared/http/response-policy";
 import { errorResponse } from "../server/shared/http/security";
+import {
+  splitLanguage,
+  type Language,
+} from "../server/catalog/domain/languages";
+import { readPageLanguageFrom } from "../server/catalog/domain/markets";
 import { ApplicationError } from "../server/shared/domain/errors";
 import {
   cachePublicResponse,
   invalidationTags,
+  languageRedirect,
   normalizedPublicRequest,
   publicRedirect,
   publicRoute,
@@ -27,6 +34,10 @@ import {
   recordEvent,
   routeLabel,
 } from "../server/observability/events";
+
+// Links in a page stay in its language (see `readPageLanguageFrom`).
+const pageLanguage = new AsyncLocalStorage<Language | null>();
+readPageLanguageFrom(() => pageLanguage.getStore() ?? null);
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -60,7 +71,12 @@ export class PublicCatalog extends WorkerEntrypoint<Cloudflare.Env> {
       renderUrl.searchParams.delete(key);
     const request = new Request(renderUrl, { headers });
     try {
-      return cachePublicResponse(await requestHandler(request), route);
+      return cachePublicResponse(
+        await pageLanguage.run(splitLanguage(route.pathname).language, () =>
+          requestHandler(request),
+        ),
+        route,
+      );
     } catch (error) {
       console.error(
         JSON.stringify({
@@ -158,22 +174,34 @@ export default {
           if (route.kind === "suggest")
             await enforceLimit(env.SUGGEST_RATE_LIMIT, clientKey(request));
           // URL-only redirects (/us, non-normalized filters) need no D1 read.
-          const moved = publicRedirect(
+          const language = languageRedirect(
             url,
             route,
             env.APP_ENV !== "production",
           );
+          const moved = language ? null : publicRedirect(url, route);
           // Redirect lookup belongs to the public loaders on a cache miss.
           // Material changes purge product tags; redirect responses are no-store.
-          response = moved
-            ? new Response(null, { status: 301, headers: { Location: moved } })
-            : await context.exports.PublicCatalog.fetch(
-                normalizedPublicRequest(
-                  request,
-                  env.APP_URL,
-                  env.VERSION_METADATA.id,
-                ),
-              );
+          response = language
+            ? new Response(null, {
+                status: 302,
+                headers: {
+                  Location: language,
+                  "Cache-Control": "private, no-store",
+                },
+              })
+            : moved
+              ? new Response(null, {
+                  status: 301,
+                  headers: { Location: moved },
+                })
+              : await context.exports.PublicCatalog.fetch(
+                  normalizedPublicRequest(
+                    request,
+                    env.APP_URL,
+                    env.VERSION_METADATA.id,
+                  ),
+                );
           cacheOutcome =
             response.headers.get("CF-Cache-Status") ??
             (env.APP_ENV === "local" ? "LOCAL" : "UNKNOWN");

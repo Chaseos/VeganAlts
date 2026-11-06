@@ -1,4 +1,8 @@
-import { languagesOf, type Language } from "@server/catalog/domain/languages";
+import {
+  defaultLanguage,
+  languagesOf,
+  type Language,
+} from "@server/catalog/domain/languages";
 import { hreflang } from "@server/catalog/domain/markets";
 export function publicMetadata(
   title: string,
@@ -80,6 +84,9 @@ export function countryAlternates(
     })),
   );
   if (versions.length < 2) return [];
+  const fallback = countries.some((country) => country.code === "us")
+    ? "us"
+    : countries[0]!.code;
   return [
     ...versions.map(({ code, language }) => ({
       tagName: "link",
@@ -94,9 +101,10 @@ export function countryAlternates(
       // The United States, or the first country where the page exists.
       href: new URL(
         path(
-          countries.some((country) => country.code === "us")
-            ? "us"
-            : countries[0]!.code,
+          fallback,
+          languagesOf(fallback).includes("en")
+            ? "en"
+            : defaultLanguage(fallback),
         ),
         origin,
       ).href,
