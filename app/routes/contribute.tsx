@@ -1,3 +1,4 @@
+import { productPath } from "@server/catalog/domain/markets";
 import { env } from "cloudflare:workers";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
@@ -207,7 +208,7 @@ export default function Contribute({
           stance: form.get("stance"),
         });
         await navigate(
-          `/${product.countryCode}/products/${product.slug}#retailers`,
+          `${productPath(product.countryCode, product.slug)}#retailers`,
         );
       }
     });
@@ -334,7 +335,7 @@ export default function Contribute({
           items={[
             {
               label: product.name,
-              to: `/${product.countryCode}/products/${product.slug}`,
+              to: productPath(product.countryCode, product.slug),
             },
             { label: "Contribute" },
           ]}

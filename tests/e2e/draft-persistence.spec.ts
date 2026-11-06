@@ -52,16 +52,16 @@ test("warns about failed draft storage, keeps entries, and guards only work at r
     ).toBeVisible();
     await page.getByRole("button", { name: "Retry saving draft" }).click();
     await expect(name).toHaveValue("Draft kept after storage failure");
-    await page.locator('a[href="/"]').first().click();
+    await page.locator('a[href="/us/en"]').first().click();
     const guard = page.getByRole("dialog", {
       name: "This draft isn’t safely saved",
     });
     await expect(guard).toBeVisible();
     await guard.getByRole("button", { name: "Keep editing" }).click();
     await expect(name).toHaveValue("Draft kept after storage failure");
-    await page.locator('a[href="/"]').first().click();
+    await page.locator('a[href="/us/en"]').first().click();
     await guard.getByRole("button", { name: "Leave anyway" }).click();
-    await expect(page).toHaveURL("/");
+    await expect(page).toHaveURL("/us/en");
   } finally {
     await page.close();
     await session.dispose();

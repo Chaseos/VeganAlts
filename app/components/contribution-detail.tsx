@@ -1,3 +1,4 @@
+import { productPath } from "@server/catalog/domain/markets";
 import { Link } from "react-router";
 import type { QueueDecisionRepository } from "@server/community/infrastructure/queue-decision-repository";
 import { friendly, dateLabel, reportReasonLabel } from "../lib/community";
@@ -283,7 +284,10 @@ export function ContributionContent({
         <p>
           <Link
             className="button secondary"
-            to={`/${detail.publishedProduct.country}/products/${detail.publishedProduct.slug}`}
+            to={productPath(
+              detail.publishedProduct.country,
+              detail.publishedProduct.slug,
+            )}
           >
             View published product →
           </Link>
@@ -293,7 +297,7 @@ export function ContributionContent({
         <section>
           <h2>Current catalog entry</h2>
           <p>
-            <Link to={`/${product.countryCode}/products/${product.slug}`}>
+            <Link to={productPath(product.countryCode, product.slug)}>
               {product.name}
             </Link>
           </p>

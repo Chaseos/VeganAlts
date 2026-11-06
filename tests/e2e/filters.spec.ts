@@ -142,7 +142,7 @@ test("stores narrow a ranking with OR, are saved per country and never change To
       `/us/en/ground-beef?stores=${stores[0]!.slug}`,
     );
     expect(await filtered.text()).toContain(
-      'rel="canonical" href="http://127.0.0.1:5173/us/ground-beef"',
+      'rel="canonical" href="http://127.0.0.1:5173/us/en/ground-beef"',
     );
   } finally {
     await withLocalDb(async (db) => {

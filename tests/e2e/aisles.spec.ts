@@ -131,7 +131,7 @@ test("aisle pages list their foods on the server and drop the old shelf paramete
 }) => {
   const root = await request.get("/us/en/food", { maxRedirects: 0 });
   expect(root.status()).toBe(302);
-  expect(root.headers().location).toBe("/");
+  expect(root.headers().location).toBe("/us/en");
   // An old shelf link still opens its aisle: the public boundary drops the
   // parameter.
   const shelf = await request.get("/us/en/beef?shelf=pork", {
@@ -265,14 +265,18 @@ test("directory groups preserve country-specific food names and availability", a
     if (/hydrat/i.test(message.text()) && message.type() === "error")
       hydrationErrors.push(message.text());
   });
-  await page.goto("/gb/en/search#meat-seafood");
+  // The demo catalog has no British products, so Britain's directory is empty
+  // until an aisle holds one. Its own name for a food shows on the food's page.
+  await page.goto("/gb/en/ground-beef");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "beef mince",
+  );
+  await page.goto("/gb/en/search");
+  await expect(
+    page.getByRole("main").getByRole("link", { name: /^Eggnog/ }),
+  ).toHaveCount(0);
+  await page.goto("/us/en/search#dairy-eggs");
   const main = page.getByRole("main");
-  const meat = main.getByRole("region", {
-    name: "Meat & seafood",
-    exact: true,
-  });
-  await expect(meat.getByRole("link", { name: /^Beef mince/ })).toBeVisible();
-  await expect(main.getByRole("link", { name: /^Eggnog/ })).toHaveCount(0);
   await expect(
     main.getByRole("region", { name: "Dairy & eggs", exact: true }),
   ).toBeVisible();

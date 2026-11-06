@@ -46,7 +46,7 @@ test("switching country keeps the food, remembers the choice and invites the fir
   await page.goto("/");
   await expect(page).toHaveURL(/\/ca\/en$/);
   await chooseCountry(page, "United States");
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/us\/en$/);
   await page.goto("/");
   await expect(page).toHaveURL(/\/$/);
 });
@@ -97,12 +97,17 @@ test("a food that is not on in a country invites its first product there", async
   }
 });
 
-test("only active countries route; the United States home lives at /", async ({
+test("only active countries route; / shows the United States home", async ({
   request,
 }) => {
-  const moved = await request.get("/us/en", { maxRedirects: 0 });
-  expect(moved.status()).toBe(301);
-  expect(moved.headers().location).toBe("/");
+  const home = await request.get("/", { maxRedirects: 0 });
+  expect(home.status()).toBe(200);
+  expect(await home.text()).toContain(
+    'rel="canonical" href="http://127.0.0.1:5173/us/en"',
+  );
+  const moved = await request.get("/us", { maxRedirects: 0 });
+  expect(moved.status()).toBe(302);
+  expect(moved.headers().location).toBe("/us/en");
   for (const path of ["/zz", "/zz/ground-beef", "/zz/products/beyond-beef"])
     expect((await request.get(path)).status(), path).toBe(404);
   // Product slugs belong to their country.

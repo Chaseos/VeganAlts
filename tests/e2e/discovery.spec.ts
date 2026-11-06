@@ -109,10 +109,10 @@ test("alternate search URLs pass through the normalized public boundary", async 
   });
   for (const path of [
     "/us/en/search/",
-    "/US/search",
+    "/US/EN/search",
     "/us/en/se%61rch",
     "/us/en/search/.data",
-    "/US/search.data",
+    "/US/EN/search.data",
     "/API/V1/search",
   ]) {
     const response = await request.get(`${path}?q=beef`);
@@ -137,7 +137,7 @@ test("alternate search URLs pass through the normalized public boundary", async 
     }
     expect(invalid.headers()["cache-control"]).toContain("no-store");
   }
-  const path = "/US/search/?q=beef&utm_source=browser-check#products";
+  const path = "/US/EN/search/?q=beef&utm_source=browser-check#products";
   await page.goto(path);
   await expect(
     page.getByRole("heading", { name: "Results for “beef”" }),

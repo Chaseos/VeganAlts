@@ -1,3 +1,4 @@
+import { productPath } from "@server/catalog/domain/markets";
 import { env } from "cloudflare:workers";
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useRevalidator } from "react-router";
@@ -634,7 +635,7 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
           <div className="community-panel">
             <div className="button-row">
               <Link
-                to={`/${data.product.countryCode}/products/${data.product.slug}`}
+                to={productPath(data.product.countryCode, data.product.slug)}
               >
                 Public entry ↗
               </Link>

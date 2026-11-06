@@ -1,3 +1,4 @@
+import { productPath } from "@server/catalog/domain/markets";
 import { useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import type { ImageSlot } from "@server/media/domain/media";
@@ -92,7 +93,7 @@ export function PhotoProposalForm({
         administrator
           ? `/admin/moderation/products/${product.id}`
           : saved.duplicateOf
-            ? `/${product.countryCode}/products/${product.slug}#suggested-changes`
+            ? `${productPath(product.countryCode, product.slug)}#suggested-changes`
             : `/my-contributions/proposal/${saved.id}`,
       );
     });

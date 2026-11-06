@@ -1,3 +1,4 @@
+import { productPath } from "@server/catalog/domain/markets";
 import { env } from "cloudflare:workers";
 import { Link } from "react-router";
 import { requirePageUser } from "@server/auth/http/require-page-user";
@@ -38,7 +39,10 @@ const SCORE_WORDS = [
 
 function ratingHref(rating: MyRating, anchor: boolean) {
   if (rating.archivedDuplicate)
-    return `/${rating.country}/products/${rating.canonicalSlug}`;
+    return productPath(
+      rating.country,
+      rating.canonicalSlug ?? rating.productSlug,
+    );
   const params = new URLSearchParams();
   if (!rating.isCurrent) params.set("version", rating.productVersionId);
   if (rating.canRate) params.set("food", rating.categorySlug);
@@ -48,7 +52,7 @@ function ratingHref(rating: MyRating, anchor: boolean) {
     : rating.canRate
       ? `#rate-${rating.categoryId}`
       : "#formula-history";
-  return `/${rating.country}/products/${rating.productSlug}${query}${hash}`;
+  return `${productPath(rating.country, rating.productSlug)}${query}${hash}`;
 }
 
 export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
