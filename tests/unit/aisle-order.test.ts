@@ -44,12 +44,19 @@ describe("aisle order", () => {
   ];
 
   it("uses the default store order before a country has ratings", () => {
-    expect(aisleTree(nodes, new Map()).map((a) => a.slug)).toEqual([
-      "beef",
-      "chicken",
-      "cheese",
-      "duck",
-    ]);
+    expect(
+      aisleTree(nodes, new Map(), { withEmpty: true }).map((a) => a.slug),
+    ).toEqual(["beef", "chicken", "cheese", "duck"]);
+  });
+
+  it("lists an aisle only once it holds a product", () => {
+    expect(aisleTree(nodes, new Map())).toEqual([]);
+    expect(
+      aisleTree(
+        nodes,
+        new Map([["cheddar", { productCount: 1, rankedCount: 0 }]]),
+      ).map((a) => a.slug),
+    ).toEqual(["cheese"]);
   });
 
   it("puts the most-rated aisles and foods first", () => {
@@ -59,7 +66,7 @@ describe("aisle order", () => {
       ["ground-beef", { productCount: 3, rankedCount: 3, ratingCount: 5 }],
       ["mock-duck", { productCount: 4, rankedCount: 0, ratingCount: 0 }],
     ]);
-    const tree = aisleTree(nodes, counts);
+    const tree = aisleTree(nodes, counts, { withEmpty: true });
     expect(tree.map((a) => a.slug)).toEqual([
       "cheese",
       "beef",

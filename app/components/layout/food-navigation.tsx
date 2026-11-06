@@ -107,22 +107,20 @@ export function FoodGroupSections({
               {category.name}
             </Link>
           </h3>
-          {foods.length > 0 && (
-            <ul
-              className="va-food-navigation__foods"
-              aria-label={`Food types in ${category.name}`}
-            >
-              {foods.map((food) => (
-                <li key={food.slug}>
-                  <FoodNavigationLink
-                    country={country}
-                    food={food}
-                    onNavigate={onNavigate}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul
+            className="va-food-navigation__foods"
+            aria-label={`Food types in ${category.name}`}
+          >
+            {foods.map((food) => (
+              <li key={food.slug}>
+                <FoodNavigationLink
+                  country={country}
+                  food={food}
+                  onNavigate={onNavigate}
+                />
+              </li>
+            ))}
+          </ul>
           {category.foods.length > foods.length && (
             <Link
               className="va-link va-food-navigation__all"

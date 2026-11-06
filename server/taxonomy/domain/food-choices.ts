@@ -29,6 +29,7 @@ export function foodChoices(
     aisleTree(
       nodes.map((node) => ({ ...node, available: 1 })),
       new Map(),
+      { withEmpty: true },
     ).map((aisle) => [aisle.id, aisle.silent] as const),
   );
   const names = new Map<string, string[]>();

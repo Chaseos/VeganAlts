@@ -1004,12 +1004,16 @@ it("seeds the two-level launch tree, countries, allergen lists, display names an
       "SELECT COUNT(*) AS n FROM category_features f JOIN countries co ON co.id=f.country_id WHERE co.iso2='CA'",
     ).first("n"),
   ).toBe(6);
-  // The aisle bar places every launch food where it is on: all of them in the
-  // United States, and only the ten shared ones in Canada.
+  // Every launch food is on where it belongs: all of them in the United
+  // States, and only the ten shared ones in Canada.
   const placed = async (code: string) =>
-    (await catalogService(env).page(code)).aisles.flatMap((a) =>
-      a.foods.map((f) => f.slug),
-    );
+    (
+      await env.DB.prepare(
+        "SELECT c.slug FROM category_countries cc JOIN categories c ON c.id=cc.category_id JOIN countries co ON co.id=cc.country_id WHERE co.iso2=?",
+      )
+        .bind(code.toUpperCase())
+        .all<{ slug: string }>()
+    ).results.map((row) => row.slug);
   const [usFoods, caFoods] = [await placed("us"), await placed("ca")];
   for (const leaf of TAXONOMY_LEAVES) {
     expect(usFoods).toContain(leaf.slug);

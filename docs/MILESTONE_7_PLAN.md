@@ -827,7 +827,7 @@ Indonesia, Malaysia, the Philippines, Vietnam, Turkey, Portugal, Norway, Finland
 
 **Every country starts from the shared aisles.**
 
-- **The macro categories are shared.** The 23 aisles are the same everywhere, and an empty country's home lists them.
+- **The macro categories are shared.** The 23 aisles are the same everywhere, and each appears in a country once it holds a product there (owner, 2026-11-05).
 - **Foods start fresh in each country.**
   - A food switches on when someone there adds the first product for it.
   - Anyone can pick any existing food, or suggest a new one when the local food doesn't exist yet. Japan, for example, will grow foods the US doesn't have.

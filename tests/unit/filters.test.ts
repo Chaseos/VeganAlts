@@ -128,7 +128,10 @@ describe("taxonomy shape", () => {
       nodes,
       new Map([["ground-beef", { productCount: 4, rankedCount: 3 }]]),
     );
-    expect(tree.map((aisle) => aisle.slug)).toEqual(["beef", "eggs-aisle"]);
+    expect(tree.map((aisle) => aisle.slug)).toEqual(["beef"]);
+    expect(
+      aisleTree(nodes, new Map(), { withEmpty: true }).map((a) => a.slug),
+    ).toContain("eggs-aisle");
     expect(tree[0]).toEqual({
       id: "beef",
       slug: "beef",
@@ -156,7 +159,11 @@ describe("taxonomy shape", () => {
       ],
     });
     // An aisle that only repeats its one food is silent in breadcrumbs.
-    expect(tree[1]).toMatchObject({ slug: "eggs-aisle", silent: true });
+    expect(
+      aisleTree(nodes, new Map(), { withEmpty: true }).find(
+        (aisle) => aisle.slug === "eggs-aisle",
+      ),
+    ).toMatchObject({ silent: true });
   });
 
   it("survives a cycle without looping", () => {

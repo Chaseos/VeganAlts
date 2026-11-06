@@ -119,9 +119,9 @@ export function aisleFood(
 }
 
 // The navigable tree: aisles with their foods, both in popularity order.
-// Foods not on in the country are left out, and so are aisles without a
-// placeable food unless `withEmpty` (Suggest a food can place the first
-// one); those take their default place among aisles without ratings.
+// Foods not on in the country are left out. An aisle appears once it holds a
+// product (owner, 2026-11-05), unless `withEmpty`: Suggest a food can place the
+// first one, and those take their default place among aisles without ratings.
 export function aisleTree(
   nodes: TaxonomyNode[],
   counts: Map<string, FoodCounts>,
@@ -152,7 +152,7 @@ export function aisleTree(
         productCount: foods.reduce((n, f) => n + f.productCount, 0),
       };
     })
-    .filter((aisle) => withEmpty || aisle.foods.length > 0)
+    .filter((aisle) => withEmpty || aisle.productCount > 0)
     .sort(byPopularity)
     .map(({ id, slug, name, silent, foods }) => ({
       id,

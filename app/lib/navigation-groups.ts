@@ -137,15 +137,13 @@ export function navigationSections(
 ) {
   const wanted = normalizeFood(query);
   return group.categories.flatMap((category) => {
-    const named = normalizeFood(category.name).includes(wanted);
     const foods = !wanted
       ? category.foods.slice(0, 3)
-      : named
+      : normalizeFood(category.name).includes(wanted)
         ? category.foods
         : category.foods.filter((food) =>
             normalizeFood(food.name).includes(wanted),
           );
-    // An aisle stays listed by name before a country has foods in it.
-    return foods.length || named ? [{ category, foods }] : [];
+    return foods.length ? [{ category, foods }] : [];
   });
 }

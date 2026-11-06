@@ -36,13 +36,10 @@ test("switching country keeps the food, remembers the choice and invites the fir
   await expect(
     page.getByRole("link", { name: "Add the first product" }),
   ).toHaveAttribute("href", "/add-product?country=ca");
-  // The shared aisles are listed so people there can add a food's first product.
+  // An aisle appears once it holds a product, so an empty country lists none.
   await expect(
     page.getByRole("main").getByRole("heading", { name: "Popular categories" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Be the first to add one").first(),
-  ).toBeAttached();
+  ).toHaveCount(0);
   await accessible(page);
 
   // "/" sends a returning visitor to the remembered country after hydration.

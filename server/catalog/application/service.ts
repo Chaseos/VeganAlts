@@ -194,10 +194,7 @@ export class CatalogService {
         hasRankings: row.hasRankings,
       })),
       hasRankings: found.hasRankings,
-      // A country without products lists the shared aisles, as its home does.
-      aisles: aisleTree(taxonomy.categories, counts, {
-        withEmpty: !taxonomy.counts.some((row) => row.productCount > 0),
-      }),
+      aisles: aisleTree(taxonomy.categories, counts),
     };
   }
 
@@ -324,11 +321,7 @@ export class CatalogService {
         this.repository.productCount(market.id),
       ]);
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
-    // A country without products lists the shared aisles, so people can add
-    // the first products there. Its foods are only the ones switched on.
-    const aisles = aisleTree(taxonomy.categories, counts, {
-      withEmpty: !productCount,
-    });
+    const aisles = aisleTree(taxonomy.categories, counts);
     const foods = aisles.flatMap((aisle) => aisle.foods);
     const leaders = await this.repository.topProducts(
       market.id,
@@ -1028,9 +1021,9 @@ export class CatalogService {
     const shape = taxonomyShape(taxonomy.categories);
     const node = shape.get(categoryId);
     const aisle = node?.aisleId ? shape.get(node.aisleId) : undefined;
-    const listed = aisleTree(taxonomy.categories, new Map()).find((a) =>
-      a.foods.some((food) => food.id === categoryId),
-    );
+    const listed = aisleTree(taxonomy.categories, new Map(), {
+      withEmpty: true,
+    }).find((a) => a.foods.some((food) => food.id === categoryId));
     return {
       aisle:
         aisle && aisle.id !== categoryId && !listed?.silent
@@ -1046,9 +1039,10 @@ export class CatalogService {
   ) {
     const counts = new Map(taxonomy.counts.map((row) => [row.categoryId, row]));
     const aisles = aisleTree(taxonomy.categories, counts);
-    const current = aisles.find((aisle) =>
-      aisle.foods.some((food) => food.id === categoryId),
-    );
+    // A food's own aisle counts even before it's listed in the country.
+    const current = aisleTree(taxonomy.categories, counts, {
+      withEmpty: true,
+    }).find((aisle) => aisle.foods.some((food) => food.id === categoryId));
     const foods = current?.foods ?? [];
     const top = await this.repository.topProducts(
       market.id,

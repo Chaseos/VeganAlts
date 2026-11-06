@@ -78,7 +78,7 @@ it("seeds default positions and seasons, fills only what an operator never set, 
   const catalog = catalogService(env);
   const us = await catalog.market("us");
   const order = async () =>
-    (await catalog.page("us")).aisles.map((aisle) => aisle.slug);
+    (await catalog.aisles(us)).map((aisle) => aisle.slug);
   expect((await order()).slice(0, 4)).toEqual([
     "beef",
     "chicken",

@@ -51,7 +51,7 @@ Each list follows the country's own label rules, like the six existing countries
 
 **Foods (owner, 2026-11-05).** New countries start from the shared aisles, not foods. The 10 launch foods and homepage features stay limited to the six launch countries through `LAUNCH_COUNTRIES`, and a food switches on when someone adds its first product. No display names are needed yet, and India needs no food exceptions.
 
-**Empty countries (owner, 2026-11-05).** A country without products lists every shared aisle and only the foods switched on there, replacing the milestone 6 rule that showed all shared foods. This applies to every empty country, so the launch countries keep their 10 foods and gain the other aisles. Aisle pages without foods link to Add a product.
+**Empty countries (owner, 2026-11-05).** An aisle appears in a country only once it holds a product there, replacing the milestone 6 rule that showed all shared foods. This applies to every country, so an empty one shows no aisles until its first product. Add a product and Suggest a food still offer every aisle.
 
 **Vegan marks.** The moderation rules treat a package's vegan word or mark as evidence. India's green vegetarian symbol is not one: vegetarian food can contain dairy. Its separate FSSAI vegan logo is. Add a product says so for India, beside "What does the package say?".
 
@@ -78,7 +78,7 @@ Production follows the unconfirmed items above and the launch checklist, with `n
 | # | Decision | Recommendation |
 |---|---|---|
 | 1 | Open all three at once | Yes. The work is the same, and each opens empty |
-| 2 | Show only aisles in an empty country, not the shared foods | Yes, decided |
+| 2 | Show an aisle only once it holds a product | Yes, decided |
 
 ## Sources
 
