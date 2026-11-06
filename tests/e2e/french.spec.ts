@@ -39,3 +39,19 @@ test("English pages don't load the French dictionary", async ({ page }) => {
   await page.waitForLoadState("networkidle");
   expect(chunks.filter((url) => /i18n\/(?:fr|ja)/.test(url))).toEqual([]);
 });
+
+test("suggestions name foods in the page's language", async ({ request }) => {
+  const french = await request.get(
+    "/api/v1/suggest?country=CA&language=fr&q=milk",
+  );
+  const names = (await french.json()).data.foods.map(
+    (food: { name: string }) => food.name,
+  );
+  expect(names).toContain("Lait");
+  const english = await request.get("/api/v1/suggest?country=CA&q=milk");
+  expect(
+    (await english.json()).data.foods.map(
+      (food: { name: string }) => food.name,
+    ),
+  ).toContain("Milk");
+});

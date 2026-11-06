@@ -74,8 +74,10 @@ export class PublicCatalog extends WorkerEntrypoint<Cloudflare.Env> {
     const request = new Request(renderUrl, { headers });
     try {
       return cachePublicResponse(
-        await pageLanguage.run(splitLanguage(route.pathname).language, () =>
-          requestHandler(request),
+        await pageLanguage.run(
+          splitLanguage(route.pathname).language ??
+            (route.representation === "api" ? (route.language ?? null) : null),
+          () => requestHandler(request),
         ),
         route,
       );
