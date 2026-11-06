@@ -1391,6 +1391,11 @@ export function taxonomySeedStatements(
         SELECT ${quote(newId())},c.id,NULL,${quote(name)},1,'fr',${now} FROM categories c
         WHERE c.slug=${quote(slug)} AND c.name<>${quote(name)}
         ON CONFLICT DO NOTHING;`,
+        // The same word may already be a search term, as Lasagne is.
+        `UPDATE category_aliases SET is_display_name=1,language='fr'
+        WHERE alias=${quote(name)} COLLATE NOCASE AND country_id IS NULL AND is_display_name=0
+        AND category_id=(SELECT id FROM categories WHERE slug=${quote(slug)})
+        AND NOT EXISTS(SELECT 1 FROM category_aliases d WHERE d.category_id=category_aliases.category_id AND d.country_id IS NULL AND d.language='fr' AND d.is_display_name=1);`,
       );
   // Questions are seeded only for foods that have none, so an operator's
   // list is never overwritten. SQLite reads the whole SELECT before inserting.
