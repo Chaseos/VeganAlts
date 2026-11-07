@@ -8,7 +8,8 @@ interface CountryLanguages {
   default: Language;
   // Live for everyone.
   offered: readonly Language[];
-  // Reachable only on previews until its translations are reviewed.
+  // Reachable only on previews. The owner moves a language to `offered` once
+  // the checks in docs/operations/translation-glossary.md pass.
   preview?: readonly Language[];
 }
 

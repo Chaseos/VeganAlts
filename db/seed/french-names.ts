@@ -1,5 +1,4 @@
-// Canadian French names for foods and aisles, by slug. A person reviews these
-// before French leaves preview.
+// Canadian French names for foods and aisles, by slug.
 export const FRENCH_NAMES: Record<string, string> = {
   "alfredo-sauce": "Sauce Alfredo",
   "american-cheese": "Fromage américain",

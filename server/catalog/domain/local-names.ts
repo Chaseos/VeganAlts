@@ -3,7 +3,7 @@ import type { Language } from "./languages";
 
 // Each country's wording for its own labels is in `country_allergens`, in
 // English. These are the same allergens in the page's language. Canadian French
-// follows Health Canada's source names, and a person reviews it per market.
+// follows Health Canada's source names.
 const NAMES: Partial<Record<Language, Record<string, string>>> = {
   fr: {
     celery: "Céleri",

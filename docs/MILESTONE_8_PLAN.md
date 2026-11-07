@@ -439,26 +439,23 @@ Non-JSX strings (meta titles, label arrays, Zod messages, date and number format
 
 **Built at checkpoint 6.** Slices S1 to S3 moved to `app/i18n/en/`, about 1,200 keys. `t()` reads the page's language the way `homePath` does, so text works outside React and a language with no dictionary shows English. All JavaScript grew 66 KB, or 14 KB compressed, from 841 KB and 248 KB, because the English text now ships in the shared `page-shell` chunk on every page. The account's `preferred_language` is deferred until a language is live. Server text such as `ApplicationError` messages and allergen summaries stays English until checkpoint 7.
 
-**French built at checkpoint 7.** The dictionary is `app/i18n/fr/`, and `market-sensitive.json` lists what to check when France launches. A second market of a language adds an override file with only its differences, not a second translation. Pages with no language in their address follow the `va_lang` cookie, except pages cached for everyone. Canada's `offered` list doesn't include `fr` until a person reviews the safety wording. Results are in `docs/verification/milestone-8.md`.
+**French built at checkpoint 7.** The dictionary is `app/i18n/fr/`, and `market-sensitive.json` lists what to check when France launches. A second market of a language adds an override file with only its differences, not a second translation. Pages with no language in their address follow the `va_lang` cookie, except pages cached for everyone. Canada's `offered` list doesn't include `fr` yet; `docs/operations/translation-glossary.md` says what decides that. Results are in `docs/verification/milestone-8.md`.
 
-**Japanese built at checkpoint 8.** The dictionary is `app/i18n/ja/`. Japan's `offered` list stays English until a person reviews the safety wording. Stores come from contributors, with none seeded (owner, 2026-11-06). Results are in `docs/verification/milestone-8.md`.
+**Japanese built at checkpoint 8.** The dictionary is `app/i18n/ja/`. Japan's `offered` list stays English for now, under the same rule. Stores come from contributors, with none seeded (owner, 2026-11-06). Results are in `docs/verification/milestone-8.md`.
+
+**Market overrides.** `t()`, server messages, dates and allergen names check the page's country first, then the shared language. A language passes its countries to `addDictionary`, each with its locale and only its differences. French has one shared override for Europe, because the shared `fr` is Canadian. Food names use the existing country and language rows in `category_aliases`.
 
 **Mechanics, with no new dependency:** `app/i18n/en.ts`, `fr.ts` and `ja.ts`, typed so a missing key fails `tsc`, plus about 40 lines of `t()` using `Intl.PluralRules`. English stays in the main bundle. Other languages are one chunk loaded before hydration, chosen from `<html lang>`. API errors keep `message` and gain a client map from `code` to text, so `/api/v1` doesn't change. Dates and numbers use the page language.
 
 **Translation:**
 
 - Translation is done by Claude at development time, not at runtime, using a glossary in `docs/operations/translation-glossary.md`. The glossary fixes product words such as Closest to the original, Tastiest, aisle and each vegan status.
-- **Safety strings get a person.** These carry a `safety.` key prefix: allergen names and "may contain" wording, every vegan status label, "Ingredients not checked yet", and "Always check the package". Each has a record of the English text's hash and the reviewer, and a test fails if the English changes or the record is missing.
-- Japan's allergen list must use the official Consumer Affairs Agency terms, and Canada's French must use Health Canada's. Check both at build time. A language can't be listed in `offered` until this passes.
+- **Safety strings get an independent check.** These are allergen names and "may contain" wording, every vegan status label, "Ingredients not checked yet", and "Always check the package". There are no native reviewers (owner, 2026-11-06). An evaluator that didn't translate them back-translates them blind, and user reports through `/report-translation` catch what remains. The glossary lists what must hold before a language leaves preview.
+- Japan's allergen list must use the official Consumer Affairs Agency terms, and Canada's French must use Health Canada's. Check both at build time. A language can't be listed in `offered` until this passes. EU markets use the words of Regulation 1169/2011 Annex II, and Switzerland uses the FSVO's.
 
-**Food and aisle names:** the 23 aisles and current foods get fr and ja names, added to the seed by the same method and marked as reviewed by a person.
+**Food and aisle names:** the 23 aisles and current foods get fr and ja names, added to the seed by the same method. A country with different words adds rows of its own.
 
-**Per-product translations (optional, last):**
-
-- `products.name_language` records the language as entered.
-- `product_name_translations(product_id, language, name, source, created_at)` holds a gloss. On `/jp/en`, the Japanese name stays primary with the English gloss beneath it. A later contributor correction is a tier 2 edit.
-- Brand names and comments are never translated.
-- **Ingredients aren't machine-translated.** They show as printed with a label naming the language. An automatic translation could hide an allergen, so ingredient translation is deferred until a person-review process exists.
+**What stays as written (owner, 2026-11-06):** the interface, food and aisle names, allergens, countries and server messages are translated. Product names, brand names, comments and ingredients aren't. Ingredients show as printed, because an automatic translation could hide an allergen. The per-product translation tables planned here are dropped.
 
 **Fonts:** ship no Japanese web font. Add `"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans CJK JP"` to `--va-font` in `app/styles/tokens.css`, before `sans-serif`. This adds zero bytes and causes no layout shift. Archivo's `unicode-range` already sends Japanese characters to the next font in the list. A web font would cost much more: searches found full CJK fonts in the megabytes, though I found no measured figure for slices, so check that only if the system font test fails.
 
@@ -482,7 +479,7 @@ All of this folds into `db/migrations/0001_initial.sql`, per the version 1 rule.
 | `food_reports` | New: reports on a food |
 | `moderation_decisions` | Schema version 3; `aisle_review` kind if the check needs it |
 
-**Japan activation needs:** a `countries` row, Japan's declared-allergen list (including new keys such as buckwheat), and a starter store list. Allergen terms are person-reviewed.
+**Japan activation needs:** a `countries` row, Japan's declared-allergen list (including new keys such as buckwheat), and a starter store list. Allergen terms use the Consumer Affairs Agency's wording.
 
 ## 11. Build order
 
@@ -497,17 +494,16 @@ Each checkpoint runs `npm run check` and the affected Playwright specs. Per the 
 | 4 | **AI review.** Services, decisions, deadline, undo, reports, digest, near-duplicates. | Works in English and in Japanese with a fake provider, then real Clef on staging |
 | 5 | **Aisle suggestions.** UI, contracts, gathering, opening, cap. | A product never waits on an aisle, shown by test |
 | 6 | **Interface.** Extract S1 to S3 to English dictionaries, add font stack, switcher, cookie and prompt. | Visual tests unchanged in English; bundle growth recorded |
-| 7 | **French.** `fr.ts`, names, person review. Add `fr` to Canada's `offered`. | `/ca/fr` live on staging; hreflang and axe pass |
-| 8 | **Japan.** `ja.ts`, names, person review, allergens, country activation. | `/jp` in Japanese, `/jp/en` in English, a Japanese food suggested through to a published product |
-| 9 | **Product name translations.** Optional. | Gloss shown on `/jp/en` |
+| 7 | **French.** `fr.ts`, names, independent evaluation. Add `fr` to Canada's `offered`. | `/ca/fr` live on staging; hreflang and axe pass |
+| 8 | **Japan.** `ja.ts`, names, independent evaluation, allergens, country activation. | `/jp` in Japanese, `/jp/en` in English, a Japanese food suggested through to a published product |
+| 9 | **Product name translations.** Dropped (owner, 2026-11-06). | None |
 
 Checkpoints 3, 4 and 5 can run beside 6. AI review (4) is useful even before any new language, because it removes the operator wait in English countries.
 
 **Deferred:**
 
-- The other 25 countries, Chinese, Korean, Thai and right-to-left languages
+- Other countries beyond those the owner listed, Thai and Hindi. Arabic and Hebrew are dropped (owner, 2026-11-06).
 - Translated policy pages (legal text needs a person)
-- Machine or human ingredient translation
 - Translating comments, or recording a comment's language
 - Translated `/users/*` pages
 - Near-duplicate AI review
@@ -525,7 +521,7 @@ Checkpoints 3, 4 and 5 can run beside 6. AI review (4) is useful even before any
 | 4 | Deadline of 72 hours with the timed default in §6.6 | Yes. The alternative is a contributor follow-up for every expired item. |
 | 5 | Aisle demand: 3 people or 5 products; cap of 6 per country | Yes, review after Japan's first month |
 | 6 | Staging schema: full reset under the version 1 rule, or one more one-time exception | One more exception: additive statements plus an FTS rebuild, so the reviewed catalog isn't reset and re-imported. This would add a fourth exception to `AGENTS.md`. |
-| 7 | Pay a native reviewer for fr-CA and ja safety strings, about 1,000 words each | Yes. It is required, because the owner can't check these. |
+| 7 | Pay a native reviewer for fr-CA and ja safety strings | Decided no (owner, 2026-11-06). User reports replace native review; see the glossary. |
 | 8 | Digest delivery | Start with the admin page. A daily email through Cloudflare's `send_email` binding needs Email Routing set up. |
 | 9 | Should near-duplicate holds also get a deadline? | Decide after calibration. For now they keep the operator hold with an English gloss. |
 | 10 | Canada defaults to English, with French at `/ca/fr` | Yes. Quebec visitors get the one-time language prompt. Take legal advice before a Quebec launch. |
