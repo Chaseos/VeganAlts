@@ -862,7 +862,7 @@ export const fr: Dictionary = {
   "footer.privacy": "Confidentialité",
   "footer.rankings": "Comment fonctionnent les classements",
   "footer.tagline":
-    "Solutions de rechange véganes classées par la communauté · {country} · Jamais commandité",
+    "Solutions de rechange véganes classées par la communauté · {country}",
   "footer.veganStatus": "Statut végane",
   "group.bakeryBaking": "Boulangerie et pâtisserie",
   "group.dairyEggs": "Produits laitiers et œufs",

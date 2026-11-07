@@ -227,8 +227,7 @@ export const browse = {
   "footer.guidelines": "Guidelines",
   "footer.privacy": "Privacy",
   "footer.contact": "Contact",
-  "footer.tagline":
-    "Community-ranked vegan alternatives · {country} · Never sponsored",
+  "footer.tagline": "Community-ranked vegan alternatives · {country}",
   "footer.label": "Footer",
   "footer.popular": "Popular categories",
   "footer.contribute": "Contribute",

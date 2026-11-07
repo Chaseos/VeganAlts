@@ -888,8 +888,7 @@ export const ja: Dictionary = {
   "footer.popular": "人気のカテゴリー",
   "footer.privacy": "プライバシー",
   "footer.rankings": "ランキングの仕組み",
-  "footer.tagline":
-    "コミュニティが選ぶヴィーガン代替品 · {country} · スポンサーなし",
+  "footer.tagline": "コミュニティが選ぶヴィーガン代替品 · {country}",
   "footer.veganStatus": "ヴィーガンの区分",
   "group.bakeryBaking": "ベーカリー・製菓",
   "group.dairyEggs": "乳製品・卵",
