@@ -117,7 +117,7 @@ export function BasicsStep({
           {t("addProduct.addingTo")} <strong>{countryName}</strong>
         </span>
         {/* A reply to a follow-up stays in its submission's country. */}
-        {!draft.followUp && (
+        {!draft.followUp && countries.length > 1 && (
           <Popover
             summary={t("addProduct.change")}
             summaryLabel={t("addProduct.changeCountry", {

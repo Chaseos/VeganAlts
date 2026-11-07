@@ -1473,6 +1473,9 @@ export const TAXONOMY_COUNTRIES: {
 // country starts with the shared aisles; a food switches on there when someone
 // adds its first product.
 const LAUNCH_COUNTRIES = ["US", "CA", "GB", "AU", "NZ", "IE"] as const;
+// Countries switched on in production. The others keep their foods, allergens
+// and names, and serve no pages until they join this list.
+export const PRODUCTION_COUNTRIES = ["US"] as const;
 export const TAXONOMY_FEATURES = [
   "ground-beef",
   "beef-burgers",
@@ -1490,7 +1493,10 @@ const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
 export function taxonomySeedStatements(
   newId: () => string,
   now: number,
-  options: { onlyFoods?: readonly string[] } = {},
+  options: {
+    onlyFoods?: readonly string[];
+    liveCountries?: readonly string[];
+  } = {},
 ) {
   const onlyFoods = options.onlyFoods;
   const selectedFoods = onlyFoods
@@ -1522,6 +1528,10 @@ export function taxonomySeedStatements(
       ON CONFLICT DO NOTHING;`,
     );
   }
+  if (options.liveCountries)
+    statements.push(
+      `UPDATE countries SET is_active=iso2 IN (${options.liveCountries.map(quote).join(",")});`,
+    );
   const categoriesToSeed = onlyFoods
     ? selectedFoods
     : [...TAXONOMY_GROUPS, ...selectedFoods];
@@ -1661,7 +1671,7 @@ export function taxonomySeedStatements(
 export const taxonomySeedSql = (
   newId: () => string,
   now: number,
-  options: { onlyFoods?: readonly string[] } = {},
+  options: Parameters<typeof taxonomySeedStatements>[2] = {},
 ) =>
   [
     ...taxonomySeedStatements(newId, now, options),

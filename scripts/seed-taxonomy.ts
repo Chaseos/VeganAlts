@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { v7 as uuid } from "uuid";
-import { TAXONOMY_LEAVES, taxonomySeedSql } from "../db/seed/taxonomy";
+import {
+  PRODUCTION_COUNTRIES,
+  TAXONOMY_LEAVES,
+  taxonomySeedSql,
+} from "../db/seed/taxonomy";
 
 // Taxonomy-only and idempotent: categories, aliases and initial homepage
 // features, never products, ratings, people or images. Production requires an
@@ -33,7 +37,14 @@ const directory = await mkdtemp(join(tmpdir(), "veganalts-taxonomy-"));
 try {
   const file = join(directory, "taxonomy.sql");
   const onlyFoods = onlyFoodArgs.length > 0 ? [onlyFood!] : undefined;
-  await writeFile(file, taxonomySeedSql(uuid, Date.now(), { onlyFoods }));
+  await writeFile(
+    file,
+    taxonomySeedSql(uuid, Date.now(), {
+      onlyFoods,
+      liveCountries:
+        environment === "production" ? PRODUCTION_COUNTRIES : undefined,
+    }),
+  );
   const flags =
     environment === "local"
       ? ["--local", "--env="]
