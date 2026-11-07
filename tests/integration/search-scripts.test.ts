@@ -122,3 +122,22 @@ it("finds Traditional Chinese and Korean as shoppers type them", async () => {
   // A word that ends like a particle stays whole.
   expect(await found("오이")).toEqual(["오이"]);
 });
+
+it("indexes only the names a country's languages use", async () => {
+  // "ZZ" has English only. Other languages' names would lengthen every food's
+  // document and lower exact matches.
+  const food = await env.DB.prepare(
+    "SELECT id FROM categories WHERE name='豆乳'",
+  ).first("id");
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO category_aliases(id,category_id,alias,language,created_at) VALUES(?,?,'Sojadrink','de',1)",
+    ).bind(crypto.randomUUID(), food),
+    env.DB.prepare(
+      "INSERT INTO category_aliases(id,category_id,alias,language,created_at) VALUES(?,?,'soymilk','en',1)",
+    ).bind(crypto.randomUUID(), food),
+  ]);
+  await env.DB.batch(SEARCH_INDEX_STATEMENTS.map((sql) => env.DB.prepare(sql)));
+  expect(await found("soymilk")).toEqual(["豆乳"]);
+  expect(await found("Sojadrink")).toEqual([]);
+});

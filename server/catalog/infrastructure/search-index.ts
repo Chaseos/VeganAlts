@@ -1,3 +1,5 @@
+import { languagesOf, multilingualCountries } from "../domain/languages";
+
 // Rebuildable FTS documents. Recursive ancestry is computed during maintenance,
 // never during a public search. UNION deduplicates malformed ancestry cycles.
 const ancestry = `WITH RECURSIVE ancestry(leaf,id,name,parent_id) AS (
@@ -21,6 +23,18 @@ const segmented = (text: string) => `CASE WHEN ${text} GLOB '*[^ -~]*' THEN
   ))||' '||replace(replace(replace(replace(${text},'œ','oe'),'Œ','oe'),'æ','ae'),'Æ','ae')
   ELSE '' END`;
 
+// A country indexes only its own languages, previews included. BM25 weighs a
+// document's whole length, so every language's names on every food would push
+// "Cheddar" below "Cheddar Mozzarella Blend".
+const languageLists = multilingualCountries()
+  .map(
+    (country) =>
+      `WHEN '${country.toUpperCase()}' THEN '${JSON.stringify(languagesOf(country, true))}'`,
+  )
+  .join(" ");
+const spokenHere = (alias: string) =>
+  `${alias}.language IN (SELECT value FROM json_each(CASE country.iso2 ${languageLists} ELSE '["en"]' END))`;
+
 // Foods only: aisles are navigation, reached through their foods' ancestry
 // ("cheese" finds every food in the Cheese aisle). A food is
 // indexed only in the countries where it is on; its title is its name in that
@@ -29,7 +43,7 @@ const categoryDocuments = (where: string) =>
   `${ancestry} INSERT INTO search_index(entity_type,entity_id,country_code,title,subtitle,aliases,body,segmented)
     SELECT d.*,${segmented("(d.title||' '||d.aliases)")} FROM (SELECT 'category',c.id,country.iso2,
       COALESCE((SELECT alias FROM category_aliases d WHERE d.category_id=c.id AND d.country_id=country.id AND d.is_display_name=1 AND d.language='en'),c.name) AS title,'Category',
-      c.name || ' ' || COALESCE((SELECT group_concat(alias,' ') FROM category_aliases ca WHERE ca.category_id=c.id AND (ca.country_id IS NULL OR ca.country_id=country.id)),'') AS aliases,
+      c.name || ' ' || COALESCE((SELECT group_concat(alias,' ') FROM category_aliases ca WHERE ca.category_id=c.id AND (ca.country_id IS NULL OR ca.country_id=country.id) AND ${spokenHere("ca")}),'') AS aliases,
       (SELECT group_concat(name,' ') FROM ancestry a WHERE a.leaf=c.id)
     FROM categories c JOIN category_countries cc ON cc.category_id=c.id
     JOIN countries country ON country.id=cc.country_id AND country.is_active=1
@@ -41,7 +55,7 @@ export const SEARCH_INDEX_STATEMENTS = [
   `${ancestry} INSERT INTO search_index(entity_type,entity_id,country_code,title,subtitle,aliases,body,segmented)
     SELECT d.*,${segmented("(d.title||' '||d.brand||' '||d.aliases)")} FROM (SELECT 'product',p.id,country.iso2,p.name AS title,COALESCE(b.name,'') AS brand,
       COALESCE((SELECT group_concat(alias,' ') FROM product_aliases pa WHERE pa.product_id=p.id),'') || ' ' ||
-      COALESCE((SELECT group_concat(ca.alias,' ') FROM product_categories pc JOIN category_aliases ca ON ca.category_id=pc.category_id WHERE pc.product_id=p.id AND (ca.country_id IS NULL OR ca.country_id=country.id)),'') AS aliases,
+      COALESCE((SELECT group_concat(ca.alias,' ') FROM product_categories pc JOIN category_aliases ca ON ca.category_id=pc.category_id WHERE pc.product_id=p.id AND (ca.country_id IS NULL OR ca.country_id=country.id) AND ${spokenHere("ca")}),'') AS aliases,
       COALESCE((SELECT group_concat(a.name,' ') FROM product_categories pc JOIN ancestry a ON a.leaf=pc.category_id WHERE pc.product_id=p.id),'')
     FROM products p JOIN countries country ON country.id=p.country_id LEFT JOIN brands b ON b.id=p.brand_id
     WHERE p.lifecycle_status<>'hidden' AND country.is_active=1) d`,

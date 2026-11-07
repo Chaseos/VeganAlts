@@ -69,6 +69,9 @@ export const isLanguage = (value: string | null | undefined) =>
 
 const settings = (country: string) => COUNTRY_LANGUAGES[country] ?? ENGLISH;
 
+/** Countries with languages beyond English, for building per-country SQL. */
+export const multilingualCountries = () => Object.keys(COUNTRY_LANGUAGES);
+
 export const defaultLanguage = (country: string) => settings(country).default;
 
 /** What a country's visitors can open, default first. */

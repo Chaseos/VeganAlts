@@ -1049,11 +1049,12 @@ export class D1CatalogRepository implements CatalogRepository {
     };
   }
 
+  // Food scores within 0.1 are a tie, and the shorter name is the closer match.
   async search(countryId: string, iso2: string, expression: string) {
     const [categories, products] = await this.db.batch([
       this.db
         .prepare(
-          `SELECT ${this.categoryFields} FROM search_index JOIN categories c ON c.id=search_index.entity_id AND c.is_active=1 WHERE search_index MATCH ? AND entity_type='category' AND country_code=? ORDER BY rank,c.name LIMIT 12`,
+          `SELECT ${this.categoryFields} FROM search_index JOIN categories c ON c.id=search_index.entity_id AND c.is_active=1 WHERE search_index MATCH ? AND entity_type='category' AND country_code=? ORDER BY round(rank,1),length(c.name),c.name LIMIT 12`,
         )
         .bind(countryId, countryId, countryId, expression, iso2),
       this.db
