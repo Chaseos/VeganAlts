@@ -1,3 +1,4 @@
+import { inSentence } from "../lib/format";
 import { useEffect, useState } from "react";
 import type { RatingInput } from "@server/ratings/domain/contracts";
 import type { ConventionalRecency } from "@server/ratings/domain/details";
@@ -127,7 +128,7 @@ export function RatingControl({
   const country = useCountryCode();
   // Sign-in returns to this food's view of the product.
   const returnTo = `${productPath(country, productSlug)}${foodSlug ? `?food=${foodSlug}` : ""}#rate-${categoryId}`;
-  const food = categoryName.toLowerCase();
+  const food = inSentence(categoryName);
   const answers = state?.dimensions ?? {};
   const recency = state?.recency ?? null;
   const enjoyment = state?.enjoyment ?? null;

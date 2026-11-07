@@ -179,12 +179,7 @@ it("shows a newly opened country no aisles until it has a product", async () => 
   await env.DB.batch(
     taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
   );
-  // Opening a country switches no foods on there.
-  await env.DB.prepare(
-    "INSERT INTO countries(id,iso2,name,is_active,created_at,updated_at) VALUES(?,'DE','Germany',1,1,1)",
-  )
-    .bind(`country-${id()}`)
-    .run();
+  // A new country has no foods switched on.
   const catalog = catalogService(env);
   const de = await catalog.market("de");
   expect(await foodsIn("de")).toEqual([]);

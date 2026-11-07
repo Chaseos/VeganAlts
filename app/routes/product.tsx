@@ -25,7 +25,12 @@ import {
 } from "../components/ui/badges";
 import { DetailBars, DistributionBars } from "../components/ui/bars";
 import { Notice } from "../components/ui/feedback";
-import { formatCount, formatScore, productName } from "../lib/format";
+import {
+  formatCount,
+  formatScore,
+  inSentence,
+  productName,
+} from "../lib/format";
 import { t, type MessageKey } from "../i18n";
 import { FLAVOR_SCORE_MIN_ANSWERS } from "@server/ranking/domain/display";
 import { useHydrated } from "../lib/use-hydrated";
@@ -328,7 +333,7 @@ export default function Product({
                   >
                     {t("product.compareAll", {
                       total: food.rankedCount,
-                      food: food.name.toLowerCase(),
+                      food: inSentence(food.name),
                     })}
                   </Link>
                 )}
@@ -495,7 +500,7 @@ export default function Product({
               >
                 <div className="va-product__section-head">
                   <h2 id="others-title" className="va-heading-s">
-                    {t("product.otherSwaps", { food: food.name.toLowerCase() })}
+                    {t("product.otherSwaps", { food: inSentence(food.name) })}
                   </h2>
                   <Link className="va-link" to={foodPath(code, food.slug)}>
                     {t("product.seeAll", { total: food.rankedCount })}
@@ -610,7 +615,7 @@ export default function Product({
             <dd>
               {p.categories
                 .filter((c) => c.isActive)
-                .map((c) => c.name.toLowerCase())
+                .map((c) => inSentence(c.name))
                 .join(t("list.separator")) || "—"}
             </dd>
             <dt>{t("product.recipe")}</dt>
@@ -889,7 +894,7 @@ function ScoreCard({
   food: FoodView;
   brand: string | null;
 }) {
-  const lower = food.name.toLowerCase();
+  const lower = inSentence(food.name);
   const line = food.line;
   return (
     <div
@@ -1033,13 +1038,13 @@ function RatingBreakdown({ food }: { food: FoodView }) {
       </h3>
       <p className="va-small va-muted">
         {t("product.breakdownLine", {
-          food: food.name.toLowerCase(),
+          food: inSentence(food.name),
           people: counted("product.people", food.ratingCount),
         })}
       </p>
       <DistributionBars
         label={t("product.closenessRatings", {
-          food: food.name.toLowerCase(),
+          food: inSentence(food.name),
         })}
         rows={food.distribution.map((row) => ({
           label: `${row.score} · ${scoreMeanings()[row.score - 1]}`,
@@ -1059,7 +1064,7 @@ function RatingBreakdown({ food }: { food: FoodView }) {
       )}
       {food.recentEaters && (
         <p className="va-small va-muted">
-          {t("product.recentEaters", { food: food.name.toLowerCase() })}{" "}
+          {t("product.recentEaters", { food: inSentence(food.name) })}{" "}
           <strong>{formatScore(food.recentEaters.average)}/5</strong>
           {t("text.open")}
           {counted("product.people", food.recentEaters.count)}

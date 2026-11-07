@@ -7,6 +7,7 @@ import type { CommunityAction } from "../lib/community";
 import { shrinkPhoto } from "../lib/shrink-photo";
 import { PhotoPicker } from "./community-form";
 import { IMAGE_SLOTS, slotLabel, storedSlotLabel } from "./photo-slots";
+import { inSentence } from "../lib/format";
 import { t } from "../i18n";
 
 const reasons = () => ({
@@ -135,7 +136,9 @@ export function PhotoProposalForm({
           <p className="small muted">{t("photoProposal.reformulation")}</p>
         </>
       ) : (
-        <p className="small muted">{t("photoProposal.noPhoto", { slot })}</p>
+        <p className="small muted">
+          {t("photoProposal.noPhoto", { slot: inSentence(slotLabel(slot)) })}
+        </p>
       )}
       <fieldset disabled={Boolean(receiptId)}>
         <PhotoPicker slot={slot} file={file} onChange={setFile} required />

@@ -5,7 +5,7 @@ import { CheckThePackage } from "../ui/badges";
 import { FoodPicker } from "./food-picker";
 import { OptionalRow } from "./optional-row";
 import { placeLabel, type FoodChoice } from "../../lib/food-choices";
-import { formatCount } from "../../lib/format";
+import { formatCount, inSentence } from "../../lib/format";
 import { t } from "../../i18n";
 import {
   MAX_FOODS,
@@ -117,7 +117,7 @@ export function MoreStep({
           {draft.flavor.trim() ? ` · ${draft.flavor.trim()}` : ""}
         </p>
         <h3 id="rate-title" className="va-heading-s">
-          {t("addProduct.triedIt", { food: foodName.toLowerCase() })}
+          {t("addProduct.triedIt", { food: inSentence(foodName) })}
         </h3>
         <div className="va-rate">
           <OverallScale

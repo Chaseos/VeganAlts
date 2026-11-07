@@ -34,7 +34,7 @@ import {
 import { categorySummary } from "../lib/summaries";
 import { counted } from "../lib/counted";
 import { t } from "../i18n";
-import { formatScore, joinList, productName } from "../lib/format";
+import { formatScore, inSentence, joinList, productName } from "../lib/format";
 import {
   breadcrumbs,
   countryAlternates,
@@ -221,7 +221,7 @@ function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
     return publicMetadata(
       t("category.aisleMetaTitle", { aisle: loaderData.aisle.name }),
       t("category.aisleMetaDescription", {
-        aisle: loaderData.aisle.name.toLowerCase(),
+        aisle: inSentence(loaderData.aisle.name),
       }),
       foodPath(loaderData.market.code, loaderData.aisle.slug),
       loaderData.origin,
@@ -242,7 +242,9 @@ function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
           ? [
               itemList(
                 origin,
-                t("category.topAlternatives", { food: data.category.name }),
+                t("category.topAlternatives", {
+                  food: inSentence(data.category.name),
+                }),
                 // Each line, linking its lead flavor.
                 data.ranked.map((line) => ({
                   name: productName(line.name, line.brand),
@@ -257,12 +259,10 @@ function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
   return [
     ...publicMetadata(
       data
-        ? t("category.metaTitle", { food: data.category.name.toLowerCase() })
+        ? t("category.metaTitle", { food: inSentence(data.category.name) })
         : t("category.fallbackFood"),
       t("category.metaDescription", {
-        food:
-          data?.category.name.toLowerCase() ??
-          t("category.fallbackFood").toLowerCase(),
+        food: inSentence(data?.category.name ?? t("category.fallbackFood")),
       }),
       // Filtered pages declare the unfiltered ranking canonical.
       data
@@ -319,7 +319,7 @@ function NotHereYet({ data }: { data: FoodData }) {
             ]}
           />
           <h1 className="va-ranking__title">
-            {t("category.title", { food: food.toLowerCase() })}
+            {t("category.title", { food: inSentence(food) })}
           </h1>
         </header>
         <EmptyState
@@ -345,7 +345,7 @@ function NotHereYet({ data }: { data: FoodData }) {
           }
         >
           {t("category.notHereBody", {
-            food: food.toLowerCase(),
+            food: inSentence(food),
             country: data.market.name,
           })}
         </EmptyState>
@@ -439,7 +439,7 @@ function FoodRankingList({
     },
     ...data.questions.map((question) => ({
       view: `detail-${question.key}`,
-      label: t("category.sortDetail", { detail: question.label.toLowerCase() }),
+      label: t("category.sortDetail", { detail: inSentence(question.label) }),
       hint: t("category.sortDetailHint"),
     })),
     {
@@ -463,9 +463,7 @@ function FoodRankingList({
       : undefined;
 
   const freeLabel = data.filters.freeFrom
-    .map((key) =>
-      t("filters.free", { name: (labels[key] ?? key).toLowerCase() }),
-    )
+    .map((key) => t("filters.free", { name: inSentence(labels[key] ?? key) }))
     .join(t("list.separator"));
   const flag =
     featured && rankOf(featured) === 1
@@ -492,7 +490,7 @@ function FoodRankingList({
       >
         {line.lineId === batch.boundaryId && question && (
           <p className="va-rank-list__divider">
-            {t("category.fewAnswers", { detail: question.label.toLowerCase() })}
+            {t("category.fewAnswers", { detail: inSentence(question.label) })}
           </p>
         )}
         {line.lineId === batch.boundaryId && tastiestView && (
@@ -561,7 +559,7 @@ function FoodRankingList({
       }}
       phoneTitle={
         <p className="va-ranking__phone-title" aria-hidden="true">
-          {t("category.title", { food: food.toLowerCase() })}
+          {t("category.title", { food: inSentence(food) })}
         </p>
       }
     >
@@ -594,7 +592,7 @@ function FoodRankingList({
               ]}
             />
             <h1 className="va-ranking__title">
-              {t("category.title", { food: food.toLowerCase() })}
+              {t("category.title", { food: inSentence(food) })}
             </h1>
             {(data.category.provisionalUntil ?? 0) > Date.now() && (
               <p className="va-ranking__season">
@@ -623,11 +621,11 @@ function FoodRankingList({
             <details className="va-ranking__how">
               <summary>{t("category.howTitle")}</summary>
               <p>
-                {t("category.how1", { food: food.toLowerCase() })}
+                {t("category.how1", { food: inSentence(food) })}
                 {data.questions.length > 0 &&
                   ` ${t("category.howDetails", {
                     list: joinList(
-                      data.questions.map((q) => q.label.toLowerCase()),
+                      data.questions.map((q) => inSentence(q.label)),
                     ).replace(/^./, (c) => c.toUpperCase()),
                   })}`}{" "}
                 {t("category.how3")}
@@ -713,7 +711,7 @@ function FoodRankingList({
                     ? t("category.nothingTrending")
                     : data.view === "new"
                       ? t("category.noNew")
-                      : t("category.noneRanked", { food: food.toLowerCase() })
+                      : t("category.noneRanked", { food: inSentence(food) })
                 }
                 actions={
                   <ButtonLink
@@ -764,7 +762,7 @@ function FoodRankingList({
           )}
           <p className="va-ranking__add">
             {t("category.knowSwap", {
-              food: food.toLowerCase(),
+              food: inSentence(food),
             })}{" "}
             <Link
               className="va-link"

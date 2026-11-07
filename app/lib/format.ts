@@ -1,3 +1,4 @@
+import { pageLanguage } from "@server/catalog/domain/markets";
 import { pageLocale, t } from "../i18n";
 // Presentation formatting shared by every surface. Rendering never reads the
 // clock; anything time-relative is decided by the loader.
@@ -21,7 +22,10 @@ export function productName(name: string, brand: string | null) {
 }
 
 export function formatScore(value: number) {
-  return value.toFixed(1);
+  return value.toLocaleString(pageLocale(), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
 }
 
 export function formatCount(value: number) {
@@ -39,6 +43,17 @@ export function summarizeNames(names: string[], max = 2) {
 }
 
 // "soy", "soy and wheat", "soy, wheat and sesame"
+/**
+ * A name in the middle of a sentence. English names are in title case, German
+ * nouns keep their capital, and other languages only lose the first capital,
+ * so "Sauce Alfredo" stays a proper name.
+ */
+export function inSentence(name: string) {
+  const language = pageLanguage() ?? "en";
+  if (language === "en") return name.toLowerCase();
+  return language === "de" ? name : lowerFirst(name);
+}
+
 export function joinList(items: string[]) {
   if (items.length <= 1) return items.join("");
   return t("list.and", {

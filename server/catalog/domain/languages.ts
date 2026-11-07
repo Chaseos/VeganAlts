@@ -1,14 +1,15 @@
 // A country's languages. These live in code because the gateway needs them
 // before any D1 read, and a language needs a deploy of its translations anyway.
 
-export const LANGUAGES = ["en", "fr", "ja"] as const;
+export const LANGUAGES = ["en", "fr", "ja", "de", "it"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
 interface CountryLanguages {
   default: Language;
   // Live for everyone.
   offered: readonly Language[];
-  // Reachable only on previews until its translations are reviewed.
+  // Reachable only on previews. The owner moves a language to `offered` once
+  // the checks in docs/operations/translation-glossary.md pass.
   preview?: readonly Language[];
 }
 
@@ -16,6 +17,13 @@ const ENGLISH: CountryLanguages = { default: "en", offered: ["en"] };
 const COUNTRY_LANGUAGES: Record<string, CountryLanguages> = {
   ca: { default: "en", offered: ["en"], preview: ["fr"] },
   jp: { default: "ja", offered: ["en"], preview: ["ja"] },
+  de: { default: "de", offered: ["en"], preview: ["de"] },
+  fr: { default: "fr", offered: ["en"], preview: ["fr"] },
+  it: { default: "it", offered: ["en"], preview: ["it"] },
+  at: { default: "de", offered: ["en"], preview: ["de"] },
+  ch: { default: "de", offered: ["en"], preview: ["de", "fr", "it"] },
+  be: { default: "fr", offered: ["en"], preview: ["fr"] },
+  lu: { default: "fr", offered: ["en"], preview: ["fr", "de"] },
 };
 
 // Each in its own name, whatever the page's language.
@@ -23,6 +31,8 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
   en: "English",
   fr: "Français",
   ja: "日本語",
+  de: "Deutsch",
+  it: "Italiano",
 };
 
 export const isLanguage = (value: string | null | undefined) =>
@@ -54,17 +64,52 @@ export function languageFor(
 
 const SHARED_PAGES = /^\/(?:$|about(?:\/|$)|users\/|api\/)/;
 
+// The language and country a visitor last viewed, as `fr-be`. The browser
+// writes it, so a page with neither in its address, such as /account, can match
+// them. It never picks a country page's language: that stays with `va_lang`.
+const lastViewed = (cookies: string | null | undefined) =>
+  cookies?.match(/(?:^|;\s*)va_market=([a-z]{2})-([a-z]{2})(?:;|$)/);
+
+/** The cookie that remembers a country page, or null on any other page. */
+export function marketCookie(path: string, secure: boolean) {
+  const { language } = splitLanguage(path);
+  if (!language) return null;
+  const market = `${language}-${path.slice(1, 3)}`;
+  return `va_market=${market}; Path=/; Max-Age=31536000; SameSite=Lax${secure ? "; Secure" : ""}`;
+}
+
 /**
- * A page with no language in its address follows the visitor's choice. Pages
- * cached for everyone, such as `/` and `/about`, never do.
+ * A page with no language in its address follows `?language=`, then the
+ * visitor's choice. Pages cached for everyone, such as `/` and `/about`, never
+ * do.
  */
 export function chosenLanguage(
   path: string,
   cookies: string | null | undefined,
+  search = "",
 ) {
   if (SHARED_PAGES.test(path)) return null;
+  const named = new URLSearchParams(search).get("language");
+  if (isLanguage(named)) return named as Language;
+  const viewed = lastViewed(cookies)?.[1];
+  if (isLanguage(viewed)) return viewed as Language;
   const chosen = cookies?.match(/(?:^|;\s*)va_lang=([a-z]{2})/)?.[1];
   return isLanguage(chosen) ? (chosen as Language) : null;
+}
+
+/**
+ * The country of a page with no country in its address: the one it names, else
+ * the one the visitor last viewed.
+ */
+export function chosenCountry(
+  path: string,
+  search: string,
+  cookies: string | null | undefined,
+) {
+  if (SHARED_PAGES.test(path)) return null;
+  const named = new URLSearchParams(search).get("country")?.toLowerCase();
+  if (named && /^[a-z]{2}$/.test(named)) return named;
+  return lastViewed(cookies)?.[2] ?? null;
 }
 
 /** Separates a language segment from a lowercase path: /ca/fr/beef. */

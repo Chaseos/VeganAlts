@@ -976,6 +976,71 @@ export class D1TaxonomyRepository {
       .run();
     return result.meta.changes > 0;
   }
+  // One open report per person, language, page and text.
+  saveTranslationReport(
+    id: string,
+    userId: string,
+    country: string,
+    language: string,
+    page: string,
+    text: string,
+    note: string,
+    now: number,
+  ) {
+    return this.db
+      .prepare(
+        `INSERT INTO translation_reports(id,reporter_user_id,country_id,language,page,quoted_text,note,created_at,updated_at)
+        VALUES(?,?,(SELECT id FROM countries WHERE iso2=?),?,?,?,?,?,?)
+        ON CONFLICT(reporter_user_id,language,page,quoted_text) WHERE status='open'
+        DO UPDATE SET note=excluded.note,updated_at=excluded.updated_at`,
+      )
+      .bind(
+        id,
+        userId,
+        country.toUpperCase(),
+        language,
+        page,
+        text,
+        note,
+        now,
+        now,
+      )
+      .run();
+  }
+  async translationReports() {
+    return (
+      await this.db
+        .prepare(
+          `SELECT r.id,r.language,r.page,r.quoted_text AS text,r.note,r.created_at AS createdAt,co.iso2 AS country
+          FROM translation_reports r JOIN countries co ON co.id=r.country_id
+          WHERE r.status='open' ORDER BY r.created_at LIMIT 100`,
+        )
+        .all<{
+          id: string;
+          language: string;
+          page: string;
+          text: string;
+          note: string;
+          createdAt: number;
+          country: string;
+        }>()
+    ).results;
+  }
+  async closeTranslationReport(
+    id: string,
+    status: "resolved" | "dismissed",
+    actorId: string,
+    note: string,
+    now: number,
+  ) {
+    const result = await this.db
+      .prepare(
+        "UPDATE translation_reports SET status=?,resolved_by=?,resolution_note=?,resolved_at=?,updated_at=? WHERE id=? AND status='open'",
+      )
+      .bind(status, actorId, note, now, now, id)
+      .run();
+    return result.meta.changes > 0;
+  }
   async aisleRoot() {
     return (await this.db
       .prepare(

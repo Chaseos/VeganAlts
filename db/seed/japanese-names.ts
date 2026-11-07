@@ -1,5 +1,4 @@
-// Japanese names for foods and aisles, by slug. A person reviews these before
-// Japanese leaves preview.
+// Japanese names for foods and aisles, by slug.
 export const JAPANESE_NAMES: Record<string, string> = {
   "alfredo-sauce": "アルフレードソース",
   "american-cheese": "アメリカンチーズ",

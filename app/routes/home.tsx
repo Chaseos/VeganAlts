@@ -22,7 +22,7 @@ import type { Season } from "@server/taxonomy/domain/season";
 import { ButtonLink } from "../components/ui/button";
 import { publicMetadata, countryAlternates } from "../lib/metadata";
 import { counted } from "../lib/counted";
-import { formatCount, shortDate, productName } from "../lib/format";
+import { formatCount, inSentence, productName, shortDate } from "../lib/format";
 import { t } from "../i18n";
 import { POPULAR_AISLE_COUNT } from "../lib/aisles";
 import type { SuggestedFood } from "../lib/instant-search";
@@ -176,7 +176,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                         </span>
                         <span className="va-small va-muted">
                           {t("home.trendingMeta", {
-                            food: product.foodName.toLowerCase(),
+                            food: inSentence(product.foodName),
                             detail:
                               product.recentRatingCount > 0
                                 ? counted(
@@ -243,7 +243,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
                         )}
                         <span>
                           {t("home.newMeta", {
-                            food: product.foodName.toLowerCase(),
+                            food: inSentence(product.foodName),
                             date: shortDate(product.publishedAt ?? 0),
                           })}
                         </span>
@@ -425,7 +425,7 @@ function AisleFoods({
         >
           {t("home.seeAllFoods", {
             count: aisle.foods.length,
-            aisle: aisle.name.toLowerCase(),
+            aisle: inSentence(aisle.name),
           })}
           <Icon name="arrowRight" size={14} />
         </Link>
@@ -475,7 +475,7 @@ function StartRow({ country, leader }: { country: string; leader: Leader }) {
       )}
       <span className="va-row-link__text">
         <span className="va-small va-muted">
-          {t("home.insteadOf", { food: leader.food.name.toLowerCase() })}
+          {t("home.insteadOf", { food: inSentence(leader.food.name) })}
         </span>
         <span className="va-row-link__title va-row-link__title--large">
           {leader.best && productName(leader.best.name, leader.best.brand)}
@@ -611,9 +611,9 @@ function FoodPreview({
       <ButtonLink to={foodPath(country, food.slug)}>
         {food.rankedCount
           ? counted("home.seeAllSwaps", food.rankedCount, {
-              food: food.name.toLowerCase(),
+              food: inSentence(food.name),
             })
-          : t("home.open", { food: food.name.toLowerCase() })}
+          : t("home.open", { food: inSentence(food.name) })}
       </ButtonLink>
       <p className="va-small va-muted">{t("home.pointAt")}</p>
     </section>

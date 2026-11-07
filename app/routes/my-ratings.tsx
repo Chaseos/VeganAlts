@@ -10,7 +10,7 @@ import { PageShell } from "../components/layout/page-shell";
 import { EmptyState } from "../components/ui/feedback";
 import { ButtonLink } from "../components/ui/button";
 import { tasteMeanings } from "../components/rating-control";
-import { productName } from "../lib/format";
+import { inSentence, productName } from "../lib/format";
 import type { MyRating } from "@server/ratings/domain/contracts";
 import { t } from "../i18n";
 import type { Route } from "./+types/my-ratings";
@@ -88,7 +88,7 @@ export default function MyRatings({ loaderData: data }: Route.ComponentProps) {
                 </h2>
                 <p className="small">
                   {t("myRatings.as", {
-                    food: rating.categoryName.toLowerCase(),
+                    food: inSentence(rating.categoryName),
                   })}
                   {rating.overallSimilarity !== null && (
                     <>

@@ -6,6 +6,7 @@ import {
   useSiteChrome,
   type ChromeCountry,
 } from "../../lib/site-chrome";
+import { changesLanguage } from "@server/catalog/domain/markets";
 import { PREFERENCE_KEYS, writePreference } from "../../lib/device-preferences";
 import { t } from "../../i18n";
 
@@ -50,6 +51,7 @@ export function CountryList({
           <li key={country.code}>
             <Link
               to={hrefFor(country.code)}
+              reloadDocument={changesLanguage(hrefFor(country.code))}
               aria-current={selected ? "true" : undefined}
               onClick={() => {
                 rememberCountry(country.code);

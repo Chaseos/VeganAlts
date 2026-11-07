@@ -1,3 +1,4 @@
+import { inSentence } from "../../lib/format";
 import { useState } from "react";
 import { Link } from "react-router";
 import { FoodIcon } from "../icons/food-icons";
@@ -67,7 +68,7 @@ export function FoodNavigation({
           to={navigationGroupPath(country, group.id)}
           discover="none"
         >
-          {t("foodNav.browseGroup", { group: group.name.toLowerCase() })}
+          {t("foodNav.browseGroup", { group: inSentence(group.name) })}
         </Link>
         <Link className="va-link" to={searchPath(country)} discover="none">
           {t("nav.browseAll")}

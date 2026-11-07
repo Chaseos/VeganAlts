@@ -1,5 +1,6 @@
 import { ApplicationError } from "../../shared/domain/errors";
 import {
+  chosenCountry,
   chosenLanguage,
   defaultLanguage,
   languagesOf,
@@ -48,11 +49,29 @@ export function parseCountryCode(value: string | null | undefined) {
 let currentLanguage = (): Language | null => {
   if (typeof location === "undefined") return null;
   const path = location.pathname.toLowerCase();
-  return splitLanguage(path).language ?? chosenLanguage(path, document.cookie);
+  return (
+    splitLanguage(path).language ??
+    chosenLanguage(path, document.cookie, location.search)
+  );
 };
 export const pageLanguage = () => currentLanguage();
 export function readPageLanguageFrom(source: () => Language | null) {
   currentLanguage = source;
+}
+
+// The country of the same page, for text that differs by market: French in
+// France isn't the shared French. Lowercase, and read the same two ways.
+let currentCountry = (): string | null => {
+  if (typeof location === "undefined") return null;
+  const path = location.pathname.toLowerCase();
+  return (
+    path.match(/^\/([a-z]{2})\/[a-z]{2}(?=\/|$)/)?.[1] ??
+    chosenCountry(path, location.search, document.cookie)
+  );
+};
+export const pageCountry = () => currentCountry();
+export function readPageCountryFrom(source: () => string | null) {
+  currentCountry = source;
 }
 
 // Every country page names its language. A country that doesn't offer the
@@ -102,6 +121,15 @@ export function languageHref(page: string, language: Language) {
   if (!match) return null;
   url.searchParams.set("setlang", language);
   return `/${match[1]}/${language}${url.pathname.slice(match[0].length)}${url.search}`;
+}
+
+/**
+ * True when a link leaves the language this page loaded. Only a full page load
+ * fetches the other dictionary, so such a link needs `reloadDocument`.
+ */
+export function changesLanguage(href: string) {
+  const { language } = splitLanguage(href.split(/[?#]/)[0]!.toLowerCase());
+  return !!language && language !== (currentLanguage() ?? "en");
 }
 
 export function hreflang(code: string, language: Language = "en") {

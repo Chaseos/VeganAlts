@@ -4,7 +4,21 @@ Every language shares these rules. Each language has its own term list below, de
 
 ## High-stakes strings
 
-Keys starting `safety.` or `allergen.`, and any key naming a vegan status, an allergen or "not checked". A person must review these for each market before a language leaves preview. Reusing text from another market of the same language doesn't count as review.
+Keys starting `safety.` or `allergen.`, and any key naming a vegan status, an allergen or "not checked". An independent evaluator translates these back without seeing the English, for each market, and any lost meaning is fixed before a language leaves preview. Reusing text from another market of the same language doesn't count as checked.
+
+## Who checks a translation
+
+There are no native reviewers (owner, 2026-11-06). Problems come from user reports: translated pages link to `/report-translation`, and open reports appear in `/admin/moderation/digest`. A report on a high-stakes string is fixed before other translation work.
+
+A market leaves preview when the owner moves its language from `preview` to `offered` in `server/catalog/domain/languages.ts`. The owner does that once all of these hold for that market:
+
+1. `check_catalog.py` passes for the dictionary and server messages, with every kept-English string explained.
+2. An evaluator that didn't translate has reviewed the whole catalog and back-translated every high-stakes key.
+3. A second evaluator has rechecked after the fixes, and no critical or high finding is open.
+4. Allergen names match the country's official wording, with sources cited here.
+5. The market's browser tests, type checks and unit tests pass, and `/report-translation` works in that language.
+
+Evaluator scores show what was checked. They don't stand in for a native reader, so report them as provisional.
 
 ## Dictionaries
 
@@ -88,3 +102,125 @@ Sources: [OQLF, spacing](https://vitrinelinguistique.oqlf.gouv.qc.ca/22039/la-ty
 - Sentence order differs from English. When a string joins around a link, write the joined sentence first, then split it, and leave a piece empty if it has no words.
 
 Sources: [Consumer Affairs Agency, allergen labelling](https://www.caa.go.jp/policies/policy/food_labeling/food_sanitation/allergy/), [Kyoto Prefecture, current 9 + 20 items](https://www.pref.kyoto.jp/shoku-kawaraban/allergie01.html), [Consumer Affairs Agency, plant-based labelling Q&A](https://www.caa.go.jp/notice/other/plant_based/).
+
+## EU and Swiss rules for every European market
+
+- **Allergen names** use the head words of Regulation 1169/2011 Annex II in each language. Switzerland has the same 14 groups in LIV Annex 6, with its own wording where listed below.
+- **"May contain"** is voluntary in the EU (Regulation 1169/2011 art. 36). In Switzerland it's required above set amounts, 1 g/kg for most allergens (LIV art. 11). So our text describes what a label says and never promises that a label will warn.
+- **Reserved meat words.** Regulation (EU) 2026/1739 reserves "meat" and 31 terms from 19 August 2029, including steak, bacon, chicken, beef, pork, filet, ribs and liver, for meat. `burger`, `sausage` and `nugget` aren't on the list. Switzerland's Federal Supreme Court (2C_26/2023) ruled that animal species names mislead on plant products, such as "Poulet".
+- **Reserved dairy words.** Milk, cream, butter, cheese and yogurt are reserved for dairy, even with a word like "plant" beside them (CJEU C-422/16). Coconut milk, peanut butter and cocoa butter are among the listed exceptions.
+- **In our own copy**, a food name is the animal food a product replaces, never the product. Write "alternatives to milk", and never call a product "vegan milk", "plant steak" or "plant meat" in the site's own voice. Food and aisle names stay the plain names of the original foods. Brand and product names stay as written.
+- **Sentence patterns.** Don't put "vegan" directly before `{food}`. Use the language's form of "vegan alternatives to `{food}`".
+
+## German (de-DE, de-AT, de-CH, de-LU)
+
+| English | German | Why |
+|---|---|---|
+| vegan | vegan | |
+| swap, alternative | Alternative | Same word everywhere |
+| plant-based | pflanzlich | |
+| Closest to the original | Am nächsten am Original | A ranking name, never reworded |
+| Tastiest | Am leckersten | A ranking name, never reworded |
+| ranked | gelistet, in der Rangliste | |
+| rating | Bewertung | |
+| rate | bewerten | Members only; staff `prüfen` |
+| score | Punktzahl | `Note` reads as a school grade, where 1 is best |
+| member | Mitglied | |
+| aisle, category | Kategorie | |
+| food | Lebensmittel | |
+| Contains | Enthält | Label wording |
+| May contain | Kann enthalten | LIV art. 11: `kann Erdnüsse enthalten` |
+| Free from | Ohne | Only with "laut Etikett" nearby where space allows, never as our guarantee |
+| ingredients | Zutaten | |
+| allergen | Allergen | |
+| email | E-Mail | |
+| review (staff) | Prüfung | |
+| submission | Einreichung | |
+| flavor | Sorte | |
+| product line | Produktlinie | |
+| recipe, formula | Rezeptur | |
+| retailer, store | Händler, Geschäft | |
+| sign in | anmelden | |
+| operator | das Team | Avoids a gendered role noun |
+| plant drink | Pflanzendrink | Never `Pflanzenmilch` in our own copy |
+| moderator | Moderationsteam | Avoids a gendered role noun |
+| #1 | Platz 1 | |
+
+- Address the reader as `du`, like vegan brands and community sites in German. Capitalize `Du` only at the start of a sentence.
+- Avoid gender stars. Rephrase with neutral words such as `Mitglieder`, `Team`, `Personen`.
+- Quotes are „so“. Swiss pages turn them into «so» and ß into ss automatically, so write German, not Swiss, spelling.
+- `{food}` and `{country}` are bare nominative names with no article, and `{food}` keeps its capital. It can't take a case ending, so never put a preposition that changes its case before it (`zu {food}`, `für {food}`). Write `Vegane Alternativen: {food}`, or put it in parentheses, `dem Original ({food})`. Never put an adjective or article before `{food}`. Write `{inCountry}` for "in Germany", and `{country}` only for a bare name. Food names are stored so they stay correct unchanged, such as `Joghurt nach griechischer Art`, not `Griechischer Joghurt`.
+- Spelling is reformed German. Numbers and dates come from the locale.
+- Austrian and Swiss food words are country rows on the seed, such as Obers and Rahm, and differ only there.
+
+Allergens: Glutenhaltiges Getreide, Krebstiere, Eier, Fische, Erdnüsse, Sojabohnen, Milch, Schalenfrüchte, Sellerie, Senf, Sesamsamen, Schwefeldioxid und Sulphite (Sulfite in Switzerland), Lupinen, Weichtiere.
+
+## Italian (it-IT, it-CH)
+
+| English | Italian | Why |
+|---|---|---|
+| vegan | vegano, vegana | Agrees with its noun |
+| swap, alternative | alternativa | Same word everywhere |
+| plant-based | vegetale | |
+| Closest to the original | Il più vicino all’originale | A ranking name, never reworded |
+| Tastiest | Il più gustoso | A ranking name, never reworded |
+| ranked | in classifica | |
+| rating | valutazione | |
+| rate | valutare | Members only; staff `verificano` |
+| score | punteggio | |
+| member | membro | |
+| aisle, category | categoria | |
+| food | alimento | |
+| Contains | Contiene | Label wording |
+| May contain | Può contenere | LIV art. 11: `può contenere arachidi` |
+| Free from | Senza | With "secondo l’etichetta" where space allows, never as our guarantee |
+| ingredients | ingredienti | |
+| allergen | allergene | |
+| email | e-mail | |
+| review (staff) | verifica | |
+| submission | proposta | |
+| flavor | gusto | |
+| product line | linea | |
+| recipe, formula | ricetta | |
+| retailer, store | rivenditore, negozio | |
+| sign in | accedi | |
+| operator | il team | |
+| plant drink | bevanda vegetale | Never `latte vegetale` in our own copy |
+| brand | marca | |
+| community | community | |
+| Commonly found at | Si trova di solito da | |
+| #1 | n. 1 | |
+
+- Address the reader as `tu`. Buttons use the imperative.
+- Avoid gendered role nouns: `chi ha aggiunto`, `le persone`.
+- Quotes are «così». Apostrophes are ’.
+- `{food}` and `{country}` are bare lowercase or proper names with no article. Write `alternative a {food}`, and don't write `al {food}` or `del {food}`. Write `in questo paese ({country})`, because the right preposition changes by country.
+
+Allergens: Cereali contenenti glutine, Crostacei, Uova, Pesce, Arachidi, Soia, Latte, Frutta a guscio, Sedano, Senape, Semi di sesamo, Anidride solforosa e solfiti, Lupini, Molluschi.
+
+## European French (fr-FR, fr-BE, fr-LU, fr-CH)
+
+`app/i18n/fr/france.ts` holds only what differs from the shared Canadian text, and all four countries use it.
+
+| English | Canadian | European | Why |
+|---|---|---|---|
+| vegan | végane, one form | végan, végane, agreeing with the noun | Usual in France; Swiss law also accepts `vegan` |
+| swap, alternative | substitut, solution de rechange | alternative | Usual in France |
+| email | courriel | e-mail | |
+| soy | soya | soja | Annex II |
+| tree nuts | noix | fruits à coque | Annex II. Swiss group term is `fruits à coque dure` |
+| submission | soumission | proposition | |
+| retailer | détaillant | enseigne, distributeur | |
+| breakfast | déjeuner | petit-déjeuner | `déjeuner` is lunch in France |
+| ice cream | crème glacée | glace | |
+| #1 | no 1 | n° 1 | |
+| plant drink | | boisson végétale | Never `lait végétal` in our own copy |
+
+- Ranking names don't change: Le plus proche de l’original, Le plus savoureux.
+- Spacing is the French rule, a non-breaking space before `; : ! ?` and inside « ». Code adds it to every shared string, so the override doesn't list a key for spacing alone.
+
+Allergens: Céréales contenant du gluten, Crustacés, Œufs, Poissons, Arachides, Soja, Lait, Fruits à coque, Céleri, Moutarde, Graines de sésame, Anhydride sulfureux et sulfites, Lupin, Mollusques.
+
+Sources: [Regulation 1169/2011, de](https://eur-lex.europa.eu/legal-content/DE/TXT/HTML/?uri=CELEX:02011R1169-20180101), [fr](https://eur-lex.europa.eu/legal-content/FR/TXT/HTML/?uri=CELEX:02011R1169-20180101), [it](https://eur-lex.europa.eu/legal-content/IT/TXT/HTML/?uri=CELEX:02011R1169-20180101), [Regulation (EU) 2026/1739](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32026R1739), [Swiss LIV, SR 817.022.16](https://www.fedlex.admin.ch/eli/cc/2017/158/de), [Decision 2010/791/EU](https://eur-lex.europa.eu/eli/dec/2010/791/oj), [Planted ruling, reported by SRF](https://www.srf.ch/news/wirtschaft/bundesgericht-zu-planted-fleischersatz-darf-keine-tiernamen-enthalten-die-uebersicht), [CJEU C-422/16 press release](https://curia.europa.eu/jcms/upload/docs/application/pdf/2017-06/cp170063en.pdf).
+
+Not read at an official source: the Swiss judgment itself, the Annex VII Part III text of Regulation 1308/2013, the German Leitsätze, and French spacing, which follows common French practice. Italy's Law 172/2023 art. 3 limits meat names on labels; its enforcement today is unclear, and the rule above is stricter than it.

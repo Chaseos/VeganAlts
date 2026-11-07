@@ -9,11 +9,15 @@ import {
 } from "../server/shared/http/response-policy";
 import { errorResponse } from "../server/shared/http/security";
 import {
+  chosenCountry,
   chosenLanguage,
   splitLanguage,
   type Language,
 } from "../server/catalog/domain/languages";
-import { readPageLanguageFrom } from "../server/catalog/domain/markets";
+import {
+  readPageCountryFrom,
+  readPageLanguageFrom,
+} from "../server/catalog/domain/markets";
 import { ApplicationError } from "../server/shared/domain/errors";
 import {
   cachePublicResponse,
@@ -37,9 +41,14 @@ import {
   routeLabel,
 } from "../server/observability/events";
 
-// Links in a page stay in its language (see `readPageLanguageFrom`).
-const pageLanguage = new AsyncLocalStorage<Language | null>();
-readPageLanguageFrom(() => pageLanguage.getStore() ?? null);
+// Links in a page stay in its language (see `readPageLanguageFrom`), and its
+// text follows its market.
+const page = new AsyncLocalStorage<{
+  language: Language | null;
+  country: string | null;
+}>();
+readPageLanguageFrom(() => page.getStore()?.language ?? null);
+readPageCountryFrom(() => page.getStore()?.country ?? null);
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -74,9 +83,15 @@ export class PublicCatalog extends WorkerEntrypoint<Cloudflare.Env> {
     const request = new Request(renderUrl, { headers });
     try {
       return cachePublicResponse(
-        await pageLanguage.run(
-          splitLanguage(route.pathname).language ??
-            (route.representation === "api" ? (route.language ?? null) : null),
+        await page.run(
+          {
+            language:
+              splitLanguage(route.pathname).language ??
+              (route.representation === "api"
+                ? (route.language ?? null)
+                : null),
+            country: route.country ?? null,
+          },
           () => requestHandler(request),
         ),
         route,
@@ -236,11 +251,19 @@ export default {
           )
             recordEvent(env, "search", "search", route.representation);
         } else
-          response = await pageLanguage.run(
-            chosenLanguage(
-              url.pathname.toLowerCase(),
-              request.headers.get("Cookie"),
-            ),
+          response = await page.run(
+            {
+              language: chosenLanguage(
+                url.pathname.toLowerCase(),
+                request.headers.get("Cookie"),
+                url.search,
+              ),
+              country: chosenCountry(
+                url.pathname.toLowerCase(),
+                url.search,
+                request.headers.get("Cookie"),
+              ),
+            },
             () => requestHandler(request),
           );
       }

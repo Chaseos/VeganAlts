@@ -2,7 +2,7 @@ import { friendly } from "../../lib/community";
 import type { ReactNode } from "react";
 import { Icon } from "../icons/icon";
 import { counted } from "../../lib/counted";
-import { joinList } from "../../lib/format";
+import { inSentence, joinList } from "../../lib/format";
 import { t, type MessageKey } from "../../i18n";
 
 export type BadgeTone =
@@ -80,9 +80,9 @@ export function AllergenLabel({
   variant?: "chip" | "line";
 }) {
   if (!allergens) return null;
-  const contains = allergens.contains.map((a) => a.label.toLowerCase());
+  const contains = allergens.contains.map((a) => inSentence(a.label));
   const mayContain = joinList(
-    allergens.mayContain.map((a) => a.label.toLowerCase()),
+    allergens.mayContain.map((a) => inSentence(a.label)),
   );
   // "May contain" alone is still a warning, never "no major allergens".
   const warnOnly = !contains.length && allergens.mayContain.length > 0;

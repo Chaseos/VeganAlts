@@ -1,4 +1,7 @@
+import { EUROPEAN_FRENCH_NAMES } from "./european-french-names";
 import { FRENCH_NAMES } from "./french-names";
+import { AUSTRIAN_NAMES, GERMAN_NAMES, SWISS_NAMES } from "./german-names";
+import { ITALIAN_NAMES } from "./italian-names";
 import { JAPANESE_NAMES } from "./japanese-names";
 import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
 import { DEFAULT_DIMENSIONS } from "../../server/ratings/domain/details";
@@ -1118,6 +1121,23 @@ export const TAXONOMY_DIMENSIONS: Record<
     ["baking", "Baking"],
   ],
 };
+// Regulation 1169/2011 Annex II. Switzerland's LIV Annex 6 lists the same 14.
+const EUROPEAN_ALLERGENS: (string | [string, string])[] = [
+  ["gluten", "Cereals containing gluten"],
+  ["crustacean", "Crustaceans"],
+  "egg",
+  "fish",
+  "peanut",
+  ["soy", "Soybeans"],
+  "milk",
+  ["tree_nuts", "Nuts"],
+  "celery",
+  "mustard",
+  "sesame",
+  ["sulphites", "Sulphur dioxide and sulphites"],
+  "lupin",
+  "mollusc",
+];
 // The English-speaking launch countries (owner decision, 2026-10-09). Each
 // list follows that country's labeling rules (PRODUCT_MASTER, milestone 5);
 // a label overrides the shared vocabulary's wording.
@@ -1309,6 +1329,13 @@ export const TAXONOMY_COUNTRIES: {
       "gelatin",
     ],
   },
+  { iso2: "DE", name: "Germany", allergens: EUROPEAN_ALLERGENS },
+  { iso2: "FR", name: "France", allergens: EUROPEAN_ALLERGENS },
+  { iso2: "IT", name: "Italy", allergens: EUROPEAN_ALLERGENS },
+  { iso2: "AT", name: "Austria", allergens: EUROPEAN_ALLERGENS },
+  { iso2: "CH", name: "Switzerland", allergens: EUROPEAN_ALLERGENS },
+  { iso2: "BE", name: "Belgium", allergens: EUROPEAN_ALLERGENS },
+  { iso2: "LU", name: "Luxembourg", allergens: EUROPEAN_ALLERGENS },
   {
     iso2: "IN",
     name: "India",
@@ -1424,6 +1451,8 @@ export function taxonomySeedStatements(
   const names = [
     ...Object.entries(FRENCH_NAMES).map((entry) => ["fr", ...entry]),
     ...Object.entries(JAPANESE_NAMES).map((entry) => ["ja", ...entry]),
+    ...Object.entries(GERMAN_NAMES).map((entry) => ["de", ...entry]),
+    ...Object.entries(ITALIAN_NAMES).map((entry) => ["it", ...entry]),
   ] as [string, string, string][];
   for (const [language, slug, name] of names)
     if (!onlyFoods || selectedSlugs.has(slug))
@@ -1438,6 +1467,21 @@ export function taxonomySeedStatements(
         AND category_id=(SELECT id FROM categories WHERE slug=${quote(slug)})
         AND NOT EXISTS(SELECT 1 FROM category_aliases d WHERE d.category_id=category_aliases.category_id AND d.country_id IS NULL AND d.language=${quote(language)} AND d.is_display_name=1);`,
       );
+  // A country's own word beats its language's shared name.
+  const local: [string, string[], Record<string, string>][] = [
+    ["fr", ["FR", "BE", "LU", "CH"], EUROPEAN_FRENCH_NAMES],
+    ["de", ["AT"], AUSTRIAN_NAMES],
+    ["de", ["CH"], SWISS_NAMES],
+  ];
+  for (const [language, countries, list] of local)
+    for (const [slug, name] of Object.entries(list))
+      if (!onlyFoods || selectedSlugs.has(slug))
+        statements.push(
+          `INSERT INTO category_aliases(id,category_id,country_id,alias,is_display_name,language,created_at)
+          SELECT ${quote(newId())}||co.iso2,c.id,co.id,${quote(name)},1,${quote(language)},${now} FROM categories c CROSS JOIN countries co
+          WHERE c.slug=${quote(slug)} AND co.iso2 IN (${countries.map(quote).join()})
+          ON CONFLICT DO NOTHING;`,
+        );
   // Questions are seeded only for foods that have none, so an operator's
   // list is never overwritten. SQLite reads the whole SELECT before inserting.
   const questions = (

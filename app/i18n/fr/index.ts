@@ -1,7 +1,10 @@
 import type { Dictionary } from "..";
 
-export { errors } from "./errors";
 import { codes } from "./codes";
+import { errors } from "./errors";
+import { europeanMarkets } from "./european";
+
+export { errors };
 
 // Canadian French. Terms and rules: docs/operations/translation-glossary.md
 export const fr: Dictionary = {
@@ -1545,7 +1548,20 @@ export const fr: Dictionary = {
     "{lead} {title} est le plus savoureux, avec {score} sur 5.",
   "summary.tastiestEarly":
     "{lead} {title} est le plus savoureux jusqu’ici, avec {score} sur 5.",
+  "footer.reportTranslation": "Signaler un problème de traduction",
+  "reportTranslation.back": "Retour à la page",
+  "reportTranslation.intro":
+    "Signalez-nous un texte erroné, peu clair ou qui sonne faux. Nous lisons chaque signalement.",
+  "reportTranslation.metaTitle":
+    "Signaler un problème de traduction · VeganAlts",
+  "reportTranslation.noteLabel": "Que devrait-on lire? (facultatif)",
+  "reportTranslation.send": "Envoyer le signalement",
+  "reportTranslation.textLabel": "Quel texte pose problème? (obligatoire)",
+  "reportTranslation.thanks": "Merci, nous allons y jeter un coup d’œil.",
+  "reportTranslation.title": "Signaler un problème de traduction",
   "theme.dark": "Sombre",
   "theme.light": "Clair",
   "theme.system": "Système",
 };
+
+export const markets = europeanMarkets(fr, errors);

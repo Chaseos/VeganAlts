@@ -625,6 +625,8 @@ The [milestone 8 specification](MILESTONE_8_PLAN.md) lets suggested foods and ai
 
 **Audit and reversal.** Every decision uses the fenced, audited path as the system account. An operator can undo any of them from the digest: an accepted food with no products is retired and its name and address are freed, one with products is merged into a chosen food, and an alias is removed. Reports on a food reach the digest.
 
+**Translation reports.** There are no native reviewers (owner, 2026-11-06), so user reports find translation problems. Translated pages link to `/report-translation`, where a signed-in member names the wrong text. `translation_reports` records the page, language, country, text and an optional note, one open report per person, language, page and text. Open reports appear in the digest, where an operator marks them handled or dismisses them. A report changes nothing by itself. The operator fixes the dictionary or the name, and a report on an allergen, vegan status or "not checked" wording goes first. `docs/operations/translation-glossary.md` says what decides when a language leaves preview.
+
 ## Owner imports
 
 The owner's reviewed store-photo batches reach the catalog through the [store photo importer](IMPORTER_PLAN.md) (owner, 2026-10-16).

@@ -372,7 +372,7 @@ it("reviews one food straight away, and leaves a reviewed one alone", async () =
   expect(w.requests).toHaveLength(1);
 });
 
-it("keeps one open report per person, and an operator closes it", async () => {
+async function reportWorld() {
   await env.DB.batch(
     taxonomySeedStatements(id, Date.now()).map((sql) => env.DB.prepare(sql)),
   );
@@ -391,6 +391,11 @@ it("keeps one open report per person, and an operator closes it", async () => {
     administrator: false,
     accountState: "active",
   } as never;
+  return { taxonomy, actor, user };
+}
+
+it("keeps one open report per person, and an operator closes it", async () => {
+  const { taxonomy, actor, user } = await reportWorld();
   const report = (reason: string) =>
     taxonomy.reportFood(actor, {
       food: "ground-beef",
@@ -425,6 +430,59 @@ it("keeps one open report per person, and an operator closes it", async () => {
       reason: "other",
     }),
   ).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+it("records a translation report and an operator closes it", async () => {
+  const { taxonomy, actor, user } = await reportWorld();
+  const report = (text: string, note = "") =>
+    taxonomy.reportTranslation(actor, {
+      country: "ca",
+      language: "fr",
+      page: "/ca/fr/milk",
+      text,
+      note,
+    });
+  await report("Lait", "first");
+  await report("Lait", "It should say something else.");
+  await report("Fromage");
+  const admin = {
+    id: user,
+    administrator: true,
+    accountState: "active",
+  } as never;
+  const open = await taxonomy.translationReports(admin);
+  expect(open.map((row) => row.text).sort()).toEqual(["Fromage", "Lait"]);
+  const milk = open.find((row) => row.text === "Lait")!;
+  expect(milk).toMatchObject({
+    language: "fr",
+    country: "CA",
+    page: "/ca/fr/milk",
+    note: "It should say something else.",
+  });
+  await taxonomy.resolveTranslationReport(admin, milk.id, {
+    status: "resolved",
+    note: "Fixed the dictionary.",
+  });
+  expect(await taxonomy.translationReports(admin)).toHaveLength(1);
+  await expect(
+    taxonomy.resolveTranslationReport(admin, milk.id, {
+      status: "dismissed",
+      note: "Fixed the dictionary.",
+    }),
+  ).rejects.toMatchObject({ code: "STALE_DECISION" });
+  // English has nothing to translate, and a link never leaves the site.
+  for (const input of [
+    { language: "en", page: "/ca/en/milk" },
+    { language: "fr", page: "https://example.com" },
+    { language: "fr", page: "//example.com" },
+  ])
+    await expect(
+      taxonomy.reportTranslation(actor, {
+        country: "ca",
+        text: "Lait",
+        ...input,
+      }),
+    ).rejects.toThrow();
 });
 
 it("leaves a new food with no products out of the sitemap", async () => {
