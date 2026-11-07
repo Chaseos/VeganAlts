@@ -441,6 +441,8 @@ Non-JSX strings (meta titles, label arrays, Zod messages, date and number format
 
 **French built at checkpoint 7.** The dictionary is `app/i18n/fr/`, and `market-sensitive.json` lists what to check when France launches. A second market of a language adds an override file with only its differences, not a second translation. Pages with no language in their address follow the `va_lang` cookie, except pages cached for everyone. Canada's `offered` list doesn't include `fr` yet; `docs/operations/translation-glossary.md` says what decides that. Results are in `docs/verification/milestone-8.md`.
 
+**Mexico, Spain, Brazil and Portugal.** Spanish is built on Mexico with a Spain override, and Portuguese on Brazil with a Portugal override. Results are in `docs/verification/milestone-8.md`.
+
 **Japanese built at checkpoint 8.** The dictionary is `app/i18n/ja/`. Japan's `offered` list stays English for now, under the same rule. Stores come from contributors, with none seeded (owner, 2026-11-06). Results are in `docs/verification/milestone-8.md`.
 
 **Market overrides.** `t()`, server messages, dates and allergen names check the page's country first, then the shared language. A language passes its countries to `addDictionary`, each with its locale and only its differences. French has one shared override for Europe, because the shared `fr` is Canadian. Food names use the existing country and language rows in `category_aliases`.

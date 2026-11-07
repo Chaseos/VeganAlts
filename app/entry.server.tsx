@@ -17,7 +17,17 @@ import {
   it,
   markets as italianMarkets,
 } from "./i18n/it";
+import {
+  errors as spanishErrors,
+  es,
+  markets as spanishMarkets,
+} from "./i18n/es";
 import { errors as japaneseErrors, ja } from "./i18n/ja";
+import {
+  errors as portugueseErrors,
+  markets as portugueseMarkets,
+  pt,
+} from "./i18n/pt";
 import { NonceContext } from "./lib/nonce";
 import { failureKind, routeLabel } from "@server/observability/events";
 
@@ -25,6 +35,8 @@ addDictionary("fr", fr, frenchErrors, frenchMarkets);
 addDictionary("ja", ja, japaneseErrors);
 addDictionary("de", de, germanErrors, germanMarkets);
 addDictionary("it", it, italianErrors, italianMarkets);
+addDictionary("es", es, spanishErrors, spanishMarkets);
+addDictionary("pt", pt, portugueseErrors, portugueseMarkets);
 export const streamTimeout = 5_000;
 
 export default async function handleRequest(

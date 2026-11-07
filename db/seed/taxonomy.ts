@@ -2,6 +2,8 @@ import { EUROPEAN_FRENCH_NAMES } from "./european-french-names";
 import { FRENCH_NAMES } from "./french-names";
 import { AUSTRIAN_NAMES, GERMAN_NAMES, SWISS_NAMES } from "./german-names";
 import { ITALIAN_NAMES } from "./italian-names";
+import { PORTUGAL_NAMES, PORTUGUESE_NAMES } from "./portuguese-names";
+import { SPAIN_NAMES, SPANISH_NAMES } from "./spanish-names";
 import { JAPANESE_NAMES } from "./japanese-names";
 import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
 import { DEFAULT_DIMENSIONS } from "../../server/ratings/domain/details";
@@ -1138,6 +1140,8 @@ const EUROPEAN_ALLERGENS: (string | [string, string])[] = [
   "lupin",
   "mollusc",
 ];
+const IBERIAN_ALLERGENS = EUROPEAN_ALLERGENS;
+
 // The English-speaking launch countries (owner decision, 2026-10-09). Each
 // list follows that country's labeling rules (PRODUCT_MASTER, milestone 5);
 // a label overrides the shared vocabulary's wording.
@@ -1337,6 +1341,72 @@ export const TAXONOMY_COUNTRIES: {
   { iso2: "BE", name: "Belgium", allergens: EUROPEAN_ALLERGENS },
   { iso2: "LU", name: "Luxembourg", allergens: EUROPEAN_ALLERGENS },
   {
+    // NOM-051 4.2.2.2.3 a, 2020 modification, in its order. The label's words
+    // are in server/catalog/domain/local-names.ts.
+    iso2: "MX",
+    name: "Mexico",
+    allergens: [
+      ["gluten", "Cereals containing gluten"],
+      "egg",
+      ["crustacean", "Crustaceans"],
+      "fish",
+      "mollusc",
+      "peanut",
+      "soy",
+      "milk",
+      "tree_nuts",
+      "sulphites",
+    ],
+  },
+  {
+    // RDC 727 Annex III, in its order, with wheat, rye, barley and oats apart.
+    // Gluten is last: Law 10.674 makes it a separate statement on the label.
+    // Anvisa's CP 1.357/2025 would change this list; see the glossary.
+    iso2: "BR",
+    name: "Brazil",
+    allergens: [
+      "wheat",
+      "rye",
+      "barley",
+      "oats",
+      ["crustacean", "Crustaceans"],
+      "egg",
+      "fish",
+      "peanut",
+      "soy",
+      "milk",
+      "almond",
+      "hazelnut",
+      "cashew",
+      "brazil_nut",
+      "macadamia",
+      "walnut",
+      "pecan",
+      "pistachio",
+      "pine_nut",
+      "chestnut",
+      "latex",
+      "gluten",
+    ],
+  },
+  { iso2: "ES", name: "Spain", allergens: IBERIAN_ALLERGENS },
+  { iso2: "PT", name: "Portugal", allergens: IBERIAN_ALLERGENS },
+  {
+    iso2: "IN",
+    name: "India",
+    allergens: [
+      ["gluten", "Cereals containing gluten"],
+      ["crustacean", "Crustaceans"],
+      "milk",
+      "egg",
+      "fish",
+      "peanut",
+      "tree_nuts",
+      "soy",
+      ["sulphites", "Sulphites (10 mg/kg or more)"],
+    ],
+  },
+  {
     iso2: "IN",
     name: "India",
     allergens: [
@@ -1453,6 +1523,8 @@ export function taxonomySeedStatements(
     ...Object.entries(JAPANESE_NAMES).map((entry) => ["ja", ...entry]),
     ...Object.entries(GERMAN_NAMES).map((entry) => ["de", ...entry]),
     ...Object.entries(ITALIAN_NAMES).map((entry) => ["it", ...entry]),
+    ...Object.entries(SPANISH_NAMES).map((entry) => ["es", ...entry]),
+    ...Object.entries(PORTUGUESE_NAMES).map((entry) => ["pt", ...entry]),
   ] as [string, string, string][];
   for (const [language, slug, name] of names)
     if (!onlyFoods || selectedSlugs.has(slug))
@@ -1472,6 +1544,8 @@ export function taxonomySeedStatements(
     ["fr", ["FR", "BE", "LU", "CH"], EUROPEAN_FRENCH_NAMES],
     ["de", ["AT"], AUSTRIAN_NAMES],
     ["de", ["CH"], SWISS_NAMES],
+    ["es", ["ES"], SPAIN_NAMES],
+    ["pt", ["PT"], PORTUGAL_NAMES],
   ];
   for (const [language, countries, list] of local)
     for (const [slug, name] of Object.entries(list))

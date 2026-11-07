@@ -25,6 +25,14 @@ async function hydrate() {
     const { it, errors, markets } = await import("./i18n/it");
     addDictionary("it", it, errors, markets);
   }
+  if (language === "es") {
+    const { es, errors, markets } = await import("./i18n/es");
+    addDictionary("es", es, errors, markets);
+  }
+  if (language === "pt") {
+    const { pt, errors, markets } = await import("./i18n/pt");
+    addDictionary("pt", pt, errors, markets);
+  }
   startTransition(() => {
     hydrateRoot(
       document,

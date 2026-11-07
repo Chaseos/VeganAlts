@@ -1,7 +1,7 @@
 // A country's languages. These live in code because the gateway needs them
 // before any D1 read, and a language needs a deploy of its translations anyway.
 
-export const LANGUAGES = ["en", "fr", "ja", "de", "it"] as const;
+export const LANGUAGES = ["en", "es", "fr", "ja", "pt", "de", "it"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
 interface CountryLanguages {
@@ -24,15 +24,21 @@ const COUNTRY_LANGUAGES: Record<string, CountryLanguages> = {
   ch: { default: "de", offered: ["en"], preview: ["de", "fr", "it"] },
   be: { default: "fr", offered: ["en"], preview: ["fr"] },
   lu: { default: "fr", offered: ["en"], preview: ["fr", "de"] },
+  mx: { default: "es", offered: ["en"], preview: ["es"] },
+  es: { default: "es", offered: ["en"], preview: ["es"] },
+  br: { default: "pt", offered: ["en"], preview: ["pt"] },
+  pt: { default: "pt", offered: ["en"], preview: ["pt"] },
 };
 
 // Each in its own name, whatever the page's language.
 export const LANGUAGE_NAMES: Record<Language, string> = {
   en: "English",
+  es: "Español",
   fr: "Français",
   ja: "日本語",
   de: "Deutsch",
   it: "Italiano",
+  pt: "Português",
 };
 
 export const isLanguage = (value: string | null | undefined) =>
