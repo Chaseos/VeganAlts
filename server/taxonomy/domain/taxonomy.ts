@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ApplicationError } from "../../shared/domain/errors";
-import { LANGUAGES } from "../../catalog/domain/languages";
+import { isLanguage, LANGUAGES } from "../../catalog/domain/languages";
 import { latinSlug, matchKey } from "../../shared/domain/text";
 import {
   countryCode,
@@ -105,10 +105,28 @@ export const foodReportInput = z
     note: z.string().trim().max(2000).default(""),
   })
   .strict();
-export const foodReportDecision = z
+export const reportDecision = z
   .object({
     status: z.enum(["resolved", "dismissed"]),
     note,
+  })
+  .strict();
+// A page in the site, never a link elsewhere: the digest shows it as a link.
+export const translationReportInput = z
+  .object({
+    country: countryCode,
+    language: z
+      .string()
+      .refine(
+        (value) => isLanguage(value) && value !== "en",
+        "This page isn't translated.",
+      ),
+    page: z
+      .string()
+      .max(500)
+      .regex(/^\/(?!\/)[^\s\\]*$/, "This page isn't part of the site."),
+    text: z.string().trim().min(1).max(500),
+    note: z.string().trim().max(2000).default(""),
   })
   .strict();
 // An aisle's default position, and a food's season months (milestone 7).

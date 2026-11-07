@@ -5,6 +5,9 @@ import { dateLabel, friendly, type CommunityAction } from "../lib/community";
 
 type Row = Awaited<ReturnType<TaxonomyService["digest"]>>[number];
 type ReportRow = Awaited<ReturnType<TaxonomyService["foodReports"]>>[number];
+type TranslationRow = Awaited<
+  ReturnType<TaxonomyService["translationReports"]>
+>[number];
 type AisleRow = Awaited<
   ReturnType<TaxonomyService["aisleSuggestions"]>
 >[number];
@@ -61,19 +64,6 @@ function FoodReport({
   row: ReportRow;
   action: CommunityAction;
 }) {
-  const revalidator = useRevalidator();
-  async function decide(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const submitter = (event.nativeEvent as SubmitEvent).submitter;
-    const form = new FormData(event.currentTarget);
-    await action.run(async () => {
-      await action.request(`admin/moderation/food-report/${row.id}/resolve`, {
-        status: submitter?.getAttribute("value") ?? "dismissed",
-        note: form.get("note"),
-      });
-      await revalidator.revalidate();
-    });
-  }
   return (
     <article className="community-panel">
       <p>
@@ -87,35 +77,101 @@ function FoodReport({
           Change it in Taxonomy
         </Link>
       </p>
-      <form className="community-form" onSubmit={decide}>
-        <label htmlFor={`report-note-${row.id}`}>What did you do?</label>
-        <input
-          id={`report-note-${row.id}`}
-          name="note"
-          required
-          minLength={8}
-          maxLength={2000}
-        />
-        <div className="button-row">
-          <button
-            className="button small-button"
-            name="status"
-            value="resolved"
-            disabled={action.busy}
-          >
-            Mark handled
-          </button>
-          <button
-            className="button secondary small-button"
-            name="status"
-            value="dismissed"
-            disabled={action.busy}
-          >
-            Dismiss
-          </button>
-        </div>
-      </form>
+      <ReportDecision
+        id={row.id}
+        path={`admin/moderation/food-report/${row.id}/resolve`}
+        action={action}
+      />
     </article>
+  );
+}
+
+/** Wording people flagged. Each stays open until an operator closes it. */
+export function TranslationReports({
+  rows,
+  action,
+}: {
+  rows: TranslationRow[];
+  action: CommunityAction;
+}) {
+  if (!rows.length) return null;
+  return (
+    <section>
+      <h2>Translation reports</h2>
+      {rows.map((row) => (
+        <article className="community-panel" key={row.id}>
+          <p>
+            <strong lang={row.language}>{row.text}</strong>
+            {` · ${row.language}-${row.country}`}
+          </p>
+          {row.note && <p className="small">{row.note}</p>}
+          <p className="small">
+            <Link className="va-link" to={row.page}>
+              {row.page}
+            </Link>
+          </p>
+          <ReportDecision
+            id={row.id}
+            path={`admin/moderation/translation-report/${row.id}/resolve`}
+            action={action}
+          />
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function ReportDecision({
+  id,
+  path,
+  action,
+}: {
+  id: string;
+  path: string;
+  action: CommunityAction;
+}) {
+  const revalidator = useRevalidator();
+  async function decide(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const form = new FormData(event.currentTarget);
+    await action.run(async () => {
+      await action.request(path, {
+        status: submitter?.getAttribute("value") ?? "dismissed",
+        note: form.get("note"),
+      });
+      await revalidator.revalidate();
+    });
+  }
+  return (
+    <form className="community-form" onSubmit={decide}>
+      <label htmlFor={`report-note-${id}`}>What did you do?</label>
+      <input
+        id={`report-note-${id}`}
+        name="note"
+        required
+        minLength={8}
+        maxLength={2000}
+      />
+      <div className="button-row">
+        <button
+          className="button small-button"
+          name="status"
+          value="resolved"
+          disabled={action.busy}
+        >
+          Mark handled
+        </button>
+        <button
+          className="button secondary small-button"
+          name="status"
+          value="dismissed"
+          disabled={action.busy}
+        >
+          Dismiss
+        </button>
+      </div>
+    </form>
   );
 }
 

@@ -1550,6 +1550,23 @@ export const ja: Dictionary = {
   "summary.tastiest": "{lead}最もおいしいのは{title}で、5点満点中{score}です。",
   "summary.tastiestEarly":
     "{lead}現時点で最もおいしいのは{title}で、5点満点中{score}です。",
+  "footer.reportTranslation": "翻訳の問題を報告",
+  "reportTranslation.back":
+    "ページに戻る",
+  "reportTranslation.intro":
+    "誤った表現、わかりにくい表現、不自然な表現をお知らせください。報告はすべて確認します。",
+  "reportTranslation.metaTitle":
+    "翻訳の問題を報告 · VeganAlts",
+  "reportTranslation.noteLabel":
+    "正しい表現（任意）",
+  "reportTranslation.send":
+    "報告を送信",
+  "reportTranslation.textLabel":
+    "問題のある文章（必須）",
+  "reportTranslation.thanks":
+    "ご報告ありがとうございます。確認します。",
+  "reportTranslation.title":
+    "翻訳の問題を報告",
   "theme.dark": "ダーク",
   "theme.light": "ライト",
   "theme.system": "システム",
