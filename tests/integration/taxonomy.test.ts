@@ -1048,7 +1048,6 @@ it("seeds the two-level launch tree, countries, allergen lists, display names an
   expect(await slugs("egg-free mayo")).toContain("mayonnaise");
   expect(await slugs("gummy bears")).toContain("gummy-candy");
   expect(await slugs("banana bread")).toEqual(["banana-bread"]);
-  expect(await slugs("brownie mix")).toContain("baking-mixes");
   // Every launch country features the six foods.
   expect(
     await env.DB.prepare(

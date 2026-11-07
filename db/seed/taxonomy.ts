@@ -338,13 +338,6 @@ export const TAXONOMY_LEAVES = [
     countries: US,
   },
   {
-    slug: "lard",
-    name: "Lard",
-    parent: "pork",
-    aliases: ["pork lard", "animal shortening"],
-    countries: US,
-  },
-  {
     slug: "turkey-roast",
     name: "Turkey Roast",
     parent: "turkey-aisle",
@@ -462,13 +455,6 @@ export const TAXONOMY_LEAVES = [
     name: "Cheddar",
     parent: "cheese",
     aliases: ["cheddar cheese"],
-  },
-  {
-    slug: "cheese-slices",
-    name: "Cheese Slices",
-    parent: "cheese",
-    aliases: ["sliced cheese", "cheese slices"],
-    countries: US,
   },
   {
     slug: "mozzarella",
@@ -819,20 +805,6 @@ export const TAXONOMY_LEAVES = [
     countries: US,
   },
   {
-    slug: "pumpkin-bread",
-    name: "Pumpkin Bread",
-    parent: "bakery",
-    aliases: ["pumpkin loaf", "pumpkin quick bread"],
-    countries: US,
-  },
-  {
-    slug: "scones",
-    name: "Scones",
-    parent: "bakery",
-    aliases: ["scone"],
-    countries: US,
-  },
-  {
     slug: "cinnamon-rolls",
     name: "Cinnamon Rolls",
     parent: "bakery",
@@ -866,13 +838,6 @@ export const TAXONOMY_LEAVES = [
   },
   // Mixes bake at home, so they are compared with what a regular box mix
   // bakes, not with bakery goods. One food until each kind has enough.
-  {
-    slug: "baking-mixes",
-    name: "Baking Mixes",
-    parent: "bakery",
-    aliases: ["cake mix", "brownie mix", "cookie mix", "muffin mix", "box mix"],
-    countries: US,
-  },
   {
     slug: "pizza",
     name: "Pizza",
@@ -912,13 +877,6 @@ export const TAXONOMY_LEAVES = [
     name: "Jamaican Beef Patties",
     parent: "meals",
     aliases: ["beef patties", "Jamaican patties"],
-    countries: US,
-  },
-  {
-    slug: "jambalaya",
-    name: "Jambalaya",
-    parent: "meals",
-    aliases: ["cajun jambalaya"],
     countries: US,
   },
   {
@@ -996,13 +954,6 @@ export const TAXONOMY_LEAVES = [
     name: "Korean Rice Balls",
     parent: "meals",
     aliases: ["jumeokbap", "korean rice ball"],
-    countries: US,
-  },
-  {
-    slug: "milkshake",
-    name: "Milkshake",
-    parent: "ice-cream-aisle",
-    aliases: ["milk shakes", "milk shake", "dairy milkshake"],
     countries: US,
   },
   {

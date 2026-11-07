@@ -140,8 +140,17 @@ function createAuth(env: Cloudflare.Env, appleToken?: string) {
     rateLimit: { enabled: true, window: 60, max: 60 },
     logger: {
       level: "error",
-      log(level) {
-        console.error(JSON.stringify({ event: "auth_library", level }));
+      // Library and database text only: it binds values, so none appear here.
+      log(level, message, ...details) {
+        const error = details.find((detail) => detail instanceof Error);
+        console.error(
+          JSON.stringify({
+            event: "auth_library",
+            level,
+            message: String(message).slice(0, 120),
+            error: error?.message.slice(0, 120),
+          }),
+        );
       },
     },
     databaseHooks: {

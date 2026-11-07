@@ -44,7 +44,6 @@ export const FOOD_CASES: FoodCase[] = [
     ["サワークリーム", "sour-cream"],
     ["サラミ", "salami-deli-slices"],
     ["キムチ", "kimchi"],
-    ["ラード", "lard"],
     ["マシュマロ", "marshmallows"],
     ["グミ", "gummy-candy"],
     ["チーズケーキ", "cheesecake"],
@@ -78,7 +77,7 @@ export const FOOD_CASES: FoodCase[] = [
   ),
   ...group("ja", "JP", "ambiguous")(
     ["だしの素", "bouillon"],
-    ["チーズ", "cheese-slices", "soft-cheese"],
+    ["チーズ", "soft-cheese"],
     ["ソーセージ", "dinner-sausages", "breakfast-sausage"],
     ["ハム", "ham-deli-slices", "ham-roast"],
     ["ハンバーグ", "beef-burgers"],

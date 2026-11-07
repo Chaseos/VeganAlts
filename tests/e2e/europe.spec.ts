@@ -88,6 +88,7 @@ test("translated pages link to a report; it reaches the digest", async ({
   page,
   context,
 }) => {
+  test.slow();
   test.skip(
     Boolean(process.env.TEST_BASE_URL),
     "Real staging accounts are verified interactively.",

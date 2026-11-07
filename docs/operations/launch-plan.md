@@ -10,9 +10,10 @@ The first release is the USA only (owner, 2026-11-06). Other countries and langu
 | Ratings | None. Every ranking starts empty |
 | Production | Coming-soon page; pre-release database that needs a reset |
 | Moderation in production | Off: `MODERATION_PROVIDER`, `CONTENT_SAFETY_PROVIDER` and `FOOD_REVIEW` are unset or disabled |
-| Browser tests | Last full run: 4 failures, which all passed when rerun after a fix. No full run since |
+| Browser tests | Last full run: 4 of 295 run failed, and all 4 passed when rerun alone. One failed once more before passing three times |
 | Page speed | Not measured on a quiet machine since the language work |
 | Known bug | Phone photo upload failed with "check your connection" on 2026-11-04, unexplained |
+| Known bug | Signed-in staging requests sometimes fail with a 500 from the sign-in library, seen 2026-11-06 on 8 of 16 admin saves. Retrying worked. Cause not found |
 
 ## 2. Order of work
 
@@ -23,7 +24,7 @@ Each stage finishes before the next starts.
 1. Done: merge the three language branches. Those countries stay inactive in production.
 2. Done: the "Also sold in" structure, stage 1 of [the plan](../SHARED_RANKINGS_PLAN.md). Nothing changes for visitors.
 3. Done: **US-only switch.** `taxonomy:seed:production` switches on only `PRODUCTION_COUNTRIES` in `db/seed/taxonomy.ts`. The others get no pages, sitemap entries or menu items. To open a country, add it to that list and rerun the seed.
-4. Run the launch dataset audit against the staging catalog, and fix what it finds.
+4. Done (2026-11-06): the launch dataset audit passes on staging with `readyForLaunch: true`. Products with no allergen declaration are fine (owner, 2026-11-06). Tofurky Roast & Gravy now has its ingredients photo, ingredients, allergens and Publix. The seven empty US foods and Karaage are retired on staging and gone from the seed. Rollin Greens Classic Chic'ken still waits in the staging queue.
 
 **Done when** the US site behaves as it does today, and everything else is off.
 
@@ -34,7 +35,7 @@ Each stage finishes before the next starts.
 3. Find the phone upload failure: reproduce it on a real phone on staging, on mobile data and Wi-Fi.
 4. Empty-state pass. With no ratings, read the home, food and ranking pages as a first visitor would. They must still be useful, and invite the first rating.
 5. The owner runs a real pass on a phone: sign in with Google and Apple, rate, comment, add a product with photos, save, report.
-6. Update the launch checklist, which still describes six countries, and says `/us` redirects to `/`.
+6. Done: the launch checklist describes the US-only launch.
 
 **Done when** the suite is clean, speed is at or near the baseline, and the owner's pass finds nothing serious.
 

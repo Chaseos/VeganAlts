@@ -92,6 +92,11 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
         )}
       </PageShell>
     );
+  // Before the first ratings the page can't promise rankings, and every food
+  // would be listed as waiting.
+  const ranked = home.aisles.some((aisle) =>
+    aisle.foods.some((food) => food.best),
+  );
   return (
     <PageShell width="full" search={false}>
       <div className="va-home-hero">
@@ -101,10 +106,12 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
             aria-labelledby="home-title"
           >
             <p className="va-home-hero__eyebrow">
-              {t("home.eyebrow", {
-                foods: counted("count.food", home.counts.foods),
-                products: formatCount(home.counts.products),
-              })}
+              {ranked
+                ? t("home.eyebrow", {
+                    foods: counted("count.food", home.counts.foods),
+                    products: formatCount(home.counts.products),
+                  })
+                : `${counted("count.food", home.counts.foods)} · ${counted("count.product", home.counts.products)}`}
             </p>
             <h1 id="home-title" className="va-home-hero__title">
               {t("home.heroTitle")}
@@ -268,7 +275,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
           )}
         </div>
 
-        {home.stillWaiting.length > 0 && (
+        {ranked && home.stillWaiting.length > 0 && (
           <section
             className="va-card va-home__waiting"
             aria-labelledby="waiting-title"
@@ -414,7 +421,11 @@ function AisleFoods({
               best={food.best}
               // A food with an unrated product isn't waiting for one.
               missing={
-                empty && !food.productCount ? t("home.firstToAdd") : undefined
+                food.productCount
+                  ? counted("count.product", food.productCount)
+                  : empty
+                    ? t("home.firstToAdd")
+                    : undefined
               }
             />
           </li>

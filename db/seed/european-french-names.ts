@@ -1,6 +1,5 @@
 // Names that differ from the shared French in France, Belgium, Luxembourg and Switzerland.
 export const EUROPEAN_FRENCH_NAMES: Record<string, string> = {
-  "baking-mixes": "Préparations pour pâtisserie",
   "banana-bread": "Cake à la banane",
   "blue-cheese-dressing": "Sauce au fromage bleu",
   "bottled-lattes": "Cafés latte en bouteille",
@@ -36,11 +35,9 @@ export const EUROPEAN_FRENCH_NAMES: Record<string, string> = {
   "ice-cream-aisle": "Glace",
   "jamaican-beef-patties": "Patties jamaïcains au bœuf",
   lasagna: "Lasagnes",
-  milkshake: "Milkshake",
   "peanut-butter-cups": "Bouchées au beurre de cacahuète",
   "green-goddess-dressing": "Sauce déesse verte",
   "pudding-cups": "Crèmes dessert en pot",
-  "pumpkin-bread": "Cake au potiron",
   "ranch-dressing": "Sauce ranch",
   ribs: "Travers de porc",
   "sour-cream": "Crème aigre",
