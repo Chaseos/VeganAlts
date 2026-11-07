@@ -476,12 +476,14 @@ export default function AddProduct({ loaderData }: Route.ComponentProps) {
             <h2>{t("addProduct.respondModerator")}</h2>
             <p>{followUp.note}</p>
             <p>
-              {t("addProduct.updateDetails")}{" "}
+              {t("addProduct.updateDetails")}
+              {t("text.gap")}
               <Link
                 to={`/my-contributions/submission/${followUp.submissionId}`}
               >
                 {t("addProduct.originalSubmission")}
-              </Link>{" "}
+              </Link>
+              {t("text.gap")}
               {t("addProduct.staysInHistory")}
             </p>
           </aside>

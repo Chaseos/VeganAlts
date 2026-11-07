@@ -32,7 +32,8 @@ export function InReview({
             : t("addProduct.accepted", { country: countryName })}
         </li>
         <li>
-          {t("addProduct.followBefore")}{" "}
+          {t("addProduct.followBefore")}
+          {t("text.gap")}
           <Link to={`/my-contributions/submission/${receiptId}`}>
             {t("myContributions.title")}
           </Link>

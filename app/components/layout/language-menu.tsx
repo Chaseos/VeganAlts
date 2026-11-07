@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
 import {
   LANGUAGE_NAMES,
+  languageTag,
   languagesOf,
   type Language,
 } from "@server/catalog/domain/languages";
@@ -41,7 +42,7 @@ export function LanguageList({
           <a
             href={href!}
             rel="nofollow"
-            lang={code}
+            lang={languageTag(code)}
             aria-current={code === current ? "true" : undefined}
           >
             <span className="va-country-list__name">

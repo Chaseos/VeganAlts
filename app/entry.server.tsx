@@ -4,11 +4,15 @@ import { renderToReadableStream } from "react-dom/server";
 import { addDictionary } from "./i18n";
 import { errors as frenchErrors, fr } from "./i18n/fr";
 import { errors as japaneseErrors, ja } from "./i18n/ja";
+import { errors as koreanErrors, ko } from "./i18n/ko";
+import { errors as chineseErrors, zh } from "./i18n/zh";
 import { NonceContext } from "./lib/nonce";
 import { failureKind, routeLabel } from "@server/observability/events";
 
 addDictionary("fr", fr, frenchErrors);
 addDictionary("ja", ja, japaneseErrors);
+addDictionary("zh", zh, chineseErrors);
+addDictionary("ko", ko, koreanErrors);
 export const streamTimeout = 5_000;
 
 export default async function handleRequest(

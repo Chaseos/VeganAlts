@@ -441,6 +441,8 @@ Non-JSX strings (meta titles, label arrays, Zod messages, date and number format
 
 **Japanese built at checkpoint 8.** The dictionary is `app/i18n/ja/`. Japan's `offered` list stays English until a person reviews the safety wording. Stores come from contributors, with none seeded (owner, 2026-11-06). Results are in `docs/verification/milestone-8.md`.
 
+**Taiwan and South Korea added (2026-11-06).** Traditional Chinese uses the address segment `zh`, and its pages say `lang="zh-TW"`. Both countries start with no foods. Allergen lists are TFDA's 11 categories and MFDS's 19 lines.
+
 **Mechanics, with no new dependency:** `app/i18n/en.ts`, `fr.ts` and `ja.ts`, typed so a missing key fails `tsc`, plus about 40 lines of `t()` using `Intl.PluralRules`. English stays in the main bundle. Other languages are one chunk loaded before hydration, chosen from `<html lang>`. API errors keep `message` and gain a client map from `code` to text, so `/api/v1` doesn't change. Dates and numbers use the page language.
 
 **Translation:**

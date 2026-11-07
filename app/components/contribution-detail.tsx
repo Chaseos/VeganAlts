@@ -300,7 +300,8 @@ export function ContributionContent({
       {automated && <AutomatedChecks checks={automated} />}
       {detail.kind === "submission" && detail.followUpOf && (
         <p>
-          {t("detail.followUpBefore")}{" "}
+          {t("detail.followUpBefore")}
+          {t("text.gap")}
           <Link to={`/my-contributions/submission/${detail.followUpOf}`}>
             {t("detail.followUpLink")}
           </Link>

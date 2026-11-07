@@ -44,6 +44,8 @@ export default defineConfig({
           include: ["tests/integration/**/*.test.ts"],
           setupFiles: ["tests/integration/setup.ts"],
           fileParallelism: false,
+          // Seeding runs two statements per name per language.
+          testTimeout: 20_000,
         },
       },
     ],

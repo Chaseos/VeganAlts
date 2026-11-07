@@ -1003,6 +1003,13 @@ it("seeds the two-level launch tree, countries, allergen lists, display names an
   // South Africa's list has no sulphites, and India's no molluscs.
   expect((await allergens("ZA")).map((a) => a.k)).not.toContain("sulphites");
   expect((await allergens("IN")).map((a) => a.k)).not.toContain("mollusc");
+  // Taiwan's 11 categories and Korea's 19 lines, with their own items.
+  expect(await allergens("TW")).toHaveLength(11);
+  expect((await allergens("TW")).map((a) => a.k)).toContain("mango");
+  expect(await allergens("KR")).toHaveLength(19);
+  expect((await allergens("KR")).map((a) => a.k)).toEqual(
+    expect.arrayContaining(["tomato", "pine_nut"]),
+  );
   // Later countries start with the shared aisles and no foods or features.
   const later = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM countries co WHERE co.iso2 IN ('SG','ZA','IN') AND (

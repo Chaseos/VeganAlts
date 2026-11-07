@@ -1,5 +1,7 @@
 import { FRENCH_NAMES } from "./french-names";
+import { CHINESE_NAMES } from "./chinese-names";
 import { JAPANESE_NAMES } from "./japanese-names";
+import { KOREAN_NAMES } from "./korean-names";
 import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
 import { DEFAULT_DIMENSIONS } from "../../server/ratings/domain/details";
 
@@ -1310,6 +1312,51 @@ export const TAXONOMY_COUNTRIES: {
     ],
   },
   {
+    // TFDA's 11 categories, in its order. Goat's milk is part of the milk item.
+    iso2: "TW",
+    name: "Taiwan",
+    allergens: [
+      ["crustacean", "Crustaceans"],
+      "mango",
+      "peanut",
+      ["milk", "Cow's and goat's milk"],
+      "egg",
+      "tree_nuts",
+      "sesame",
+      ["gluten", "Cereals containing gluten"],
+      "soy",
+      "fish",
+      ["sulphites", "Sulphites (10 mg/kg or more)"],
+    ],
+  },
+  {
+    // MFDS's list, in its order. The four items proposed on 2026-08-07 (sesame,
+    // perilla, almond and cashew) join when the rule is final.
+    iso2: "KR",
+    name: "South Korea",
+    allergens: [
+      "egg",
+      "milk",
+      "buckwheat",
+      "peanut",
+      "soy",
+      "wheat",
+      "mackerel",
+      "crab",
+      "shrimp",
+      "pork",
+      "peach",
+      "tomato",
+      ["sulphites", "Sulphites (10 mg/kg or more)"],
+      "walnut",
+      "chicken",
+      "beef",
+      "squid",
+      ["mollusc", "Shellfish (including oysters, abalone and mussels)"],
+      "pine_nut",
+    ],
+  },
+  {
     iso2: "IN",
     name: "India",
     allergens: [
@@ -1424,6 +1471,8 @@ export function taxonomySeedStatements(
   const names = [
     ...Object.entries(FRENCH_NAMES).map((entry) => ["fr", ...entry]),
     ...Object.entries(JAPANESE_NAMES).map((entry) => ["ja", ...entry]),
+    ...Object.entries(CHINESE_NAMES).map((entry) => ["zh", ...entry]),
+    ...Object.entries(KOREAN_NAMES).map((entry) => ["ko", ...entry]),
   ] as [string, string, string][];
   for (const [language, slug, name] of names)
     if (!onlyFoods || selectedSlugs.has(slug))

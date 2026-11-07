@@ -610,6 +610,8 @@ export const contribute = {
   "responses.title": "Suggested changes",
   "responses.whatIsWrong": "What is wrong with this change?",
   "safety.legendContains": "Contains",
+  "safety.taiwanMark":
+    "Taiwan’s 全素 and 純素 labels mean plant foods with no animal ingredients and none of the five pungent plants, such as garlic and onion. 植物五辛素 can contain milk or egg, so it isn’t a vegan label. Choose Labeled vegan only if the package says 全素, 純素 or vegan, or has the vegan logo. Our own vegan status means no animal ingredients, so it can include garlic and onion.",
   "safety.indiaMark":
     "India’s green vegetarian mark isn’t a vegan label, because vegetarian food can contain dairy. Choose Labeled vegan only if the package says vegan or has the vegan logo.",
   "safety.legendMayContain": "May contain",

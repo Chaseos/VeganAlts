@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
-import { languageFor } from "../../server/catalog/domain/languages";
-import { languageHref } from "../../server/catalog/domain/markets";
+import {
+  languageFor,
+  languageTag,
+} from "../../server/catalog/domain/languages";
+import { hreflang, languageHref } from "../../server/catalog/domain/markets";
 import {
   languageChoice,
   languageRedirect,
@@ -50,4 +53,13 @@ it("fills in values and falls back to English", () => {
   expect(t("language.prompt", { language: "Français" })).toBe(
     "View this page in Français?",
   );
+});
+
+it("names Taiwan's Chinese in full for browsers and search engines", () => {
+  expect(languageTag("zh")).toBe("zh-TW");
+  expect(languageTag("ko")).toBe("ko");
+  expect(hreflang("tw", "zh")).toBe("zh-TW");
+  expect(hreflang("kr", "ko")).toBe("ko-KR");
+  expect(languageFor("tw", null)).toBe("zh");
+  expect(languageFor("kr", "en")).toBe("en");
 });

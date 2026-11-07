@@ -116,7 +116,7 @@ export const categoryAliases = sqliteTable(
       sql`${table.alias} COLLATE NOCASE`,
     ),
     uniqueIndex("ux_category_aliases_global")
-      .on(table.categoryId, sql`${table.alias} COLLATE NOCASE`)
+      .on(table.categoryId, sql`language`, sql`${table.alias} COLLATE NOCASE`)
       .where(sql`${table.countryId} IS NULL`),
   ],
 );

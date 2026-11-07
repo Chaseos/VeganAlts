@@ -140,7 +140,8 @@ export default function Contributions({
           )}
           {detail.kind === "submission" && detail.supersededBy && (
             <p>
-              {t("myContributions.replacedBefore")}{" "}
+              {t("myContributions.replacedBefore")}
+              {t("text.gap")}
               <Link to={`/my-contributions/submission/${detail.supersededBy}`}>
                 {t("myContributions.revisedLink")}
               </Link>

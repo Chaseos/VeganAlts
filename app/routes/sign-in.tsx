@@ -161,11 +161,13 @@ export default function SignIn({
         </a>
       </section>
       <p className="small muted va-sign-in__terms">
-        {t("signIn.termsBefore")}{" "}
+        {t("signIn.termsBefore")}
+        {t("text.gap")}
         <Link className="text-link" to="/about/terms">
           {t("signIn.termsLink")}
         </Link>
-        {t("signIn.termsAfter")}{" "}
+        {t("signIn.termsAfter")}
+        {t("text.gap")}
         <Link className="text-link" to="/about/privacy">
           {t("signIn.privacyLink")}
         </Link>

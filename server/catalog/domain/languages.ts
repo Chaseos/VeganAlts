@@ -1,7 +1,7 @@
 // A country's languages. These live in code because the gateway needs them
 // before any D1 read, and a language needs a deploy of its translations anyway.
 
-export const LANGUAGES = ["en", "fr", "ja"] as const;
+export const LANGUAGES = ["en", "fr", "ja", "zh", "ko"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
 interface CountryLanguages {
@@ -16,6 +16,8 @@ const ENGLISH: CountryLanguages = { default: "en", offered: ["en"] };
 const COUNTRY_LANGUAGES: Record<string, CountryLanguages> = {
   ca: { default: "en", offered: ["en"], preview: ["fr"] },
   jp: { default: "ja", offered: ["en"], preview: ["ja"] },
+  tw: { default: "zh", offered: ["en"] },
+  kr: { default: "ko", offered: ["en"] },
 };
 
 // Each in its own name, whatever the page's language.
@@ -23,7 +25,18 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
   en: "English",
   fr: "Français",
   ja: "日本語",
+  zh: "繁體中文",
+  ko: "한국어",
 };
+
+// `zh` in an address is Taiwan's Traditional Chinese, two letters like every
+// other language. The page says so in full, because `lang="zh"` alone lets a
+// browser draw Han characters with mainland glyphs.
+const LANGUAGE_TAGS: Partial<Record<Language, string>> = { zh: "zh-TW" };
+
+/** The page's BCP 47 tag, for `lang` attributes. */
+export const languageTag = (language: Language) =>
+  LANGUAGE_TAGS[language] ?? language;
 
 export const isLanguage = (value: string | null | undefined) =>
   LANGUAGES.includes(value as Language);
