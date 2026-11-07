@@ -28,8 +28,9 @@ import {
   storedCategoryProposal,
   categorySlug,
   createCategoryInput,
-  foodReportDecision,
   foodReportInput,
+  reportDecision,
+  translationReportInput,
   dimensionsInput,
   featuresInput,
   MAX_ACTIVE_DIMENSIONS,
@@ -464,9 +465,48 @@ export class TaxonomyService {
   }
   async resolveFoodReport(actor: Actor, id: string, raw: unknown) {
     administrator(actor);
-    const input = foodReportDecision.parse(raw);
+    const input = reportDecision.parse(raw);
     if (
       !(await this.repository.closeFoodReport(
+        id,
+        input.status,
+        actor.id,
+        input.note,
+        this.clock(),
+      ))
+    )
+      throw new ApplicationError(
+        "STALE_DECISION",
+        "This report changed. Refresh before deciding.",
+        409,
+      );
+    return { status: input.status };
+  }
+  /** Translation problems come from these reports, not native review. */
+  async reportTranslation(actor: Actor, raw: unknown) {
+    active(actor);
+    const input = translationReportInput.parse(raw);
+    await this.repository.saveTranslationReport(
+      this.newId(),
+      actor.id,
+      input.country,
+      input.language,
+      input.page,
+      input.text,
+      input.note,
+      this.clock(),
+    );
+    return { reported: true };
+  }
+  translationReports(actor: Actor) {
+    administrator(actor);
+    return this.repository.translationReports();
+  }
+  async resolveTranslationReport(actor: Actor, id: string, raw: unknown) {
+    administrator(actor);
+    const input = reportDecision.parse(raw);
+    if (
+      !(await this.repository.closeTranslationReport(
         id,
         input.status,
         actor.id,

@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { Wordmark } from "../icons/wordmark";
 import {
   foodPath,
@@ -6,7 +6,7 @@ import {
   searchPath,
   useSiteChrome,
 } from "../../lib/site-chrome";
-import { changesLanguage } from "@server/catalog/domain/markets";
+import { changesLanguage, pageLanguage } from "@server/catalog/domain/markets";
 import { POPULAR_AISLE_COUNT } from "../../lib/aisles";
 import { t } from "../../i18n";
 
@@ -27,6 +27,8 @@ export function SiteFooter({
   variant?: "full" | "compact";
 }) {
   const { country, countries, aisles } = useSiteChrome();
+  const { pathname } = useLocation();
+  const language = pageLanguage() ?? "en";
   return (
     <footer
       id="site-footer"
@@ -111,6 +113,16 @@ export function SiteFooter({
                   <Link to={link.to}>{link.label}</Link>
                 </li>
               ))}
+              {language !== "en" && (
+                <li>
+                  <Link
+                    to={`/report-translation?country=${country.code}&page=${encodeURIComponent(pathname)}`}
+                    rel="nofollow"
+                  >
+                    {t("footer.reportTranslation")}
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
         </nav>

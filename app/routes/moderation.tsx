@@ -26,6 +26,7 @@ import {
   AisleSuggestions,
   FoodDigest,
   FoodReports,
+  TranslationReports,
 } from "../components/food-digest";
 import {
   NO_NOTE,
@@ -81,6 +82,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       digest: await taxonomyServices(env).digest(actor),
       aisles: await taxonomyServices(env).aisleSuggestions(actor),
       foodReports: await taxonomyServices(env).foodReports(actor),
+      translationReports: await taxonomyServices(env).translationReports(actor),
     };
   if (kind === "category" && id) {
     const taxonomy = taxonomyServices(env);
@@ -296,6 +298,10 @@ function ModerationWorkspace({ loaderData: data }: Route.ComponentProps) {
         {data.view === "digest" && (
           <>
             <FoodReports rows={data.foodReports} action={action} />
+            <TranslationReports
+              rows={data.translationReports}
+              action={action}
+            />
             <AisleSuggestions rows={data.aisles} action={action} />
             <FoodDigest rows={data.digest} action={action} />
             <CommunityFeedback action={action} siteKey={data.siteKey} />
