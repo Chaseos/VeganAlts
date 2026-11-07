@@ -79,14 +79,18 @@ export function marketCookie(path: string, secure: boolean) {
 }
 
 /**
- * A page with no language in its address follows the visitor's choice. Pages
- * cached for everyone, such as `/` and `/about`, never do.
+ * A page with no language in its address follows `?language=`, then the
+ * visitor's choice. Pages cached for everyone, such as `/` and `/about`, never
+ * do.
  */
 export function chosenLanguage(
   path: string,
   cookies: string | null | undefined,
+  search = "",
 ) {
   if (SHARED_PAGES.test(path)) return null;
+  const named = new URLSearchParams(search).get("language");
+  if (isLanguage(named)) return named as Language;
   const viewed = lastViewed(cookies)?.[1];
   if (isLanguage(viewed)) return viewed as Language;
   const chosen = cookies?.match(/(?:^|;\s*)va_lang=([a-z]{2})/)?.[1];

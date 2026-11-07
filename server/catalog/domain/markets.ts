@@ -49,7 +49,10 @@ export function parseCountryCode(value: string | null | undefined) {
 let currentLanguage = (): Language | null => {
   if (typeof location === "undefined") return null;
   const path = location.pathname.toLowerCase();
-  return splitLanguage(path).language ?? chosenLanguage(path, document.cookie);
+  return (
+    splitLanguage(path).language ??
+    chosenLanguage(path, document.cookie, location.search)
+  );
 };
 export const pageLanguage = () => currentLanguage();
 export function readPageLanguageFrom(source: () => Language | null) {

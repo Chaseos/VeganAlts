@@ -256,6 +256,7 @@ export default {
               language: chosenLanguage(
                 url.pathname.toLowerCase(),
                 request.headers.get("Cookie"),
+                url.search,
               ),
               country: chosenCountry(
                 url.pathname.toLowerCase(),
