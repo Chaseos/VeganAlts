@@ -6,7 +6,7 @@ import { ScoreLabel } from "../ui/score";
 import { Badge, SeasonalBadge } from "../ui/badges";
 import type { Season } from "@server/taxonomy/domain/season";
 import { counted } from "../../lib/counted";
-import { productName } from "../../lib/format";
+import { inSentence, productName } from "../../lib/format";
 import { t } from "../../i18n";
 import { ProductThumbnail } from "./product-thumbnail";
 import { useFoodHref } from "../../lib/ranking-filters";
@@ -133,7 +133,7 @@ export function AislePanel({
         `${p.name} ${p.brand ?? ""}`.toLowerCase().includes(lower),
       ),
   );
-  const aisleName = data.aisle.name.toLowerCase();
+  const aisleName = inSentence(data.aisle.name);
   return (
     <div className="va-aisle va-aisle--page">
       <div className="va-aisle__top">

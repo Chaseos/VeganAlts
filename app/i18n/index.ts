@@ -54,6 +54,8 @@ const LOCALES: Record<Language, string> = {
   en: "en-US",
   fr: "fr-CA",
   ja: "ja-JP",
+  de: "de-DE",
+  it: "it-IT",
 };
 
 /** Dates and numbers follow the page's language. */

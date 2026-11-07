@@ -7,7 +7,7 @@ import type {
 import { Icon } from "../icons/icon";
 import { Popover } from "../ui/popover";
 import { counted } from "../../lib/counted";
-import { formatCount, summarizeNames } from "../../lib/format";
+import { formatCount, inSentence, summarizeNames } from "../../lib/format";
 import { t } from "../../i18n";
 import { filteredHref, saveFilters } from "../../lib/ranking-filters";
 
@@ -235,7 +235,7 @@ export function FreeFromChecklist({
   const params = new URLSearchParams(location.search);
   const summary = names.length
     ? summarizeNames(
-        names.map((name) => t("filters.free", { name: name.toLowerCase() })),
+        names.map((name) => t("filters.free", { name: inSentence(name) })),
       )
     : t("filters.any");
   return (

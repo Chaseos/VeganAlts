@@ -5,7 +5,7 @@ import { Icon } from "../icons/icon";
 import { ProductThumbnail } from "./product-thumbnail";
 import { RankFlag, ScoreLabel } from "../ui/score";
 import { counted } from "../../lib/counted";
-import { productName } from "../../lib/format";
+import { inSentence, productName } from "../../lib/format";
 import { t } from "../../i18n";
 import { useHydrated } from "../../lib/use-hydrated";
 import {
@@ -366,9 +366,9 @@ function ProductOption({ product }: { product: SuggestedProduct }) {
           {product.rank
             ? t("search.closestRank", {
                 rank: product.rank,
-                food: product.food.name.toLowerCase(),
+                food: inSentence(product.food.name),
               })
-            : t("search.notRanked", { food: product.food.name.toLowerCase() })}
+            : t("search.notRanked", { food: inSentence(product.food.name) })}
         </span>
         {product.rank !== null && (
           <span className="va-instant__meta">

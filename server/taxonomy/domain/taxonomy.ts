@@ -41,6 +41,7 @@ export const RESERVED_SLUGS = new Set([
   "auth",
   "propose-category",
   "report-food",
+  "report-translation",
   // Brand pages live at /{country}/brand/{slug} (milestone 7).
   "brand",
   // Language pages live at /{country}/{language}.

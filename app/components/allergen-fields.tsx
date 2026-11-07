@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AllergenDeclaration } from "@server/community/domain/allergens";
-import { joinList } from "../lib/format";
+import { inSentence, joinList } from "../lib/format";
 import type { ContributorProduct } from "@server/community/domain/moderation";
 import { CheckThePackage } from "./ui/badges";
 import { t } from "../i18n";
@@ -19,7 +19,7 @@ function declarationText(
 ) {
   if (declaration.status === "none_declared") return t("allergen.noneDeclared");
   const names = (keys: string[]) =>
-    joinList(keys.map((key) => (labels[key] ?? key).toLowerCase()));
+    joinList(keys.map((key) => inSentence(labels[key] ?? key)));
   if (!declaration.contains.length)
     return t("allergen.mayContainOnly", {
       list: names(declaration.mayContain),

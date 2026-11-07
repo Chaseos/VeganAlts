@@ -1,3 +1,4 @@
+import { inSentence } from "../../lib/format";
 import { useRef } from "react";
 import { Link, useLocation } from "react-router";
 import { Icon } from "../icons/icon";
@@ -153,7 +154,7 @@ export function PhoneMenu() {
                       onClick={close}
                     >
                       {t("foodNav.browseGroup", {
-                        group: group.name.toLowerCase(),
+                        group: inSentence(group.name),
                       })}
                     </Link>
                   </details>

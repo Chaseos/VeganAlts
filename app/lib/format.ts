@@ -1,3 +1,4 @@
+import { pageLanguage } from "@server/catalog/domain/markets";
 import { pageLocale, t } from "../i18n";
 // Presentation formatting shared by every surface. Rendering never reads the
 // clock; anything time-relative is decided by the loader.
@@ -39,6 +40,11 @@ export function summarizeNames(names: string[], max = 2) {
 }
 
 // "soy", "soy and wheat", "soy, wheat and sesame"
+/** A name in the middle of a sentence. German nouns keep their capital. */
+export function inSentence(name: string) {
+  return pageLanguage() === "de" ? name : name.toLowerCase();
+}
+
 export function joinList(items: string[]) {
   if (items.length <= 1) return items.join("");
   return t("list.and", {

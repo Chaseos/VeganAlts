@@ -26,7 +26,7 @@ import { ButtonLink } from "../components/ui/button";
 import { EmptyState } from "../components/ui/feedback";
 import { publicMetadata } from "../lib/metadata";
 import { counted } from "../lib/counted";
-import { joinList, productName } from "../lib/format";
+import { inSentence, joinList, productName } from "../lib/format";
 import { t } from "../i18n";
 import { groupCategories } from "../lib/navigation-groups";
 import {
@@ -161,10 +161,10 @@ function SearchList({
                 product.rank
                   ? t("search.closestRank", {
                       rank: product.rank,
-                      food: product.food.name.toLowerCase(),
+                      food: inSentence(product.food.name),
                     })
                   : t("search.notRanked", {
-                      food: product.food.name.toLowerCase(),
+                      food: inSentence(product.food.name),
                     }),
               ]
                 .filter(Boolean)

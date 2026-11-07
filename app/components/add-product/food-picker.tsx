@@ -1,3 +1,4 @@
+import { inSentence } from "../../lib/format";
 import { useEffect, useState } from "react";
 import { Badge } from "../ui/badges";
 import { FoodIcon } from "../icons/food-icons";
@@ -139,7 +140,7 @@ export function FoodPicker({
               {t("addProduct.notInCountry", { country: countryName })}
             </Badge>{" "}
             {t("addProduct.bringsFood", {
-              food: food.name.toLowerCase(),
+              food: inSentence(food.name),
               country: countryName,
             })}
           </p>

@@ -1,5 +1,5 @@
 import { counted } from "./counted";
-import { formatCount, formatScore, productName } from "./format";
+import { formatCount, formatScore, inSentence, productName } from "./format";
 import { t } from "../i18n";
 
 // The sentence under a food's title (canvas: Category5). It describes the
@@ -24,7 +24,7 @@ export function categorySummary({
   // The Tastiest ranking's #1 rather than Closest's.
   tastiest?: boolean;
 }) {
-  const lower = food.toLowerCase();
+  const lower = inSentence(food);
   if (!rankedCount || !best || best.score === null)
     return t(tastiest ? "summary.emptyTastiest" : "summary.empty", {
       food: lower,
