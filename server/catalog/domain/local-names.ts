@@ -22,6 +22,39 @@ const NAMES: Partial<Record<Language, Record<string, string>>> = {
     tree_nuts: "Noix",
     wheat: "Blé",
   },
+  // The head words of Regulation 1169/2011 Annex II.
+  de: {
+    celery: "Sellerie",
+    crustacean: "Krebstiere",
+    egg: "Eier",
+    fish: "Fische",
+    gluten: "Glutenhaltiges Getreide",
+    lupin: "Lupinen",
+    milk: "Milch",
+    mollusc: "Weichtiere",
+    mustard: "Senf",
+    peanut: "Erdnüsse",
+    sesame: "Sesamsamen",
+    soy: "Sojabohnen",
+    sulphites: "Schwefeldioxid und Sulphite",
+    tree_nuts: "Schalenfrüchte",
+  },
+  it: {
+    celery: "Sedano",
+    crustacean: "Crostacei",
+    egg: "Uova",
+    fish: "Pesce",
+    gluten: "Cereali contenenti glutine",
+    lupin: "Lupini",
+    milk: "Latte",
+    mollusc: "Molluschi",
+    mustard: "Senape",
+    peanut: "Arachidi",
+    sesame: "Semi di sesamo",
+    soy: "Soia",
+    sulphites: "Anidride solforosa e solfiti",
+    tree_nuts: "Frutta a guscio",
+  },
   // The Consumer Affairs Agency's item names.
   ja: {
     abalone: "あわび",
@@ -58,24 +91,76 @@ const NAMES: Partial<Record<Language, Record<string, string>>> = {
 
 const COUNTRIES: Partial<Record<Language, Record<string, string>>> = {
   fr: {
+    AT: "Autriche",
     AU: "Australie",
+    BE: "Belgique",
     CA: "Canada",
+    CH: "Suisse",
+    DE: "Allemagne",
+    FR: "France",
     GB: "Royaume-Uni",
     IE: "Irlande",
     IN: "Inde",
+    IT: "Italie",
     JP: "Japon",
+    LU: "Luxembourg",
     NZ: "Nouvelle-Zélande",
     SG: "Singapour",
     US: "États-Unis",
     ZA: "Afrique du Sud",
   },
+  de: {
+    AT: "Österreich",
+    AU: "Australien",
+    BE: "Belgien",
+    CA: "Kanada",
+    CH: "Schweiz",
+    DE: "Deutschland",
+    FR: "Frankreich",
+    GB: "Vereinigtes Königreich",
+    IE: "Irland",
+    IN: "Indien",
+    IT: "Italien",
+    JP: "Japan",
+    LU: "Luxemburg",
+    NZ: "Neuseeland",
+    SG: "Singapur",
+    US: "Vereinigte Staaten",
+    ZA: "Südafrika",
+  },
+  it: {
+    AT: "Austria",
+    AU: "Australia",
+    BE: "Belgio",
+    CA: "Canada",
+    CH: "Svizzera",
+    DE: "Germania",
+    FR: "Francia",
+    GB: "Regno Unito",
+    IE: "Irlanda",
+    IN: "India",
+    IT: "Italia",
+    JP: "Giappone",
+    LU: "Lussemburgo",
+    NZ: "Nuova Zelanda",
+    SG: "Singapore",
+    US: "Stati Uniti",
+    ZA: "Sudafrica",
+  },
   ja: {
+    AT: "オーストリア",
     AU: "オーストラリア",
+    BE: "ベルギー",
     CA: "カナダ",
+    CH: "スイス",
+    DE: "ドイツ",
+    FR: "フランス",
     GB: "イギリス",
     IE: "アイルランド",
     IN: "インド",
+    IT: "イタリア",
     JP: "日本",
+    LU: "ルクセンブルク",
     NZ: "ニュージーランド",
     SG: "シンガポール",
     US: "アメリカ",
@@ -83,11 +168,28 @@ const COUNTRIES: Partial<Record<Language, Record<string, string>>> = {
   },
 };
 
+// Regulation 1169/2011 Annex II, where it differs from the Canadian names.
+const EUROPEAN_FRENCH: Record<string, string> = {
+  fish: "Poissons",
+  gluten: "Céréales contenant du gluten",
+  soy: "Soja",
+  sulphites: "Anhydride sulfureux et sulfites",
+  tree_nuts: "Fruits à coque",
+};
+
 // A country whose labels word an allergen differently from the shared language
 // lists its own names here, by language and lowercase country code.
 const MARKET_NAMES: Partial<
   Record<Language, Record<string, Record<string, string>>>
-> = {};
+> = {
+  de: { ch: { sulphites: "Schwefeldioxid und Sulfite" } },
+  fr: {
+    fr: EUROPEAN_FRENCH,
+    be: EUROPEAN_FRENCH,
+    lu: EUROPEAN_FRENCH,
+    ch: { ...EUROPEAN_FRENCH, tree_nuts: "Fruits à coque dure" },
+  },
+};
 
 export function countryName(iso2: string, name: string) {
   return COUNTRIES[pageLanguage() ?? "en"]?.[iso2] ?? name;

@@ -152,7 +152,7 @@ Sources: [Consumer Affairs Agency, allergen labelling](https://www.caa.go.jp/pol
 - Spelling is reformed German. Numbers and dates come from the locale.
 - Austrian and Swiss food words are country rows on the seed, such as Obers and Rahm, and differ only there.
 
-Allergens: Glutenhaltiges Getreide, Krebstiere, Eier, Fische, Erdnüsse, Sojabohnen, Milch, Schalenfrüchte, Sellerie, Senf, Sesamsamen, Schwefeldioxid und Sulfite, Lupinen, Weichtiere.
+Allergens: Glutenhaltiges Getreide, Krebstiere, Eier, Fische, Erdnüsse, Sojabohnen, Milch, Schalenfrüchte, Sellerie, Senf, Sesamsamen, Schwefeldioxid und Sulphite (Sulfite in Switzerland), Lupinen, Weichtiere.
 
 ## Italian (it-IT, it-CH)
 

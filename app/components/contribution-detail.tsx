@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import type { QueueDecisionRepository } from "@server/community/infrastructure/queue-decision-repository";
 import { friendly, dateLabel, reportReasonLabel } from "../lib/community";
 import { veganStatusLabel } from "./ui/badges";
+import { slotLabel } from "./photo-slots";
 import { t } from "../i18n";
 import {
   allergenDeclaration,
@@ -436,7 +437,7 @@ export function ContributionContent({
               >
                 <img
                   src={`/api/v1/submissions/${detail.evidenceReceiptId}/media/${image.id}/thumbnail`}
-                  alt={t("detail.evidenceAlt", { slot: image.slot })}
+                  alt={t("detail.evidenceAlt", { slot: slotLabel(image.slot) })}
                   width={150}
                   height={150}
                 />

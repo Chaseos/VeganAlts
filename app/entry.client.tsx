@@ -10,12 +10,20 @@ const nonce = document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce;
 async function hydrate() {
   const language = document.documentElement.lang;
   if (language === "fr") {
-    const { fr, errors } = await import("./i18n/fr");
-    addDictionary("fr", fr, errors);
+    const { fr, errors, markets } = await import("./i18n/fr");
+    addDictionary("fr", fr, errors, markets);
   }
   if (language === "ja") {
     const { ja, errors } = await import("./i18n/ja");
     addDictionary("ja", ja, errors);
+  }
+  if (language === "de") {
+    const { de, errors, markets } = await import("./i18n/de");
+    addDictionary("de", de, errors, markets);
+  }
+  if (language === "it") {
+    const { it, errors, markets } = await import("./i18n/it");
+    addDictionary("it", it, errors, markets);
   }
   startTransition(() => {
     hydrateRoot(
