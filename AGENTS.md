@@ -21,7 +21,7 @@ Milestone 4 adds Cloudflare Workers AI Clef behind the provider-neutral `Moderat
 
 Milestone 6 makes ingredient evidence optional for new products (they show "Ingredients not checked yet" and still rank), lets a missing food be suggested inside Add a product, and switches foods on per country while aisles and shelves stay shared.
 
-Milestone 7 ranks recipe lines (a brand's base recipe and its flavors in one country, one vote per person) instead of single products, adds an independent Tastiest ranking beside Closest to the original, lets search find brands, and simplifies the taxonomy to aisles with foods directly beneath them. Milestone 8 changes the universal-aisle rule on purpose: the 23 shared aisles remain the base, and a country may also have local aisles.
+Milestone 7 ranks recipe lines (a brand's base recipe and its flavors, with one home country and one vote per person) instead of single products, adds an independent Tastiest ranking beside Closest to the original, lets search find brands, and simplifies the taxonomy to aisles with foods directly beneath them. Milestone 8 changes the universal-aisle rule on purpose: the 23 shared aisles remain the base, and a country may also have local aisles.
 
 If these documents conflict, do not guess. Preserve existing behavior and surface the conflict for an explicit documentation decision.
 

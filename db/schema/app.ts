@@ -252,6 +252,8 @@ export const products = sqliteTable(
     index("ix_products_brand_country").on(table.brandId, table.countryId),
     // A line's flavors.
     index("ix_products_family").on(table.productFamilyId),
+    // Product pages, in any country it's sold in.
+    index("ix_products_slug").on(table.slug),
     index("ix_products_country_status").on(
       table.countryId,
       table.lifecycleStatus,
@@ -430,6 +432,39 @@ export const productTrials = sqliteTable(
     primaryKey({ columns: [table.userId, table.productVersionId] }),
     index("ix_product_trials_created").on(table.createdAt),
     index("ix_product_trials_version").on(table.productVersionId),
+  ],
+);
+
+// Every country a product is sold in. `products.country_id` stays its home,
+// where its label, slug and line live, and a trigger writes its `home` row.
+export const productCountries = sqliteTable(
+  "product_countries",
+  {
+    productId: text("product_id")
+      .notNull()
+      .references((): AnySQLiteColumn => products.id, {
+        onDelete: "cascade",
+      }),
+    countryId: text("country_id")
+      .notNull()
+      .references((): AnySQLiteColumn => countries.id),
+    source: text("source").notNull(),
+    createdBy: text("created_by").references(
+      (): AnySQLiteColumn => profiles.userId,
+      { onDelete: "set null" },
+    ),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.productId, table.countryId] }),
+    index("ix_product_countries_country").on(table.countryId, table.productId),
+    uniqueIndex("ux_product_countries_home")
+      .on(table.productId)
+      .where(sql`source='home'`),
+    check(
+      "ck_product_countries_source",
+      sql`${table.source} IN ('home', 'member', 'operator')`,
+    ),
   ],
 );
 

@@ -20,8 +20,8 @@ Each stage finishes before the next starts.
 
 ### Stage 1: finish the code (Claude)
 
-1. Merge the three language branches, once the owner approves. Those countries stay inactive in production.
-2. Build the "Also sold in" structure, stage 1 of [the plan](../SHARED_RANKINGS_PLAN.md). Nothing changes for visitors.
+1. Done: merge the three language branches. Those countries stay inactive in production.
+2. Done: the "Also sold in" structure, stage 1 of [the plan](../SHARED_RANKINGS_PLAN.md). Nothing changes for visitors.
 3. **US-only switch.** `taxonomy:seed:production` creates every country as active, so production needs a list of launch countries. Countries outside it get no pages, sitemap entries or menu items. Test that `/ca/en`, `/de/de` and `/jp/ja` return 404, and that no country menu appears when one country is live.
 4. Run the launch dataset audit against the staging catalog, and fix what it finds.
 

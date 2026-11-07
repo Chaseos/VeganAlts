@@ -249,7 +249,7 @@ This is expected and meaningful.
 
 ## 17. Country independence
 
-Country-specific product records rank inside their market. Do not merge ratings across markets simply because product branding looks similar.
+Each country ranks the products sold there. Ratings belong to the product, so a product sold in two countries has one set of votes. Do not merge ratings across separate products simply because their branding looks similar.
 
 A product family may connect records for discovery/history, but market/formula ratings remain independent.
 
@@ -368,7 +368,7 @@ The approved [milestone 6 specification](MILESTONE_6_PLAN.md) changes who can co
 
 ## Milestone 7 decisions
 
-The [milestone 7 specification](MILESTONE_7_PLAN.md) changes the ranked unit from a product formula to a **recipe line**: a product family, which belongs to one country. It also adds a second, independent ranking, Tastiest. The owner decided both on 2026-10-11 and 2026-10-12.
+The [milestone 7 specification](MILESTONE_7_PLAN.md) changes the ranked unit from a product formula to a **recipe line**: a product family, which has one home country. It also adds a second, independent ranking, Tastiest. The owner decided both on 2026-10-11 and 2026-10-12.
 
 Rating identity (§2), the 1–5 scale, formula transitions (§10) and the Closest prior constants are unchanged.
 

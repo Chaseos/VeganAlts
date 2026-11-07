@@ -12,7 +12,7 @@ Reference SQL is included at `db/0001_app_baseline.sql`.
 
 1. **Relational integrity first.** Use foreign keys and unique constraints for domain facts that the database can enforce.
 2. **Stable opaque IDs.** Use application-generated text IDs (recommended UUIDv7) rather than exposing sequential row IDs.
-3. **Country-specific product records.** Market-specific products are separate `products`, optionally linked by `product_families`.
+3. **A home country for each product.** `products.country_id` is its home. `product_countries` lists every country it's sold in, and catalog reads use that table. A different recipe in another country is a separate product.
 4. **Formula versions are first-class.** Current and historical formulas live in `product_versions`.
 5. **Ratings reference formula + category.** Never attach the primary rating only to a product.
 6. **Raw data is canonical.** Aggregate/stat tables are derived and rebuildable.
@@ -179,7 +179,7 @@ A family is organizational; it does not merge rankings across countries.
 
 ## 9. Products
 
-`products` is the country-specific commercial identity.
+`products` is the commercial identity, in its home country.
 
 Core fields:
 
@@ -652,7 +652,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) adds the following. They we
   - Adds `family_category_first_published`: when a line first appeared in a food, from any flavor it has had there. Refreshes only move it earlier, so New never brings a line back.
   - Removes `product_category_daily_stats`, `product_category_trends` and the unused `product_category_stats.trending_score` with its index. All three were derived and are no longer read.
 
-**Product family.** A family is a recipe line in one country: one brand's base recipe and its flavors. It no longer links markets. Rankings group a food's eligible products by family.
+**Product family.** A family is a recipe line with one home country: one brand's base recipe and its flavors. It no longer links markets. Rankings group a food's eligible products by family.
 
 **Taxonomy shape.** This replaces milestone 5's three-level shape and milestone 6's starter shelves.
 

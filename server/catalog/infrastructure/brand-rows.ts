@@ -84,7 +84,7 @@ export async function matchingBrandResults(
 ): Promise<BrandMatches> {
   const runs = trigrams(query);
   if (!runs.length) return { items: [], truncated: false };
-  const here = `(?2 OR EXISTS(SELECT 1 FROM products p WHERE p.brand_id=b.id AND p.country_id=?1 AND ${COUNTED}))`;
+  const here = `(?2 OR EXISTS(SELECT 1 FROM products p JOIN product_countries sold ON sold.product_id=p.id WHERE p.brand_id=b.id AND sold.country_id=?1 AND ${COUNTED}))`;
   const found = await db
     .prepare(
       `SELECT b.id,b.slug,b.name,brand_search.aliases FROM brand_search JOIN brands b ON b.id=brand_search.brand_id
@@ -139,8 +139,8 @@ export async function matchingBrandResults(
   if (!named.length) return { items: [], truncated };
   const counts = await db
     .prepare(
-      `SELECT p.brand_id AS id,COUNT(*) AS count FROM products p
-      WHERE p.country_id=? AND ${COUNTED} AND p.brand_id IN (SELECT value FROM json_each(?)) GROUP BY p.brand_id`,
+      `SELECT p.brand_id AS id,COUNT(*) AS count FROM products p JOIN product_countries sold ON sold.product_id=p.id
+      WHERE sold.country_id=? AND ${COUNTED} AND p.brand_id IN (SELECT value FROM json_each(?)) GROUP BY p.brand_id`,
     )
     .bind(countryId, JSON.stringify(named.map((brand) => brand.id)))
     .all<{ id: string; count: number }>();

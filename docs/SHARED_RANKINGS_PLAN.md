@@ -1,8 +1,8 @@
 # Products sold in more than one country: plan
 
-Nothing here is built. The first release is USA only (owner, 2026-11-06), so this work comes in two stages:
+Stage 1 is built. The first release is USA only (owner, 2026-11-06), so this work comes in two stages:
 
-- **Stage 1, before launch:** the structure only. Steps 1 and 2 of the build order, after the three language sessions merge. Nothing changes for visitors.
+- **Stage 1, before launch (done):** the structure only, steps 1 and 2 of the build order. Nothing changes for visitors.
 - **Stage 2, before a second country opens:** steps 3 to 8, including search, buttons and the add flow.
 
 ## 1. Goal
@@ -90,7 +90,7 @@ Also update line 1120, line 1181, `docs/RANKING.md` lines 252 and 371, `docs/MOD
 ## 9. Build order
 
 1. Revise the locked rule. Add `product_countries` to `0001_initial.sql`, filled with a `home` row for every product, and keep it filled through add and import paths.
-2. Switch catalog reads in `d1-repository.ts` and `service.ts`, with an index on `(country_id, product_id)`. Compare page speed before and after, using a quiet machine.
+2. Switch catalog reads in `d1-repository.ts`, `brand-rows.ts` and `d1-ranking-reader.ts`, with an index on `(country_id, product_id)`. Compare page speed before and after, using a quiet machine. Still on the home country, for stage 2: a line's lead flavor, which must be sold in the country for the line to rank there; store filters; search entries; sitemap; and purges.
 3. Search: one entry per country in `search-index.ts`, kept current when a mark changes.
 4. Write paths: mark, unmark, "Different recipe here", audit and limits.
 5. Add a product: the cross-country check.

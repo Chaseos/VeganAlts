@@ -47,8 +47,15 @@ const identityOf = (
 ) => `p.id,p.slug,${name} AS name,b.name AS brand,v.id AS versionId,p.development_only AS developmentOnly,${publishedAt} AS publishedAt,
   ${frontImageSql()} AS imageId`;
 const identity = identityOf("p.name", "p.published_at");
+// A product's catalog is every country it's sold in, not only its home. Today
+// that's only its home, until people can mark it sold elsewhere.
+const soldIn = (product: string, country = "?") =>
+  `EXISTS(SELECT 1 FROM product_countries sold WHERE sold.product_id=${product} AND sold.country_id=${country})`;
+// A line is in a country once one of its flavors is.
+const lineSoldIn = (line: string, country = "?") =>
+  `EXISTS(SELECT 1 FROM products lp JOIN product_countries sold ON sold.product_id=lp.id WHERE lp.product_family_id=${line} AND sold.country_id=${country})`;
 // Every catalog read is scoped to one active country, bound as its ID.
-const productJoins = `JOIN products p ON p.id=v.product_id AND p.country_id=? JOIN countries country ON country.id=p.country_id AND country.is_active=1 LEFT JOIN brands b ON b.id=p.brand_id`;
+const productJoins = `JOIN countries country ON country.id=? AND country.is_active=1 JOIN products p ON p.id=v.product_id AND ${soldIn("p.id", "country.id")} LEFT JOIN brands b ON b.id=p.brand_id`;
 const visible = `p.lifecycle_status <> 'hidden'`;
 // A food's name in a country and language: that language's own name here, then
 // its name for every country, then the country's English name, then its
@@ -80,7 +87,7 @@ const onHere = (category: string) =>
 const categoryFieldsIn = (
   language: Language,
 ) => `c.id,c.slug,${displayName(language)("c")} AS name,c.parent_id AS parentId,c.origin_country_id AS originCountryId,c.is_rankable AS isRankable,c.season_start AS seasonStart,c.season_end AS seasonEnd,c.provisional_until AS provisionalUntil,
- (SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=c.id AND p.country_id=? AND ${visible}) AS productCount,
+ (SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=c.id AND ${soldIn("p.id")} AND ${visible}) AS productCount,
  ${onHere("c")} AS available`;
 
 interface Fragment {
@@ -228,7 +235,7 @@ export class D1CatalogRepository implements CatalogRepository {
       await this.db
         .prepare(
           `SELECT co.id,co.iso2,co.name,EXISTS(SELECT 1 FROM family_category_stats s
-            JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=co.id
+            JOIN product_families fam ON fam.id=s.product_family_id AND ${lineSoldIn("fam.id", "co.id")}
             JOIN categories c ON c.id=s.category_id AND c.is_active=1 AND c.is_rankable=1
             WHERE ${lineSampleSql}) AS hasRankings
           FROM countries co WHERE co.is_active=1 ORDER BY CASE WHEN co.iso2='US' THEN 0 ELSE 1 END,co.name LIMIT 300`,
@@ -254,11 +261,12 @@ export class D1CatalogRepository implements CatalogRepository {
           // formulas, from the rating aggregates: someone who rated several
           // flavors counts each rating here, unlike in a line's score.
           `WITH lines AS (SELECT s.category_id AS categoryId,COUNT(*) AS ranked
-            FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=?
+            FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND ${lineSoldIn("fam.id")}
             WHERE ${lineSampleSql} GROUP BY s.category_id)
           SELECT pc.category_id AS categoryId,COUNT(DISTINCT p.id) AS productCount,
             COALESCE(MAX(l.ranked),0) AS rankedCount,COALESCE(SUM(st.rating_count),0) AS ratingCount
-          FROM product_categories pc JOIN products p ON p.id=pc.product_id AND p.country_id=? AND ${visible}
+          FROM product_countries sold JOIN products p ON p.id=sold.product_id AND sold.country_id=? AND ${visible}
+          JOIN product_categories pc ON pc.product_id=p.id
           JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
           LEFT JOIN product_category_stats st ON st.product_version_id=v.id AND st.category_id=pc.category_id
           LEFT JOIN lines l ON l.categoryId=pc.category_id
@@ -506,7 +514,7 @@ export class D1CatalogRepository implements CatalogRepository {
             CASE WHEN 1=1${match.sql} THEN 1 ELSE 0 END AS matches
           FROM ${lineFlavorJoins("?")}
           LEFT JOIN product_category_stats ps ON ps.product_version_id=lfv.id AND ps.category_id=lfc.category_id
-          WHERE lf.product_family_id IN (SELECT value FROM json_each(?)) AND lf.lifecycle_status='active' AND lf.vegan_status<>'under_review' AND lf.country_id=?
+          WHERE lf.product_family_id IN (SELECT value FROM json_each(?)) AND lf.lifecycle_status='active' AND lf.vegan_status<>'under_review' AND ${soldIn("lf.id")}
           ORDER BY lf.product_family_id,NOT ${originalFlavorSql("lf")},lf.flavor,lf.name,lf.id`,
         )
         .bind(...match.binds, categoryId, JSON.stringify(lineIds), countryId)
@@ -615,7 +623,7 @@ export class D1CatalogRepository implements CatalogRepository {
           `WITH best AS (SELECT t.product_family_id AS familyId,t.category_id AS categoryId,t.trending_score AS trendingScore,
             ROW_NUMBER() OVER (PARTITION BY t.product_family_id ORDER BY t.trending_score DESC,t.category_id) AS n
             FROM family_category_trends t
-            JOIN product_families fam ON fam.id=t.product_family_id AND fam.country_id=?
+            JOIN product_families fam ON fam.id=t.product_family_id AND ${lineSoldIn("fam.id")}
             JOIN categories c ON c.id=t.category_id AND c.is_active=1 AND c.is_rankable=1)
           SELECT ${lineIdentity()},c.slug AS foodSlug,${this.displayName("c", "p.country_id")} AS foodName,s.bayesian_score AS bayesianScore,
             s.people_count AS ratingCount,s.recent_count AS recentRatingCount
@@ -636,7 +644,7 @@ export class D1CatalogRepository implements CatalogRepository {
         .prepare(
           `WITH fresh AS (SELECT f.product_family_id AS familyId,MIN(f.first_published_at) AS firstPublished
             FROM family_category_first_published f
-            JOIN product_families fam ON fam.id=f.product_family_id AND fam.country_id=?
+            JOIN product_families fam ON fam.id=f.product_family_id AND ${lineSoldIn("fam.id")}
             GROUP BY f.product_family_id HAVING MIN(f.first_published_at)>=?),
           placed AS (SELECT fresh.familyId,fresh.firstPublished,s.category_id AS categoryId,
             ROW_NUMBER() OVER (PARTITION BY fresh.familyId ORDER BY s.people_count DESC,c.name,c.id) AS n
@@ -657,7 +665,7 @@ export class D1CatalogRepository implements CatalogRepository {
     return (
       (await this.db
         .prepare(
-          `SELECT COUNT(*) AS n FROM products p JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE p.country_id=? AND ${eligible}`,
+          `SELECT COUNT(*) AS n FROM product_countries sold JOIN products p ON p.id=sold.product_id JOIN product_versions v ON v.product_id=p.id AND v.is_current=1 WHERE sold.country_id=? AND ${eligible}`,
         )
         .bind(countryId)
         .first<number>("n")) ?? 0
@@ -917,7 +925,7 @@ export class D1CatalogRepository implements CatalogRepository {
           `SELECT p.id,p.slug,p.name,p.flavor,${frontImageSql("v")} AS imageId,
             COALESCE((SELECT json_group_array(c.slug) FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 WHERE pc.product_id=p.id),'[]') AS foods
           FROM products p LEFT JOIN product_versions v ON v.product_id=p.id AND v.is_current=1
-          WHERE p.product_family_id=? AND p.country_id=? AND p.id<>? AND p.lifecycle_status='active'
+          WHERE p.product_family_id=? AND ${soldIn("p.id")} AND p.id<>? AND p.lifecycle_status='active'
           ORDER BY NOT ${originalFlavorSql("p")},p.flavor,p.name,p.id LIMIT 50`,
         )
         .bind(lineId, countryId, productId)
@@ -941,7 +949,7 @@ export class D1CatalogRepository implements CatalogRepository {
   brand(countryId: string, slug: string) {
     return this.db
       .prepare(
-        `SELECT b.id,b.slug,b.name,(SELECT COUNT(*) FROM products p WHERE p.brand_id=b.id AND p.country_id=? AND p.lifecycle_status IN ('active','under_review')) AS productCount
+        `SELECT b.id,b.slug,b.name,(SELECT COUNT(*) FROM products p WHERE p.brand_id=b.id AND ${soldIn("p.id")} AND p.lifecycle_status IN ('active','under_review')) AS productCount
         FROM brands b WHERE b.slug=?`,
       )
       .bind(countryId, slug)
@@ -960,15 +968,15 @@ export class D1CatalogRepository implements CatalogRepository {
           `WITH placed AS (SELECT p.product_family_id AS lineId,pc.category_id AS categoryId,COUNT(*) AS flavorCount,MIN(p.name) AS onlyName
               FROM products p JOIN product_categories pc ON pc.product_id=p.id
               JOIN categories c ON c.id=pc.category_id AND c.is_active=1 AND c.is_rankable=1
-              WHERE p.brand_id=? AND p.country_id=? AND ${listed("p")}
+              WHERE p.brand_id=? AND ${soldIn("p.id")} AND ${listed("p")}
               GROUP BY p.product_family_id,pc.category_id),
             ranked AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,
               ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${lineOrderSql}) AS closestRank
-              FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=?
+              FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND ${lineSoldIn("fam.id")}
               WHERE s.category_id IN (SELECT categoryId FROM placed) AND ${lineSampleSql}),
             tasty AS (SELECT s.category_id AS categoryId,s.product_family_id AS lineId,
               ROW_NUMBER() OVER (PARTITION BY s.category_id ORDER BY ${tastiestOrderSql}) AS tastiestRank
-              FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND fam.country_id=?
+              FROM family_category_stats s JOIN product_families fam ON fam.id=s.product_family_id AND ${lineSoldIn("fam.id")}
               WHERE s.category_id IN (SELECT categoryId FROM placed) AND ${tastiestSampleSql})
           SELECT pl.categoryId,pl.lineId,CASE WHEN pl.flavorCount>1 THEN fam.canonical_name ELSE pl.onlyName END AS name,
             (SELECT json_object('slug',lp.slug,'imageId',${frontImageSql("lv")})
@@ -1017,7 +1025,7 @@ export class D1CatalogRepository implements CatalogRepository {
     const food = section === "foods";
     const candidates = food
       ? `SELECT c.id,c.name AS searchName,search_index.rank AS searchRank FROM search_index JOIN categories c ON c.id=entity_id WHERE search_index MATCH ? AND entity_type='category' AND country_code=? AND c.is_active=1 AND c.is_rankable=1 AND ${onHere("c")}`
-      : `SELECT p.id,p.name AS searchName,search_index.rank AS searchRank FROM search_index JOIN products p ON p.id=entity_id JOIN countries co ON co.id=p.country_id WHERE search_index MATCH ? AND entity_type='product' AND country_code=? AND p.country_id=? AND co.is_active=1 AND p.lifecycle_status NOT IN ('hidden','discontinued') AND EXISTS(SELECT 1 FROM product_versions v WHERE v.product_id=p.id AND v.is_current=1) AND EXISTS(SELECT 1 FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 WHERE pc.product_id=p.id)`;
+      : `SELECT p.id,p.name AS searchName,search_index.rank AS searchRank FROM search_index JOIN products p ON p.id=entity_id JOIN countries co ON co.id=p.country_id WHERE search_index MATCH ? AND entity_type='product' AND country_code=? AND ${soldIn("p.id")} AND co.is_active=1 AND p.lifecycle_status NOT IN ('hidden','discontinued') AND EXISTS(SELECT 1 FROM product_versions v WHERE v.product_id=p.id AND v.is_current=1) AND EXISTS(SELECT 1 FROM product_categories pc JOIN categories c ON c.id=pc.category_id AND c.is_active=1 WHERE pc.product_id=p.id)`;
     const prefix = `WITH matched AS MATERIALIZED (${candidates}), selected AS (SELECT * FROM matched ${after ? "WHERE (searchRank,searchName,id)>(?,?,?)" : ""} ORDER BY searchRank,searchName,id LIMIT ?) `;
     const tail = food
       ? `SELECT ${this.categoryFields},s.searchRank,s.searchName FROM selected s JOIN categories c ON c.id=s.id ORDER BY s.searchRank,s.searchName,s.id`

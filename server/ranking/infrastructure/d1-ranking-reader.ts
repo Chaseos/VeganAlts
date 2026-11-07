@@ -29,8 +29,9 @@ export class D1RankingReader {
       JOIN product_versions v ON v.id = s.product_version_id AND v.is_current = 1
       JOIN products p ON p.id = v.product_id AND ${eligibleProductSql}
       ${rankedMembershipSql}
-      JOIN countries country ON country.id = p.country_id AND country.is_active = 1
-      WHERE p.country_id = ? AND s.category_id = ? AND ${rankedSampleSql}
+      JOIN product_countries sold ON sold.product_id = p.id AND sold.country_id = ?
+      JOIN countries country ON country.id = sold.country_id AND country.is_active = 1
+      WHERE s.category_id = ? AND ${rankedSampleSql}
       ORDER BY ${rankingOrderSql} LIMIT ?`,
       )
       .bind(countryId, categoryId, Math.min(100, Math.max(1, limit)))

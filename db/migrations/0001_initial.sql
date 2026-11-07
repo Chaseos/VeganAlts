@@ -1231,6 +1231,27 @@ BEGIN UPDATE formula_revisions SET revision = revision + 1 WHERE product_version
 CREATE TRIGGER category_link_revision_delete AFTER DELETE ON product_categories
 BEGIN UPDATE formula_revisions SET revision = revision + 1 WHERE product_version_id IN (SELECT id FROM product_versions WHERE product_id = OLD.product_id); END;
 --> statement-breakpoint
+CREATE TABLE `product_countries` (
+	`product_id` text NOT NULL,
+	`country_id` text NOT NULL,
+	`source` text NOT NULL,
+	`created_by` text,
+	`created_at` integer NOT NULL,
+	PRIMARY KEY(`product_id`, `country_id`),
+	FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`country_id`) REFERENCES `countries`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`created_by`) REFERENCES `profiles`(`user_id`) ON UPDATE no action ON DELETE set null,
+	CONSTRAINT "ck_product_countries_source" CHECK(source IN ('home', 'member', 'operator'))
+);
+--> statement-breakpoint
+CREATE INDEX `ix_product_countries_country` ON `product_countries` (`country_id`,`product_id`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `ux_product_countries_home` ON `product_countries` (`product_id`) WHERE source='home';
+--> statement-breakpoint
+CREATE INDEX `ix_products_slug` ON `products` (`slug`);
+--> statement-breakpoint
+CREATE TRIGGER product_home_country AFTER INSERT ON products BEGIN INSERT INTO product_countries(product_id,country_id,source,created_at) VALUES(NEW.id,NEW.country_id,'home',NEW.created_at); END;
+--> statement-breakpoint
 CREATE TRIGGER catalog_revision_create AFTER INSERT ON products BEGIN INSERT INTO catalog_revisions(product_id) VALUES(NEW.id); END;
 --> statement-breakpoint
 CREATE TRIGGER catalog_product_update AFTER UPDATE ON products BEGIN UPDATE catalog_revisions SET revision=revision+1 WHERE product_id=NEW.id; UPDATE formula_revisions SET revision=revision+1 WHERE product_version_id IN (SELECT id FROM product_versions WHERE product_id=NEW.id); END;

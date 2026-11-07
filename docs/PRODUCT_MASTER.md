@@ -82,7 +82,7 @@ implementation.</p></th>
 | Primary metric         | LOCKED     | Overall similarity to a specific non-vegan reference product |
 | Launch content         | LOCKED     | Commercial packaged food first                               |
 | Browsing               | LOCKED     | Public; sign-in required only to contribute                  |
-| Geography              | LOCKED     | Country-specific product records and rankings                |
+| Geography              | LOCKED     | Each product has a home country. It may also be sold in other countries that share its allergen list, once a member confirms it. Ratings belong to the product, and each country ranks the products sold there. A different recipe is a separate product |
 | Primary domain         | LOCKED     | VeganAlts.com                                                |
 | Initial launch country | LOCKED     | United States for milestone 2                                |
 | Rating display         | LOCKED     | 4.2/5, without an attached label; Early below 10 ratings     |
@@ -1178,7 +1178,7 @@ The [milestone 7 specification](MILESTONE_7_PLAN.md) changes what a ranking rank
 - **What a line is.** A line is one brand's base recipe in one country, together with its flavors. Original is one more flavor.
 - **Every product belongs to exactly one line.**
 - **Flavors stay products.** Each flavor keeps its own page, photos, formula versions, allergen declaration and stores.
-- **Product Family means recipe line.** A family belongs to one country. The same brand's line in another country is a separate family, because formulas, factories and even same-named brands differ.
+- **Product Family means recipe line.** A family has one home country. The same brand's line with a different recipe in another country is a separate family, because formulas, factories and even same-named brands differ.
 
 **The line test.** Ask whether the base recipe changed, or only a flavor was put on top.
 
