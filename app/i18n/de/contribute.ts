@@ -9,10 +9,10 @@ export const contribute = {
   "account.intro":
     "Dein gewählter Nutzername und dein Anzeigename sind öffentlich. Deine E-Mail-Adresse und deine einzelnen Bewertungen bleiben privat.",
   "account.metaTitle": "Dein Profil · VeganAlts",
-  "account.moderationInbox": "Moderationsposteingang",
+  "account.moderationInbox": "Moderationseingang",
   "account.myContributions": "Meine Beiträge",
   "account.myRatings": "Meine Bewertungen",
-  "account.productAnalytics": "Produktstatistiken",
+  "account.productAnalytics": "Produktanalysen",
   "account.publicProfile": "Öffentliches Profil",
   "account.save": "Profil speichern",
   "account.saved": "Profil gespeichert.",
@@ -64,7 +64,7 @@ export const contribute = {
   },
   "addProduct.brandsMatching": "Marken zu {text}",
   "addProduct.bringsFood":
-    "Mit einem Produkt kommt {food} in dieses Land ({country}).",
+    "Mit einem Produkt startet in diesem Land ({country}) die Rangliste ({food}).",
   "addProduct.cannotAccept": "Diese Einreichung kann nicht angenommen werden.",
   "addProduct.change": "Ändern",
   "addProduct.changeBrand": "Marke {name}",
@@ -112,7 +112,7 @@ export const contribute = {
   "addProduct.foods": "Lebensmittel",
   "addProduct.foodsMatching": "Lebensmittel zu {text}",
   "addProduct.foundAtNote":
-    "„Häufig zu finden bei“, kein aktueller Bestand. Bis zu 10 Geschäfte.",
+    "„Häufig erhältlich bei“, kein aktueller Bestand. Bis zu 10 Geschäfte.",
   "addProduct.foundIt":
     "Hier gefunden? Bewerte es, statt es noch einmal hinzuzufügen. Eine Sorte, die noch nicht gelistet ist, kommt zu ihrer Produktlinie.",
   "addProduct.fromBrand": "Von {brand}",
@@ -198,14 +198,14 @@ export const contribute = {
   "addProduct.remove": "(entfernen)",
   "addProduct.replaces": "Ersetzt",
   "addProduct.requiredNote":
-    "Felder sind Pflicht, sofern sie nicht „optional“ sagen.",
+    "Alle Felder sind Pflicht, sofern sie nicht als „optional“ markiert sind.",
   "addProduct.respondModerator": "Dem Moderationsteam antworten",
   "addProduct.retry": "Erneut versuchen",
   "addProduct.retrySaving": "Speichern des Entwurfs erneut versuchen",
   "addProduct.reviewThanks":
     "Danke. Wir prüfen es, bevor es online geht. Deine Fotos bleiben bis dahin privat.",
   "addProduct.reviewerNote":
-    "Gibt es etwas, das die Prüfung wissen sollte? (optional)",
+    "Gibt es etwas, das wir bei der Prüfung wissen sollten? (optional)",
   "addProduct.savedOnDevice": "{product} ist auf diesem Gerät gespeichert.",
   "addProduct.savedOnDeviceGeneric":
     "Ein von dir begonnenes Produkt ist auf diesem Gerät gespeichert.",
@@ -237,7 +237,7 @@ export const contribute = {
   "addProduct.thisLine": "diese Produktlinie",
   "addProduct.title": "Produkt hinzufügen",
   "addProduct.triedIt":
-    "Hast du es probiert? Wie nah kommt es an {food} heran?",
+    "Hast du es probiert? Wie nah kommt es dem Original ({food})?",
   "addProduct.tryAgain": "Erneut versuchen",
   "addProduct.unfinishedTitle": "Du hast ein unfertiges Produkt",
   "addProduct.updateDetails":
@@ -274,7 +274,7 @@ export const contribute = {
   "brandChange.newLine": "Eine neue Produktlinie",
   "brandChange.newLineName": "Name der neuen Produktlinie",
   "brandChange.note":
-    "Das Produkt behält seine Adresse, Fotos und Bewertungen. Eine Produktlinie gehört zu einer Marke, deshalb wechselt es zu einer Produktlinie der neuen Marke.",
+    "Das Produkt behält seine Webadresse, Fotos und Bewertungen. Eine Produktlinie gehört zu einer Marke, deshalb wechselt es zu einer Produktlinie der neuen Marke.",
   "common.aliasesLabel": "Andere Namen (optional, durch Kommas getrennt)",
   "common.no": "Nein",
   "common.sending": "Wird gesendet …",
@@ -305,7 +305,7 @@ export const contribute = {
   "community.manufacturerPlantBased": "Als pflanzlich gekennzeichnet",
   "community.manufacturerUnknown": "Nicht sicher / nicht angegeben",
   "community.manufacturerVegan": "Als vegan gekennzeichnet",
-  "community.moderationLink": "So funktioniert die Moderation",
+  "community.moderationLink": "den Moderationsregeln",
   "community.noScript":
     "Zum Hinzufügen oder Bearbeiten von Beiträgen wird JavaScript benötigt. Aktiviere es und lade die Seite neu, um fortzufahren.",
   "community.notConfirmed": "Noch nicht bestätigt",
@@ -327,8 +327,8 @@ export const contribute = {
   "community.viewChecks": "Automatische Prüfungen ansehen",
   "community.viewChecksAfter": ".",
   "contribute.addOneAfter":
-    "damit ein anderes Mitglied deine Prüfung bestätigen kann; ohne Foto prüft das Moderationsteam sie.",
-  "contribute.addOneFirst": "Zuerst eines hinzufügen",
+    "– dann kann ein anderes Mitglied deine Prüfung bestätigen; ohne Foto prüft das Moderationsteam sie.",
+  "contribute.addOneFirst": "Füge zuerst eines hinzu",
   "contribute.adminNotice":
     "Gespeicherte Änderungen gelten sofort, ohne Prüfung. Jede wird im Entscheidungsverlauf festgehalten und kann rückgängig gemacht werden.",
   "contribute.breadcrumb": "Beitragen",
@@ -349,7 +349,7 @@ export const contribute = {
   "contribute.findRetailer": "Händler finden",
   "contribute.formulaLabel": "Bezeichnung der Rezeptur",
   "contribute.formulaPlaceholder": "z. B. Rezeptur 2026",
-  "contribute.foundAt": "Häufig zu finden bei",
+  "contribute.foundAt": "Häufig erhältlich bei",
   "contribute.foundAtIntro":
     "Teile mit, wo dieses Produkt in diesem Land ({country}) häufig verkauft wird. Das ist keine Angabe zum aktuellen Bestand.",
   "contribute.history": "Verlauf des Teams und Rücknahmen →",
@@ -400,7 +400,7 @@ export const contribute = {
     "Lass eine Sorte bei Lebensmitteln weg, bei denen die Listung irreführen würde. Bestehende Bewertungen bleiben erhalten.",
   "contribute.reason": "Grund",
   "contribute.reasonForChange": "Grund für diese Änderung (optional)",
-  "contribute.recipeLine": "Rezepturlinie",
+  "contribute.recipeLine": "Produktlinie",
   "contribute.relatedProduct": "Verwandtes Produkt (optional)",
   "contribute.relationship": "Beziehung",
   "contribute.replaced": "(ersetzt)",
@@ -423,10 +423,10 @@ export const contribute = {
   "contribute.saveChange": "Änderung speichern",
   "contribute.saving": "Wird gespeichert …",
   "contribute.searchPlaceholder": "Namen und andere Namen suchen",
-  "contribute.seenHere": "Ich habe es hier verkauft gesehen",
+  "contribute.seenHere": "Ich habe es hier im Verkauf gesehen",
   "contribute.selectRetailer": "Händler auswählen",
   "contribute.stanceNote":
-    "Pro Person wird eine aktuelle Einschätzung gespeichert. Erneutes Bestätigen aktualisiert das Datum, erhöht aber nicht dein Gewicht. Das Team entscheidet, ob eine Beziehung entfernt wird.",
+    "Pro Person wird eine aktuelle Einschätzung gespeichert. Erneutes Bestätigen aktualisiert das Datum, zählt aber nicht stärker. Das Team entscheidet, ob eine Beziehung entfernt wird.",
   "contribute.statusActive": "Aktiv",
   "contribute.statusNotCurrent": "Nicht mehr aktuell",
   "contribute.statusUncertain": "Unklar",
@@ -487,7 +487,7 @@ export const contribute = {
   "detail.related": "{name} · {type}",
   "detail.relatedProduct": "Verwandtes Produkt:",
   "detail.reportedComment": "Gemeldeter Kommentar",
-  "detail.reportedConcern": "Gemeldetes Bedenken",
+  "detail.reportedConcern": "Gemeldete Bedenken",
   "detail.retailer": "Händler:",
   "detail.retailerCounts":
     "{confirmations} Bestätigungen; {concerns} Bedenken zur Verfügbarkeit. Zuletzt bestätigt am {date}.",
@@ -524,12 +524,12 @@ export const contribute = {
   "fact.chooseFood": "Lebensmittel wählen",
   "fact.flavor": "Sorte",
   "fact.flavorHint":
-    "Lass das Feld leer für die Originalsorte oder neutrale Variante der Produktlinie. Das Produkt behält seine Adresse und Bewertungen. Füge ein Foto der Vorderseite hinzu, das den neuen Namen zeigt.",
+    "Lass das Feld leer für die Originalsorte oder neutrale Variante der Produktlinie. Das Produkt behält seine Webadresse und Bewertungen. Füge ein Foto der Vorderseite hinzu, das den neuen Namen zeigt.",
   "fact.foods": "Lebensmittel, unter dem es gelistet ist",
   "fact.keepTicked": "Nur die oben angehakten Lebensmittel behalten",
   "fact.listedUnder": "Gelistet unter",
   "fact.moveNote":
-    "Beim Verschieben werden seine bisherigen Lebensmittel abgehakt; hake eines wieder an, um es bei beiden zu listen. Bewertungen gehen nie verloren: Ein bewertetes Lebensmittel behält sie, außerhalb der Rangliste, und bei einem neuen Lebensmittel startet das Produkt ohne Bewertungen.",
+    "Beim Verschieben werden die Häkchen bei seinen bisherigen Lebensmitteln entfernt; setze bei einem wieder ein Häkchen, um es bei beiden zu listen. Bewertungen gehen nie verloren: Ein bewertetes Lebensmittel behält sie, außerhalb der Rangliste, und bei einem neuen Lebensmittel startet das Produkt ohne Bewertungen.",
   "fact.moveTo": "Verschieben zu",
   "fact.nameLabel": "Name, wie er auf der Packung steht",
   "fact.optionalTag": "Optional",
@@ -631,7 +631,7 @@ export const contribute = {
   },
   "responses.disagree": "Widersprechen",
   "responses.disagreed": "Danke. Das Moderationsteam prüft den Widerspruch.",
-  "responses.disagrees": "{count} Widersprüche",
+  "responses.disagrees": "Widersprüche: {count}",
   "responses.evidenceAttached": "Danke. Dein Nachweis ist angehängt.",
   "responses.evidenceShows": "Was zeigt dein Nachweis?",
   "responses.intro":
@@ -664,7 +664,7 @@ export const contribute = {
     "Die Anmeldung wurde nicht abgeschlossen. Bitte versuche es erneut.",
   "signIn.eyebrow": "Deine Erfahrung macht den Unterschied",
   "signIn.intro":
-    "Behalte im Blick, was du probiert hast, und hilf anderen, eine näher am Original liegende Alternative zu finden. Wenn du gerade eine Punktzahl gewählt oder ein Produkt gespeichert hast, bleibt sie bzw. es erhalten, wenn du zurückkommst.",
+    "Behalte im Blick, was du probiert hast, und hilf anderen, eine Alternative zu finden, die dem Original näher kommt. Wenn du gerade etwas bewertet oder gespeichert hast, bleibt das erhalten, wenn du zurückkommst.",
   "signIn.metaTitle": "Anmelden · VeganAlts",
   "signIn.optionsLabel": "Anmeldeoptionen",
   "signIn.preparing":
@@ -684,7 +684,7 @@ export const contribute = {
   "suggestFood.nameLabel": "Name des Lebensmittels (erforderlich)",
   "suggestFood.productAfter": "und beides wird zusammen geprüft.",
   "suggestFood.productBefore": "Hast du ein Produkt dafür?",
-  "suggestFood.productLink": "Mit dem Produkt hinzufügen",
+  "suggestFood.productLink": "Füge es mit dem Produkt hinzu",
   "suggestFood.reviewAfter": ".",
   "suggestFood.reviewBefore":
     "Wir prüfen es auf Dubletten und entscheiden innerhalb von drei Tagen. Den Stand siehst du unter",

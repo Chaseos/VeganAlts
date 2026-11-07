@@ -22,7 +22,7 @@ export const chrome = {
     "Die Suche konnte nicht geladen werden. Ändere die Suche, um es erneut zu versuchen.",
   "select.chooseProduct": "Produkt wählen",
   "select.none": "Nichts ausgewählt",
-  "nav.loadingPage": "Seite wird geladen…",
+  "nav.loadingPage": "Seite wird geladen …",
   "photo.heading": "Produktfotos",
   "photo.add": "Foto hinzufügen",
   "photo.suggestBetter": "Besseres Foto vorschlagen",

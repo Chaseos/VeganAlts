@@ -62,7 +62,7 @@ export const france: Partial<Dictionary> = {
   "comingSoon.footer":
     "Alternatives véganes classées par la communauté. Un site conçu pour votre prochaine bonne alternative.",
   "comingSoon.lead":
-    "Le hamburger vraiment réussi. Le fromage qui fond vraiment. Trouvez des alternatives aux aliments que vous aimez, classées par des personnes qui les ont essayées.",
+    "L’alternative au burger vraiment réussie. L’alternative au fromage qui fond vraiment. Trouvez des alternatives aux aliments que vous aimez, classées par des personnes qui les ont essayées.",
   "comingSoon.step1Body":
     "Commencez par ce que vous voulez remplacer. Découvrez les alternatives disponibles dans votre pays.",
   "comingSoon.title": "Trouvez l’alternative végane la plus proche.",
@@ -85,7 +85,7 @@ export const france: Partial<Dictionary> = {
   "contribute.retailerCheck":
     "Un membre de l’équipe vérifie son identité et son pays avant qu’elle puisse être sélectionnée.",
   "contribute.retailerName": "Nom de l’enseigne",
-  "contribute.retailerSite": "Site Web officiel de l’enseigne",
+  "contribute.retailerSite": "Site web officiel de l’enseigne",
   "contribute.retailerWhy":
     "Pourquoi cette enseigne devrait-elle être ajoutée?",
   "contribute.selectRetailer": "Sélectionner une enseigne",
@@ -101,7 +101,7 @@ export const france: Partial<Dictionary> = {
     "L’accusé de réception de la proposition est prêt. Ajoutez-y les photos et terminez l’examen final depuis la page de la proposition.",
   "detail.retailer": "Enseigne :",
   "detail.retailerEvidence": "Preuves actuelles de l’enseigne",
-  "filters.commonlyAt": "Souvent disponible chez :",
+  "filters.commonlyAt": "Se trouve couramment chez :",
   "filters.noStores":
     "Aucun magasin n’a encore été signalé pour ces alternatives dans ce pays.",
   "filters.ofMatch": {
@@ -114,18 +114,18 @@ export const france: Partial<Dictionary> = {
     one: "alternative classée",
     other: "alternatives classées",
   },
-  "filters.storeLabel": "Souvent disponible chez : {summary}",
+  "filters.storeLabel": "Se trouve couramment chez : {summary}",
   "filters.storeLabelSelected":
-    "Souvent disponible chez : {summary}. Magasins sélectionnés : {names}",
-  "filters.storeLine": "Souvent disponible chez {names}",
+    "Se trouve couramment chez : {summary}. Magasins sélectionnés : {names}",
+  "filters.storeLine": "Se trouve couramment chez {names}",
   "filters.storesNote":
-    "Souvent disponible dans l’un de vos magasins choisis, selon les membres de ce pays ({country}). Vos choix sont enregistrés sur cet appareil pour tous les classements de ce pays.",
+    "Se trouve couramment dans l’un de vos magasins choisis, selon les membres de ce pays ({country}). Vos choix sont enregistrés sur cet appareil pour tous les classements de ce pays.",
   "filters.storesPanel": "Magasins où vous faites vos courses",
   "footer.contact": "Nous contacter",
   "footer.tagline":
     "Alternatives véganes classées par la communauté · {country}",
   "footer.veganStatus": "Statut végan",
-  "group.saucesDips": "Sauces, dips et tartinades",
+  "group.saucesDips": "Sauces, dips et pâtes à tartiner",
   "home.closestSwap": "Chaque aliment affiche son alternative la plus proche.",
   "home.eyebrow":
     "{foods} · {products} produits végans, évalués par des personnes qui les ont essayés",
@@ -160,7 +160,8 @@ export const france: Partial<Dictionary> = {
     "Provisoire : les preuves importées et les mentions de l’emballage ne suffisent pas, à elles seules, à établir une vérification.",
   "product.compareAll": "Comparer les {total} alternatives à « {food} »",
   "product.firstSwap": "Alternative n° 1 pour « {food} »",
-  "product.labelNeither": "N’indique ni « végan » ni « à base de plantes »",
+  "product.labelNeither":
+    "N’indique ni « végan », ni « végétal », ni « à base de plantes »",
   "product.labelVegan": "Indique « végan »",
   "product.noRetailers": "Aucune confirmation d’enseigne pour l’instant.",
   "product.otherSwaps": "Autres alternatives à « {food} »",
@@ -168,7 +169,7 @@ export const france: Partial<Dictionary> = {
   "product.tapStores":
     "Appuyez sur chaque magasin où vous faites vos courses pour l’enregistrer sur cet appareil. Les classements montreront ce que vous pouvez trouver dans l’un d’eux.",
   "product.thisAlternative": "cette alternative végane",
-  "ranking.overall": "n° {rank} au total",
+  "ranking.overall": "n° {rank} au classement général",
   "rating.help":
     "Répondez à l’une des questions ou aux deux. Chaque choix s’enregistre aussitôt; appuyez de nouveau dessus pour l’effacer. Votre évaluation indique que vous avez essayé cette formule.",
   "rating.taste2": "Correct",
@@ -200,4 +201,70 @@ export const france: Partial<Dictionary> = {
     one: "{number} alternative végane à « {food} » classée par {people}.",
     other: "{number} alternatives véganes à « {food} » classées par {people}.",
   },
+  "rating.lastAteQuestion":
+    "Quand avez-vous consommé « {food} » pour la dernière fois?",
+  "product.recentEaters":
+    "Les personnes qui ont consommé « {food} » au cours des 12 derniers mois donnent à cette saveur",
+  "rating.recencyNote":
+    "Montre à quel point il semble proche pour les gens qui en consomment encore. Cela ne change jamais le poids de votre évaluation.",
+  "comments.intro":
+    "Dites ce qu’il vaut par rapport à l’original : goût, texture, cuisson et la dernière fois que vous avez goûté l’original. Votez selon que le commentaire aide à comprendre le produit, et non selon que vous êtes d’accord avec lui.",
+  "category.rateBelow":
+    "Évaluez-en une ci-dessous ou ajoutez un produit que vous avez essayé.",
+  "comingSoon.step2Body":
+    "Classées selon leur ressemblance avec l’original; plus il y a d’avis, plus l’image est nette.",
+  "aisle.knowAnother": "Vous en connaissez une autre?",
+  "aisle.addIt": "Ajoutez-la.",
+  "category.longTerm":
+    "Le plus proche de l’original affiche le classement à long terme.",
+  "comingSoon.burgers": "Burgers",
+  "product.effective": "en vigueur : {date} (précision : {precision})",
+  "code.ingredient_concern": "doute sur un ingrédient",
+  "safety.optUnderReview": "En cours d’examen — doute sur un ingrédient",
+  "product.underReview":
+    "Un membre de l’équipe examine un doute sur un ingrédient. Cette formule est exclue des classements actifs et des nouvelles évaluations jusqu’à ce que ce doute soit levé.",
+  "contribute.reportNote":
+    "Les doutes sur un ingrédient sont traités en priorité. Un signalement ne modifie pas les faits du produit tant qu’un membre de l’équipe ne l’a pas examiné. Les signalements répétés mettent à jour vos preuves et ne comptent qu’une fois.",
+  "community.errNetwork":
+    "Vérifiez votre connexion et réessayez. Vos saisies sont conservées.",
+  "community.errRate":
+    "Trop de requêtes. Attendez une minute, puis réessayez. Vos saisies sont conservées.",
+  "community.errServer":
+    "Le serveur n’a pas pu traiter cette demande. Veuillez réessayer. Vos saisies sont conservées.",
+  "community.errSession":
+    "Votre session a expiré. Reconnectez-vous, puis réessayez. Vos saisies sont conservées.",
+  "addProduct.notSavedUntil":
+    "Vos nouvelles saisies ne sont pas enregistrées tant que vous ne choisissez pas « En commencer un nouveau ».",
+  "contribute.noticePackaging":
+    "Un simple changement d’emballage conserve la même formule et les mêmes évaluations. Joignez une photo du nouvel emballage.",
+  "contribute.noticeDiscontinue":
+    "Une fois l’arrêt accepté, le produit n’apparaît plus dans les découvertes ni dans les classements. Le produit et l’historique de sa formule restent consultables.",
+  "code.online_only": "uniquement en ligne",
+  "detail.eligibilityTitle": "Éligibilité proposée au classement",
+  "detail.eligible": "Éligible",
+  "detail.eligibleRanking": "Éligible au classement",
+  "signIn.eyebrow": "Votre expérience fait la différence",
+  "contribute.eyebrow": "Aidez à garder le catalogue utile",
+  "allergen.onFile": "Actuellement enregistré :",
+  "detail.allergensOnFile": "Allergènes enregistrés",
+  "footer.guidelines": "Règles de la communauté",
+  "community.guidelinesLink": "règles de la communauté",
+  "signIn.termsLink": "conditions d’utilisation et les règles de la communauté",
+  "signIn.privacyLink": "politique de confidentialité",
+  "product.labelPlantBased": "Indique « végétal » ou « à base de plantes »",
+  "community.manufacturerPlantBased": "Étiqueté végétal ou à base de plantes",
+  "product.foundAt": "Se trouve couramment chez",
+  "product.yours": "votre magasin",
+  "comments.hideExplain":
+    "Masquer ce commentaire au public? Son texte et ses votes sont conservés, et vous pouvez le rétablir depuis l’historique des décisions du produit.",
+  "comments.hidden": "Commentaire masqué au public.",
+  "home.pointAt":
+    "Survolez un autre aliment de la liste pour en voir un aperçu.",
+  "contribute.stanceNote":
+    "Seule la position la plus récente de chaque personne est conservée. Confirmer de nouveau actualise sa date, mais n’augmente pas le poids de votre avis. Un membre de l’équipe décide s’il faut retirer un lien.",
+  "account.handleHint":
+    "De 3 à 30 lettres, chiffres ou tirets bas. Commencez par une lettre.",
+  "safety.indiaMark":
+    "Le symbole végétarien vert de l’Inde n’est pas une mention végane, car un aliment végétarien peut contenir des produits laitiers. Choisissez « Étiqueté végan » seulement si l’emballage indique « végan » ou porte le logo végan.",
+  "nav.suggestFood": "Suggérer un aliment",
 };

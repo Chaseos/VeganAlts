@@ -9,7 +9,7 @@ export const errors: Record<string, string> = {
   "A later catalog change overlaps this action. Review the newer changes before reversing it.":
     "Una modifica successiva del catalogo si sovrappone a questa azione. Controlla le modifiche più recenti prima di annullarla.",
   "A moderator has hidden this comment, so it can't be edited.":
-    "Un moderatore ha nascosto questo commento, quindi non può essere modificato.",
+    "Il team di moderazione ha nascosto questo commento, quindi non può essere modificato.",
   "A newer response replaced this check.":
     "Una risposta più recente ha sostituito questa verifica.",
   "A previously featured category was retired. Choose new features instead.":
@@ -30,11 +30,11 @@ export const errors: Record<string, string> = {
   "Another category uses or redirects from that address.":
     "Un’altra categoria usa questo indirizzo o reindirizza da esso.",
   "Another contributor just published this product. Search for its canonical entry.":
-    "Un altro contributore ha appena pubblicato questo prodotto. Cerca la sua scheda di riferimento.",
+    "Un altro membro ha appena pubblicato questo prodotto. Cerca la sua scheda di riferimento.",
   "Another merge involving these categories is in progress.":
     "È in corso un’altra unione che riguarda queste categorie.",
   "Another product already uses this brand and name.":
-    "Un altro prodotto usa già questo marchio e questo nome.",
+    "Un altro prodotto usa già questa marca e questo nome.",
   "Another request is continuing this merge. Refresh shortly.":
     "Un’altra richiesta sta proseguendo questa unione. Aggiorna la pagina tra poco.",
   "Another request is finalizing this merge.":
@@ -51,19 +51,19 @@ export const errors: Record<string, string> = {
     "Allega le foto della confezione aggiornate.",
   "Both categories must be active.":
     "Entrambe le categorie devono essere attive.",
-  "Brand not found.": "Marchio non trovato.",
+  "Brand not found.": "Marca non trovata.",
   "Category not found.": "Categoria non trovata.",
   "Change eligibility only for existing product categories.":
     "Modifica l’idoneità solo per le categorie di prodotti esistenti.",
   "Choose Closest match, Tastiest, Trending, Newest, Most rated or a detail sort.":
-    "Scegli Il più vicino all’originale, Il più gustoso, In tendenza, Più recenti, Più valutati oppure un ordinamento per dettaglio.",
+    "Scegli Il più vicino all’originale, Il più gustoso, Di tendenza, Più recenti, Più valutati oppure un ordinamento per dettaglio.",
   "Choose a JPEG, PNG, or WebP photo.": "Scegli una foto JPEG, PNG o WebP.",
   "Choose a closeness answer before adding comparison details.":
     "Scegli una risposta sulla somiglianza prima di aggiungere i dettagli del confronto.",
   "Choose a different related product and a relationship.":
-    "Scegli un altro prodotto correlato e un tipo di relazione.",
+    "Scegli un altro prodotto collegato e un tipo di legame.",
   "Choose a line of this brand in this country.":
-    "Scegli una linea di questo marchio in questo paese.",
+    "Scegli una linea di questa marca in questo paese.",
   "Choose a page from 1 to 100.": "Scegli una pagina da 1 a 100.",
   "Choose a supported image slot.": "Scegli uno spazio immagine supportato.",
   "Choose a valid JPEG, PNG, or WebP image.":
@@ -101,7 +101,7 @@ export const errors: Record<string, string> = {
   "Choose foods that are still listed.":
     "Scegli alimenti ancora presenti nell’elenco.",
   "Choose one of the brand’s lines, or name a new one.":
-    "Scegli una delle linee del marchio oppure indicane una nuova.",
+    "Scegli una delle linee della marca oppure indicane una nuova.",
   "Choose one of the countries VeganAlts is open in.":
     "Scegli uno dei paesi in cui VeganAlts è attivo.",
   "Choose one of this product's categories.":
@@ -157,7 +157,7 @@ export const errors: Record<string, string> = {
   "Merge rankable categories only into rankable categories.":
     "Unisci le categorie in classifica solo con altre categorie in classifica.",
   "No relationship exists for that retailer.":
-    "Non esiste alcuna relazione con questo rivenditore.",
+    "Non esiste alcun legame con questo rivenditore.",
   "Nothing changed.": "Non è cambiato nulla.",
   "Only a completed active merge can be reversed.":
     "Si può annullare solo un’unione attiva e completata.",
@@ -250,7 +250,7 @@ export const errors: Record<string, string> = {
     "La richiesta del team è cambiata. Riapri il tuo contributo prima di rispondere.",
   "The photo could not be processed. Retry with the same request.":
     "Non è stato possibile elaborare la foto. Riprova con la stessa richiesta.",
-  "The product already has this brand.": "Il prodotto ha già questo marchio.",
+  "The product already has this brand.": "Il prodotto ha già questa marca.",
   "The product already has this name and flavor.":
     "Il prodotto ha già questo nome e questo gusto.",
   "The product changed while you were reviewing. Refresh before deciding.":
@@ -368,7 +368,7 @@ export const errors: Record<string, string> = {
     "Questo prodotto esiste già. Usa la scheda di riferimento.",
   "This product has no line.": "Questo prodotto non ha una linea.",
   "This product has no relationship with that retailer.":
-    "Questo prodotto non ha alcuna relazione con questo rivenditore.",
+    "Questo prodotto non ha alcun legame con questo rivenditore.",
   "This product is already discontinued.":
     "Questo prodotto è già fuori produzione.",
   "This product is being updated. Please try again.":
@@ -437,7 +437,7 @@ export const errors: Record<string, string> = {
   "Use a display name of up to 60 characters.":
     "Usa un nome visualizzato di al massimo 60 caratteri.",
   "Use a recognizable brand and product name, with more than a package size.":
-    "Usa un nome di marchio e di prodotto riconoscibile, che non sia solo il formato della confezione.",
+    "Usa un nome di marca e di prodotto riconoscibile, che non sia solo il formato della confezione.",
   "Use a valid effective date.": "Usa una data di entrata in vigore valida.",
   "Use an effective year between 1900 and 2200.":
     "Usa un anno di entrata in vigore compreso tra 1900 e 2200.",

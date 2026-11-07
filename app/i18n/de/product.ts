@@ -38,15 +38,15 @@ export const product = {
     "Für dieses Lebensmittel sind gerade keine Bewertungen verfügbar.",
   "product.historicalScores":
     "Frühere Punktzahlen bleiben erhalten. Wähle die aktuelle Rezeptur, um deine Erfahrung hinzuzufügen.",
-  "product.howRated": "So haben Personen es bewertet",
-  "product.compareAll": "Alle {total} Alternativen zu {food} vergleichen",
+  "product.howRated": "So wurde es bewertet",
+  "product.compareAll": "Alle {total} Alternativen vergleichen: {food}",
   "product.lifecycle":
     "Status dieses Produkts: {status}. Neue Bewertungen sind nicht möglich.",
   "product.liveTitle": "Dein Produkt ist online",
   "product.liveThanks": "Danke fürs Hinzufügen.",
   "product.liveRated": "Deine Bewertung von {rating}/5 ist gespeichert.",
-  "product.liveAddDetail": "Detailwerte hinzufügen",
-  "product.liveIfYouLike": "wenn du magst.",
+  "product.liveAddDetail": "Füge Detailpunkte hinzu",
+  "product.liveIfYouLike": "– wenn du magst.",
   "product.livePending": "Deine Bewertung wird gleich gespeichert.",
   "product.liveTried": "Schon probiert?",
   "product.liveRateIt": "Bewerte es",
@@ -64,7 +64,7 @@ export const product = {
   "product.noOtherFlavors":
     "Für diese Rezeptur sind noch keine weiteren Sorten eingetragen.",
   "product.addFlavor": "Weitere Sorte hinzufügen",
-  "product.otherSwaps": "Weitere Alternativen zu {food}",
+  "product.otherSwaps": "Weitere Alternativen: {food}",
   "product.seeAll": "Alle {total} ansehen",
   "product.rank": "Platz ",
 
@@ -99,17 +99,17 @@ export const product = {
   "safety.veganStatus": "Vegan-Status",
   "safety.allergens": "Allergene",
   "safety.notConfirmed": "Noch nicht bestätigt",
-  "safety.confirmedBy": "Von {members} anhand der Verpackung bestätigt.",
+  "safety.confirmedBy": "Anhand der Verpackung bestätigt: {members}.",
   "safety.checkPackage": "Prüfe immer die Verpackung.",
   "safety.contains": "Enthält:",
   "safety.mayContain": "Kann enthalten:",
   "safety.ingredientsUnchecked": "Zutaten noch nicht geprüft",
   "safety.uncheckedWithPhoto":
     "Bisher hat niemand die Zutaten dieses Produkts mit dem Etikettenfoto abgeglichen.",
-  "safety.checkIngredients": "Zutaten prüfen",
+  "safety.checkIngredients": "Prüfe die Zutaten",
   "safety.uncheckedNoPhoto":
-    "Wer dieses Produkt hinzugefügt hat, hat keine Zutaten angegeben. Du hast die Verpackung?",
-  "safety.addIngredientsPhoto": "Foto der Zutatenliste hinzufügen",
+    "Wer dieses Produkt hinzugefügt hat, hat keine Zutaten angegeben. Hast du die Verpackung?",
+  "safety.addIngredientsPhoto": "Füge ein Foto der Zutatenliste hinzu",
   "safety.memberCanConfirm": "und ein anderes Mitglied kann es bestätigen.",
 
   // Product page: details
@@ -133,7 +133,7 @@ export const product = {
     "Für diese Rezeptur ist keine Zertifizierung durch Dritte erfasst.",
   "product.whereFound": "Wo Mitglieder es gefunden haben",
   "product.availabilityNote": "Meldungen aus der Community, kein Live-Bestand.",
-  "product.notConfirmedRecently": "Zuletzt nicht bestätigt",
+  "product.notConfirmedRecently": "In letzter Zeit nicht bestätigt",
   "product.recentlyConfirmed": "Kürzlich bestätigt",
   "product.retailerLine":
     "{status} · {contributors} · zuletzt bestätigt am {date}",
@@ -143,7 +143,7 @@ export const product = {
     "Jedes Produkt und jedes Land hat seine eigenen Bewertungen.",
   "product.formulaHistory": "Rezepturverlauf",
   "product.newFormula":
-    "Eine neue Rezeptur beginnt bei null. Frühere Erfahrungen bleiben bei der Rezeptur, die Personen ausprobiert haben.",
+    "Eine neue Rezeptur beginnt bei null. Frühere Erfahrungen bleiben bei der Rezeptur, die probiert wurde.",
   "product.current": "Aktuell",
   "product.historical": "Früher",
   "product.effective": "gültig ab {date} (Genauigkeit: {precision})",
@@ -152,29 +152,29 @@ export const product = {
 
   // Product page: score card and breakdown
   "product.communityRatings": "Bewertungen der Community",
-  "product.firstSwap": "Platz 1 für {food}",
-  "product.rankOfFor": "Platz {rank} von {of} für {food}",
+  "product.firstSwap": "Platz 1: {food}",
+  "product.rankOfFor": "Platz {rank} von {of} ({food})",
   "product.acrossFlavors": "Über {total} Sorten von {name}",
   "product.closest": "Am nächsten",
-  "product.toFood": "an {food}",
+  "product.toFood": "zum Original ({food})",
   "product.tastiest": "Am leckersten",
   "product.onItsOwn": "für sich genommen",
   "product.thisFlavor": "Diese Sorte",
   "product.tooFew": "Noch zu wenige Bewertungen",
   "product.unrated": "Nicht bewertet",
   "product.breakdown": "Aufschlüsselung der Bewertungen",
-  "product.breakdownLine": "Diese Sorte · Nähe zu {food} · {people}",
-  "product.closenessRatings": "Bewertungen der Nähe zu {food}",
+  "product.breakdownLine":
+    "Diese Sorte · Nähe zum Original ({food}) · {people}",
+  "product.closenessRatings": "Bewertungen der Nähe zum Original ({food})",
   "product.closerLook": "Genauer hingeschaut",
-  "product.detailFrom":
-    "Von {people}, die für diese Sorte Detailwerte angegeben haben.",
+  "product.detailFrom": "Detailpunkte von {people} für diese Sorte.",
   "product.recentEaters":
-    "Personen, die im letzten Jahr {food} gegessen haben, geben dieser Sorte",
+    "Personen, die in den letzten 12 Monaten {food} gegessen oder getrunken haben, geben dieser Sorte",
 
   // Product page: stores
   "product.addRetailer": "Woanders gesehen? Händler hinzufügen oder bestätigen",
   "product.nobodyReported": "Noch hat niemand gemeldet, wo es verkauft wird.",
-  "product.foundAt": "Häufig zu finden bei",
+  "product.foundAt": "Häufig erhältlich bei",
   "product.yours": "deine",
   "product.tapStores":
     "Tippe auf alle Geschäfte, in denen du einkaufst, um sie auf diesem Gerät zu speichern. Die Ranglisten zeigen dann, was du in einem davon findest.",
@@ -183,8 +183,8 @@ export const product = {
   "product.people": { one: "{amount} Person", other: "{amount} Personen" },
   "product.members": { one: "{amount} Mitglied", other: "{amount} Mitglieder" },
   "product.contributors": {
-    one: "{amount} Person mit Beiträgen",
-    other: "{amount} Personen mit Beiträgen",
+    one: "{amount} beitragende Person",
+    other: "{amount} beitragende Personen",
   },
 
   // Rating control
@@ -204,12 +204,13 @@ export const product = {
   "rating.lastOver": "Vor über einem Jahr",
   "rating.lastNoSay": "Keine Angabe",
   "rating.position": "({number} von 5)",
-  "rating.rateAs": "Als {food} bewerten",
+  "rating.rateAs": "Als Alternative bewerten: {food}",
   "rating.noscript":
     "Zum Speichern einer Bewertung wird JavaScript benötigt. Aktiviere es und lade die Seite neu, um dieses Produkt zu bewerten.",
-  "rating.closeQuestion": "Schon probiert? Wie nah kommt es an {food} heran?",
+  "rating.closeQuestion":
+    "Schon probiert? Wie nah kommt es dem Original ({food})?",
   "rating.closeQuestionFlavored":
-    "Schon probiert? Wie nah kommt es an {food} in derselben Sorte heran?",
+    "Schon probiert? Wie nah kommt es dem Original ({food}) in derselben Sorte?",
   "rating.helpSignedOut":
     "Wähle eine Punktzahl; zum Speichern meldest du dich an.",
   "rating.help":
@@ -220,12 +221,13 @@ export const product = {
   "rating.yourAnswers": "· deine Antworten",
   "rating.optional": "· optional",
   "rating.detailLegend": "Detailbewertungen und letztes Mal gegessen",
-  "rating.lastAteQuestion": "Wann hast du zuletzt {food} gegessen?",
+  "rating.lastAteQuestion":
+    "Wann hast du zuletzt {food} gegessen oder getrunken?",
   "rating.optionalWord": "optional",
   "rating.recencyNote":
-    "Zeigt, wie nah es Personen vorkommt, die es noch essen. Es ändert nie, wie stark deine Bewertung zählt.",
+    "Zeigt, wie nah es dem Original für Personen kommt, die das Original noch essen oder trinken. Das ändert nie, wie stark deine Bewertung zählt.",
   "rating.clearDetails": "Details löschen",
-  "rating.loading": "Deine Bewertung wird geladen…",
+  "rating.loading": "Deine Bewertung wird geladen …",
   "rating.yours": "Deine Bewertung: {score}/5",
   "rating.tasteScore": "Geschmack: {taste}/5",
   "rating.yoursTaste": "Deine Geschmacksbewertung: {taste}/5",
@@ -234,7 +236,7 @@ export const product = {
   "rating.tasteTarget": "Geschmack {taste}/5",
   "rating.removalTarget": "Entfernen der Bewertung",
   "rating.conflict": "Diese Rezeptur oder ihre Fragen haben sich geändert.",
-  "rating.openCurrent": "Aktuelle Version öffnen",
+  "rating.openCurrent": "Öffne die aktuelle Version",
   "rating.rateAgain": "und bewerte erneut.",
 
   // Pending rating recovery
@@ -258,7 +260,7 @@ export const product = {
   "save.removed": "Aus deiner Liste entfernt.",
   "personal.storage":
     "Dein Browser konnte sich diese Auswahl nicht merken. Aktiviere den Tab-Speicher und versuche es erneut.",
-  "personal.signingIn": "Weiter zur Anmeldung…",
+  "personal.signingIn": "Weiter zur Anmeldung …",
   "personal.connectionLostSelection":
     "Verbindung verloren. Deine Auswahl ist noch da; versuche es erneut, wenn du bereit bist.",
   "personal.badResponse":
@@ -294,14 +296,14 @@ export const product = {
   "myRatings.close3": "ziemlich nah",
   "myRatings.close4": "sehr nah",
   "myRatings.close5": "extrem nah",
-  "myRatings.eyebrow": "Deine Erfahrungen, gemerkt",
+  "myRatings.eyebrow": "Deine Erfahrungen auf einen Blick",
   "myRatings.title": "Meine Bewertungen",
   "myRatings.intro":
     "Nur du siehst diesen Verlauf. Zuletzt aktualisierte zuerst.",
   "myRatings.emptyTitle": "Dein nächster Favorit wartet schon.",
   "myRatings.emptyBody":
     "Entdecke ein Lebensmittel, probiere eine Alternative und teile, wie nah sie herankommt.",
-  "myRatings.as": "Als {food}",
+  "myRatings.as": "Als Alternative: {food}",
   "myRatings.closeness": "Nähe:",
   "myRatings.taste": "Geschmack:",
   "myRatings.archived":
@@ -339,18 +341,18 @@ export const product = {
   "comments.loadFailed":
     "Kommentare konnten nicht geladen werden. Bitte versuche es erneut.",
   "comments.thanksPending":
-    "Danke. Dein Kommentar erscheint, nachdem das Team ihn geprüft hat.",
+    "Danke. Dein Kommentar erscheint, nachdem das Moderationsteam ihn geprüft hat.",
   "comments.posted": "Dein Kommentar ist veröffentlicht.",
   "comments.editPending":
-    "Deine Änderung erscheint, nachdem das Team sie geprüft hat.",
+    "Deine Änderung erscheint, nachdem das Moderationsteam sie geprüft hat.",
   "comments.updated": "Dein Kommentar wurde aktualisiert.",
   "comments.confirmDelete":
     "Deinen Kommentar löschen? Das lässt sich nicht rückgängig machen.",
   "comments.deleted": "Dein Kommentar wurde gelöscht.",
   "comments.hidden": "Kommentar für die Öffentlichkeit ausgeblendet.",
-  "comments.title": "Notizen von Personen, die es probiert haben",
+  "comments.title": "Notizen von Leuten, die es probiert haben",
   "comments.intro":
-    "Teile, wie es im Vergleich abschneidet: Geschmack, Konsistenz, Zubereitung und wie lange du das Original zuletzt gegessen hast. Stimme darüber ab, ob ein Kommentar anderen hilft, das Produkt zu verstehen, nicht ob du ihm zustimmst.",
+    "Beschreibe den Vergleich: Geschmack, Textur, Zubereitung und wann du das Original zuletzt probiert hast. Stimme darüber ab, ob ein Kommentar anderen hilft, das Produkt zu verstehen, nicht ob du ihm zustimmst.",
   "comments.sortLabel": "Kommentare sortieren",
   "comments.best": "Beste",
   "comments.newest": "Neueste",
@@ -360,19 +362,19 @@ export const product = {
   "comments.reviewHistory":
     "Verlauf ansehen oder einen Kommentar wiederherstellen",
   "comments.awaitingLabel": "Deine Kommentare in Prüfung",
-  "comments.awaiting": "Wartet auf Prüfung durch das Team",
+  "comments.awaiting": "Wartet auf Prüfung durch das Moderationsteam",
   "comments.recentLabel": "Deine letzten Kommentare",
   "comments.published":
     "Veröffentlicht. Es kann ein paar Minuten dauern, bis er für alle erscheint.",
   "comments.listLabel": "Kommentare",
   "comments.noneCurrent": "Noch keine Kommentare zu dieser Rezeptur.",
   "comments.noneEarlier": "Keine Kommentare zu früheren Rezepturen.",
-  "comments.loading": "Wird geladen…",
+  "comments.loading": "Wird geladen …",
   "comments.more": "Weitere Kommentare anzeigen",
   "comments.add": "Deine Erfahrung hinzufügen",
   "comments.comparedWith": "Verglichen mit (optional)",
   "comments.anyUse": "Beliebige Verwendung",
-  "comments.posting": "Wird veröffentlicht…",
+  "comments.posting": "Wird veröffentlicht …",
   "comments.post": "Kommentar veröffentlichen",
   "comments.signIn": "Melde dich an, um zu kommentieren und abzustimmen",
 } as const;

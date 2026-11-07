@@ -89,20 +89,20 @@ export const product = {
   "product.earlierRecipe": "Ricetta precedente",
   "product.earlierRecipes": "Ricette precedenti",
   "product.keepRatings": "mantengono le proprie valutazioni.",
-  "product.soldIn": "In vendita in",
+  "product.soldIn": "Paese di vendita",
 
   // Safety wording
-  "safety.veganStatus": "Stato vegano",
+  "safety.veganStatus": "Status vegano",
   "safety.allergens": "Allergeni",
-  "safety.notConfirmed": "Non ancora confermato",
-  "safety.confirmedBy": "Confermato da {members} in base alla confezione.",
+  "safety.notConfirmed": "Dato non ancora confermato",
+  "safety.confirmedBy": "Dato confermato da {members} in base alla confezione.",
   "safety.checkPackage": "Controlla sempre la confezione.",
   "safety.contains": "Contiene:",
   "safety.mayContain": "Può contenere:",
-  "safety.ingredientsUnchecked": "Ingredienti non ancora verificati",
+  "safety.ingredientsUnchecked": "Ingredienti non ancora controllati",
   "safety.uncheckedWithPhoto":
-    "Nessuno ha ancora verificato gli ingredienti di questo prodotto con la foto dell’etichetta.",
-  "safety.checkIngredients": "Verifica gli ingredienti",
+    "Nessuno ha ancora controllato gli ingredienti di questo prodotto con la foto dell’etichetta.",
+  "safety.checkIngredients": "Controlla gli ingredienti",
   "safety.uncheckedNoPhoto":
     "Chi ha aggiunto questo prodotto non ha indicato gli ingredienti. Hai la confezione?",
   "safety.addIngredientsPhoto": "Aggiungi una foto degli ingredienti",
@@ -114,7 +114,8 @@ export const product = {
     "Nessun elenco leggibile in confezione corrispondente; verificato con una fonte online relativa al prodotto esatto.",
   "product.verifiedNoSource":
     "Non era disponibile alcuna fonte leggibile in confezione o online per gli ingredienti.",
-  "product.verifiedFromLabel": "{status} dall’etichetta della confezione.",
+  "product.verifiedFromLabel":
+    "Trascrizione dall’etichetta della confezione: {status}.",
   "product.noPackageList":
     "Non era disponibile un elenco ingredienti leggibile in confezione.",
   "product.onlineSupplement": "Integrazione online degli ingredienti",
@@ -132,10 +133,9 @@ export const product = {
     "Segnalazioni della community sulla disponibilità, non scorte in tempo reale.",
   "product.notConfirmedRecently": "Non confermato di recente",
   "product.recentlyConfirmed": "Confermato di recente",
-  "product.retailerLine":
-    "{status} · {contributors} · ultima conferma il {date}",
-  "product.noRetailers": "Ancora nessuna conferma dai rivenditori.",
-  "product.related": "Prodotti correlati",
+  "product.retailerLine": "{status} · {contributors} · ultima conferma: {date}",
+  "product.noRetailers": "Ancora nessun rivenditore confermato.",
+  "product.related": "Prodotti collegati",
   "product.ownRatings": "Ogni prodotto e ogni paese ha le proprie valutazioni.",
   "product.formulaHistory": "Cronologia della ricetta",
   "product.newFormula":
@@ -171,7 +171,7 @@ export const product = {
   "product.addRetailer":
     "Lo hai visto altrove? Aggiungi o conferma un rivenditore",
   "product.nobodyReported": "Nessuno ha ancora segnalato dove viene venduto.",
-  "product.foundAt": "Di solito si trova da",
+  "product.foundAt": "Si trova di solito da",
   "product.yours": "tuo",
   "product.tapStores":
     "Tocca tutti i negozi in cui fai la spesa per salvarli su questo dispositivo. Le classifiche mostreranno ciò che puoi trovare in uno qualsiasi di essi.",
@@ -210,12 +210,11 @@ export const product = {
   "rating.helpSignedOut": "Scegli un punteggio; accedi per salvarlo.",
   "rating.help":
     "Rispondi a una delle due domande o a entrambe. Ogni scelta viene salvata subito; toccala di nuovo per cancellarla. Con la tua valutazione questa ricetta risulta provata.",
-  "rating.tastyQuestion":
-    "Quanto è buono, a prescindere da quanto somigli all’originale?",
+  "rating.tastyQuestion": "Quanto è gustoso, che somigli o no all’originale?",
   "rating.addDetail": "Aggiungi dettagli",
   "rating.yourAnswers": "· le tue risposte",
   "rating.optional": "· facoltativo",
-  "rating.detailLegend": "Valutazioni di dettaglio e ultima volta",
+  "rating.detailLegend": "Valutazioni di dettaglio e ultimo consumo",
   "rating.lastAteQuestion": "Quando hai mangiato {food} l’ultima volta?",
   "rating.optionalWord": "facoltativo",
   "rating.recencyNote":
@@ -327,7 +326,7 @@ export const product = {
   "comments.hideReason": "Motivo per cui lo nascondi",
   "comments.confirmHide": "Conferma e nascondi",
   "comments.whyReport": "Perché lo segnali?",
-  "comments.details": "Dettagli (facoltativo)",
+  "comments.details": "Dettagli (facoltativi)",
   "comments.sendReport": "Invia la segnalazione",
   "comments.loadFailed": "Non è stato possibile caricare i commenti. Riprova.",
   "comments.thanksPending":

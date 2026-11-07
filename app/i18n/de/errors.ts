@@ -9,7 +9,7 @@ export const errors: Record<string, string> = {
   "A later catalog change overlaps this action. Review the newer changes before reversing it.":
     "Eine spätere Katalogänderung überschneidet sich mit dieser Aktion. Prüfe die neueren Änderungen, bevor du sie rückgängig machst.",
   "A moderator has hidden this comment, so it can't be edited.":
-    "Eine Moderation hat diesen Kommentar ausgeblendet, daher kann er nicht bearbeitet werden.",
+    "Das Moderationsteam hat diesen Kommentar ausgeblendet, daher kann er nicht bearbeitet werden.",
   "A newer response replaced this check.":
     "Eine neuere Antwort hat diese Prüfung ersetzt.",
   "A previously featured category was retired. Choose new features instead.":
@@ -55,7 +55,7 @@ export const errors: Record<string, string> = {
   "Change eligibility only for existing product categories.":
     "Ändere die Eignung nur für bestehende Produktkategorien.",
   "Choose Closest match, Tastiest, Trending, Newest, Most rated or a detail sort.":
-    "Wähle „Am nächsten am Original“, „Am leckersten“, „Im Trend“, „Neueste“, „Am meisten bewertet“ oder eine Sortierung nach Detail.",
+    "Wähle „Am nächsten am Original“, „Am leckersten“, „Im Trend“, „Neueste“, „Meistbewertet“ oder eine Sortierung nach Detail.",
   "Choose a JPEG, PNG, or WebP photo.":
     "Wähle ein Foto im Format JPEG, PNG oder WebP.",
   "Choose a closeness answer before adding comparison details.":
@@ -432,7 +432,7 @@ export const errors: Record<string, string> = {
   "Today's comment allowance is exhausted. Please try again tomorrow.":
     "Das heutige Kommentarlimit ist erreicht. Bitte versuche es morgen erneut.",
   "Under Review requires an assessed ingredient concern.":
-    "Der Status „In Prüfung“ setzt ein bewertetes Bedenken zu einer Zutat voraus.",
+    "Der Status „In Prüfung“ setzt geprüfte Bedenken zu einer Zutat voraus.",
   "Use 2–60 lowercase letters, numbers and hyphens.":
     "Verwende 2–60 Kleinbuchstaben, Ziffern und Bindestriche.",
   "Use 3–30 letters, numbers or underscores, starting with a letter. This handle must not be reserved.":

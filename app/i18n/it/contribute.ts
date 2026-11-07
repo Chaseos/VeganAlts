@@ -12,7 +12,7 @@ export const contribute = {
   "account.moderationInbox": "Posta della moderazione",
   "account.myContributions": "I miei contributi",
   "account.myRatings": "Le mie valutazioni",
-  "account.productAnalytics": "Statistiche dei prodotti",
+  "account.productAnalytics": "Analisi dei prodotti",
   "account.publicProfile": "Profilo pubblico",
   "account.save": "Salva il profilo",
   "account.saved": "Profilo salvato.",
@@ -27,10 +27,10 @@ export const contribute = {
     "Quando viene accettato, viene pubblicato in questo paese ({country}) e la tua valutazione viene salvata.",
   "addProduct.addAnother": "Aggiungi un altro prodotto",
   "addProduct.addAnyway": "Aggiungilo comunque",
-  "addProduct.addNewBrand": "Aggiungi «{name}» come nuovo marchio",
+  "addProduct.addNewBrand": "Aggiungi «{name}» come nuova marca",
   "addProduct.added": "Aggiunto",
   "addProduct.addedNothingAnimal": "Aggiunto · niente di origine animale",
-  "addProduct.addingTo": "Aggiungi a",
+  "addProduct.addingTo": "Stai aggiungendo a",
   "addProduct.allOptional":
     "Qui tutto è facoltativo. Invia subito o aggiungi quello che sai.",
   "addProduct.allergens": "Allergeni",
@@ -41,33 +41,33 @@ export const contribute = {
   "addProduct.alreadyListed":
     "{name} è già in elenco, anche in altri formati di confezione.",
   "addProduct.alreadyListedAfter":
-    "invece, oppure cambia il nome se è un gusto o una ricetta diversa.",
+    "invece di aggiungerlo, oppure cambia il nome se è un gusto o una ricetta diversa.",
   "addProduct.alreadyListedFrom": "Già in elenco di {brand}",
   "addProduct.alreadyListedTitle": "Già su VeganAlts",
   "addProduct.alsoCalled": "Chiamato anche {name}",
   "addProduct.alsoReplaces": "Sostituisce anche",
   "addProduct.back": "Indietro",
   "addProduct.basicsTitle": "I dati di base",
-  "addProduct.brandFirst": "Scegli prima il marchio.",
+  "addProduct.brandFirst": "Scegli prima la marca.",
   "addProduct.brandNothing": "Ancora niente in questo paese ({country})",
   "addProduct.brandProducts": {
     one: "{number} prodotto in questo paese ({country})",
     other: "{number} prodotti in questo paese ({country})",
   },
-  "addProduct.brandRequired": "Marchio (obbligatorio)",
-  "addProduct.brandsFailed": "Non siamo riusciti a controllare i marchi.",
+  "addProduct.brandRequired": "Marca (obbligatoria)",
+  "addProduct.brandsFailed": "Non siamo riusciti a controllare le marche.",
   "addProduct.brandsFailedRetry":
-    "Non siamo riusciti a controllare i marchi. Riprova.",
+    "Non siamo riusciti a controllare le marche. Riprova.",
   "addProduct.brandsFound": {
-    one: "{number} marchio trovato. Usa le frecce per scegliere.",
-    other: "{number} marchi trovati. Usa le frecce per scegliere.",
+    one: "{number} marca trovata. Usa le frecce per scegliere.",
+    other: "{number} marche trovate. Usa le frecce per scegliere.",
   },
-  "addProduct.brandsMatching": "Marchi che corrispondono a {text}",
+  "addProduct.brandsMatching": "Marche che corrispondono a {text}",
   "addProduct.bringsFood":
-    "Aggiungendo un prodotto, {food} arriva in questo paese ({country}).",
+    "Aggiungendo un prodotto, la classifica per {food} arriva in questo paese ({country}).",
   "addProduct.cannotAccept": "Questa proposta non può essere accettata.",
   "addProduct.change": "Cambia",
-  "addProduct.changeBrand": "marchio {name}",
+  "addProduct.changeBrand": "marca {name}",
   "addProduct.changeCountry": "Cambia paese (ora {country})",
   "addProduct.checkAndRetry": "Controlla i dati del prodotto e riprova.",
   "addProduct.checkDetails": "Verifichiamo i dati.",
@@ -89,11 +89,11 @@ export const contribute = {
   "addProduct.draftNotSaved":
     "Questa bozza non è salvata in modo sicuro su questo dispositivo.",
   "addProduct.duplicate":
-    "Questo prodotto è già su VeganAlts. Valutalo invece, oppure cambia il nome se è un gusto o una ricetta diversa.",
+    "Questo prodotto è già su VeganAlts. Valutalo invece di aggiungerlo, oppure cambia il nome se è un gusto o una ricetta diversa.",
   "addProduct.duplicateShort":
-    "Questo prodotto è già su VeganAlts. Valutalo invece.",
+    "Questo prodotto è già su VeganAlts. Valutalo invece di aggiungerlo.",
   "addProduct.editBasics": "Modifica i dati di base",
-  "addProduct.eyebrow": "Fai crescere il catalogo della comunità",
+  "addProduct.eyebrow": "Fai crescere il catalogo della community",
   "addProduct.filterStores": "Filtra i negozi",
   "addProduct.flavorBlank":
     "Lascia vuoto se è la versione originale o semplice.",
@@ -103,7 +103,7 @@ export const contribute = {
   "addProduct.followBefore":
     "Puoi seguirne l’esito e rispondere a eventuali domande nella pagina",
   "addProduct.followUpLabel": "Richiesta di approfondimento",
-  "addProduct.foodPlaceholder": "Straccetti di pollo, cheddar, latte…",
+  "addProduct.foodPlaceholder": "Nuggets di pollo, cheddar, latte…",
   "addProduct.foodRequired": "Quale alimento sostituisce? (obbligatorio)",
   "addProduct.foods": "Alimenti",
   "addProduct.foodsMatching": "Alimenti che corrispondono a {text}",
@@ -117,7 +117,7 @@ export const contribute = {
   "addProduct.ifNotCarryOn":
     "Se no, vai avanti. Gusti e ricette diversi sono prodotti separati.",
   "addProduct.ingredientLink":
-    "Link agli ingredienti sul sito del marchio (facoltativo)",
+    "Link agli ingredienti sul sito della marca (facoltativo)",
   "addProduct.ingredients": "Ingredienti",
   "addProduct.intro":
     "Inizia dai dati di base. Tutto il resto è facoltativo e chiunque può aggiungerlo più avanti.",
@@ -134,8 +134,8 @@ export const contribute = {
   },
   "addProduct.linesFailed":
     "Non siamo riusciti a controllare cosa c’è in elenco di {brand}.",
-  "addProduct.listedBrand": "Marchio in elenco",
-  "addProduct.lookingBrands": "Cerco i marchi…",
+  "addProduct.listedBrand": "Marca in elenco",
+  "addProduct.lookingBrands": "Cerco le marche…",
   "addProduct.metaTitle": "Aggiungi un prodotto · VeganAlts",
   "addProduct.moreTitle": "Aggiungi altro (facoltativo)",
   "addProduct.nameHintFlavor":
@@ -143,7 +143,7 @@ export const contribute = {
   "addProduct.nameHintNew":
     "Includi il gusto. I formati diversi condividono un solo prodotto.",
   "addProduct.nameRequired": "Nome del prodotto (obbligatorio)",
-  "addProduct.newBrand": "Nuovo marchio",
+  "addProduct.newBrand": "Nuova marca",
   "addProduct.newFlavorLegend": "Un nuovo gusto di {name}",
   "addProduct.newFlavorOf": "Aggiungi un nuovo gusto di {name}",
   "addProduct.newFoodLegend": "Nuovo alimento (verificato con il tuo prodotto)",
@@ -226,7 +226,7 @@ export const contribute = {
     one: "Una cosa da correggere",
     other: "{count} cose da correggere",
   },
-  "addProduct.thisBrand": "questo marchio",
+  "addProduct.thisBrand": "questa marca",
   "addProduct.thisLine": "questa linea",
   "addProduct.title": "Aggiungi un prodotto",
   "addProduct.triedIt": "Provato? Quanto è vicino a {food}?",
@@ -248,13 +248,13 @@ export const contribute = {
   "allergen.citeHint":
     "Se indichi la foto degli ingredienti o dei valori nutrizionali della ricetta, altri membri possono confermare la dichiarazione. Altrimenti la verifica il team.",
   "allergen.labelSays": "Cosa dice l’etichetta?",
-  "allergen.lists": "Elenca degli allergeni",
+  "allergen.lists": "Sono elencati degli allergeni",
   "allergen.noPhoto":
-    "Questa ricetta non ha ancora una foto dell’etichetta; spiego nella nota",
+    "Questa ricetta non ha ancora una foto dell’etichetta; lo spiego nella nota",
   "allergen.noneDeclared": "Nessun allergene dichiarato sull’etichetta",
-  "allergen.noneOfThese": "Nessuna di queste; spiego nella nota",
-  "allergen.notConfirmed": "Non ancora confermato",
-  "allergen.onFile": "Registrato ora:",
+  "allergen.noneOfThese": "Nessuna di queste; lo spiego nella nota",
+  "allergen.notConfirmed": "Dato non ancora confermato",
+  "allergen.onFile": "Attualmente registrato:",
   "allergen.photoIngredients": "La foto degli ingredienti",
   "allergen.photoNutrition": "La foto dei valori nutrizionali",
   "allergen.record":
@@ -262,12 +262,12 @@ export const contribute = {
   "allergen.whichPhoto": "Quale foto lo mostra?",
   "brandChange.line": "Linea",
   "brandChange.newBrand":
-    "Scegli un marchio già in elenco. Per ora un prodotto non può passare a un marchio nuovo.",
+    "Scegli una marca già in elenco. Per ora un prodotto non può passare a una marca nuova.",
   "brandChange.newLine": "Una nuova linea",
   "brandChange.newLineName": "Nome della nuova linea",
   "brandChange.note":
-    "Il prodotto mantiene indirizzo, foto e valutazioni. Una linea appartiene a un solo marchio, quindi passa a una linea del nuovo marchio.",
-  "common.aliasesLabel": "Altri nomi (facoltativo, separati da virgole)",
+    "Il prodotto mantiene indirizzo, foto e valutazioni. Una linea appartiene a una sola marca, quindi passa a una linea della nuova marca.",
+  "common.aliasesLabel": "Altri nomi (facoltativi, separati da virgole)",
   "common.no": "No",
   "common.sending": "Invio in corso…",
   "common.yes": "Sì",
@@ -283,20 +283,21 @@ export const contribute = {
   "community.errSession":
     "La sessione è scaduta. Accedi di nuovo, poi riprova. Quello che hai inserito è ancora qui.",
   "community.evidenceHint":
-    "Collega direttamente le informazioni pertinenti del produttore o della certificazione.",
+    "Inserisci il link diretto alle informazioni pertinenti del produttore o della certificazione.",
   "community.evidenceNote": "Cosa mostra la prova?",
   "community.evidenceReviewed":
     "Il team verifica la prova prima di modificare il catalogo.",
   "community.guidelinesAfter": ".",
   "community.guidelinesBefore": "I contributi seguono le",
-  "community.guidelinesLink": "linee guida della comunità",
-  "community.guidelinesMiddle": "e vengono verificati come descritto in",
+  "community.guidelinesLink": "linee guida della community",
+  "community.guidelinesMiddle":
+    "e vengono verificati secondo quanto spiegato in",
   "community.manufacturerLabel": "Dicitura del produttore",
   "community.manufacturerNeither": "Nessuna delle due diciture",
   "community.manufacturerPlantBased": "Etichettato come vegetale",
   "community.manufacturerUnknown": "Non so / non indicato",
   "community.manufacturerVegan": "Etichettato come vegano",
-  "community.moderationLink": "come funziona la moderazione",
+  "community.moderationLink": "Come funziona la moderazione",
   "community.noScript":
     "Per aggiungere o modificare contributi serve JavaScript. Attivalo, poi ricarica la pagina per continuare.",
   "community.notConfirmed": "Non ancora confermato",
@@ -323,7 +324,7 @@ export const contribute = {
     "Le modifiche salvate valgono subito, senza verifica. Ognuna viene registrata nella cronologia delle decisioni e può essere annullata.",
   "contribute.breadcrumb": "Contribuisci",
   "contribute.canonicalRetailer": "Rivenditore di riferimento",
-  "contribute.certification": "Certificazione di terzi (facoltativo)",
+  "contribute.certification": "Certificazione di terzi (facoltativa)",
   "contribute.certificationName": "Nome della certificazione",
   "contribute.certificationUrl": "URL della prova della certificazione",
   "contribute.checkIngredients": "Controlla gli ingredienti",
@@ -334,7 +335,7 @@ export const contribute = {
   "contribute.earlierFormula": "(ricetta precedente)",
   "contribute.editProduct": "Modifica il prodotto",
   "contribute.effectiveDate":
-    "Data di entrata in vigore approssimativa (facoltativo)",
+    "Data di entrata in vigore approssimativa (facoltativa)",
   "contribute.experience": "La tua esperienza",
   "contribute.eyebrow": "Mantieni utile il catalogo",
   "contribute.findRetailer": "Cerca un rivenditore",
@@ -379,7 +380,7 @@ export const contribute = {
     "Foto dei valori nutrizionali e degli allergeni",
   "contribute.photoChecked": "La foto che hai controllato",
   "contribute.photoLimits":
-    "Fino a 10 MiB per foto. Finché una proposta è aperta alla conferma della comunità, chi ha effettuato l’accesso tra i contributori può vederne le prove; altrimenti restano private durante la verifica.",
+    "Fino a 10 MiB per foto. Finché una proposta è aperta alla conferma della community, i membri che hanno effettuato l’accesso possono vederne le prove; altrimenti restano private durante la verifica.",
   "contribute.photoOption": "Foto: {slot}",
   "contribute.photoUnchecked":
     "La foto degli ingredienti c’è, ma nessuno l’ha ancora controllata.",
@@ -394,14 +395,14 @@ export const contribute = {
     "Escludi un gusto dagli alimenti per cui metterlo in classifica sarebbe fuorviante. Le valutazioni esistenti vengono conservate.",
   "contribute.reason": "Motivo",
   "contribute.reasonForChange": "Motivo della modifica (facoltativo)",
-  "contribute.recipeLine": "Linea di ricetta",
+  "contribute.recipeLine": "Linea",
   "contribute.relatedProduct": "Prodotto collegato (facoltativo)",
   "contribute.relationship": "Legame",
   "contribute.replaced": "(sostituito)",
   "contribute.reportHint":
     "Scegli «Non appartiene a VeganAlts» se il prodotto non vuole imitare un originale di origine animale, oppure se per un preparato il produttore non indica una preparazione vegana. Scegli «categoria sbagliata» se il prodotto è al posto giusto ma sotto l’alimento sbagliato.",
   "contribute.reportNote":
-    "I dubbi sugli ingredienti hanno la precedenza. Una segnalazione non cambia i dati del prodotto finché il team non la valuta. Se la ripeti, aggiorna le tue prove e conta una sola volta.",
+    "I dubbi sugli ingredienti hanno la precedenza. Una segnalazione non cambia i dati del prodotto finché il team non la valuta. Una segnalazione ripetuta aggiorna le tue prove e conta una sola volta.",
   "contribute.reportTarget": "Cosa vuoi segnalare?",
   "contribute.reportTitle": "Segnala questo prodotto",
   "contribute.reportedPhotoAlt": "Foto segnalata",
@@ -495,14 +496,14 @@ export const contribute = {
   "draft.addFront": "Aggiungi una foto del fronte della confezione.",
   "draft.chooseAisle": "Scegli la categoria a cui appartiene questo alimento.",
   "draft.chooseAllergens":
-    "Scegli gli allergeni elencati sull’etichetta, oppure «Nessuno sull’etichetta».",
+    "Scegli gli allergeni elencati sull’etichetta, oppure «Nessun allergene dichiarato sull’etichetta».",
   "draft.chooseBrand":
-    "Scegli il marchio dall’elenco, oppure aggiungilo come nuovo marchio.",
+    "Scegli la marca dall’elenco, oppure aggiungilo come nuova marca.",
   "draft.chooseFood":
     "Scegli l’alimento che sostituisce, oppure proponine uno nuovo.",
   "draft.chooseLine":
-    "Scegli il prodotto se è in elenco, un nuovo gusto di una linea, oppure altro del marchio.",
-  "draft.enterBrand": "Inserisci il marchio.",
+    "Scegli il prodotto se è in elenco, un nuovo gusto di una linea, oppure altro della marca.",
+  "draft.enterBrand": "Inserisci la marca.",
   "draft.enterFlavor": "Inserisci il gusto.",
   "draft.enterLineName": "Inserisci il nome senza il gusto.",
   "draft.enterName": "Inserisci il nome del prodotto.",
@@ -512,7 +513,7 @@ export const contribute = {
   "draft.nameFood": "Indica l’alimento che sostituisce.",
   "fact.alias": "Un altro nome con cui lo si cerca",
   "fact.alsoReplaces": "Sostituisce anche",
-  "fact.brand": "Marchio",
+  "fact.brand": "Marca",
   "fact.categoryAdd": "Un altro alimento che sostituisce",
   "fact.chooseFood": "Scegli un alimento",
   "fact.flavor": "Gusto",
@@ -559,7 +560,7 @@ export const contribute = {
   "myContributions.opStore": "Proposta di negozio",
   "myContributions.opSubmission": "Proposta di prodotto",
   "myContributions.pagesLabel": "Pagine dei contributi",
-  "myContributions.rejected": "Respinto — correggi prima di inviare di nuovo",
+  "myContributions.rejected": "Rifiutato — correggi prima di inviare di nuovo",
   "myContributions.replaced": "Sostituito dalla tua risposta più recente",
   "myContributions.replacedAfter":
     ". I dati e le prove originali restano disponibili qui.",
@@ -614,7 +615,7 @@ export const contribute = {
   "reportTranslation.thanks": "Grazie, daremo un’occhiata.",
   "reportTranslation.title": "Segnala un problema di traduzione",
   "responses.addEvidence": "Aggiungi una prova",
-  "responses.communityConfirmable": "Confermabile dalla comunità",
+  "responses.communityConfirmable": "Confermabile dalla community",
   "responses.confirm": "Conferma",
   "responses.confirmed": "Grazie. La tua conferma è registrata.",
   "responses.confirms": {
@@ -661,14 +662,14 @@ export const contribute = {
   "signIn.preparing": "L’accesso è in preparazione. Torna a trovarci presto.",
   "signIn.privacyAfter": ".",
   "signIn.privacyLink": "informativa sulla privacy",
-  "signIn.termsAfter": ". Scopri come trattiamo i tuoi dati nell’",
+  "signIn.termsAfter": ". Scopri come trattiamo i tuoi dati nella nostra",
   "signIn.termsBefore": "Continuando accetti i",
-  "signIn.termsLink": "termini e le linee guida della comunità",
+  "signIn.termsLink": "termini e le linee guida della community",
   "signIn.title": "Accedi a VeganAlts",
   "signIn.unavailable": "Questa modalità di accesso non è ancora disponibile.",
   "suggestFood.explanationLabel": "Qualcosa che dovremmo sapere? (facoltativo)",
   "suggestFood.intro":
-    "Un alimento è il prodotto tradizionale che le persone vogliono sostituire, come «Sfogliatine salate» o «Formaggio spalmabile». Ha una classifica tutta sua. Si apre prima in questo paese ({country}); gli altri paesi lo ricevono quando qualcuno vi aggiunge un prodotto.",
+    "Un alimento è il prodotto tradizionale che le persone vogliono sostituire, come «Rustici al würstel» o «Formaggio spalmabile». Ha una classifica tutta sua. Si apre prima in questo paese ({country}); gli altri paesi lo ricevono quando qualcuno vi aggiunge un prodotto.",
   "suggestFood.metaTitle": "Proponi un alimento · VeganAlts",
   "suggestFood.nameLabel": "Nome dell’alimento (obbligatorio)",
   "suggestFood.productAfter": "e le due cose vengono verificate insieme.",

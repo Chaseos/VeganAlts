@@ -46,45 +46,45 @@ export const browse = {
   "brand.thisFlavor": "Questo gusto",
   "brand.oneRanked": "1 gusto in classifica",
   "brand.closest": "Più vicino",
-  "brand.tastiest": "Più gustoso",
-  "brand.notRated": "Non ancora valutati",
+  "brand.tastiest": "Il più gustoso",
+  "brand.notRated": "Ancora nessuna valutazione",
   "brand.addFrom": "Aggiungi un prodotto di {name}",
   "category.aisleMetaTitle": "{aisle}: alternative vegane per alimento",
   "category.aisleMetaDescription":
     "Tutti gli alimenti della categoria {aisle} con le alternative vegane più vicine, in classifica secondo chi le ha provate.",
   "category.home": "Home",
-  "category.topAlternatives": "Le migliori alternative vegane a {food}",
-  "category.metaTitle": "Le migliori alternative vegane a {food}",
+  "category.topAlternatives": "Le migliori alternative vegane: {food}",
+  "category.metaTitle": "Le migliori alternative vegane: {food}",
   "category.fallbackFood": "Alimento",
   "category.metaDescription":
     "Confronta le alternative vegane a {food}, in classifica per somiglianza, con numero di valutazioni e dettagli della ricetta.",
-  "category.title": "Alternative vegane a {food}",
+  "category.title": "Alternative vegane: {food}",
   "category.notHere": "Non ancora in questo paese ({country})",
   "category.seeIn": "Vedi: {country}",
   "category.notHereBody":
-    "Conosci un’alternativa vegana a {food} venduta qui? Aggiungila e {food} si apre anche in questo paese ({country}).",
+    "Conosci un’alternativa vegana a {food} venduta qui? Aggiungila e la classifica per {food} si apre anche in questo paese ({country}).",
   "category.ranking": "Classifica",
   "category.closestOriginal": "Il più vicino all’originale",
   "category.sortTrending": "Di tendenza",
   "category.sortTrendingHint": "In crescita questo trimestre",
   "category.sortNew": "Più recenti",
   "category.sortNewHint": "Aggiunti di recente",
-  "category.sortDetail": "Più vicino per {detail}",
+  "category.sortDetail": "Più vicino · {detail}",
   "category.sortDetailHint": "Punteggio di dettaglio",
   "category.sortMost": "Più valutati",
   "category.sortMostHint": "Più persone",
   "category.flagTastiest": "Il più gustoso n. 1",
   "category.flagTop": "Alternativa n. 1",
-  "category.flagFiltered": "{base} · {filters}",
+  "category.flagFiltered": "{base} · {filters} (secondo l’etichetta)",
   "category.closestMatch": "Corrispondenza più vicina",
   "category.fewAnswers":
-    "Per questi ci sono meno di 5 risposte su {detail}, quindi seguono la classifica.",
+    "Per questi ci sono meno di 5 risposte alla domanda «{detail}», quindi seguono la classifica.",
   "category.noTastyYet":
     "Nessuno ha ancora detto quanto siano gustosi, quindi seguono «Il più vicino all’originale».",
   "category.categoryName": "Categoria {name}",
   "category.howTitle": "Come funzionano questi punteggi",
   "category.how1":
-    "Chi ha provato un prodotto valuta da 1 a 5 quanto somiglia a {food} nello stesso gusto. La ricetta di una marca e i suoi gusti sono in classifica insieme: ogni persona conta una sola volta, con la media dei gusti che ha valutato, corretta in base a quante persone lo hanno valutato. Le alternative valutate da meno di 10 persone mostrano l’etichetta Provvisorio. «Il più gustoso» ordina allo stesso modo le risposte a «Quanto è gustoso?» e non cambia mai «Il più vicino all’originale».",
+    "Chi ha provato un prodotto valuta da 1 a 5 quanto somiglia a {food} dello stesso gusto. La ricetta di una marca e i suoi gusti sono in classifica insieme: ogni persona conta una sola volta, con la media dei gusti che ha valutato, corretta in base a quante persone lo hanno valutato. Le alternative valutate da meno di 10 persone mostrano il badge Provvisorio. «Il più gustoso» ordina allo stesso modo le risposte a «Quanto è gustoso?» e non cambia mai «Il più vicino all’originale».",
   "category.howDetails":
     "{list} sono valutazioni di dettaglio facoltative che spiegano il punteggio.",
   "category.how3":
@@ -133,7 +133,7 @@ export const browse = {
   "comingSoon.eyebrow": "Buon cibo. Alternative più vicine.",
   "comingSoon.title": "Trova l’alternativa vegana più vicina.",
   "comingSoon.lead":
-    "L’hamburger che ci azzecca. Il formaggio che si scioglie davvero. Trova alternative agli alimenti che ami, in classifica secondo chi le ha provate.",
+    "L’alternativa all’hamburger che ci azzecca. L’alternativa al formaggio che si scioglie davvero. Trova alternative agli alimenti che ami, in classifica secondo chi le ha provate.",
   "comingSoon.startingFoods": "Gli alimenti da cui partiamo",
   "comingSoon.burgers": "Hamburger",
   "comingSoon.milk": "Latte",
@@ -145,7 +145,7 @@ export const browse = {
   "comingSoon.noteStrong": "Stiamo preparando tutto.",
   "comingSoon.different": "Cosa rende diversa VeganAlts",
   "comingSoon.footer":
-    "Alternative vegane in classifica scelte dalla community. Per la tua prossima buona alternativa.",
+    "Alternative vegane classificate dalla community. Per la tua prossima buona scelta.",
   "count.product": { one: "{number} prodotto", other: "{number} prodotti" },
   "count.food": { one: "{number} alimento", other: "{number} alimenti" },
   "count.rankedSwap": {
@@ -194,32 +194,32 @@ export const browse = {
   "filters.sortNote":
     "«Il più vicino all’originale» e «Il più gustoso» sono le classifiche. Gli altri ordinamenti non le cambiano mai.",
   "filters.anyStore": "Qualsiasi negozio",
-  "filters.storeLabel": "Di solito in vendita da: {summary}",
+  "filters.storeLabel": "Si trova di solito da: {summary}",
   "filters.storeLabelSelected":
-    "Di solito in vendita da: {summary}. Negozi selezionati: {names}",
+    "Si trova di solito da: {summary}. Negozi selezionati: {names}",
   "filters.storesPanel": "Negozi dove fai la spesa",
-  "filters.commonlyAt": "Di solito in vendita da:",
+  "filters.commonlyAt": "Si trova di solito da:",
   "filters.pickStores": "Scegli tutti i negozi dove fai la spesa",
   "filters.storesNote":
-    "Di solito in vendita in almeno uno dei negozi scelti, secondo i membri in questo paese ({country}). Le tue scelte sono salvate su questo dispositivo per ogni classifica di questo paese.",
+    "Si trova di solito in almeno uno dei negozi scelti, secondo i membri in questo paese ({country}). Le tue scelte sono salvate su questo dispositivo per ogni classifica di questo paese.",
   "filters.noStores":
     "Per ora nessun negozio è stato segnalato per queste alternative in questo paese.",
   "filters.done": "Fatto",
   "filters.free": "senza {name}",
-  "filters.any": "Qualsiasi",
+  "filters.any": "nessun filtro",
   "filters.freeLabelChosen":
-    "Senza (secondo l’etichetta): {summary}. Allergeni: {names}",
-  "filters.freeLabelAny": "Senza: qualsiasi. Nessun allergene scelto",
+    "Allergeni (secondo l’etichetta): {summary}. Allergeni scelti: {names}",
+  "filters.freeLabelAny": "Allergeni: nessun filtro. Nessun allergene scelto",
   "filters.allergensPanel": "Allergeni da evitare",
-  "filters.freeFrom": "Senza:",
+  "filters.freeFrom": "Allergeni:",
   "filters.avoid": "Escludi i prodotti la cui etichetta indica",
   "filters.freeNote":
     "Un prodotto risulta senza solo se la sua etichetta è confermata. Anche «può contenere» lo esclude. Controlla sempre la confezione. Le tue scelte sono salvate su questo dispositivo per ogni classifica di questo paese.",
   "filters.noAllergen": "Nessun filtro allergeni",
-  "filters.storeLine": "Di solito in vendita da {names}",
+  "filters.storeLine": "Si trova di solito da {names}",
   "filters.ofMatch": {
-    one: "di {number} alternativa in classifica corrisponde",
-    other: "di {number} alternative in classifica corrispondono",
+    one: "su {number} alternativa in classifica",
+    other: "su {number} alternative in classifica",
   },
   "filters.rankedSwapWord": {
     one: "alternativa in classifica",
@@ -236,7 +236,7 @@ export const browse = {
   "foodNav.viewAll": "Vedi tutti ({count})",
   "foods.label": "Alimenti",
   "footer.rankings": "Come funzionano le classifiche",
-  "footer.veganStatus": "Stato vegano",
+  "footer.veganStatus": "Status vegano",
   "footer.moderation": "Moderazione",
   "footer.guidelines": "Linee guida",
   "footer.privacy": "Privacy",
@@ -273,7 +273,7 @@ export const browse = {
   "home.trendingMeta": "Per {food} · {detail}",
   "home.newTitle": "Nuovi e da valutare",
   "home.newNote": "Aggiunti negli ultimi {days} giorni",
-  "home.newMeta": "Per {food} · aggiunto il {date}",
+  "home.newMeta": "Per {food} · aggiunto: {date}",
   "home.waitingTitle": "Aspettiamo ancora un’ottima alternativa",
   "home.waitingBody":
     "La migliore opzione per questi alimenti ha un punteggio sotto 3,5, oppure non c’è ancora nulla in classifica. Ne conosci una migliore? Aggiungila ed entrerà in classifica.",
@@ -282,7 +282,7 @@ export const browse = {
   "home.closestSwap": "Ogni alimento mostra la sua alternativa più vicina.",
   "home.suggestLead": "Non vedi l’alimento che stai sostituendo?",
   "home.suggestTail": "e avrà la sua classifica.",
-  "home.firstToAdd": "Sii il primo ad aggiungerne uno",
+  "home.firstToAdd": "Aggiungi tu il primo",
   "home.seeAllFoods": "Vedi tutti i {count} alimenti in {aisle}",
   "home.startTitle": "Sei alle prime armi? Parti da questi",
   "home.startBody":
@@ -385,12 +385,12 @@ export const browse = {
   "ranking.noTasty": "Nessuno ha ancora detto quanto sia gustoso",
   "ranking.noRatingsYet": "Ancora nessuna valutazione",
   "ranking.view": "Vedi {name}",
-  "ranking.added": "aggiunto il {date}",
-  "ranking.firstToRate": "Sii il primo a valutare",
+  "ranking.added": "aggiunto: {date}",
+  "ranking.firstToRate": "Dai tu la prima valutazione",
   "ranking.rising": "in crescita questo trimestre",
   "score.outOf5": "su 5",
   "search.foodOrBrand": "Cerca un alimento o una marca",
-  "search.placeholder": "Carne macinata, cheddar, uova…",
+  "search.placeholder": "Macinato di manzo, cheddar, uova…",
   "search.found":
     "Trovati: {foods}{brands} e {products}. Usa i tasti freccia per scegliere.",
   "search.noFoods": "Per ora nessun alimento corrisponde a {query}.",
@@ -454,7 +454,7 @@ export const browse = {
   "status.appearsPlantBased": "Sembra vegetale",
   "status.plantBased": "Vegetale",
   "status.underReview": "In verifica",
-  "status.unchecked": "Ingredienti non ancora verificati",
+  "status.unchecked": "Ingredienti non ancora controllati",
   "summary.empty":
     "Nessuna alternativa vegana a {food} è ancora in classifica. Ne hai provata una? La tua valutazione dà il via alla classifica.",
   "summary.emptyTastiest":
@@ -464,8 +464,8 @@ export const browse = {
     other:
       "{number} alternative vegane a {food} in classifica, valutate da {people}.",
   },
-  "summary.onePerson": "1 persona con esperienza diretta",
-  "summary.manyPeople": "{number} persone con esperienza diretta",
+  "summary.onePerson": "1 persona che l’ha provata",
+  "summary.manyPeople": "{number} persone che le hanno provate",
   "summary.tastiest": "{lead} {title} è il più gustoso, con {score} su 5.",
   "summary.tastiestEarly":
     "{lead} {title} è il più gustoso finora, con {score} su 5.",

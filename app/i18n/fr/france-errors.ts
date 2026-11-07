@@ -14,7 +14,7 @@ export const franceErrors: Record<string, string> = {
   "Finish uploading the photos before submitting.":
     "Terminez l’envoi des photos avant de les soumettre.",
   "No relationship exists for that retailer.":
-    "Aucune relation n’existe avec cette enseigne.",
+    "Aucun lien n’existe avec cette enseigne.",
   "Only an accepted submission takes a reviewed classification.":
     "Seule une proposition acceptée reçoit une classification examinée.",
   "Please choose another handle or display name. If this seems incorrect, contact us to appeal.":
@@ -37,7 +37,7 @@ export const franceErrors: Record<string, string> = {
   "This photo slot is already reserved, or the submission/account has reached its image or daily byte allowance. Retry tomorrow for daily limits; use a fresh submission to change a reserved photo.":
     "Cet emplacement de photo est déjà réservé, ou la proposition ou le compte a atteint sa limite d’images ou d’octets quotidienne. Pour les limites quotidiennes, réessayez demain. Pour changer une photo réservée, utilisez une nouvelle proposition.",
   "This product has no relationship with that retailer.":
-    "Ce produit n’a aucune relation avec cette enseigne.",
+    "Ce produit n’a aucun lien avec cette enseigne.",
   "This request key was used for different details. Start a new submission.":
     "Cette clé de requête a été utilisée pour des détails différents. Commencez une nouvelle proposition.",
   "This submission changed or is already being finalized. Refresh its status.":
@@ -63,4 +63,16 @@ export const franceErrors: Record<string, string> = {
   "Use an idempotency key of 16–100 letters, digits, underscores, or hyphens.":
     "Utilisez une clé d’idempotence de 16 à 100 lettres, chiffres, tirets bas ou traits d’union.",
   "Wait for this upload to finish.": "Attendez la fin de cet envoi.",
+  "Under Review requires an assessed ingredient concern.":
+    "Le statut « En cours d’examen » exige l’évaluation d’un doute sur un ingrédient.",
+  "Change eligibility only for existing product categories.":
+    "Modifiez l’éligibilité uniquement pour les catégories de produits existantes.",
+  "This food has products, so it stays a food.":
+    "Cet aliment compte des produits, il reste donc un aliment.",
+  "Choose an image no larger than 10 MiB.":
+    "Choisissez une image de 10 Mo maximum.",
+  "Choose a different related product and a relationship.":
+    "Choisissez un autre produit connexe et un lien.",
+  "Remove your ratings before removing Tried state.":
+    "Retirez vos évaluations avant de retirer l’état « Je l’ai essayé ».",
 };

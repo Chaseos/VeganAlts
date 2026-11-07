@@ -143,12 +143,13 @@ Sources: [Consumer Affairs Agency, allergen labelling](https://www.caa.go.jp/pol
 | sign in | anmelden | |
 | operator | das Team | Avoids a gendered role noun |
 | plant drink | Pflanzendrink | Never `Pflanzenmilch` in our own copy |
+| moderator | Moderationsteam | Avoids a gendered role noun |
 | #1 | Platz 1 | |
 
 - Address the reader as `du`, like vegan brands and community sites in German. Capitalize `Du` only at the start of a sentence.
 - Avoid gender stars. Rephrase with neutral words such as `Mitglieder`, `Team`, `Personen`.
 - Quotes are „so“. Swiss pages turn them into «so» and ß into ss automatically, so write German, not Swiss, spelling.
-- `{food}` and `{country}` are bare names with no article, and `{food}` keeps its capital. Write `Alternativen zu {food}`. Never put an adjective or article before `{food}`. Write `in diesem Land ({country})`, because `in {country}` breaks for die Schweiz.
+- `{food}` and `{country}` are bare nominative names with no article, and `{food}` keeps its capital. It can't take a case ending, so never put a preposition that changes its case before it (`zu {food}`, `für {food}`). Write `Vegane Alternativen: {food}`, or put it in parentheses, `dem Original ({food})`. Never put an adjective or article before `{food}`. Write `in diesem Land ({country})`, because `in {country}` breaks for die Schweiz. Food names are stored so they stay correct unchanged, such as `Joghurt nach griechischer Art`, not `Griechischer Joghurt`.
 - Spelling is reformed German. Numbers and dates come from the locale.
 - Austrian and Swiss food words are country rows on the seed, such as Obers and Rahm, and differ only there.
 
@@ -185,6 +186,9 @@ Allergens: Glutenhaltiges Getreide, Krebstiere, Eier, Fische, Erdnüsse, Sojaboh
 | sign in | accedi | |
 | operator | il team | |
 | plant drink | bevanda vegetale | Never `latte vegetale` in our own copy |
+| brand | marca | |
+| community | community | |
+| Commonly found at | Si trova di solito da | |
 | #1 | n. 1 | |
 
 - Address the reader as `tu`. Buttons use the imperative.

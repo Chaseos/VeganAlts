@@ -242,7 +242,9 @@ function pageMeta(loaderData: Route.MetaArgs["loaderData"]) {
           ? [
               itemList(
                 origin,
-                t("category.topAlternatives", { food: data.category.name }),
+                t("category.topAlternatives", {
+                  food: inSentence(data.category.name),
+                }),
                 // Each line, linking its lead flavor.
                 data.ranked.map((line) => ({
                   name: productName(line.name, line.brand),
