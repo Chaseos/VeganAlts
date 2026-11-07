@@ -367,10 +367,12 @@ function BrowseAisles({
         ))}
       </ul>
       <p className="va-home__suggest">
-        {t("home.suggestLead")}{" "}
+        {t("home.suggestLead")}
+        {t("text.gap")}
         <Link className="va-link" to={`/propose-category?country=${country}`}>
           {t("nav.suggestFood")}
-        </Link>{" "}
+        </Link>
+        {t("text.gap")}
         {t("home.suggestTail")}
       </p>
     </section>

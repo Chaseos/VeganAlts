@@ -460,6 +460,8 @@ describe("languages in public URLs", () => {
     );
     expect(moved("/us/fr/milk?view=new")).toBe("/us/en/milk?view=new");
     expect(moved("/jp/karaage")).toBe("/jp/ja/karaage");
+    expect(moved("/tw/karaage")).toBe("/tw/zh/karaage");
+    expect(moved("/kr/karaage")).toBe("/kr/ko/karaage");
     // Named languages stay, and "/" stays the entry page.
     expect(moved("/ca/en/ground-beef")).toBeNull();
     expect(moved("/")).toBeNull();

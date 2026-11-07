@@ -88,7 +88,8 @@ export default function ProposeCategory({
           <div className="community-panel" role="status">
             <h2>{t("suggestFood.thanks", { name: saved })}</h2>
             <p>
-              {t("suggestFood.reviewBefore")}{" "}
+              {t("suggestFood.reviewBefore")}
+              {t("text.gap")}
               <Link to="/my-contributions">{t("myContributions.title")}</Link>
               {t("suggestFood.reviewAfter")}
             </p>
@@ -135,7 +136,8 @@ export default function ProposeCategory({
               {action.busy ? t("common.sending") : t("suggestFood.submit")}
             </button>
             <p className="small">
-              {t("suggestFood.productBefore")}{" "}
+              {t("suggestFood.productBefore")}
+              {t("text.gap")}
               <Link to={`/add-product?${withProduct}`}>
                 {t("suggestFood.productLink")}
               </Link>{" "}

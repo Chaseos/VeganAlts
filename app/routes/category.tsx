@@ -763,7 +763,8 @@ function FoodRankingList({
           <p className="va-ranking__add">
             {t("category.knowSwap", {
               food: inSentence(food),
-            })}{" "}
+            })}
+            {t("text.gap")}
             <Link
               className="va-link"
               to={`/add-product?country=${code}&food=${data.category.slug}`}
@@ -771,11 +772,14 @@ function FoodRankingList({
               {t("menu.addProduct")}
             </Link>
             {t("text.stop")}
-            {t("category.replacing")}{" "}
+            {t("category.replacing")}
+            {t("text.gap")}
             <Link className="va-link" to={`/propose-category?country=${code}`}>
               {t("nav.suggestFood")}
             </Link>
-            . {t("category.wrong")}{" "}
+            {t("text.stop")}
+            {t("category.wrong")}
+            {t("text.gap")}
             <Link
               className="va-link"
               to={`/report-food?country=${code}&food=${data.category.slug}`}

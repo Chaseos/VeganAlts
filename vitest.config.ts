@@ -44,8 +44,8 @@ export default defineConfig({
           include: ["tests/integration/**/*.test.ts"],
           setupFiles: ["tests/integration/setup.ts"],
           fileParallelism: false,
-          // Seeding every language's food names takes seconds on a busy machine.
-          testTimeout: 15_000,
+          // Seeding runs two statements per name per language.
+          testTimeout: 20_000,
         },
       },
     ],

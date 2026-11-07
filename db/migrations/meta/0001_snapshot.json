@@ -773,6 +773,7 @@
           "name": "ux_category_aliases_global",
           "columns": [
             "category_id",
+            "language",
             "\"alias\" COLLATE NOCASE"
           ],
           "isUnique": true,

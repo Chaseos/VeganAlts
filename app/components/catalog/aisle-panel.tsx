@@ -103,7 +103,8 @@ export function FoodCard({
       )}
       {food.top.length > 0 && food.top.length < 3 && (
         <p className="va-food-card__more">
-          {t("aisle.knowAnother")}{" "}
+          {t("aisle.knowAnother")}
+          {t("text.gap")}
           <Link to={`/add-product?country=${country}&food=${food.slug}`}>
             {t("aisle.addIt")}
           </Link>
@@ -201,7 +202,8 @@ export function AislePanel({
                     to={`/add-product?country=${country}`}
                   >
                     {t("menu.addProduct")}
-                  </Link>{" "}
+                  </Link>
+                  {t("text.gap")}
                   {t("aisle.bringFood")}
                 </p>
               )}

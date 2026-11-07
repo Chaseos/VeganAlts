@@ -3,10 +3,12 @@ import {
   chosenCountry,
   chosenLanguage,
   languageFor,
+  languageTag,
   marketCookie,
 } from "../../server/catalog/domain/languages";
 import {
   changesLanguage,
+  hreflang,
   languageHref,
   readPageCountryFrom,
   readPageLanguageFrom,
@@ -192,4 +194,13 @@ it("European countries list the 14 groups, and every animal one needs review", (
     for (const key of ["milk", "egg", "fish", "crustacean", "mollusc"])
       expect(REVIEW_ALLERGENS).toContain(key);
   }
+});
+
+it("names Taiwan's Chinese in full for browsers and search engines", () => {
+  expect(languageTag("zh")).toBe("zh-TW");
+  expect(languageTag("ko")).toBe("ko");
+  expect(hreflang("tw", "zh")).toBe("zh-TW");
+  expect(hreflang("kr", "ko")).toBe("ko-KR");
+  expect(languageFor("tw", null)).toBe("zh");
+  expect(languageFor("kr", "en")).toBe("en");
 });

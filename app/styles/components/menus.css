@@ -149,7 +149,19 @@ html:lang(ja) {
   word-break: auto-phrase;
 }
 
-:lang(ja) {
+/* Korean breaks between words, never inside one. */
+html:lang(ko) {
+  line-height: 1.7;
+  word-break: keep-all;
+}
+
+html:lang(zh) {
+  line-height: 1.8;
+}
+
+:lang(ja),
+:lang(ko),
+:lang(zh) {
   letter-spacing: 0;
 }
 

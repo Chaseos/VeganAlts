@@ -77,7 +77,9 @@ export function SaveButton({
         {message === "saved" &&
           (showListLink ? (
             <>
-              {t("save.savedTo")} <Link to="/saved">{t("save.yourList")}</Link>
+              {t("save.savedTo")}
+              {t("text.gap")}
+              <Link to="/saved">{t("save.yourList")}</Link>
               {t("save.savedAfter")}
             </>
           ) : (

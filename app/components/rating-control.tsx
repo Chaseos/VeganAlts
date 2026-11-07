@@ -348,7 +348,8 @@ export function RatingControl({
           {t("rating.conflict")}{" "}
           <a href={productPath(country, productSlug)}>
             {t("rating.openCurrent")}
-          </a>{" "}
+          </a>
+          {t("text.gap")}
           {t("rating.rateAgain")}
         </p>
       )}

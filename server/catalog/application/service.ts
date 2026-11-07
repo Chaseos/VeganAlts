@@ -69,6 +69,18 @@ const SPACELESS_RUN =
 const SCRIPT_RUN =
   /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}\p{Script=Hangul}\p{Script=Thai}ー]+|[^\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}\p{Script=Hangul}\p{Script=Thai}ー]+/gu;
 
+// A Korean noun often carries a particle: 우유를, 두부와. The stem is tried too,
+// and only when two letters remain, so 오이 doesn't also search for 오.
+const KOREAN_PARTICLE =
+  /(?:으로|에서|까지|부터|처럼|보다|하고|이랑|랑|을|를|은|는|이|가|의|에|로|와|과|도|만)$/u;
+const phrase = (run: string) => `"${Array.from(foldForMatch(run)).join(" ")}"*`;
+function spacelessMatch(run: string) {
+  const stem = run.replace(KOREAN_PARTICLE, "");
+  return stem !== run && Array.from(stem).length >= 2
+    ? `(${phrase(run)} OR ${phrase(stem)})`
+    : phrase(run);
+}
+
 export function searchExpression(input: string) {
   const query = input.normalize("NFKC").trim().slice(0, 80);
   const tokens = query.match(/[\p{L}\p{M}\p{N}]+/gu)?.slice(0, 8) ?? [];
@@ -81,7 +93,7 @@ export function searchExpression(input: string) {
       .flatMap((token) => token.match(SCRIPT_RUN) ?? [])
       .map((run) =>
         SPACELESS_RUN.test(run)
-          ? `segmented : "${Array.from(foldForMatch(run)).join(" ")}"*`
+          ? `segmented : ${spacelessMatch(run)}`
           : `"${run.replace(/[œŒ]/g, "oe").replace(/[æÆ]/g, "ae")}"*`,
       )
       .join(" AND "),

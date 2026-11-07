@@ -181,3 +181,22 @@ Scores are per the `product-localization-eval` rubric, before the last fixes, an
 Not covered: no European market has products, so ranked, product and rating pages weren't rendered in these languages. Those strings were reviewed from the catalogs and code. French spacing follows common practice, not a source read at an authority.
 
 Found in code by this work: names were lowercased mid-sentence, which breaks German nouns; rating questions stayed in English on translated pages; scores always used a decimal point; and a link to a country in another language showed the first language's text, because the dictionary loads with the page.
+## Taiwan and South Korea (2026-11-06)
+
+Traditional Chinese for Taiwan (`/tw/zh`) and Korean (`/kr/ko`), written from term lists with official sources: see the [glossary](../operations/translation-glossary.md). One translator per batch, and evaluators that never translated.
+
+| Locale | First pass | After fixes | Back-translation, second pass | Second score |
+| --- | --- | --- | --- | --- |
+| zh-TW | 0 critical, 10 high, 15 medium, 12 low | 0 critical, 0 high, 3 medium, 15 low | No lost distinction in 135 high-stakes keys | 23/30 |
+| ko-KR | 0 critical, 10 high, 3 medium, 8 low | 0 critical, 0 high, 4 medium, 8 low | No lost distinction in 135 high-stakes keys | 23/30 |
+
+Both first passes failed the hard gate on `filters.freeNote`, which read as if "may contain" products stayed in the results. They are excluded, and the text now says so.
+
+**Not yet proven.** Both scores are model review only, below the skill's 27 and under its evidence ceiling of 26, so both languages are provisional. The second round's findings were applied and not scored again. Nothing about honey is settled: neither `全素`/`純素` nor `비건` has an official ruling we could open. Korea's list is the undated annex PDF, and its four proposed items are left out until a final rule. Problems will come from user reports.
+
+**Search** tests real queries in `tests/integration/search-scripts.test.ts`. Korean spacing already matched either way, because `segmented` ignores spaces. A particle didn't (`우유를` found nothing), so a query now also tries its stem when two letters remain.
+
+**Seeding found a silent bug.** `ux_category_aliases_global` allowed a word once per food, so a second language with the same word, such as 牛肉 in Japanese and Chinese, was dropped and showed English. The index now includes `language`.
+
+**Open.** Our 純素 status means no animal ingredients, while Taiwan's legal 純素 also excludes 五辛. The product page and Add a product say so, but the choice of word is the owner's.
+

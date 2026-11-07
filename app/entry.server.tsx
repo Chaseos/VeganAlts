@@ -28,6 +28,8 @@ import {
   markets as portugueseMarkets,
   pt,
 } from "./i18n/pt";
+import { errors as koreanErrors, ko } from "./i18n/ko";
+import { errors as chineseErrors, zh } from "./i18n/zh";
 import { NonceContext } from "./lib/nonce";
 import { failureKind, routeLabel } from "@server/observability/events";
 
@@ -37,6 +39,8 @@ addDictionary("de", de, germanErrors, germanMarkets);
 addDictionary("it", it, italianErrors, italianMarkets);
 addDictionary("es", es, spanishErrors, spanishMarkets);
 addDictionary("pt", pt, portugueseErrors, portugueseMarkets);
+addDictionary("zh", zh, chineseErrors);
+addDictionary("ko", ko, koreanErrors);
 export const streamTimeout = 5_000;
 
 export default async function handleRequest(

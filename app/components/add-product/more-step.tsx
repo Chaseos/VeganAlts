@@ -213,6 +213,9 @@ export function MoreStep({
           {countryCode === "in" && (
             <p className="small">{t("safety.indiaMark")}</p>
           )}
+          {countryCode === "tw" && (
+            <p className="small">{t("safety.taiwanMark")}</p>
+          )}
           <label htmlFor="ingredient-note">
             {t("addProduct.reviewerNote")}
           </label>

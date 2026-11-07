@@ -4,7 +4,10 @@ import { en } from "./en";
 
 export type MessageKey = keyof typeof en;
 type Message = string | { one: string; other: string };
-export type Dictionary = Record<MessageKey, Message>;
+// Shown only in Taiwan, whose pages are in English or Chinese.
+type TaiwanKey = "safety.taiwanMark";
+export type Dictionary = Record<Exclude<MessageKey, TaiwanKey>, Message> &
+  Partial<Record<TaiwanKey, Message>>;
 
 // English ships in the main bundle. A language without its dictionary yet
 // shows English, so a preview page always renders.
@@ -59,6 +62,8 @@ const LOCALES: Record<Language, string> = {
   de: "de-DE",
   it: "it-IT",
   pt: "pt-BR",
+  zh: "zh-TW",
+  ko: "ko-KR",
 };
 
 /** Dates and numbers follow the page's language. */

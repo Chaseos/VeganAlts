@@ -19,6 +19,7 @@ import { THEME_COLORS, THEME_SCRIPT } from "./lib/theme";
 import { LanguagePrompt } from "./components/layout/language-menu";
 import { PageShell } from "./components/layout/page-shell";
 import { t } from "./i18n";
+import { languageTag } from "@server/catalog/domain/languages";
 import { ButtonLink } from "./components/ui/button";
 import { searchPath, useSiteChrome } from "./lib/site-chrome";
 
@@ -27,7 +28,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { language } = useSiteChrome();
   return (
     // The pre-paint script may set data-theme before React hydrates.
-    <html lang={language} suppressHydrationWarning>
+    <html lang={languageTag(language)} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />

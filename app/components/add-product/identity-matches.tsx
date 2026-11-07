@@ -87,7 +87,8 @@ export function IdentityMatches({
         </strong>
         <p>
           {exact.brand ? `${exact.brand} · ` : ""}
-          {t("addProduct.alreadyListed", { name: exact.name })}{" "}
+          {t("addProduct.alreadyListed", { name: exact.name })}
+          {t("text.gap")}
           <Link to={`${productPath(code, exact.slug)}#scores-title`}>
             {t("addProduct.rateIt")}
           </Link>{" "}

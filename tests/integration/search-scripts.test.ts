@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { expect, it } from "vitest";
+import { beforeAll, expect, it } from "vitest";
 import { searchExpression } from "../../server/catalog/application/service";
 import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
 
@@ -20,6 +20,13 @@ const FOODS: [string, string[]][] = [
   ["Œufs", []],
   ["Crème glacée", []],
   ["두부", []],
+  ["식물성 우유", []],
+  ["땅콩버터", []],
+  ["오이", []],
+  ["오렌지 주스", []],
+  ["豆漿", []],
+  ["燕麥奶", []],
+  ["純素起司片", []],
   ["ข้าวเหนียว", []],
 ];
 
@@ -70,8 +77,9 @@ const found = async (query: string) =>
     .map((row) => row.title)
     .sort();
 
+beforeAll(index);
+
 it("finds Japanese, Korean, Thai and French words inside longer names", async () => {
-  await index();
   // Neither unicode61 nor trigram alone finds all of these.
   expect(await found("揚げ")).toEqual(["唐揚げ", "大豆ミートの唐揚げ"].sort());
   expect(await found("ごし豆腐")).toEqual(["絹ごし豆腐"]);
@@ -97,4 +105,20 @@ it("finds Japanese, Korean, Thai and French words inside longer names", async ()
   expect(await found("bœuf")).toEqual(["Bœuf haché"]);
   // Mixed text must match every part.
   expect(await found("karaage 唐揚げ")).toEqual(["唐揚げ"]);
+});
+
+it("finds Traditional Chinese and Korean as shoppers type them", async () => {
+  expect(await found("豆漿")).toEqual(["豆漿"]);
+  expect(await found("起司")).toEqual(["純素起司片"]);
+  expect(await found("麥奶")).toEqual(["燕麥奶"]);
+  expect(await found("우유")).toEqual(["식물성 우유"]);
+  // Korean spacing varies between a name and what's typed.
+  expect(await found("식물성우유")).toEqual(["식물성 우유"]);
+  expect(await found("땅콩 버터")).toEqual(["땅콩버터"]);
+  // A particle on the end of a word.
+  expect(await found("우유를")).toEqual(["식물성 우유"]);
+  expect(await found("식물성 우유는")).toEqual(["식물성 우유"]);
+  expect(await found("두부와")).toEqual(["두부"]);
+  // A word that ends like a particle stays whole.
+  expect(await found("오이")).toEqual(["오이"]);
 });

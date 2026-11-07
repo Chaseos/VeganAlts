@@ -143,6 +143,21 @@
   --va-backdrop: rgba(0, 0, 0, 0.45);
 }
 
+/* Han characters differ by region, so each language names its own fonts. */
+:root:lang(zh) {
+  --va-font:
+    "Archivo", "Archivo Fallback", "Helvetica Neue", Arial, "PingFang TC",
+    "Microsoft JhengHei UI", "Microsoft JhengHei", "Noto Sans CJK TC",
+    "Noto Sans TC", sans-serif;
+}
+
+:root:lang(ko) {
+  --va-font:
+    "Archivo", "Archivo Fallback", "Helvetica Neue", Arial,
+    "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR",
+    sans-serif;
+}
+
 /* Non-color scales shared by every component. */
 :root {
   --va-font:

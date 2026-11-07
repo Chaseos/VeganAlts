@@ -447,6 +447,8 @@ Non-JSX strings (meta titles, label arrays, Zod messages, date and number format
 
 **Market overrides.** `t()`, server messages, dates and allergen names check the page's country first, then the shared language. A language passes its countries to `addDictionary`, each with its locale and only its differences. French has one shared override for Europe, because the shared `fr` is Canadian. Food names use the existing country and language rows in `category_aliases`.
 
+**Taiwan and South Korea added (2026-11-06).** Traditional Chinese uses the address segment `zh`, and its pages say `lang="zh-TW"`. Both countries start with no foods. Allergen lists are TFDA's 11 categories and MFDS's 19 lines.
+
 **Mechanics, with no new dependency:** `app/i18n/en.ts`, `fr.ts` and `ja.ts`, typed so a missing key fails `tsc`, plus about 40 lines of `t()` using `Intl.PluralRules`. English stays in the main bundle. Other languages are one chunk loaded before hydration, chosen from `<html lang>`. API errors keep `message` and gain a client map from `code` to text, so `/api/v1` doesn't change. Dates and numbers use the page language.
 
 **Translation:**

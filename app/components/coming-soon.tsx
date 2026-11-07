@@ -53,7 +53,8 @@ export function ComingSoon() {
               ))}
             </ul>
             <p className="va-coming-soon__note">
-              {t("comingSoon.noteLead")}{" "}
+              {t("comingSoon.noteLead")}
+              {t("text.gap")}
               <strong>{t("comingSoon.noteStrong")}</strong>
             </p>
           </div>

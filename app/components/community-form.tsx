@@ -204,9 +204,12 @@ export function CommunityControls({ children }: { children: ReactNode }) {
 export function GuidelinesNote() {
   return (
     <p className="small guidelines-note">
-      {t("community.guidelinesBefore")}{" "}
-      <Link to="/about/terms">{t("community.guidelinesLink")}</Link>{" "}
-      {t("community.guidelinesMiddle")}{" "}
+      {t("community.guidelinesBefore")}
+      {t("text.gap")}
+      <Link to="/about/terms">{t("community.guidelinesLink")}</Link>
+      {t("text.gap")}
+      {t("community.guidelinesMiddle")}
+      {t("text.gap")}
       <Link to="/about/moderation">{t("community.moderationLink")}</Link>
       {t("community.guidelinesAfter")}
     </p>

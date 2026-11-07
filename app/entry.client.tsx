@@ -33,6 +33,14 @@ async function hydrate() {
     const { pt, errors, markets } = await import("./i18n/pt");
     addDictionary("pt", pt, errors, markets);
   }
+  if (language === "zh-TW") {
+    const { zh, errors } = await import("./i18n/zh");
+    addDictionary("zh", zh, errors);
+  }
+  if (language === "ko") {
+    const { ko, errors } = await import("./i18n/ko");
+    addDictionary("ko", ko, errors);
+  }
   startTransition(() => {
     hydrateRoot(
       document,

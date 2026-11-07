@@ -356,8 +356,10 @@ export default function Product({
                   {t("product.liveThanks")}{" "}
                   {added.rated ? (
                     <>
-                      {t("product.liveRated", { rating: added.rated })}{" "}
-                      <a href="#scores-title">{t("product.liveAddDetail")}</a>{" "}
+                      {t("product.liveRated", { rating: added.rated })}
+                      {t("text.gap")}
+                      <a href="#scores-title">{t("product.liveAddDetail")}</a>
+                      {t("text.gap")}
                       {t("product.liveIfYouLike")}
                     </>
                   ) : added.ratingPending ? (
@@ -365,8 +367,10 @@ export default function Product({
                   ) : (
                     food?.canRate && (
                       <>
-                        {t("product.liveTried")}{" "}
-                        <a href="#scores-title">{t("product.liveRateIt")}</a>{" "}
+                        {t("product.liveTried")}
+                        {t("text.gap")}
+                        <a href="#scores-title">{t("product.liveRateIt")}</a>
+                        {t("text.gap")}
                         {t("product.liveJoins")}
                       </>
                     )
@@ -571,7 +575,8 @@ export default function Product({
           <dl className="va-facts">
             <dt>{t("safety.veganStatus")}</dt>
             <dd>
-              {veganStatusLabel(p.veganStatus)}.{" "}
+              {veganStatusLabel(p.veganStatus)}
+              {t("text.stop")}
               <span className="va-muted">
                 {p.classification?.reviewed
                   ? t("product.classificationReviewed")
@@ -628,7 +633,8 @@ export default function Product({
               })}{" "}
               <a className="va-link" href="#formula-history">
                 {t("product.earlierRecipes")}
-              </a>{" "}
+              </a>
+              {t("text.gap")}
               {t("product.keepRatings")}
             </dd>
             <dt>{t("product.soldIn")}</dt>
@@ -649,7 +655,8 @@ export default function Product({
                 to={`/contribute/${p.id}?action=change&kind=classification`}
               >
                 {t("safety.checkIngredients")}
-              </Link>{" "}
+              </Link>
+              {t("text.gap")}
               {t("safety.memberCanConfirm")}
             </Notice>
           ) : (
@@ -657,7 +664,8 @@ export default function Product({
               {t("safety.uncheckedNoPhoto")}{" "}
               <Link to={`/contribute/${p.id}?action=photo&slot=ingredients`}>
                 {t("safety.addIngredientsPhoto")}
-              </Link>{" "}
+              </Link>
+              {t("text.gap")}
               {t("safety.memberCanConfirm")}
             </Notice>
           ))}
