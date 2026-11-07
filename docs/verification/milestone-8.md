@@ -124,6 +124,42 @@ Found in code by this work: a label with only "may contain" showed "No major all
 
 Japan's list is the Consumer Affairs Agency's 9 required and 20 recommended items, as of April 2026.
 
+## Mexico, Spain, Brazil and Portugal (2026-11-06)
+
+Spanish is one dictionary in Mexican Spanish, with `app/i18n/es/spain.ts` holding Spain's differences. Portuguese is one dictionary in Brazilian Portuguese, with `app/i18n/pt/portugal.ts` holding Portugal's. Each has 1,296 interface strings, 260 server messages, 152 food and aisle names, its market's allergens, 14 rating questions and 19 country names.
+
+| Market | Overrides | Allergens | Locale |
+|---|---|---|---|
+| Mexico | Base | 10, NOM-051 4.2.2.2.3 a | es-MX |
+| Spain | 342 strings, 106 server messages, 63 food names | 14, EU 1169/2011 Annex II | es-ES |
+| Brazil | Base | 22: RDC 727 Annex III's 18, with four cereals apart, plus gluten | pt-BR |
+| Portugal | 459 strings, 120 server messages, 55 food names | 14, EU 1169/2011 Annex II | pt-PT |
+
+Term lists with sources are in the [glossary](../operations/translation-glossary.md). Each batch had its own translator, and separate agents that translated nothing did the checks.
+
+| Check | Spanish | Portuguese |
+|---|---|---|
+| First review, base market | 1 critical, 13 high, 20 medium, 12 low; 0/30 | 0 critical, 9 high, 17 medium, 5 low; 4.75/30 |
+| Second review, Spain and Portugal | 0 critical, 9 high, 5 medium; 14/30 | 0 critical, 8 high, 11 medium, 3 low; 10.25/30 |
+| Second review, recheck of base-market fixes | 1 medium, 1 low | No new defect |
+| Blind back-translations of high-stakes strings | 135 for Mexico, 135 for Spain | 135 for Brazil, 135 for Portugal |
+| Third review of the second round's fixes, 355 entries across both languages | 1 medium in Spain, fixed | Clean |
+| `check_catalog.py` | No structural defect; 26 identical strings, all punctuation, placeholders or cognates | No structural defect; 28 identical strings, as for Spanish |
+
+Scores are provisional and were taken before fixes, and none has been recalculated since. All findings were applied except where noted below. The rubric deducts per root cause, and its evidence ceiling is 26 because no native reader or rendered product page was available.
+
+The critical finding was `filters.free`. "Free from soy" also shows on the top result's flag, so a bare `sin soya` read as our guarantee. Spanish now says `no declara {name}` and Portuguese `rótulo sem {name}`. **The same text in English and French reads the same way and hasn't been changed.**
+
+Second-review highs were regional. Spain had Mexican past tenses, `reportar`, `línea` and `agregar`, and Portugal had gerunds, `estoque`, Brazilian syntax and food names such as `Salsichas para cachorros`. Both also called a product `queijo` or `queso` in `comingSoon.lead`, which is fixed.
+
+Found in code: `formatScore` always wrote a decimal point, so Spanish and Portuguese showed `4.3`. It now follows the page's locale, which also gives French its comma. `detail.evidenceAlt` receives a raw English slot code in every language, and hasn't been changed.
+
+**Browser tests.** `tests/e2e/iberian-markets.spec.ts` passes on desktop and mobile with no axe violations. The markets have no foods, so result cards, long allergen names and "Contains" lines weren't rendered in these languages.
+
+**Not confirmed.** That NOM-051 has no later change to its list. Anvisa's RDC 727 Annex III was read from a reproduction, not the DOU, and CP 1.357/2025 may replace the list and wording. AESAN's 2025 precautionary-labelling procedure, ASAE's pages and PL 1030's article text couldn't be opened. Regional food names rest on model knowledge.
+
+The Spanish chunk is 150 KB, or 40 KB compressed, and the Portuguese chunk is 158 KB, or 42 KB compressed. English pages don't load either one.
+
 ## Server messages (2026-11-06)
 
 260 static `ApplicationError` messages are translated in `app/i18n/fr/errors.ts` and `app/i18n/ja/errors.ts`, keyed by their English text. The API stays in English, and the browser swaps the text with `serverMessage`. A message that names data shows in English. An independent review found 0 critical and 1 high finding across both languages, and all 23 findings were fixed.

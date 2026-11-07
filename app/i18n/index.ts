@@ -52,8 +52,10 @@ export const serverMessage = (message: string) =>
 
 const LOCALES: Record<Language, string> = {
   en: "en-US",
+  es: "es-MX",
   fr: "fr-CA",
   ja: "ja-JP",
+  pt: "pt-BR",
 };
 
 /** Dates and numbers follow the page's language. */

@@ -21,7 +21,10 @@ export function productName(name: string, brand: string | null) {
 }
 
 export function formatScore(value: number) {
-  return value.toFixed(1);
+  return value.toLocaleString(pageLocale(), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
 }
 
 export function formatCount(value: number) {

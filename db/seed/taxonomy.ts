@@ -1,5 +1,7 @@
 import { FRENCH_NAMES } from "./french-names";
 import { JAPANESE_NAMES } from "./japanese-names";
+import { PORTUGAL_NAMES, PORTUGUESE_NAMES } from "./portuguese-names";
+import { SPAIN_NAMES, SPANISH_NAMES } from "./spanish-names";
 import { SEARCH_INDEX_STATEMENTS } from "../../server/catalog/infrastructure/search-index";
 import { DEFAULT_DIMENSIONS } from "../../server/ratings/domain/details";
 
@@ -1118,6 +1120,24 @@ export const TAXONOMY_DIMENSIONS: Record<
     ["baking", "Baking"],
   ],
 };
+// EU 1169/2011 Annex II, the same 14 groups as the UK and Ireland.
+const IBERIAN_ALLERGENS: (string | [string, string])[] = [
+  "celery",
+  ["gluten", "Cereals containing gluten"],
+  ["crustacean", "Crustaceans"],
+  "egg",
+  "fish",
+  "lupin",
+  "milk",
+  "mollusc",
+  "mustard",
+  ["tree_nuts", "Nuts"],
+  "peanut",
+  "sesame",
+  ["soy", "Soya"],
+  ["sulphites", "Sulphur dioxide and sulphites"],
+];
+
 // The English-speaking launch countries (owner decision, 2026-10-09). Each
 // list follows that country's labeling rules (PRODUCT_MASTER, milestone 5);
 // a label overrides the shared vocabulary's wording.
@@ -1310,6 +1330,57 @@ export const TAXONOMY_COUNTRIES: {
     ],
   },
   {
+    // NOM-051 4.2.2.2.3 a, 2020 modification, in its order. The label's words
+    // are in server/catalog/domain/local-names.ts.
+    iso2: "MX",
+    name: "Mexico",
+    allergens: [
+      ["gluten", "Cereals containing gluten"],
+      "egg",
+      ["crustacean", "Crustaceans"],
+      "fish",
+      "mollusc",
+      "peanut",
+      "soy",
+      "milk",
+      "tree_nuts",
+      "sulphites",
+    ],
+  },
+  {
+    // RDC 727 Annex III, in its order, with wheat, rye, barley and oats apart.
+    // Gluten is last: Law 10.674 makes it a separate statement on the label.
+    // Anvisa's CP 1.357/2025 would change this list; see the glossary.
+    iso2: "BR",
+    name: "Brazil",
+    allergens: [
+      "wheat",
+      "rye",
+      "barley",
+      "oats",
+      ["crustacean", "Crustaceans"],
+      "egg",
+      "fish",
+      "peanut",
+      "soy",
+      "milk",
+      "almond",
+      "hazelnut",
+      "cashew",
+      "brazil_nut",
+      "macadamia",
+      "walnut",
+      "pecan",
+      "pistachio",
+      "pine_nut",
+      "chestnut",
+      "latex",
+      "gluten",
+    ],
+  },
+  { iso2: "ES", name: "Spain", allergens: IBERIAN_ALLERGENS },
+  { iso2: "PT", name: "Portugal", allergens: IBERIAN_ALLERGENS },
+  {
     iso2: "IN",
     name: "India",
     allergens: [
@@ -1424,6 +1495,8 @@ export function taxonomySeedStatements(
   const names = [
     ...Object.entries(FRENCH_NAMES).map((entry) => ["fr", ...entry]),
     ...Object.entries(JAPANESE_NAMES).map((entry) => ["ja", ...entry]),
+    ...Object.entries(SPANISH_NAMES).map((entry) => ["es", ...entry]),
+    ...Object.entries(PORTUGUESE_NAMES).map((entry) => ["pt", ...entry]),
   ] as [string, string, string][];
   for (const [language, slug, name] of names)
     if (!onlyFoods || selectedSlugs.has(slug))
@@ -1438,6 +1511,20 @@ export function taxonomySeedStatements(
         AND category_id=(SELECT id FROM categories WHERE slug=${quote(slug)})
         AND NOT EXISTS(SELECT 1 FROM category_aliases d WHERE d.category_id=category_aliases.category_id AND d.country_id IS NULL AND d.language=${quote(language)} AND d.is_display_name=1);`,
       );
+  // A market's own word, where it differs from its language's shared name.
+  const marketNames = [
+    ["es", "ES", SPAIN_NAMES],
+    ["pt", "PT", PORTUGAL_NAMES],
+  ] as const;
+  for (const [language, iso2, list] of marketNames)
+    for (const [slug, name] of Object.entries(list))
+      if (!onlyFoods || selectedSlugs.has(slug))
+        statements.push(
+          `INSERT INTO category_aliases(id,category_id,country_id,alias,is_display_name,language,created_at)
+          SELECT ${quote(newId())},c.id,co.id,${quote(name)},1,${quote(language)},${now} FROM categories c CROSS JOIN countries co
+          WHERE c.slug=${quote(slug)} AND co.iso2=${quote(iso2)}
+          ON CONFLICT DO NOTHING;`,
+        );
   // Questions are seeded only for foods that have none, so an operator's
   // list is never overwritten. SQLite reads the whole SELECT before inserting.
   const questions = (

@@ -116,7 +116,7 @@ export function SiteFooter({
               {language !== "en" && (
                 <li>
                   <Link
-                    to={`/report-translation?country=${country.code}&page=${encodeURIComponent(pathname)}`}
+                    to={`/report-translation?country=${country.code}&language=${language}&page=${encodeURIComponent(pathname)}`}
                     rel="nofollow"
                   >
                     {t("footer.reportTranslation")}

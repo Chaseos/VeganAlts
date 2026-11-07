@@ -1,7 +1,7 @@
 // A country's languages. These live in code because the gateway needs them
 // before any D1 read, and a language needs a deploy of its translations anyway.
 
-export const LANGUAGES = ["en", "fr", "ja"] as const;
+export const LANGUAGES = ["en", "es", "fr", "ja", "pt"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
 interface CountryLanguages {
@@ -17,13 +17,19 @@ const ENGLISH: CountryLanguages = { default: "en", offered: ["en"] };
 const COUNTRY_LANGUAGES: Record<string, CountryLanguages> = {
   ca: { default: "en", offered: ["en"], preview: ["fr"] },
   jp: { default: "ja", offered: ["en"], preview: ["ja"] },
+  mx: { default: "es", offered: ["en"], preview: ["es"] },
+  es: { default: "es", offered: ["en"], preview: ["es"] },
+  br: { default: "pt", offered: ["en"], preview: ["pt"] },
+  pt: { default: "pt", offered: ["en"], preview: ["pt"] },
 };
 
 // Each in its own name, whatever the page's language.
 export const LANGUAGE_NAMES: Record<Language, string> = {
   en: "English",
+  es: "Español",
   fr: "Français",
   ja: "日本語",
+  pt: "Português",
 };
 
 export const isLanguage = (value: string | null | undefined) =>
@@ -70,14 +76,18 @@ export function marketCookie(path: string, secure: boolean) {
 }
 
 /**
- * A page with no language in its address follows the visitor's choice. Pages
- * cached for everyone, such as `/` and `/about`, never do.
+ * A page with no language in its address follows `?language=`, then the
+ * visitor's choice. Pages cached for everyone, such as `/` and `/about`, never
+ * do.
  */
 export function chosenLanguage(
   path: string,
   cookies: string | null | undefined,
+  search = "",
 ) {
   if (SHARED_PAGES.test(path)) return null;
+  const named = new URLSearchParams(search).get("language");
+  if (isLanguage(named)) return named as Language;
   const viewed = lastViewed(cookies)?.[1];
   if (isLanguage(viewed)) return viewed as Language;
   const chosen = cookies?.match(/(?:^|;\s*)va_lang=([a-z]{2})/)?.[1];

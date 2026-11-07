@@ -2,13 +2,25 @@ import type { EntryContext } from "react-router";
 import { ServerRouter } from "react-router";
 import { renderToReadableStream } from "react-dom/server";
 import { addDictionary } from "./i18n";
+import {
+  errors as spanishErrors,
+  es,
+  markets as spanishMarkets,
+} from "./i18n/es";
 import { errors as frenchErrors, fr } from "./i18n/fr";
 import { errors as japaneseErrors, ja } from "./i18n/ja";
+import {
+  errors as portugueseErrors,
+  markets as portugueseMarkets,
+  pt,
+} from "./i18n/pt";
 import { NonceContext } from "./lib/nonce";
 import { failureKind, routeLabel } from "@server/observability/events";
 
 addDictionary("fr", fr, frenchErrors);
 addDictionary("ja", ja, japaneseErrors);
+addDictionary("es", es, spanishErrors, spanishMarkets);
+addDictionary("pt", pt, portugueseErrors, portugueseMarkets);
 export const streamTimeout = 5_000;
 
 export default async function handleRequest(
