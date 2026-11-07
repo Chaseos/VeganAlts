@@ -191,6 +191,99 @@ const MARKET_NAMES: Partial<
   },
 };
 
+// The seeded rating questions, by key. A question an operator adds has no entry
+// and shows as written.
+const QUESTIONS: Partial<Record<Language, Record<string, string>>> = {
+  fr: {
+    baking: "En pâtisserie",
+    browning: "Dorure",
+    creaminess: "Onctuosité",
+    crispiness: "Croustillant",
+    hot_drinks: "Dans les boissons chaudes",
+    juiciness: "Jutosité",
+    melt: "Fonte",
+    riblets: "Côtes levées BBQ",
+    scrambling: "Œufs brouillés",
+    soyrizo: "Chorizo mexicain",
+    spreading: "Tartinabilité",
+    stretch: "Étirement",
+    taste: "Goût",
+    texture: "Texture",
+  },
+  de: {
+    baking: "Beim Backen",
+    browning: "Bräunung",
+    creaminess: "Cremigkeit",
+    crispiness: "Knusprigkeit",
+    hot_drinks: "In heißen Getränken",
+    juiciness: "Saftigkeit",
+    melt: "Schmelzen",
+    riblets: "BBQ-Rippchen",
+    scrambling: "Als Rührei",
+    soyrizo: "Mexikanische Chorizo",
+    spreading: "Streichfähigkeit",
+    stretch: "Fadenziehen",
+    taste: "Geschmack",
+    texture: "Textur",
+  },
+  it: {
+    baking: "In forno",
+    browning: "Doratura",
+    creaminess: "Cremosità",
+    crispiness: "Croccantezza",
+    hot_drinks: "Nelle bevande calde",
+    juiciness: "Succosità",
+    melt: "Fusione",
+    riblets: "Costine BBQ",
+    scrambling: "Strapazzate",
+    soyrizo: "Chorizo messicano",
+    spreading: "Spalmabilità",
+    stretch: "Filatura",
+    taste: "Gusto",
+    texture: "Consistenza",
+  },
+  ja: {
+    baking: "お菓子作りでの使い勝手",
+    browning: "焼き色",
+    creaminess: "クリーミーさ",
+    crispiness: "サクサク感",
+    hot_drinks: "温かい飲み物での使い勝手",
+    juiciness: "ジューシーさ",
+    melt: "溶け具合",
+    riblets: "BBQリブ",
+    scrambling: "スクランブルエッグ",
+    soyrizo: "メキシカンチョリソー",
+    spreading: "塗りやすさ",
+    stretch: "伸び",
+    taste: "味",
+    texture: "食感",
+  },
+};
+
+const EUROPEAN_FRENCH_QUESTIONS: Record<string, string> = {
+  riblets: "Travers BBQ",
+};
+const MARKET_QUESTIONS: Partial<
+  Record<Language, Record<string, Record<string, string>>>
+> = {
+  de: { ch: { hot_drinks: "In heissen Getränken" } },
+  fr: {
+    fr: EUROPEAN_FRENCH_QUESTIONS,
+    be: EUROPEAN_FRENCH_QUESTIONS,
+    lu: EUROPEAN_FRENCH_QUESTIONS,
+    ch: EUROPEAN_FRENCH_QUESTIONS,
+  },
+};
+
+export function questionLabel(key: string, label: string) {
+  const language = pageLanguage() ?? "en";
+  return (
+    MARKET_QUESTIONS[language]?.[pageCountry() ?? ""]?.[key] ??
+    QUESTIONS[language]?.[key] ??
+    label
+  );
+}
+
 export function countryName(iso2: string, name: string) {
   return COUNTRIES[pageLanguage() ?? "en"]?.[iso2] ?? name;
 }

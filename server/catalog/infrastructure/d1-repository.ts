@@ -25,7 +25,7 @@ import type {
 } from "../domain/contracts";
 import type { RankingFilters } from "../domain/filters";
 import type { AllergenDeclaration } from "../../community/domain/allergens";
-import { allergenName } from "../domain/local-names";
+import { allergenName, questionLabel } from "../domain/local-names";
 import type { TaxonomyNode } from "../../taxonomy/domain/shape";
 import { eligibleProductSql as eligible } from "../../ranking/infrastructure/read-policy";
 import {
@@ -600,7 +600,10 @@ export class D1CatalogRepository implements CatalogRepository {
         )
         .bind(categoryId)
         .all<{ id: string; key: string; label: string }>()
-    ).results;
+    ).results.map((question) => ({
+      ...question,
+      label: questionLabel(question.key, question.label),
+    }));
   }
 
   // The trending recipe lines of a country, each in the food it trends most
@@ -820,9 +823,12 @@ export class D1CatalogRepository implements CatalogRepository {
         > & { dimensions: string })[]
       ).map((category) => ({
         ...category,
-        dimensions: JSON.parse(
-          category.dimensions,
-        ) as ProductCategory["dimensions"],
+        dimensions: (
+          JSON.parse(category.dimensions) as ProductCategory["dimensions"]
+        ).map((question) => ({
+          ...question,
+          label: questionLabel(question.key, question.label),
+        })),
       })),
       images: images!.results as unknown as ProductDetails["images"],
     };
