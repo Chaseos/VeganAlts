@@ -3,6 +3,7 @@ import { useLocation } from "react-router";
 import {
   LANGUAGE_NAMES,
   languagesOf,
+  marketCookie,
   type Language,
 } from "@server/catalog/domain/languages";
 import { languageHref } from "@server/catalog/domain/markets";
@@ -99,6 +100,11 @@ export function LanguagePrompt() {
   const { language, languages } = usePageLanguages();
   const [offer, setOffer] = useState<(typeof languages)[number] | null>(null);
   const page = languages.map((option) => option.code).join();
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const cookie = marketCookie(pathname, location.protocol === "https:");
+    if (cookie) document.cookie = cookie;
+  }, [pathname]);
   useEffect(() => {
     setOffer(null);
     if (
