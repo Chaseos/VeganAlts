@@ -130,3 +130,18 @@ Japan's list is the Consumer Affairs Agency's 9 required and 20 recommended item
 
 Each language's chunk is now about 32 KB compressed. English pages don't load either one.
 
+## European markets (2026-11-06)
+
+German, Italian and European French are on `feature/europe-languages`, preview only. Canada keeps the shared `fr`, and Germany, France, Italy, Austria, Switzerland, Belgium and Luxembourg start with no foods.
+
+| Language | Dictionary, messages, names | First evaluator | Second evaluator | Final recheck |
+|---|---|---|---|---|
+| German | 1,296 keys, 260 messages, 152 names | 1 of 30, 11 high | 16.75 of 30, 2 high | No high open |
+| Italian | 1,296 keys, 260 messages, 152 names | 1.25 of 30, 8 high | 17.5 of 30, 1 high | No high open |
+| European French | 254 keys and 38 messages differ from Canadian French | 9.25 of 30, 7 high | 19.25 of 30, 1 high | No high open |
+
+Scores are per the `product-localization-eval` rubric, before the last fixes, and weren't recalculated after them. They're provisional, because the evidence ceiling is 26 without native review, and they're low mainly because the rubric deducts per root cause. `check_catalog.py` found no missing keys or plurals. The only placeholder differences are German's 17 uses of `{inCountry}`, on purpose, and the strings identical to English were reviewed by the evaluators.
+
+Not covered: no European market has products, so ranked, product and rating pages weren't rendered in these languages. Those strings were reviewed from the catalogs and code. French spacing follows common practice, not a source read at an authority.
+
+Found in code by this work: names were lowercased mid-sentence, which breaks German nouns; rating questions stayed in English on translated pages; scores always used a decimal point; and a link to a country in another language showed the first language's text, because the dictionary loads with the page.

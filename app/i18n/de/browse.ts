@@ -207,7 +207,7 @@ export const browse = {
     "Für diese Alternativen wurden in diesem Land noch keine Geschäfte gemeldet.",
   "filters.done": "Fertig",
   "filters.free": "Ohne {name}",
-  "filters.any": "Beliebig",
+  "filters.any": "Kein Filter",
   "filters.freeLabelChosen":
     "Allergenfilter (laut Etikett): {summary}. Allergene: {names}",
   "filters.freeLabelAny": "Allergenfilter: kein Allergen gewählt",

@@ -27,7 +27,7 @@ export const france: Partial<Dictionary> = {
   "allergen.none": "Aucun allergène à déclaration obligatoire sur l’étiquette",
   "allergen.photoNutrition": "La photo des valeurs nutritionnelles",
   "brand.metaDescription":
-    "Tous les produits végans {name} · {country}, par aliment, avec le rang de chaque recette.",
+    "Tous les produits végans {name} ({country}), par aliment, avec le rang de chaque recette.",
   "brand.metaTitle": "Produits végans {name} · {country}",
   "category.aisleMetaDescription":
     "Tous les aliments de la catégorie {aisle} avec leurs alternatives véganes les plus proches, classées par des personnes qui les ont essayées.",
