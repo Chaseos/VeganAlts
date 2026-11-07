@@ -154,9 +154,9 @@ export const product = {
   "product.communityRatings": "Bewertungen der Community",
   "product.firstSwap": "Platz 1: {food}",
   "product.rankOfFor": "Platz {rank} von {of} ({food})",
-  "product.acrossFlavors": "Über {total} Sorten von {name}",
+  "product.acrossFlavors": "Aus {total} Sorten von {name}",
   "product.closest": "Am nächsten",
-  "product.toFood": "zum Original ({food})",
+  "product.toFood": "am Original ({food})",
   "product.tastiest": "Am leckersten",
   "product.onItsOwn": "für sich genommen",
   "product.thisFlavor": "Diese Sorte",
@@ -220,7 +220,8 @@ export const product = {
   "rating.addDetail": "Details hinzufügen",
   "rating.yourAnswers": "· deine Antworten",
   "rating.optional": "· optional",
-  "rating.detailLegend": "Detailbewertungen und letztes Mal gegessen",
+  "rating.detailLegend":
+    "Detailbewertungen und zuletzt gegessen oder getrunken",
   "rating.lastAteQuestion":
     "Wann hast du zuletzt {food} gegessen oder getrunken?",
   "rating.optionalWord": "optional",
@@ -271,9 +272,8 @@ export const product = {
     "Die gespeicherte Bewertung konnte nicht bestätigt werden. Bitte versuche es erneut.",
   "personal.connectionLost": "Verbindung verloren. Bitte versuche es erneut.",
   "personal.loadFailed":
-    "Dein persönlicher Status konnte nicht geladen werden. Bitte versuche es erneut.",
-  "personal.loadFailedShort":
-    "Persönlicher Status konnte nicht geladen werden.",
+    "Deine persönlichen Daten konnten nicht geladen werden. Bitte versuche es erneut.",
+  "personal.loadFailedShort": "Persönliche Daten konnten nicht geladen werden.",
 
   // Saved products
   "saved.metaTitle": "Gespeicherte Produkte · VeganAlts",

@@ -39,9 +39,8 @@ export const browse = {
   "brand.fallback": "Marke",
   "brand.metaTitle": "Vegane Produkte von {name} · {country}",
   "brand.metaDescription":
-    "Alle veganen Produkte von {name} in diesem Land ({country}), nach Lebensmittel sortiert, mit dem Platz jeder Rezeptur.",
-  "brand.noProducts":
-    "Noch keine Produkte von {name} in diesem Land ({country})",
+    "Alle veganen Produkte von {name} {inCountry}, nach Lebensmittel sortiert, mit dem Platz jeder Rezeptur.",
+  "brand.noProducts": "Noch keine Produkte von {name} {inCountry}",
   "brand.foundOne":
     "Eines hier gefunden? Füge es hinzu, dann kommt es in die Rangliste.",
   "brand.across": "Aus {count} Sorten",
@@ -62,10 +61,10 @@ export const browse = {
   "category.metaDescription":
     "Vegane Alternativen im Vergleich: {food}, sortiert nach Ähnlichkeit, mit Zahl der Bewertungen und Details zur Rezeptur.",
   "category.title": "Vegane Alternativen: {food}",
-  "category.notHere": "Noch nicht in diesem Land ({country})",
-  "category.seeIn": "Für {country} ansehen",
+  "category.notHere": "Noch nicht {inCountry}",
+  "category.seeIn": "Ansehen: {country}",
   "category.notHereBody":
-    "Kennst du eine vegane Alternative für dieses Lebensmittel ({food}), die hier verkauft wird? Füge sie hinzu, dann startet die Rangliste in diesem Land ({country}).",
+    "Kennst du eine vegane Alternative für dieses Lebensmittel ({food}), die hier verkauft wird? Füge sie hinzu, dann startet die Rangliste {inCountry}.",
   "category.ranking": "Rangliste",
   "category.closestOriginal": "Am nächsten am Original",
   "category.sortTrending": "Im Trend",
@@ -75,7 +74,7 @@ export const browse = {
   "category.sortDetail": "Am nächsten: {detail}",
   "category.sortDetailHint": "Detailpunkte",
   "category.sortMost": "Meistbewertet",
-  "category.sortMostHint": "Meiste Personen",
+  "category.sortMostHint": "Von den meisten bewertet",
   "category.flagTastiest": "Am leckersten, Platz 1",
   "category.flagTop": "Platz 1",
   "category.flagFiltered": "{base} · {filters} (laut Etikett)",
@@ -203,20 +202,20 @@ export const browse = {
   "filters.commonlyAt": "Häufig erhältlich bei:",
   "filters.pickStores": "Wähle alle Geschäfte, in denen du einkaufst",
   "filters.storesNote":
-    "Häufig erhältlich in mindestens einem deiner gewählten Geschäfte, laut Mitgliedern in diesem Land ({country}). Deine Auswahl wird auf diesem Gerät für jede Rangliste in diesem Land gespeichert.",
+    "Häufig erhältlich in mindestens einem deiner gewählten Geschäfte, laut Mitgliedern {inCountry}. Deine Auswahl wird auf diesem Gerät für jede Rangliste in diesem Land gespeichert.",
   "filters.noStores":
     "Für diese Alternativen wurden in diesem Land noch keine Geschäfte gemeldet.",
   "filters.done": "Fertig",
   "filters.free": "Ohne {name}",
   "filters.any": "Beliebig",
   "filters.freeLabelChosen":
-    "Ohne (laut Etikett): {summary}. Allergene: {names}",
-  "filters.freeLabelAny": "Ohne: kein Allergen gewählt",
+    "Allergenfilter (laut Etikett): {summary}. Allergene: {names}",
+  "filters.freeLabelAny": "Allergenfilter: kein Allergen gewählt",
   "filters.allergensPanel": "Allergene, die du meiden willst",
-  "filters.freeFrom": "Ohne:",
+  "filters.freeFrom": "Allergene:",
   "filters.avoid": "Produkte meiden, deren Etikett Folgendes nennt",
   "filters.freeNote":
-    "Es zählen nur Produkte mit bestätigtem Etikett. Steht dort „Kann enthalten“, wird das Produkt ebenfalls ausgeschlossen. Prüfe immer die Verpackung. Deine Auswahl wird auf diesem Gerät für jede Rangliste in diesem Land gespeichert.",
+    "Es zählen nur Produkte mit bestätigtem Etikett. Steht dort für ein gewähltes Allergen „Kann enthalten“, wird das Produkt ebenfalls ausgeschlossen. Prüfe immer die Verpackung. Deine Auswahl wird auf diesem Gerät für jede Rangliste in diesem Land gespeichert.",
   "filters.noAllergen": "Kein Allergenfilter",
   "filters.storeLine": "Häufig erhältlich bei {names}",
   "filters.ofMatch": {
@@ -257,9 +256,10 @@ export const browse = {
   "group.saucesDips": "Saucen, Dips & Aufstriche",
   "group.mealsPrepared": "Gerichte & Fertigprodukte",
   "group.moreFoods": "Weitere Lebensmittel",
-  "header.backTo": "Zurück zu {place}",
+  "header.backTo": "Zurück: {place}",
   "header.search": "Suche",
-  "home.metaTitleIn": "Vegane Alternative nah am Original · {country}",
+  "home.metaTitleIn":
+    "Vegane Alternativen, am nächsten am Original · {country}",
   "home.metaTitle": "Vegane Alternative, die dem Original am nächsten kommt",
   "home.metaDescription":
     "Suche ein Lebensmittel, das du schon kaufst, und sieh in der Rangliste, welche veganen Produkte ihm laut der Community am nächsten kommen.",
@@ -291,8 +291,8 @@ export const browse = {
     "Die Alternativen, die dem Original am nächsten kommen, damit du den Wechsel kaum merkst.",
   "home.insteadOf": "Anstelle von: {food}",
   "home.bestSoFar": "Bisher am besten: {name}",
-  "home.topSwapsForName": "Top-Alternativen für {name}",
-  "home.topSwapsFor": "Top-Alternativen für",
+  "home.topSwapsForName": "Top-Alternativen: {name}",
+  "home.topSwapsFor": "Top-Alternativen:",
   "home.seeAllSwaps": {
     one: "{number} Alternative ansehen: {food}",
     other: "Alle {number} Alternativen ansehen: {food}",
@@ -300,9 +300,9 @@ export const browse = {
   "home.open": "{food} öffnen",
   "home.pointAt":
     "Zeige auf ein anderes Lebensmittel in der Liste für eine Vorschau.",
-  "home.noRankings": "Noch keine Ranglisten für dieses Land ({name})",
+  "home.noRankings": "Noch keine Ranglisten {inCountry}",
   "home.noRankingsBody":
-    "Die Ranglisten hier stammen von Menschen, die in diesem Land ({name}) leben. Füge ein veganes Produkt hinzu, das du kaufst, oder schlage ein Lebensmittel vor, das es ersetzt. Sobald Leute es bewerten, bekommt es eine eigene Rangliste.",
+    "Die Ranglisten hier stammen von Menschen, die {inCountry} leben. Füge ein veganes Produkt hinzu, das du kaufst, oder schlage ein Lebensmittel vor, das es ersetzt. Sobald Leute es bewerten, bekommt es eine eigene Rangliste.",
   "home.addFirst": "Erstes Produkt hinzufügen",
   "list.more": "{name} + {count} weitere",
   "list.and": "{items} und {last}",
@@ -427,7 +427,7 @@ export const browse = {
   "searchPage.metaDescription":
     "Entdecke vegane Alternativen nach Lebensmittel, Marke oder Produkt. Stöbere im Katalog: {country}.",
   "searchPage.results": "Ergebnisse für „{query}“",
-  "searchPage.shown": "{list} angezeigt für dieses Land ({country})",
+  "searchPage.shown": "{list} angezeigt {inCountry}",
   "searchPage.foods": "Lebensmittel",
   "searchPage.brands": "Marken",
   "searchPage.products": "Produkte",
@@ -462,8 +462,8 @@ export const browse = {
   "summary.emptyTastiest":
     "Noch niemand hat gesagt, wie lecker diese Alternativen sind ({food}). Schon eine probiert? Deine Antwort startet die Rangliste.",
   "summary.ranked": {
-    one: "{number} vegane Alternative zu {food}, bewertet von {people}.",
-    other: "{number} vegane Alternativen zu {food}, bewertet von {people}.",
+    one: "{number} vegane Alternative ({food}), bewertet von {people}.",
+    other: "{number} vegane Alternativen ({food}), bewertet von {people}.",
   },
   "summary.onePerson": "1 Person, die sie probiert hat",
   "summary.manyPeople": "{number} Personen, die sie probiert haben",

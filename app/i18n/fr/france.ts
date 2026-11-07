@@ -38,12 +38,12 @@ export const france: Partial<Dictionary> = {
   "category.flagTastiest": "Le plus savoureux n° 1",
   "category.flagTop": "Alternative n° 1",
   "category.how1":
-    "Les personnes qui ont essayé un produit évaluent, de 1 à 5, sa ressemblance avec « {food} » à la même saveur. La recette d’une marque et ses saveurs sont classées ensemble : chaque personne compte une seule fois, selon la moyenne des saveurs qu’elle a évaluées, ajustée en fonction du nombre de personnes ayant évalué le produit. Les alternatives évaluées par moins de 10 personnes portent le badge « Préliminaire ». Le plus savoureux classe les réponses à « Dans quelle mesure est-il savoureux? » de la même façon et ne modifie jamais Le plus proche de l’original.",
+    "Les personnes qui ont essayé un produit évaluent, de 1 à 5, sa ressemblance avec « {food} » à saveur identique. La recette d’une marque et ses saveurs sont classées ensemble : chaque personne compte une seule fois, selon la moyenne des saveurs qu’elle a évaluées, ajustée en fonction du nombre de personnes ayant évalué le produit. Les alternatives évaluées par moins de 10 personnes portent le badge « Préliminaire ». Le plus savoureux classe les réponses à « Dans quelle mesure est-il savoureux? » de la même façon et ne modifie jamais Le plus proche de l’original.",
   "category.knowSwap":
     "Vous connaissez une alternative à « {food} » qui n’est pas ici?",
   "category.metaDescription":
     "Comparez les alternatives véganes à « {food} », classées par similarité, avec le nombre d’évaluations et le détail des formules.",
-  "category.metaTitle": "Les meilleures alternatives véganes à « {food} »",
+  "category.metaTitle": "« {food} » : les meilleures alternatives véganes",
   "category.noMatchFilters":
     "Aucune alternative classée ne correspond encore à vos filtres",
   "category.noNew": "Aucune nouvelle alternative récemment",
@@ -53,7 +53,7 @@ export const france: Partial<Dictionary> = {
   "category.notHere": "Pas encore disponible · {country}",
   "category.notHereBody":
     "Vous connaissez une alternative végane à « {food} » vendue ici? Ajoutez-la et « {food} » sera disponible dans ce pays ({country}).",
-  "category.title": "Alternatives véganes à « {food} »",
+  "category.title": "« {food} » : alternatives véganes",
   "category.topAlternatives": "Meilleures alternatives véganes à « {food} »",
   "category.trendingNote":
     "Tendance reflète les personnes qui évaluent, essaient et commentent une alternative au cours des trois derniers mois, par rapport aux trois mois précédents. Elle ne modifie jamais un classement.",
@@ -145,7 +145,7 @@ export const france: Partial<Dictionary> = {
   "home.topSwapsForName": "Meilleures alternatives pour {name}",
   "home.waitingTitle": "En attente d’une bonne alternative",
   "myContributions.opSubmission": "Proposition de produit",
-  "myContributions.revisedLink": "proposition révisée",
+  "myContributions.revisedLink": "proposition modifiée",
   "myRatings.emptyBody":
     "Explorez un aliment, essayez une alternative et dites à quel point elle s’en rapproche.",
   "photo.back": "Arrière",
@@ -169,7 +169,7 @@ export const france: Partial<Dictionary> = {
   "product.tapStores":
     "Appuyez sur chaque magasin où vous faites vos courses pour l’enregistrer sur cet appareil. Les classements montreront ce que vous pouvez trouver dans l’un d’eux.",
   "product.thisAlternative": "cette alternative végane",
-  "ranking.overall": "n° {rank} au classement général",
+  "ranking.overall": "n° {rank} au classement général",
   "rating.help":
     "Répondez à l’une des questions ou aux deux. Chaque choix s’enregistre aussitôt; appuyez de nouveau dessus pour l’effacer. Votre évaluation indique que vous avez essayé cette formule.",
   "rating.taste2": "Correct",
@@ -195,8 +195,8 @@ export const france: Partial<Dictionary> = {
     "Aucune alternative végane à « {food} » n’est encore classée. Vous en avez essayé une? Votre évaluation lancera le classement.",
   "summary.emptyTastiest":
     "Personne n’a encore dit à quel point ces alternatives à « {food} » sont savoureuses. Vous en avez essayé une? Votre réponse lancera le classement.",
-  "summary.manyPeople": "{number} personnes qui les ont essayées",
-  "summary.onePerson": "1 personne qui l’a essayée",
+  "summary.manyPeople": "{number} personnes",
+  "summary.onePerson": "1 personne",
   "summary.ranked": {
     one: "{number} alternative végane à « {food} » classée par {people}.",
     other: "{number} alternatives véganes à « {food} » classées par {people}.",
@@ -266,5 +266,37 @@ export const france: Partial<Dictionary> = {
     "De 3 à 30 lettres, chiffres ou tirets bas. Commencez par une lettre.",
   "safety.indiaMark":
     "Le symbole végétarien vert de l’Inde n’est pas une mention végane, car un aliment végétarien peut contenir des produits laitiers. Choisissez « Étiqueté végan » seulement si l’emballage indique « végan » ou porte le logo végan.",
-  "nav.suggestFood": "Suggérer un aliment",
+  "filters.freeNote":
+    "Seuls les produits dont l’étiquette est confirmée sont retenus. Un allergène choisi indiqué après « Peut contenir » exclut aussi le produit. Vérifiez toujours l’emballage. Vos choix sont enregistrés sur cet appareil pour tous les classements de ce pays.",
+  "home.suggestTail": "pour qu’il ait son propre classement.",
+  "summary.closest": "{lead} {title} arrive en tête, avec {score} sur 5.",
+  "summary.closestEarly":
+    "{lead} {title} arrive en tête pour l’instant, avec {score} sur 5.",
+  "summary.tastiest":
+    "{lead} {title} arrive en tête pour le goût, avec {score} sur 5.",
+  "summary.tastiestEarly":
+    "{lead} {title} arrive en tête pour le goût pour l’instant, avec {score} sur 5.",
+  "myContributions.rejected":
+    "Refusée — veuillez la modifier avant de la renvoyer",
+  "myContributions.resubmit": "Veuillez la renvoyer",
+  "contribute.revisePhotos": "Modifier les photos",
+  "suggestFood.title": "Proposer un aliment",
+  "suggestFood.submit": "Proposer l’aliment",
+  "suggestFood.metaTitle": "Proposer un aliment · VeganAlts",
+  "draft.chooseFood":
+    "Choisissez l’aliment qu’il remplace, ou proposez-en un nouveau.",
+  "addProduct.submit": "Soumettre le produit",
+  "addProduct.allOptional":
+    "Tout ici est facultatif. Soumettez maintenant ou ajoutez ce que vous savez.",
+  "addProduct.photosNotRestored":
+    "Les photos enregistrées n’ont pas pu être restaurées à partir de cet appareil. Veuillez les choisir de nouveau avant de soumettre.",
+  "product.contributors": {
+    one: "{amount} contributeur",
+    other: "{amount} contributeurs",
+  },
+  "menu.operators": "Équipe",
+  "detail.categoryScore": "{category} : note {score} ({types})",
+  "foodNav.matches": "Résultats pour « {query} » : {count}",
+  "seeMore.added": "Ajoutés : {count} {what}",
+  "language.prompt": "Afficher cette page dans cette langue : {language} ?",
 };

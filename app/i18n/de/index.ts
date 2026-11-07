@@ -19,10 +19,16 @@ export const de: Dictionary = {
 };
 
 export const markets: Record<string, MarketText> = {
-  at: { locale: "de-AT" },
-  lu: { locale: "de-LU" },
+  de: { locale: "de-DE", inCountry: "in Deutschland" },
+  at: {
+    locale: "de-AT",
+    inCountry: "in Österreich",
+    messages: { "search.placeholder": "Faschiertes, Cheddar, Eier …" },
+  },
+  lu: { locale: "de-LU", inCountry: "in Luxemburg" },
   ch: {
     locale: "de-CH",
+    inCountry: "in der Schweiz",
     messages: swissGerman(de),
     serverText: swissGerman(errors),
   },

@@ -19,6 +19,8 @@ const SERVER_TEXT: Partial<Record<Language, Record<string, string>>> = {};
 export interface MarketText {
   /** For dates, numbers and plurals, such as `fr-FR`. */
   locale: string;
+  /** Fills `{inCountry}`, for languages where "in" changes with the country. */
+  inCountry?: string;
   messages?: Partial<Dictionary>;
   serverText?: Record<string, string>;
 }
@@ -38,8 +40,7 @@ export function addDictionary(
   MARKETS[language] = markets;
 }
 
-const pageMarket = () =>
-  MARKETS[pageLanguage() ?? "en"]?.[pageCountry() ?? ""];
+const pageMarket = () => MARKETS[pageLanguage() ?? "en"]?.[pageCountry() ?? ""];
 
 /**
  * A server error in the page's language. The API stays in English, so the
@@ -82,6 +83,8 @@ export function t(
         ? message.one
         : message.other;
   return text.replace(/\{(\w+)\}/g, (match, name: string) =>
-    String(values[name] ?? match),
+    name === "inCountry"
+      ? (pageMarket()?.inCountry ?? `in ${values.country}`)
+      : String(values[name] ?? match),
   );
 }

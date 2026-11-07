@@ -290,20 +290,19 @@ export const contribute = {
   "community.guidelinesAfter": ".",
   "community.guidelinesBefore": "I contributi seguono le",
   "community.guidelinesLink": "linee guida della community",
-  "community.guidelinesMiddle":
-    "e vengono verificati secondo quanto spiegato in",
+  "community.guidelinesMiddle": "e vengono verificati. Scopri",
   "community.manufacturerLabel": "Dicitura del produttore",
   "community.manufacturerNeither": "Nessuna delle due diciture",
   "community.manufacturerPlantBased": "Etichettato come vegetale",
   "community.manufacturerUnknown": "Non so / non indicato",
   "community.manufacturerVegan": "Etichettato come vegano",
-  "community.moderationLink": "Come funziona la moderazione",
+  "community.moderationLink": "come funziona la moderazione",
   "community.noScript":
     "Per aggiungere o modificare contributi serve JavaScript. Attivalo, poi ricarica la pagina per continuare.",
   "community.notConfirmed": "Non ancora confermato",
   "community.optional": "(facoltativo)",
   "community.reasonFlavorNotReal": "Questo gusto non esiste",
-  "community.reasonOutOfScope": "Non appartiene a VeganAlts",
+  "community.reasonOutOfScope": "Non deve stare su VeganAlts",
   "community.reasonWrongLine": "Non fa parte di questa linea",
   "community.required": "(obbligatorio)",
   "community.selected": "Selezionato: {name}",
@@ -400,7 +399,7 @@ export const contribute = {
   "contribute.relationship": "Legame",
   "contribute.replaced": "(sostituito)",
   "contribute.reportHint":
-    "Scegli «Non appartiene a VeganAlts» se il prodotto non vuole imitare un originale di origine animale, oppure se per un preparato il produttore non indica una preparazione vegana. Scegli «categoria sbagliata» se il prodotto è al posto giusto ma sotto l’alimento sbagliato.",
+    "Scegli «Non deve stare su VeganAlts» se il prodotto non vuole imitare un originale di origine animale, oppure se per un preparato il produttore non indica una preparazione vegana. Scegli «categoria sbagliata» se il prodotto è al posto giusto ma sotto l’alimento sbagliato.",
   "contribute.reportNote":
     "I dubbi sugli ingredienti hanno la precedenza. Una segnalazione non cambia i dati del prodotto finché il team non la valuta. Una segnalazione ripetuta aggiorna le tue prove e conta una sola volta.",
   "contribute.reportTarget": "Cosa vuoi segnalare?",
@@ -498,7 +497,7 @@ export const contribute = {
   "draft.chooseAllergens":
     "Scegli gli allergeni elencati sull’etichetta, oppure «Nessun allergene dichiarato sull’etichetta».",
   "draft.chooseBrand":
-    "Scegli la marca dall’elenco, oppure aggiungilo come nuova marca.",
+    "Scegli la marca dall’elenco, oppure aggiungila come nuova marca.",
   "draft.chooseFood":
     "Scegli l’alimento che sostituisce, oppure proponine uno nuovo.",
   "draft.chooseLine":
@@ -672,9 +671,9 @@ export const contribute = {
     "Un alimento è il prodotto tradizionale che le persone vogliono sostituire, come «Rustici al würstel» o «Formaggio spalmabile». Ha una classifica tutta sua. Si apre prima in questo paese ({country}); gli altri paesi lo ricevono quando qualcuno vi aggiunge un prodotto.",
   "suggestFood.metaTitle": "Proponi un alimento · VeganAlts",
   "suggestFood.nameLabel": "Nome dell’alimento (obbligatorio)",
-  "suggestFood.productAfter": "e le due cose vengono verificate insieme.",
+  "suggestFood.productAfter": "e li verifichiamo insieme.",
   "suggestFood.productBefore": "Hai un prodotto per questo alimento?",
-  "suggestFood.productLink": "Aggiungilo insieme al prodotto",
+  "suggestFood.productLink": "Aggiungi l’alimento con il prodotto",
   "suggestFood.reviewAfter": ".",
   "suggestFood.reviewBefore":
     "Controlliamo se è un doppione e decidiamo entro tre giorni. Seguine l’esito in",

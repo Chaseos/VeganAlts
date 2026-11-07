@@ -99,6 +99,24 @@ it("a country's text comes first, then its language's, then English", () => {
   expect(pageLocale()).toBe("fr-CA");
 });
 
+it("a market can word its own {inCountry}", () => {
+  addDictionary(
+    "de",
+    { ...en, "common.sending": "Nur {inCountry}" },
+    {},
+    {
+      ch: { locale: "de-CH", inCountry: "in der Schweiz" },
+    },
+  );
+  readPageLanguageFrom(() => "de");
+  readPageCountryFrom(() => "ch");
+  expect(t("common.sending", { country: "Schweiz" })).toBe(
+    "Nur in der Schweiz",
+  );
+  readPageCountryFrom(() => "us");
+  expect(t("common.sending", { country: "USA" })).toBe("Nur in USA");
+});
+
 it("a page with no country in its address uses the last one viewed", () => {
   expect(marketCookie("/be/fr/milk", true)).toBe(
     "va_market=fr-be; Path=/; Max-Age=31536000; SameSite=Lax; Secure",

@@ -233,7 +233,7 @@ const QUESTIONS: Partial<Record<Language, Record<string, string>>> = {
     crispiness: "Croccantezza",
     hot_drinks: "Nelle bevande calde",
     juiciness: "Succosità",
-    melt: "Fusione",
+    melt: "Scioglievolezza",
     riblets: "Costine BBQ",
     scrambling: "Strapazzate",
     soyrizo: "Chorizo messicano",
@@ -262,6 +262,7 @@ const QUESTIONS: Partial<Record<Language, Record<string, string>>> = {
 
 const EUROPEAN_FRENCH_QUESTIONS: Record<string, string> = {
   riblets: "Travers BBQ",
+  stretch: "Filant",
 };
 const MARKET_QUESTIONS: Partial<
   Record<Language, Record<string, Record<string, string>>>

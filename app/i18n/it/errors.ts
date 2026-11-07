@@ -124,7 +124,7 @@ export const errors: Record<string, string> = {
     "Cita la foto accettata degli ingredienti o dei valori nutrizionali di questa ricetta.",
   "Comment not found.": "Commento non trovato.",
   "Companion and successor products must belong to this country.":
-    "I prodotti complementari e successivi devono appartenere a questo paese.",
+    "I prodotti abbinati e successivi devono appartenere a questo paese.",
   "Complete the quick security check, then try again.":
     "Completa il rapido controllo di sicurezza, poi riprova.",
   "Contribution not found.": "Contributo non trovato.",
@@ -188,7 +188,7 @@ export const errors: Record<string, string> = {
   "Publication expired. Refresh and retry.":
     "La pubblicazione è scaduta. Aggiorna la pagina e riprova.",
   "Publish or hide the held comment.":
-    "Pubblica o nascondi il commento in sospeso.",
+    "Pubblica o nascondi il commento trattenuto.",
   "Questions are never removed. Retire one instead.":
     "Le domande non vengono mai eliminate. Ritirane una invece.",
   "Rating not found.": "Valutazione non trovata.",

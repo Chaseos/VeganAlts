@@ -165,7 +165,7 @@ export const errors: Record<string, string> = {
   "Only active foods ask detail questions.":
     "Nur aktive Lebensmittel stellen Detailfragen.",
   "Only an accepted submission takes a reviewed classification.":
-    "Nur eine angenommene Einreichung erhält eine geprüfte Einordnung.",
+    "Nur eine angenommene Einreichung erhält eine geprüfte Einstufung.",
   "Only discontinued products can be reintroduced.":
     "Nur eingestellte Produkte können wieder eingeführt werden.",
   "Only raster images are accepted.": "Nur Rastergrafiken werden akzeptiert.",
@@ -442,10 +442,9 @@ export const errors: Record<string, string> = {
     "Verwende einen Anzeigenamen mit höchstens 60 Zeichen.",
   "Use a recognizable brand and product name, with more than a package size.":
     "Verwende einen erkennbaren Marken- und Produktnamen, nicht nur eine Packungsgröße.",
-  "Use a valid effective date.":
-    "Verwende ein gültiges Datum des Inkrafttretens.",
+  "Use a valid effective date.": "Verwende ein gültiges Datum für „Gültig ab“.",
   "Use an effective year between 1900 and 2200.":
-    "Verwende ein Jahr des Inkrafttretens zwischen 1900 und 2200.",
+    "Verwende für „Gültig ab“ ein Jahr zwischen 1900 und 2200.",
   "Use an idempotency key of 16–100 letters, digits, underscores, or hyphens.":
     "Verwende einen Idempotenzschlüssel aus 16–100 Buchstaben, Ziffern, Unterstrichen oder Bindestrichen.",
   "Use each query parameter only once.":

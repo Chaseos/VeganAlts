@@ -22,9 +22,9 @@ export const contribute = {
   "account.title": "Dein Profil",
   "account.viewProfile": "Öffentliches Profil ansehen",
   "addProduct.accepted":
-    "Sobald es angenommen ist, geht es in diesem Land ({country}) online.",
+    "Sobald es angenommen ist, geht es {inCountry} online.",
   "addProduct.acceptedRated":
-    "Sobald es angenommen ist, geht es in diesem Land ({country}) online und deine Bewertung wird gespeichert.",
+    "Sobald es angenommen ist, geht es {inCountry} online und deine Bewertung wird gespeichert.",
   "addProduct.addAnother": "Weiteres Produkt hinzufügen",
   "addProduct.addAnyway": "Trotzdem hinzufügen",
   "addProduct.addNewBrand": "„{name}“ als neue Marke hinzufügen",
@@ -49,10 +49,10 @@ export const contribute = {
   "addProduct.back": "Zurück",
   "addProduct.basicsTitle": "Die Grundangaben",
   "addProduct.brandFirst": "Wähle zuerst die Marke.",
-  "addProduct.brandNothing": "Noch nichts in diesem Land ({country})",
+  "addProduct.brandNothing": "Noch nichts {inCountry}",
   "addProduct.brandProducts": {
-    one: "{number} Produkt in diesem Land ({country})",
-    other: "{number} Produkte in diesem Land ({country})",
+    one: "{number} Produkt {inCountry}",
+    other: "{number} Produkte {inCountry}",
   },
   "addProduct.brandRequired": "Marke (erforderlich)",
   "addProduct.brandsFailed": "Wir konnten die Marken nicht prüfen.",
@@ -64,7 +64,7 @@ export const contribute = {
   },
   "addProduct.brandsMatching": "Marken zu {text}",
   "addProduct.bringsFood":
-    "Mit einem Produkt startet in diesem Land ({country}) die Rangliste ({food}).",
+    "Mit einem Produkt startet {inCountry} die Rangliste ({food}).",
   "addProduct.cannotAccept": "Diese Einreichung kann nicht angenommen werden.",
   "addProduct.change": "Ändern",
   "addProduct.changeBrand": "Marke {name}",
@@ -153,7 +153,7 @@ export const contribute = {
   "addProduct.newFoodLegend":
     "Neues Lebensmittel (wird mit deinem Produkt geprüft)",
   "addProduct.newFoodNote":
-    "Wir prüfen neue Lebensmittel innerhalb von drei Tagen auf Dubletten. Dein Produkt geht online, sobald das Lebensmittel angenommen ist.",
+    "Wir prüfen neue Lebensmittel innerhalb von drei Tagen auf Duplikate. Dein Produkt geht online, sobald das Lebensmittel angenommen ist.",
   "addProduct.newFoodSummary":
     "{name} (neues Lebensmittel, wird mit deinem Produkt geprüft)",
   "addProduct.newFromLegend": "Neu von {brand}",
@@ -163,9 +163,9 @@ export const contribute = {
   "addProduct.noMatchSuggest":
     "Kein Lebensmittel passt zu „{text}“. Prüfe die Schreibweise oder schlage es als neues Lebensmittel vor.",
   "addProduct.noStores":
-    "Für dieses Land ({country}) sind noch keine Geschäfte gelistet. Du kannst eines auf der Produktseite hinzufügen, sobald es online ist.",
+    "Es sind noch keine Geschäfte {inCountry} gelistet. Du kannst eines auf der Produktseite hinzufügen, sobald es online ist.",
   "addProduct.noneOnLabel": "Keine auf dem Etikett",
-  "addProduct.notInCountry": "Noch nicht in diesem Land ({country})",
+  "addProduct.notInCountry": "Noch nicht {inCountry}",
   "addProduct.notSavedUntil":
     "Deine neuen Einträge werden erst gespeichert, wenn du „Neu beginnen“ wählst.",
   "addProduct.nothingListed":
@@ -254,7 +254,7 @@ export const contribute = {
   "aisle.missingLabel": "Welche Kategorie fehlt? (optional)",
   "aisle.noneFit": "Keine davon passt wirklich",
   "allergen.citeHint":
-    "Wenn du das Zutaten- oder Nährwertfoto dieser Rezeptur angibst, können andere Mitwirkende die Angabe bestätigen. Andernfalls prüft das Team sie.",
+    "Wenn du das Zutaten- oder Nährwertfoto dieser Rezeptur angibst, können andere Mitglieder die Angabe bestätigen. Andernfalls prüft das Team sie.",
   "allergen.labelSays": "Was steht auf dem Etikett?",
   "allergen.lists": "Das Etikett nennt Allergene",
   "allergen.noPhoto":
@@ -343,7 +343,7 @@ export const contribute = {
   "contribute.datePlaceholder": "2026, 2026-09 oder 2026-09-15",
   "contribute.earlierFormula": "(frühere Rezeptur)",
   "contribute.editProduct": "Produkt bearbeiten",
-  "contribute.effectiveDate": "Ungefähres Datum des Inkrafttretens (optional)",
+  "contribute.effectiveDate": "Gültig ab, ungefähr (optional)",
   "contribute.experience": "Deine Erfahrung",
   "contribute.eyebrow": "Halte den Katalog nützlich",
   "contribute.findRetailer": "Händler finden",
@@ -351,7 +351,7 @@ export const contribute = {
   "contribute.formulaPlaceholder": "z. B. Rezeptur 2026",
   "contribute.foundAt": "Häufig erhältlich bei",
   "contribute.foundAtIntro":
-    "Teile mit, wo dieses Produkt in diesem Land ({country}) häufig verkauft wird. Das ist keine Angabe zum aktuellen Bestand.",
+    "Teile mit, wo dieses Produkt {inCountry} häufig verkauft wird. Das ist keine Angabe zum aktuellen Bestand.",
   "contribute.history": "Verlauf des Teams und Rücknahmen →",
   "contribute.intro":
     "Dein Nachweis hilft dem Team, eine fundierte Entscheidung zu treffen. Bestehende Bewertungen bleiben bei ihrer ursprünglichen Rezeptur.",
@@ -385,7 +385,7 @@ export const contribute = {
   "contribute.nutritionAllergensPhoto": "Foto der Nährwerte und Allergene",
   "contribute.photoChecked": "Das Foto, das du geprüft hast",
   "contribute.photoLimits":
-    "Bis zu 10 MiB pro Foto. Solange ein Vorschlag zur Bestätigung durch die Community offen ist, können angemeldete Mitwirkende seinen Nachweis sehen; sonst bleibt er während der Prüfung privat.",
+    "Bis zu 10 MiB pro Foto. Solange ein Vorschlag zur Bestätigung durch die Community offen ist, können angemeldete Mitglieder seinen Nachweis sehen; sonst bleibt er während der Prüfung privat.",
   "contribute.photoOption": "{slot}",
   "contribute.photoUnchecked":
     "Das Zutatenfoto ist da, aber noch niemand hat es geprüft.",
@@ -679,7 +679,7 @@ export const contribute = {
   "suggestFood.explanationLabel":
     "Gibt es etwas, das wir wissen sollten? (optional)",
   "suggestFood.intro":
-    "Ein Lebensmittel ist das herkömmliche Produkt, das Leute ersetzen möchten, etwa „Bratwurst“ oder „Frischkäse“. Es bekommt eine eigene Rangliste. Es startet zuerst in diesem Land ({country}); andere Länder bekommen es, sobald dort jemand ein Produkt hinzufügt.",
+    "Ein Lebensmittel ist das herkömmliche Produkt, das Leute ersetzen möchten, etwa „Bratwurst“ oder „Frischkäse“. Es bekommt eine eigene Rangliste. Es startet zuerst {inCountry}; andere Länder bekommen es, sobald dort jemand ein Produkt hinzufügt.",
   "suggestFood.metaTitle": "Lebensmittel vorschlagen · VeganAlts",
   "suggestFood.nameLabel": "Name des Lebensmittels (erforderlich)",
   "suggestFood.productAfter": "und beides wird zusammen geprüft.",
@@ -687,7 +687,7 @@ export const contribute = {
   "suggestFood.productLink": "Füge es mit dem Produkt hinzu",
   "suggestFood.reviewAfter": ".",
   "suggestFood.reviewBefore":
-    "Wir prüfen es auf Dubletten und entscheiden innerhalb von drei Tagen. Den Stand siehst du unter",
+    "Wir prüfen es auf Duplikate und entscheiden innerhalb von drei Tagen. Den Stand siehst du unter",
   "suggestFood.submit": "Lebensmittel vorschlagen",
   "suggestFood.thanks": "Danke, {name} wird geprüft.",
   "suggestFood.title": "Lebensmittel vorschlagen",

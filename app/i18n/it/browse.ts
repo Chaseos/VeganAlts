@@ -45,7 +45,7 @@ export const browse = {
   "brand.across": "In {count} gusti",
   "brand.thisFlavor": "Questo gusto",
   "brand.oneRanked": "1 gusto in classifica",
-  "brand.closest": "Più vicino",
+  "brand.closest": "Il più vicino",
   "brand.tastiest": "Il più gustoso",
   "brand.notRated": "Ancora nessuna valutazione",
   "brand.addFrom": "Aggiungi un prodotto di {name}",
@@ -73,10 +73,10 @@ export const browse = {
   "category.sortDetailHint": "Punteggio di dettaglio",
   "category.sortMost": "Più valutati",
   "category.sortMostHint": "Più persone",
-  "category.flagTastiest": "Il più gustoso n. 1",
+  "category.flagTastiest": "N. 1 per gusto",
   "category.flagTop": "Alternativa n. 1",
   "category.flagFiltered": "{base} · {filters} (secondo l’etichetta)",
-  "category.closestMatch": "Corrispondenza più vicina",
+  "category.closestMatch": "Il più vicino all’originale",
   "category.fewAnswers":
     "Per questi ci sono meno di 5 risposte alla domanda «{detail}», quindi seguono la classifica.",
   "category.noTastyYet":
@@ -84,7 +84,7 @@ export const browse = {
   "category.categoryName": "Categoria {name}",
   "category.howTitle": "Come funzionano questi punteggi",
   "category.how1":
-    "Chi ha provato un prodotto valuta da 1 a 5 quanto somiglia a {food} dello stesso gusto. La ricetta di una marca e i suoi gusti sono in classifica insieme: ogni persona conta una sola volta, con la media dei gusti che ha valutato, corretta in base a quante persone lo hanno valutato. Le alternative valutate da meno di 10 persone mostrano il badge Provvisorio. «Il più gustoso» ordina allo stesso modo le risposte a «Quanto è gustoso?» e non cambia mai «Il più vicino all’originale».",
+    "Chi ha provato un prodotto valuta da 1 a 5 quanto somiglia a {food} dello stesso gusto. La ricetta di una marca e i suoi gusti sono in classifica insieme: ogni persona conta una sola volta, con la media dei gusti che ha valutato, corretta in base a quante persone hanno valutato la ricetta. Le alternative valutate da meno di 10 persone mostrano il badge Provvisorio. «Il più gustoso» ordina allo stesso modo le risposte a «Quanto è gustoso?» e non cambia mai «Il più vicino all’originale».",
   "category.howDetails":
     "{list} sono valutazioni di dettaglio facoltative che spiegano il punteggio.",
   "category.how3":
@@ -111,7 +111,7 @@ export const browse = {
   "category.rateBelow":
     "Valutane una qui sotto o aggiungi un prodotto che hai provato.",
   "category.longTerm":
-    "«Corrispondenza più vicina» mostra la classifica a lungo termine.",
+    "«Il più vicino all’originale» mostra la classifica a lungo termine.",
   "category.unratedNote":
     "Non hanno valutazioni, quindi non sono in classifica. Ne hai provato uno?",
   "category.knowSwap": "Conosci un’alternativa a {food} che non c’è qui?",
@@ -214,7 +214,7 @@ export const browse = {
   "filters.freeFrom": "Allergeni:",
   "filters.avoid": "Escludi i prodotti la cui etichetta indica",
   "filters.freeNote":
-    "Un prodotto risulta senza solo se la sua etichetta è confermata. Anche «può contenere» lo esclude. Controlla sempre la confezione. Le tue scelte sono salvate su questo dispositivo per ogni classifica di questo paese.",
+    "Un prodotto risulta senza questi allergeni solo se la sua etichetta è confermata. Anche «può contenere» riferito a un allergene scelto lo esclude. Controlla sempre la confezione. Le tue scelte sono salvate su questo dispositivo per ogni classifica di questo paese.",
   "filters.noAllergen": "Nessun filtro allergeni",
   "filters.storeLine": "Si trova di solito da {names}",
   "filters.ofMatch": {
@@ -270,10 +270,10 @@ export const browse = {
   "home.trending": "Di tendenza ora",
   "home.trendingNote":
     "In crescita questo trimestre · non cambia mai le classifiche",
-  "home.trendingMeta": "Per {food} · {detail}",
+  "home.trendingMeta": "Alternativa a {food} · {detail}",
   "home.newTitle": "Nuovi e da valutare",
   "home.newNote": "Aggiunti negli ultimi {days} giorni",
-  "home.newMeta": "Per {food} · aggiunto: {date}",
+  "home.newMeta": "Alternativa a {food} · aggiunta: {date}",
   "home.waitingTitle": "Aspettiamo ancora un’ottima alternativa",
   "home.waitingBody":
     "La migliore opzione per questi alimenti ha un punteggio sotto 3,5, oppure non c’è ancora nulla in classifica. Ne conosci una migliore? Aggiungila ed entrerà in classifica.",
@@ -300,7 +300,7 @@ export const browse = {
     "Passa su un altro alimento dell’elenco per vederne l’anteprima.",
   "home.noRankings": "Ancora nessuna classifica: {name}",
   "home.noRankingsBody":
-    "Le classifiche qui vengono da chi vive in questo paese ({name}). Aggiungi un prodotto vegano che compri, o proponi un alimento che sostituisce, e avrà la sua classifica quando le persone lo valuteranno.",
+    "Le classifiche qui vengono da chi vive in questo paese ({name}). Aggiungi un prodotto vegano che compri, o proponi l’alimento che sostituisce, e avrà la sua classifica quando le persone lo valuteranno.",
   "home.addFirst": "Aggiungi il primo prodotto",
   "list.more": "{name} + altri {count}",
   "list.and": "{items} e {last}",
@@ -413,7 +413,7 @@ export const browse = {
   "search.seeAll": "Vedi tutti i risultati per «{query}»",
   "search.cantFind": "Non trovi un alimento? Proponilo",
   "search.noRanked": "Ancora nessuna alternativa in classifica",
-  "search.closestRank": "Il più vicino n. {rank} per {food}",
+  "search.closestRank": "N. {rank} per somiglianza a {food}",
   "search.notRanked": "Non ancora in classifica per {food}",
   "search.includesFlavors": "Il punteggio include i gusti di questa ricetta",
   "search.brandProducts": {
@@ -464,14 +464,15 @@ export const browse = {
     other:
       "{number} alternative vegane a {food} in classifica, valutate da {people}.",
   },
-  "summary.onePerson": "1 persona che l’ha provata",
-  "summary.manyPeople": "{number} persone che le hanno provate",
-  "summary.tastiest": "{lead} {title} è il più gustoso, con {score} su 5.",
+  "summary.onePerson": "1 persona",
+  "summary.manyPeople": "{number} persone",
+  "summary.tastiest": "{lead} Per gusto è in testa {title}, con {score} su 5.",
   "summary.tastiestEarly":
-    "{lead} {title} è il più gustoso finora, con {score} su 5.",
-  "summary.closest": "{lead} {title} è il più vicino, con {score} su 5.",
+    "{lead} Per gusto, per ora è in testa {title}, con {score} su 5.",
+  "summary.closest":
+    "{lead} Per somiglianza è in testa {title}, con {score} su 5.",
   "summary.closestEarly":
-    "{lead} {title} è il più vicino finora, con {score} su 5.",
+    "{lead} Per somiglianza, per ora è in testa {title}, con {score} su 5.",
   "theme.system": "Sistema",
   "theme.light": "Chiaro",
   "theme.dark": "Scuro",

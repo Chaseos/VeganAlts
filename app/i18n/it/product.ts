@@ -151,9 +151,9 @@ export const product = {
   "product.firstSwap": "N. 1 come alternativa a {food}",
   "product.rankOfFor": "N. {rank} di {of} per {food}",
   "product.acrossFlavors": "Su {total} gusti di {name}",
-  "product.closest": "Più vicino",
+  "product.closest": "Il più vicino",
   "product.toFood": "a {food}",
-  "product.tastiest": "Più gustoso",
+  "product.tastiest": "Il più gustoso",
   "product.onItsOwn": "da solo",
   "product.thisFlavor": "Questo gusto",
   "product.tooFew": "Ancora poche valutazioni",
@@ -165,7 +165,7 @@ export const product = {
   "product.detailFrom":
     "Da {people} che hanno aggiunto punteggi di dettaglio per questo gusto.",
   "product.recentEaters":
-    "Chi ha mangiato {food} nell’ultimo anno dà a questo gusto",
+    "Chi ha consumato {food} nell’ultimo anno dà a questo gusto",
 
   // Product page: stores
   "product.addRetailer":
@@ -215,10 +215,10 @@ export const product = {
   "rating.yourAnswers": "· le tue risposte",
   "rating.optional": "· facoltativo",
   "rating.detailLegend": "Valutazioni di dettaglio e ultimo consumo",
-  "rating.lastAteQuestion": "Quando hai mangiato {food} l’ultima volta?",
+  "rating.lastAteQuestion": "Quando hai consumato {food} l’ultima volta?",
   "rating.optionalWord": "facoltativo",
   "rating.recencyNote":
-    "Mostra quanto sembra vicino a chi lo mangia ancora. Non cambia mai il peso della tua valutazione.",
+    "Mostra quanto sembra vicino a chi lo consuma ancora. Non cambia mai il peso della tua valutazione.",
   "rating.clearDetails": "Cancella i dettagli",
   "rating.loading": "Caricamento della tua valutazione…",
   "rating.yours": "La tua valutazione: {score}/5",
@@ -341,7 +341,7 @@ export const product = {
   "comments.hidden": "Commento nascosto al pubblico.",
   "comments.title": "Note di chi lo ha provato",
   "comments.intro":
-    "Racconta come si confronta: gusto, consistenza, cottura e quanto tempo fa hai mangiato l’originale. Vota se un commento aiuta a capire il prodotto, non se sei d’accordo.",
+    "Racconta com’è rispetto all’originale: gusto, consistenza, cottura e quanto tempo fa l’hai provato. Vota se un commento aiuta a capire il prodotto, non se sei d’accordo.",
   "comments.sortLabel": "Ordina i commenti",
   "comments.best": "Migliori",
   "comments.newest": "Più recenti",
