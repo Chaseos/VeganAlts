@@ -43,9 +43,15 @@ export function summarizeNames(names: string[], max = 2) {
 }
 
 // "soy", "soy and wheat", "soy, wheat and sesame"
-/** A name in the middle of a sentence. German nouns keep their capital. */
+/**
+ * A name in the middle of a sentence. English names are in title case, German
+ * nouns keep their capital, and other languages only lose the first capital,
+ * so "Sauce Alfredo" stays a proper name.
+ */
 export function inSentence(name: string) {
-  return pageLanguage() === "de" ? name : name.toLowerCase();
+  const language = pageLanguage() ?? "en";
+  if (language === "en") return name.toLowerCase();
+  return language === "de" ? name : lowerFirst(name);
 }
 
 export function joinList(items: string[]) {

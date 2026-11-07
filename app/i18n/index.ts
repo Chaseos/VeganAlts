@@ -84,7 +84,7 @@ export function t(
         : message.other;
   return text.replace(/\{(\w+)\}/g, (match, name: string) =>
     name === "inCountry"
-      ? (pageMarket()?.inCountry ?? `in ${values.country}`)
+      ? (pageMarket()?.inCountry ?? `in ${values.country ?? values.name}`)
       : String(values[name] ?? match),
   );
 }

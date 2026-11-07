@@ -59,6 +59,7 @@ import {
   parseCountryCode,
   type Market,
   type MarketSummary,
+  pageLanguage,
 } from "../domain/markets";
 
 export const CATALOG_PAGE_SIZE = 20;
@@ -163,7 +164,7 @@ export class CatalogService {
   }
 
   async markets() {
-    return (await this.repository.markets()).map((row) => ({
+    const [first, ...rest] = (await this.repository.markets()).map((row) => ({
       market: {
         id: row.id,
         code: row.iso2.toLowerCase(),
@@ -172,6 +173,11 @@ export class CatalogService {
       } satisfies Market,
       hasRankings: !!row.hasRankings,
     }));
+    if (!first) return [];
+    // The repository sorts by English name; the rest follow the page's language.
+    const order = new Intl.Collator(pageLanguage() ?? "en");
+    rest.sort((a, b) => order.compare(a.market.name, b.market.name));
+    return [first, ...rest];
   }
 
   // Only active countries resolve; anything else is a 404.
