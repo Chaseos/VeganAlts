@@ -4,7 +4,21 @@ Every language shares these rules. Each language has its own term list below, de
 
 ## High-stakes strings
 
-Keys starting `safety.` or `allergen.`, and any key naming a vegan status, an allergen or "not checked". A person must review these for each market before a language leaves preview. Reusing text from another market of the same language doesn't count as review.
+Keys starting `safety.` or `allergen.`, and any key naming a vegan status, an allergen or "not checked". An independent evaluator translates these back without seeing the English, for each market, and any lost meaning is fixed before a language leaves preview. Reusing text from another market of the same language doesn't count as checked.
+
+## Who checks a translation
+
+There are no native reviewers (owner, 2026-11-06). Problems come from user reports: translated pages link to `/report-translation`, and open reports appear in `/admin/moderation/digest`. A report on a high-stakes string is fixed before other translation work.
+
+A market leaves preview when the owner moves its language from `preview` to `offered` in `server/catalog/domain/languages.ts`. The owner does that once all of these hold for that market:
+
+1. `check_catalog.py` passes for the dictionary and server messages, with every kept-English string explained.
+2. An evaluator that didn't translate has reviewed the whole catalog and back-translated every high-stakes key.
+3. A second evaluator has rechecked after the fixes, and no critical or high finding is open.
+4. Allergen names match the country's official wording, with sources cited here.
+5. The market's browser tests, type checks and unit tests pass, and `/report-translation` works in that language.
+
+Evaluator scores show what was checked. They don't stand in for a native reader, so report them as provisional.
 
 ## Dictionaries
 
