@@ -73,6 +73,9 @@ test("a link to a country in another language loads its text", async ({
 }) => {
   test.skip(isMobile, "The footer is the same on a phone.");
   await page.goto("/be/fr");
+  // The language prompt appears after hydration, over the footer.
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Pas maintenant" }).click();
   await page
     .getByRole("contentinfo")
     .getByRole("link", { name: "Allemagne" })
