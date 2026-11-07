@@ -6,6 +6,7 @@ import {
   searchPath,
   useSiteChrome,
 } from "../../lib/site-chrome";
+import { changesLanguage } from "@server/catalog/domain/markets";
 import { POPULAR_AISLE_COUNT } from "../../lib/aisles";
 import { t } from "../../i18n";
 
@@ -66,6 +67,7 @@ export function SiteFooter({
                   <li key={item.code}>
                     <Link
                       to={homePath(item.code)}
+                      reloadDocument={changesLanguage(homePath(item.code))}
                       aria-current={
                         item.code === country.code ? "true" : undefined
                       }

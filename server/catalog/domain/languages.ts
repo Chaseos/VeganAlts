@@ -54,6 +54,20 @@ export function languageFor(
 
 const SHARED_PAGES = /^\/(?:$|about(?:\/|$)|users\/|api\/)/;
 
+// The language and country a visitor last viewed, as `fr-be`. The browser
+// writes it, so a page with neither in its address, such as /account, can match
+// them. It never picks a country page's language: that stays with `va_lang`.
+const lastViewed = (cookies: string | null | undefined) =>
+  cookies?.match(/(?:^|;\s*)va_market=([a-z]{2})-([a-z]{2})(?:;|$)/);
+
+/** The cookie that remembers a country page, or null on any other page. */
+export function marketCookie(path: string, secure: boolean) {
+  const { language } = splitLanguage(path);
+  if (!language) return null;
+  const market = `${language}-${path.slice(1, 3)}`;
+  return `va_market=${market}; Path=/; Max-Age=31536000; SameSite=Lax${secure ? "; Secure" : ""}`;
+}
+
 /**
  * A page with no language in its address follows the visitor's choice. Pages
  * cached for everyone, such as `/` and `/about`, never do.
@@ -63,8 +77,25 @@ export function chosenLanguage(
   cookies: string | null | undefined,
 ) {
   if (SHARED_PAGES.test(path)) return null;
+  const viewed = lastViewed(cookies)?.[1];
+  if (isLanguage(viewed)) return viewed as Language;
   const chosen = cookies?.match(/(?:^|;\s*)va_lang=([a-z]{2})/)?.[1];
   return isLanguage(chosen) ? (chosen as Language) : null;
+}
+
+/**
+ * The country of a page with no country in its address: the one it names, else
+ * the one the visitor last viewed.
+ */
+export function chosenCountry(
+  path: string,
+  search: string,
+  cookies: string | null | undefined,
+) {
+  if (SHARED_PAGES.test(path)) return null;
+  const named = new URLSearchParams(search).get("country")?.toLowerCase();
+  if (named && /^[a-z]{2}$/.test(named)) return named;
+  return lastViewed(cookies)?.[2] ?? null;
 }
 
 /** Separates a language segment from a lowercase path: /ca/fr/beef. */

@@ -115,6 +115,8 @@ The URL always decides what renders. The cookie decides only where a visitor wit
 - **Language prompt:** a one-time banner after hydration, built like the country prompt, compares `navigator.languages` with what the country offers ("View in English?"). It never redirects, and it matters most for English visitors who open `/jp`. I recommend no server redirect from `Accept-Language`, because cookie-less crawlers should see stable URLs.
 - **Rule to amend:** `docs/ARCHITECTURE.md` milestone 5 says preferences live "never in cookies". Add: "Language is the one exception. It lives in a cookie read only by the uncached gateway, and public HTML stays identical for everyone at a given URL." Update the privacy policy too.
 
+A country's text can differ from its language's shared text, so a page without a country in its address has to know the market. The browser saves the last country page in `va_market`, as `fr-be`, and pages such as `/account` read it for their language and country. `?country=` wins when a page has one. `va_market` never picks a country page's language, and it never reaches cached pages or the prompt, which stay with `va_lang`.
+
 ### 4.5 Header switcher
 
 Add `app/components/layout/language-menu.tsx` beside `country-menu.tsx`, and add it to `phone-menu.tsx`. It appears only when a country offers more than one language. Each language is listed in its own name.

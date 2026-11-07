@@ -1,5 +1,5 @@
 import type { Language } from "@server/catalog/domain/languages";
-import { pageLanguage } from "@server/catalog/domain/markets";
+import { pageCountry, pageLanguage } from "@server/catalog/domain/markets";
 import { en } from "./en";
 
 export type MessageKey = keyof typeof en;
@@ -12,22 +12,43 @@ const DICTIONARIES: Partial<Record<Language, Dictionary>> = { en };
 
 const SERVER_TEXT: Partial<Record<Language, Record<string, string>>> = {};
 
+/**
+ * One country's differences from its language's shared dictionary. It holds
+ * only what differs. Keys left out fall through to the shared text.
+ */
+export interface MarketText {
+  /** For dates, numbers and plurals, such as `fr-FR`. */
+  locale: string;
+  messages?: Partial<Dictionary>;
+  serverText?: Record<string, string>;
+}
+
+// By language, then lowercase country code.
+const MARKETS: Partial<Record<Language, Record<string, MarketText>>> = {};
+
 /** Adds a language. The browser loads its chunk before hydrating. */
 export function addDictionary(
   language: Language,
   dictionary: Dictionary,
   serverText: Record<string, string> = {},
+  markets: Record<string, MarketText> = {},
 ) {
   DICTIONARIES[language] = dictionary;
   SERVER_TEXT[language] = serverText;
+  MARKETS[language] = markets;
 }
+
+const pageMarket = () =>
+  MARKETS[pageLanguage() ?? "en"]?.[pageCountry() ?? ""];
 
 /**
  * A server error in the page's language. The API stays in English, so the
  * message itself is the key, and one naming data or unlisted stays as sent.
  */
 export const serverMessage = (message: string) =>
-  SERVER_TEXT[pageLanguage() ?? "en"]?.[message] ?? message;
+  pageMarket()?.serverText?.[message] ??
+  SERVER_TEXT[pageLanguage() ?? "en"]?.[message] ??
+  message;
 
 const LOCALES: Record<Language, string> = {
   en: "en-US",
@@ -36,15 +57,21 @@ const LOCALES: Record<Language, string> = {
 };
 
 /** Dates and numbers follow the page's language. */
-export const pageLocale = () => LOCALES[pageLanguage() ?? "en"];
+export const pageLocale = () =>
+  pageMarket()?.locale ?? LOCALES[pageLanguage() ?? "en"];
 
-/** The page's text for a key. `{name}` fills from `values`; `count` picks a plural. */
+/**
+ * The page's text for a key: the country's override, then the shared language,
+ * then English. `{name}` fills from `values`; `count` picks a plural.
+ */
 export function t(
   key: MessageKey,
   values: Record<string, string | number> = {},
 ): string {
   const message: Message =
-    DICTIONARIES[pageLanguage() ?? "en"]?.[key] ?? en[key];
+    pageMarket()?.messages?.[key] ??
+    DICTIONARIES[pageLanguage() ?? "en"]?.[key] ??
+    en[key];
   const text =
     typeof message === "string"
       ? message

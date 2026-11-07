@@ -1,4 +1,4 @@
-import { pageLanguage } from "./markets";
+import { pageCountry, pageLanguage } from "./markets";
 import type { Language } from "./languages";
 
 // Each country's wording for its own labels is in `country_allergens`, in
@@ -83,10 +83,21 @@ const COUNTRIES: Partial<Record<Language, Record<string, string>>> = {
   },
 };
 
+// A country whose labels word an allergen differently from the shared language
+// lists its own names here, by language and lowercase country code.
+const MARKET_NAMES: Partial<
+  Record<Language, Record<string, Record<string, string>>>
+> = {};
+
 export function countryName(iso2: string, name: string) {
   return COUNTRIES[pageLanguage() ?? "en"]?.[iso2] ?? name;
 }
 
 export function allergenName(key: string, label: string) {
-  return NAMES[pageLanguage() ?? "en"]?.[key] ?? label;
+  const language = pageLanguage() ?? "en";
+  return (
+    MARKET_NAMES[language]?.[pageCountry() ?? ""]?.[key] ??
+    NAMES[language]?.[key] ??
+    label
+  );
 }

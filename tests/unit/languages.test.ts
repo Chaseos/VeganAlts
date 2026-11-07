@@ -1,12 +1,23 @@
-import { expect, it } from "vitest";
-import { languageFor } from "../../server/catalog/domain/languages";
-import { languageHref } from "../../server/catalog/domain/markets";
+import { afterEach, expect, it } from "vitest";
+import {
+  chosenCountry,
+  chosenLanguage,
+  languageFor,
+  marketCookie,
+} from "../../server/catalog/domain/languages";
+import {
+  changesLanguage,
+  languageHref,
+  readPageCountryFrom,
+  readPageLanguageFrom,
+} from "../../server/catalog/domain/markets";
 import {
   languageChoice,
   languageRedirect,
   publicRoute,
 } from "../../server/shared/http/public-cache";
-import { t } from "../../app/i18n";
+import { addDictionary, pageLocale, serverMessage, t } from "../../app/i18n";
+import { en } from "../../app/i18n/en";
 
 const url = (path: string) => new URL(`https://veganalts.test${path}`);
 const redirect = (path: string, cookies: string | null) =>
@@ -50,4 +61,59 @@ it("fills in values and falls back to English", () => {
   expect(t("language.prompt", { language: "Français" })).toBe(
     "View this page in Français?",
   );
+});
+
+afterEach(() => {
+  readPageLanguageFrom(() => null);
+  readPageCountryFrom(() => null);
+});
+
+it("a country's text comes first, then its language's, then English", () => {
+  addDictionary(
+    "fr",
+    { ...en, "common.sending": "Partagé", "common.no": "Aussi partagé" },
+    { "Shared.": "Partagé." },
+    {
+      fr: {
+        locale: "fr-FR",
+        messages: { "common.sending": "Pour la France" },
+        serverText: { "Shared.": "Pour la France." },
+      },
+    },
+  );
+  readPageLanguageFrom(() => "fr");
+  readPageCountryFrom(() => "fr");
+  expect(t("common.sending")).toBe("Pour la France");
+  expect(t("common.no")).toBe("Aussi partagé");
+  expect(serverMessage("Shared.")).toBe("Pour la France.");
+  expect(pageLocale()).toBe("fr-FR");
+  readPageCountryFrom(() => "ca");
+  expect(t("common.sending")).toBe("Partagé");
+  expect(serverMessage("Shared.")).toBe("Partagé.");
+  expect(pageLocale()).toBe("fr-CA");
+});
+
+it("a page with no country in its address uses the last one viewed", () => {
+  expect(marketCookie("/be/fr/milk", true)).toBe(
+    "va_market=fr-be; Path=/; Max-Age=31536000; SameSite=Lax; Secure",
+  );
+  expect(marketCookie("/account", false)).toBeNull();
+  expect(chosenLanguage("/account", "va_lang=en; va_market=fr-be")).toBe("fr");
+  expect(chosenCountry("/account", "", "va_market=fr-be")).toBe("be");
+  expect(chosenCountry("/add-product", "?country=FR", "va_market=fr-be")).toBe(
+    "fr",
+  );
+  // Pages cached for everyone never vary.
+  expect(chosenCountry("/about/terms", "", "va_market=fr-be")).toBeNull();
+  expect(chosenLanguage("/about/terms", "va_market=fr-be")).toBeNull();
+});
+
+it("a link to another language needs a full page load", () => {
+  readPageLanguageFrom(() => "fr");
+  expect(changesLanguage("/ca/en/milk?sort=new")).toBe(true);
+  expect(changesLanguage("/ca/fr/milk")).toBe(false);
+  expect(changesLanguage("/add-product")).toBe(false);
+  readPageLanguageFrom(() => null);
+  expect(changesLanguage("/ca/fr")).toBe(true);
+  expect(changesLanguage("/us/en")).toBe(false);
 });
